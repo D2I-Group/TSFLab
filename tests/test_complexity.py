@@ -1,0 +1,32 @@
+"""Static complexity audit of the method layer (tsflab.catalog.complexity_audit)."""
+
+import ast
+from pathlib import Path
+
+from tsflab.catalog import complexity_audit as ca
+
+
+def _cc(src: str) -> int:
+    return ca.cyclomatic_complexity(ast.parse(src).body[0])
+
+
+def test_cyclomatic_complexity_counts_branch_points():
+    assert _cc("def f():\n    return 1\n") == 1
+    assert _cc("def f(x):\n    if x and x > 1:\n        return 1\n    for i in x:\n        pass\n") == 4
+    # nested functions are measured on their own
+    assert _cc("def f():\n    def g(x):\n        if x:\n            pass\n    return g\n") == 1
+
+
+def test_audit_flags_complex_functions_and_large_methods(tmp_path: Path, monkeypatch):
+    pkg = tmp_path / "src" / "tsflab" / "models" / "toy"
+    pkg.mkdir(parents=True)
+    branches = "\n".join(f"    if x == {i}:\n        return {i}" for i in range(ca.MAX_FUNCTION_COMPLEXITY + 1))
+    (pkg / "model.py").write_text(f"def f(x):\n{branches}\n")
+    errors = ca.audit_complexity(tmp_path)
+    assert any("cyclomatic complexity" in e for e in errors)
+    (pkg / "model.py").write_text("x = 1\n" * (ca.MAX_METHOD_LINES + 1))
+    assert any("lines of Python" in e for e in ca.audit_complexity(tmp_path))
+
+
+def test_repository_passes_complexity_audit():
+    assert ca.audit_complexity() == []

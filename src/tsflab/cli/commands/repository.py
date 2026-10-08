@@ -46,6 +46,7 @@ def run_audit() -> int:
     checks = [
         ("agent-assets", audit_agent_assets),
         ("components", lambda: __import__("tsflab.catalog.component_audit", fromlist=["main"]).main()),
+        ("complexity", lambda: __import__("tsflab.catalog.complexity_audit", fromlist=["main"]).main()),
         ("cards", audit_cards),
         ("model-catalog", lambda: passthrough("check_registry.py", [])),
         ("documentation", lambda: passthrough("check_docs.py", [])),
