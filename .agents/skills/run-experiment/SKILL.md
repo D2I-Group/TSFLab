@@ -38,13 +38,24 @@ results come back as `work_dirs/` records and round events.
    Attach a round only when one was supplied or the task needs persistent
    research context. Use `--gpus` only after checking memory and device intent.
    Hand a launch to the run machine as the previewed command; do not start it locally.
-2. Before long runs, verify data (fetch missing published presets with
+2. New data that is not a preset (for example a CSV handed to you): register it in place,
+   check its split, and compare methods on it with one sweep config. Catalog models always
+   run through `tsf run`; never write a private training or evaluation loop for them.
+
+   ```bash
+   uv run tsf data add --name <data> --pattern custom --path <file.csv>   # file stays where it is
+   uv run tsf data splits <data> --seq-len <L>    # set split_ratio in the preset if the task states one
+   ```
+
+   In the run config, list the methods under `[sweep.extend] models = [...]` and set
+   `[task] seq_len`/`pred_len`; the stub card is enough until the dataset is contributed.
+3. Before long runs, verify data (fetch missing published presets with
    `uv run tsf data download <preset>`), output location, seeds, horizons, evaluation
    strategy, and profiling. Keep sweeps in TOML.
-3. For GIFT-Eval, read `uv run tsf data prepare --from gift-eval --help`, fetch only the
+4. For GIFT-Eval, read `uv run tsf data prepare --from gift-eval --help`, fetch only the
    requested data, and preview `configs/runs/gift_eval_sweep.toml`; record dataset
    versions, horizons, model compatibility, budget, and the missing-series policy.
-4. For budgets, GPU queueing, tracking, cancellation, or interrupted-run recovery,
+5. For budgets, GPU queueing, tracking, cancellation, or interrupted-run recovery,
    read [execution controls](references/execution.md); ordinary one-off runs do
    not need them.
 

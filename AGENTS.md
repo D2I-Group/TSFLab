@@ -37,7 +37,7 @@ Maintenance (audit, contributions) keeps it sound. Map: `.agents/README.md` (gen
   tests. Read cards progressively: `tsf catalog`, `tsf catalog search`,
   `tsf catalog show <name>`, and `--depth 2|3` only when a decision needs it;
   `tsf catalog match <dataset>` maps data characteristics to model and component fits.
-- Dataset split borders, truncation, and scaling: `tsf data splits <dataset>`; never re-derive them.
+- Splits/scaling: `tsf data splits <dataset>`, never re-derived; new CSV: `tsf data add`, then `tsf run`.
 
 ## Work and verification
 Use the matching Skill; read `.agents/STANDARDS.md` sections only for structural,

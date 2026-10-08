@@ -223,11 +223,14 @@ def main() -> None:
     print("Next steps:")
     if args.pattern == "single":
         print(f"  1. Implement the loader in src/tsflab/data/datasets/{name}.py (_read_data).")
-    print(f"  - Fill every TODO in catalog/datasets/{name}/card.toml and README.md with verified facts")
-    print("    (source, license, statistics, protocol); `tsf data audit` fails until done.")
-    print(f"  - Measure characteristics: `tsf data analyze {name} --write-card`.")
-    print(f"  - Put the data at {data_path}, then reference the config from a")
-    print(f"    run config via `extends = [..., \"../datasets/{name}.toml\", ...]`.")
+    print(f"  - Check the split: `tsf data splits {name} --seq-len <L>`; set split_ratio in the preset if")
+    print("    the task states another split.")
+    print(f"  - Run experiments now: reference the preset from a run config via")
+    print(f"    `extends = [..., \"../datasets/{name}.toml\", ...]` or `[sweep.extend] datasets = [...]`;")
+    print("    the stub card is enough for experiments.")
+    print(f"  - Before contributing the dataset, fill every TODO in catalog/datasets/{name}/card.toml and")
+    print("    README.md with verified facts (`tsf data audit` fails until done) and measure its")
+    print(f"    characteristics with `tsf data analyze {name} --write-card`. Data path: {data_path}.")
 
 
 if __name__ == "__main__":
