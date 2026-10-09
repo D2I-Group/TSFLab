@@ -29,6 +29,8 @@ Other hyperparameters: preset defaults in `configs/models/GTR.toml`; tune generi
 
 ## Differences
 
+- Through `tsf run`, the cycle position of each window comes from its first step's calendar marks (`marks.cycle_phase`); the official code reads it from the row index.
+
 - Clean-room rewrite of Eqs. (1)-(5) after inspecting the pinned `models/GTR.py`; nothing copied. Retrieval, temporal alignment, 2D convolution, residual, MLP and RevIN path match the disclosed forecast path.
 - The common interface has no absolute sample index, so it uses a zero start; callers with that information use `forecast_at(..., start_index=...)`.
 - The cycle memory is learned locally; it is not an external historical database.

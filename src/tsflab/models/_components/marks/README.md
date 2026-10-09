@@ -24,6 +24,9 @@ Pure tensor helpers (no parameters) that turn the framework's decoder-style
   `era * 146097 + doe - 719468` with `y' = y - [m <= 2]`, `era = floor(y' / 400)`,
   `yoe = y' - 400 era`, `doy = floor((153 ((m + 9) mod 12) + 2) / 5) + d - 1`,
   `doe = 365 yoe + floor(yoe / 4) - floor(yoe / 100) + doy`.
+- `cycle_phase(marks, cycle, step)`: the position of window step `step` in a calendar cycle:
+  weekday (cycle 7), hour of the week (168), steps since midnight for a cycle dividing one day
+  (24, 96, 144), steps since Monday for one dividing a week, otherwise the hour; zero without marks.
 - `elapsed_minutes(marks)`: `1440 * days_from_civil(year, month, day) + 60 hour + minute`
   on float64-rounded int64 marks.
 

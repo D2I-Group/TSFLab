@@ -873,3 +873,15 @@ def test_deepar_checkpointed_rollout_matches_plain_rollout(dropout) -> None:
     loss, grads = loss_and_grads(3)  # segments of 3, 3 and 1 steps
     assert torch.allclose(loss, plain_loss)
     assert all(torch.allclose(a, b, atol=1e-6) for a, b in zip(grads, plain_grads, strict=True))
+
+
+def test_cycle_phase_follows_the_calendar():
+    import torch
+
+    from tsflab.models._components.marks import cycle_phase
+
+    marks = torch.tensor([[[2026, 10, 5, 2, 13, 30], [2026, 10, 5, 2, 14, 40]]], dtype=torch.float32)
+    assert cycle_phase(marks, 168, step=0).item() == 2 * 24 + 13
+    assert cycle_phase(marks, 24, step=-1).item() == 14
+    assert cycle_phase(marks, 144, step=-1).item() == (14 * 60 + 40) // 10
+    assert cycle_phase(marks, 7).item() == 2 and cycle_phase(None, 24, batch=3).tolist() == [0, 0, 0]

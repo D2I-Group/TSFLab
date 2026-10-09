@@ -149,13 +149,27 @@ def _insert_name_map(name: str) -> str:
     return "inserted"
 
 
+def default_target(path: str) -> str:
+    """OT when the CSV has it (the ETT convention), otherwise its last non-date column."""
+    import csv
+
+    try:
+        with open(Path(path).expanduser(), newline="") as handle:
+            header = next(csv.reader(handle), [])
+    except OSError:
+        return "OT"
+    columns = [c.strip() for c in header if c.strip() and c.strip().lower() != "date"]
+    return "OT" if "OT" in columns or not columns else columns[-1]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True, help="Dataset key / file name (snake_case)")
     ap.add_argument("--pattern", required=True, choices=["custom", "single"])
     ap.add_argument("--path", default=None, help="Dataset file (default: ./dataset/<name>/<name>.csv)")
-    ap.add_argument("--target", default="OT", help="Target column name (default: OT)")
+    ap.add_argument("--target", default=None,
+                    help="Target column name (default: OT if the file has it, else its last non-date column)")
     ap.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = ap.parse_args()
     try:
@@ -166,6 +180,9 @@ def main() -> None:
     name = args.name
     data_path = args.path or f"./dataset/{name}/{name}.csv"
     cfg_path = DS_CONFIG_DIR / f"{name}.toml"
+    if args.target is None:
+        args.target = default_target(data_path)
+        print(f"target column: {args.target} (set --target to choose another)")
 
     targets: dict[Path, str] = {}
     if args.pattern == "custom":

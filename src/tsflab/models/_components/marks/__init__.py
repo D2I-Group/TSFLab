@@ -185,6 +185,31 @@ def elapsed_minutes(marks: torch.Tensor) -> torch.Tensor:
     return days * 1440 + values[..., 4] * 60 + values[..., 5]
 
 
+def cycle_phase(marks: torch.Tensor | None, cycle: int, step: int = -1, batch: int = 1) -> torch.Tensor:
+    """Position of one window step in a calendar cycle of ``cycle`` steps, ``[batch]`` int64.
+
+    ``step`` selects the step (``0`` first, ``-1`` last). A cycle of 7 is the weekday, 168 the hour of the
+    week, and a cycle that divides one day (1440 minutes) or one week (10080) counts the steps since
+    midnight or since Monday 00:00 (24 hourly, 96 quarter-hourly, 144 ten-minute steps per day); any other
+    cycle falls back to the hour. Without six-column marks the phase is zero.
+    """
+    if marks is None or marks.ndim != 3 or marks.shape[-1] < 6:
+        return torch.zeros(batch, dtype=torch.long)
+    stamp = marks[:, step].round().long()
+    weekday, hour, minute = stamp[:, _WEEKDAY], stamp[:, _HOUR], stamp[:, _MINUTE]
+    if cycle == 7:
+        phase = weekday
+    elif cycle == 168:
+        phase = weekday * 24 + hour
+    elif 1440 % cycle == 0:
+        phase = (hour * 60 + minute) // (1440 // cycle)
+    elif 10080 % cycle == 0:
+        phase = (weekday * 1440 + hour * 60 + minute) // (10080 // cycle)
+    else:
+        phase = hour
+    return phase.remainder(cycle)
+
+
 def normalized_time_features(marks: torch.Tensor) -> torch.Tensor:
     """Convert raw integer marks to normalized calendar features.
 

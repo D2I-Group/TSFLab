@@ -5,6 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._components.marks import cycle_phase
 from tsflab.models._components.revin import RevIN
 
 
@@ -116,5 +117,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        del x_mark_enc, x_dec, x_mark_dec
-        return self.forecast_at(x_enc)
+        del x_dec, x_mark_dec
+        # The retrieved cycle is aligned to the calendar position of the window's first step.
+        start = cycle_phase(x_mark_enc, self.retriever.cycle_length, step=0, batch=x_enc.shape[0])
+        return self.forecast_at(x_enc, start_index=start.to(x_enc.device))

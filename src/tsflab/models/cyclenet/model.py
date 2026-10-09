@@ -6,6 +6,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
+from tsflab.models._components.marks import cycle_phase
 from tsflab.models._components.revin import RevIN
 
 
@@ -30,17 +31,7 @@ class Model(nn.Module):
         )
 
     def _phase(self, marks: torch.Tensor | None, batch: int, device: torch.device) -> torch.Tensor:
-        if marks is None or marks.ndim != 3 or marks.shape[-1] < 6:
-            return torch.zeros(batch, dtype=torch.long, device=device)
-        stamp = marks[:, -1]
-        weekday, hour = stamp[:, 3], stamp[:, 4]
-        if self.cycle == 7:
-            phase = weekday
-        elif self.cycle == 168:
-            phase = weekday * 24 + hour
-        else:
-            phase = hour
-        return phase.long().remainder(self.cycle)
+        return cycle_phase(marks, self.cycle, step=-1, batch=batch).to(device)
 
     def _cycle_values(self, phase: torch.Tensor, length: int) -> torch.Tensor:
         offsets = torch.arange(length, device=phase.device)

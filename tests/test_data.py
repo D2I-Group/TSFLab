@@ -693,3 +693,13 @@ def test_tsf_data_splits_cli(tmp_path, capsys) -> None:
     assert "val    [8304, 11520)" in text and "first 14400" in text
     assert cli.main(["data", "splits", "no_such_dataset"]) == 2
     assert "unknown dataset preset" in capsys.readouterr().err
+
+
+def test_new_dataset_target_defaults_to_the_file(tmp_path):
+    from tsflab.cli.commands.new_dataset import default_target
+
+    with_ot, other = tmp_path / "a.csv", tmp_path / "b.csv"
+    with_ot.write_text("date,x,OT\n2020-01-01,1,2\n")
+    other.write_text("date,COAST,EAST\n2020-01-01,1,2\n")
+    assert default_target(str(with_ot)) == "OT" and default_target(str(other)) == "EAST"
+    assert default_target(str(tmp_path / "missing.csv")) == "OT"
