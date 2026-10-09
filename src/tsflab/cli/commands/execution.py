@@ -133,6 +133,18 @@ def _print_result(result: dict, args) -> None:
         print(json.dumps(result, indent=2))
 
 
+def _round_defaults(loaded: list, round_id: str | None) -> None:
+    """Runs attached to a research round score the validation split unless the config sets the split:
+    a search selects on validation, and its final evaluation states `evaluation.split = "test"`."""
+    if not round_id:
+        return
+    for item in loaded:
+        if "split" not in (item.raw.get("evaluation") or {}):
+            item.config.evaluation.split = "val"
+    if any(item.config.evaluation.split == "val" for item in loaded):
+        print('Research round: scoring the validation split (set evaluation.split = "test" for a final run)')
+
+
 def run_command(rest: list[str]) -> int:
     """Run, preview, smoke-test, cancel, or resume experiments through one public surface."""
     import json
@@ -190,6 +202,7 @@ def run_command(rest: list[str]) -> int:
                 loaded.extend(load_config(str(path.resolve())))
             if not loaded:
                 raise ValueError("experiment matrix is empty")
+            _round_defaults(loaded, args.round_id)
             if args.dry_run and not args.json:
                 from tsflab.cli.commands.inspect_config import summarize
 

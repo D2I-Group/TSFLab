@@ -58,9 +58,9 @@ current Agent (no second Agent needed). Read each reference only at its step.
 
 ## Leakage guards
 
-- Select and stop on train and validation only, with the rule fixed first: baseline,
-  search, and seed runs set `[evaluation] split = "val"` (no test metrics or run record);
-  frozen finalists and their bar run on test once. Never act on `shift.train_to_test`.
+- Select and stop on train and validation only, with the rule fixed first. Runs with
+  `--round` score validation (no test metrics or run record); only frozen finalists set
+  `[evaluation] split = "test"`, once. Never act on `shift.train_to_test`.
 
 ## Chain
 

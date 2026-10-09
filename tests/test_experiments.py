@@ -1259,3 +1259,18 @@ def test_wait_blocks_until_runs_end_and_reports_compactly(monkeypatch):
     out = execution.wait("x", timeout=30, interval=10, clock=lambda: now[0],
                          sleep=lambda s: now.__setitem__(0, now[0] + s))
     assert not out["done"] and now[0] == 30
+
+
+def test_round_runs_score_validation_unless_the_split_is_set():
+    from types import SimpleNamespace as NS
+
+    from tsflab.cli.commands.execution import _round_defaults
+
+    def item(raw):
+        return NS(raw=raw, config=NS(evaluation=NS(split=raw.get("evaluation", {}).get("split", "test"))))
+
+    plain, final = item({}), item({"evaluation": {"split": "test"}})
+    _round_defaults([plain, final], None)
+    assert plain.config.evaluation.split == "test"
+    _round_defaults([plain, final], "r1")
+    assert plain.config.evaluation.split == "val" and final.config.evaluation.split == "test"
