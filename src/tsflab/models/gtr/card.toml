@@ -21,7 +21,7 @@ reference_sources = ["https://github.com/macovaseas/GTR/blob/d94161906151bdc0c94
 [composition]
 normalization = "component:revin"
 decomposition = "none"
-temporal = "local:global-cycle-retrieval-and-2d-conv-fusion+local:residual-mlp"
+temporal = "component:marks+local:global-cycle-retrieval-and-2d-conv-fusion+local:residual-mlp"
 channel = "local:channel-independent-shared-weights"
 head = "local:linear-horizon-projection"
 loss = "loss:mse"

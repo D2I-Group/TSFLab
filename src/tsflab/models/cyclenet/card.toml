@@ -20,7 +20,7 @@ reference_sources = []
 
 [composition]
 normalization = "component:revin"
-decomposition = "local:learnable-recurrent-cycle-removal"
+decomposition = "component:marks+local:learnable-recurrent-cycle-removal"
 temporal = "component:channel_wise_linear"
 channel = "local:channel-independent-shared-weights"
 head = "local:cycle-restoration"
