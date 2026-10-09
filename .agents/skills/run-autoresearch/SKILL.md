@@ -15,9 +15,8 @@ current Agent (no second Agent needed). Read each reference only at its step.
 - Separate authorization before writing model code or registering a model; without
   it, search over configs and existing catalog methods only.
 - Heavy runs happen on GPU machines or CI, not locally: preview each matrix with
-  `--dry-run`, hand the exact `tsf run ... --round <id>` command to the run machine,
-  and continue from the records and round events that come back in `work_dirs/`.
-  Stop and report when results have not returned instead of running them locally.
+  `--dry-run`, hand the exact `tsf run ... --round <id>` command to the run machine, and
+  continue from the records and round events in `work_dirs/`; stop if none return.
 
 ## Context read, per module
 
@@ -59,12 +58,9 @@ current Agent (no second Agent needed). Read each reference only at its step.
 
 ## Leakage guards
 
-- Select and stop on train and validation only, with the rule fixed first; test metrics
-  confirm frozen candidates once; never act on `shift.train_to_test`.
-- Baseline, search, and seed-confirmation runs set `split = "val"` under `[evaluation]`:
-  `tsf run` then scores the validation split and writes no test metrics or run record.
-  Only the frozen finalists and the bar they are compared against run with the default
-  test split, once.
+- Select and stop on train and validation only, with the rule fixed first: baseline,
+  search, and seed runs set `[evaluation] split = "val"` (no test metrics or run record);
+  frozen finalists and their bar run on test once. Never act on `shift.train_to_test`.
 
 ## Chain
 
