@@ -20,7 +20,8 @@ description: "Patch Transformer for temporal heterogeneity: each lookback region
 ## Configure
 
 - `enc_in`: number of channels.
-- `patch_sizes`: each size must divide the largest; `seq_len` must be divisible by the largest size (one region per largest patch).
+- `patch_sizes`: each size must divide the largest; the history is cut into regions of the largest size, and a
+  `seq_len` that is not a multiple of it is left-padded with the first value.
 - `num_segments`: horizon segments, clamped to `pred_len`; segment lengths differ by at most one step.
 
 Other hyperparameters: preset defaults in `configs/models/TimeMosaic.toml`; tune generically.
@@ -31,3 +32,4 @@ Other hyperparameters: preset defaults in `configs/models/TimeMosaic.toml`; tune
 - The adaptive patch equations map to a soft region-wise mixture over configured granularities, not Gumbel-hard selection; no budget regularization.
 - Segment prompts are applied only to attention keys and values before separate forecast heads.
 - End-to-end local training instead of a frozen foundation backbone; the 321-billion-observation pre-training corpus is not used.
+- Lookbacks that are not a multiple of the largest patch size are left-padded with the first value; the paper uses multiples.

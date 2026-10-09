@@ -21,15 +21,18 @@ class Model(nn.Module):
                  use_revin: bool = True) -> None:
         super().__init__()
         sizes = tuple(sorted(set(patch_sizes)))
-        if not sizes or min(sizes) < 1 or seq_len % max(sizes):
-            raise ValueError("patch sizes must be positive and seq_len divisible by the largest size")
+        if not sizes or min(sizes) < 1:
+            raise ValueError("patch sizes must be positive")
         if any(max(sizes) % size for size in sizes):
             raise ValueError("each patch size must divide the largest size")
         if d_model % num_heads:
             raise ValueError("d_model must be divisible by num_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_sizes, self.region_size = sizes, max(sizes)
-        self.num_regions, self.aligned_per_region = seq_len // self.region_size, self.region_size // min(sizes)
+        # A lookback that is not a multiple of the largest patch is left-padded with its first value.
+        self.pad = -seq_len % self.region_size
+        self.num_regions = (seq_len + self.pad) // self.region_size
+        self.aligned_per_region = self.region_size // min(sizes)
         self.num_segments, self.use_revin = min(num_segments, pred_len), use_revin
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
         self.granularity_classifier = nn.Sequential(nn.Linear(self.region_size, d_model), nn.GELU(), nn.Linear(d_model, len(sizes)))
@@ -68,7 +71,10 @@ class Model(nn.Module):
             raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
         normalized = self.revin(x_enc, "norm") if self.use_revin else x_enc
         batch = x_enc.size(0)
-        tokens, _ = self.adaptive_patch_tokens(normalized.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len))
+        history = normalized.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len)
+        if self.pad:
+            history = torch.cat((history[:, :1].expand(-1, self.pad), history), dim=1)
+        tokens, _ = self.adaptive_patch_tokens(history)
         segments = []
         for prompt, head in zip(self.segment_prompts, self.segment_heads):
             prompt_token = prompt.reshape(1, 1, -1).expand(tokens.size(0), -1, -1)
