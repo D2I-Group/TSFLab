@@ -52,8 +52,9 @@ copy paper values into results.
    outcome. A remaining gap is reported, never tuned away on the test split.
 6. When authorized, execute through `run-experiment` on the available GPU (this
    machine or CI); for multi-run work open a round (`tsf agent task start experiment
-   --set question=...`) and pass it with `tsf run --round`. Preserve raw outputs,
-   resolved configs, environment facts, seeds, and failed runs.
+   --set question=...`) and pass it with `tsf run --round`. Block on a background matrix with
+   `tsf run wait <dir> --timeout 1800` (it lists every finished run), never by reading logs.
+   Preserve raw outputs, resolved configs, environment facts, seeds, and failed runs.
 7. A custom loop, only if `tsf run` cannot express the procedure, takes splits and scaling
    from `tsflab.data.protocol.load_splits(<dataset>, seq_len, path=...)`; record why.
 8. Aggregate compatible cells with `analyze-results`, then report per cell: paper
