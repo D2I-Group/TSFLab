@@ -43,14 +43,14 @@ current Agent (no second Agent needed). Read each reference only at its step.
    characteristics; widen with `tsf catalog search`, open L1 with `tsf catalog show`;
    see [retrieval-baselines](references/retrieval-baselines.md). A match is a hypothesis.
 5. Evaluate a small baseline panel before any search (same split, horizon, metric,
-   seeds); it sets the bar every later candidate must beat.
-6. Search by changing one factor per iteration from the best baseline, starting with
-   the cheapest run that can reject a hypothesis. Set data-dependent parameters from
-   card `[data_params]` and the profile; tune generic hyperparameters yourself within
-   budget. Recombine via the slot grid per [recombination](references/recombination.md)
-   (`tsf model compose <spec.toml>` dry-runs a composition).
-7. Confirm only finalists with the declared seeds; compare with spread, not a single
-   best run. If authorized and a recombined method wins, register it with `add-model`.
+   seeds) as one sweep; it sets the bar every later candidate must beat.
+6. Search in batches: each iteration puts several candidates, each one factor away from
+   the best so far, in one sweep (`[sweep.extend]` or `[sweep]`), runs it once with
+   `--round`, waits once (`tsf run wait`), and reads every result from `performance.csv`.
+   Start with the cheapest runs that can reject a hypothesis; set data-dependent
+   parameters from card `[data_params]`; recombine per [recombination](references/recombination.md).
+7. Confirm finalists in one seed sweep; compare with spread, not a single best run.
+   If authorized and a recombined method wins, register it with `add-model`.
 8. Record decisions, runs, and conclusions as round events per
    [round-ledger](references/round-ledger.md); route failures to `diagnose-experiment`
    and compatible results to `analyze-results`, whose board feeds the next iteration.
