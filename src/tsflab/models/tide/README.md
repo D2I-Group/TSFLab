@@ -22,6 +22,8 @@ description: "Time-series Dense Encoder: residual MLP encoder-decoder over the n
 - `time_feat_dim`: number of mark features per step; must match the marks the runner supplies (6 raw calendar stamps by default). Missing marks are replaced by zeros.
 
 Other hyperparameters: preset defaults in `configs/models/TiDE.toml`; tune generically.
+The preset follows the official ETTh1 script (pinned revision): `d_model` and `d_ff` 256, two encoder
+and two decoder layers; its learning rate (0.1) and batch size (512) are run settings.
 
 ## Differences
 

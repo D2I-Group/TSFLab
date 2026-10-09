@@ -25,6 +25,8 @@ description: "Fully MLP multiscale mixer: downsampled scales are decomposed into
 - `moving_avg`: odd moving-average window of the trend split.
 
 Other hyperparameters: preset defaults in `configs/models/TimeMixer.toml`; tune generically.
+The preset follows the ETT and Weather scripts of Time-Series-Library 4e938a1: `d_model` 16, `d_ff` 32,
+three down-sampling layers; their learning rate (0.01) and batch size (16) are run settings.
 
 ## Differences
 

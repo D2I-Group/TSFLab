@@ -2,10 +2,10 @@
 name = "TiDE"
 
 [model.params]
-d_model = 512
+d_model = 256
 e_layers = 2
-d_layers = 1
-d_ff = 2048
+d_layers = 2
+d_ff = 256
 decoder_output_dim = 7
 time_feat_dim = 6
 dropout = 0.1
