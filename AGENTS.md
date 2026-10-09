@@ -43,7 +43,7 @@ Maintenance (audit, contributions) keeps it sound. Map: `.agents/README.md` (gen
 Use the matching Skill; read `.agents/STANDARDS.md` sections only for structural,
 provenance, or Skill changes. Set up and verify with:
 ```bash
-uv sync --frozen --python 3.12   # cuda130/macOS; `tsf env doctor` gives cuda126/cpu commands
+python3 scripts/setup_env.py    # detects the driver, installs the matching torch (cu130/cu126/cpu)
 uv run tsf repo check --audit
 ```
 Run narrow checks and `tsf model verify --changed` for affected models; a release needs

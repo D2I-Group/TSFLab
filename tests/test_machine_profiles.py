@@ -81,3 +81,29 @@ def test_run_profile_policies_validate(name):
     assert policy.resources.threads_per_run
     if policy.resources.sharing:
         assert policy.resources.memory_per_run_mb > 0
+
+
+def test_setup_installs_the_driver_profile_and_checks_torch(monkeypatch, tmp_path):
+    from types import SimpleNamespace as NS
+
+    from tsflab.experiments.infra import machine
+
+    monkeypatch.setattr(machine, "_nvidia", lambda: {"driver": "570.86", "cuda": "12.8"})
+    monkeypatch.setattr(machine.platform, "system", lambda: "Linux")
+    calls = []
+
+    def run(command, **kw):
+        calls.append(command)
+        if isinstance(command, list):  # the torch probe
+            return NS(returncode=0, stdout='{"version": "2.14.1", "cuda": "12.6", "cuda_available": true}\n')
+        return NS(returncode=0, stdout="")
+
+    plan = machine.setup(str(tmp_path), dry_run=True, run=run)
+    assert plan["profile"] == "cuda126" and not calls
+    assert any("--torch-backend cu126" in c for c in plan["commands"])
+    report = machine.setup(str(tmp_path), run=run)
+    assert report["ok"] and report["no_sync"] and report["torch"]["cuda_available"]
+    assert calls[0] == "uv venv --python 3.12" and isinstance(calls[-1], list)
+    assert "export" not in " ".join(c for c in calls if isinstance(c, str))
+    failing = machine.setup(str(tmp_path), run=lambda c, **kw: NS(returncode=1, stdout=""))
+    assert not failing["ok"] and failing["failed"] == "uv venv --python 3.12"

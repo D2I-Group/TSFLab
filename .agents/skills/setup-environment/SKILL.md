@@ -14,10 +14,12 @@ Experiments module, step zero: produce a working, reproducible environment and r
 
 ## Steps
 
-1. Probe before installing: `bash scripts/detect_hardware.sh` prints the install
-   profile for torch 2.14.1 (driver CUDA >= 13.0 -> `cuda130`; 12.6-12.9 ->
-   `cuda126`, there is no cu128 wheel; older or no NVIDIA -> `cpu`).
-2. Install with uv only (add `hub`/`realtime` extras as needed):
+1. Set up automatically: `python3 scripts/setup_env.py [--extras models,data,experiments]`
+   (`tsf env setup` once installed) detects the driver, picks the torch 2.14.1 profile
+   (driver CUDA >= 13.0 -> `cuda130`; 12.6-12.9 -> `cuda126`, there is no cu128 wheel;
+   older or no NVIDIA -> `cpu`), installs it, and checks that torch sees the GPU;
+   `--dry-run` only prints the plan.
+2. The commands it runs, for a manual install (add `hub`/`realtime` extras as needed):
 
 ```bash
 # cuda130 (driver >= 580) and macOS/Windows cpu: the locked build

@@ -11,7 +11,7 @@ def infrastructure_command(args):
     parser = argparse.ArgumentParser(
         prog="tsf env" if args[0] == "env" else "tsf agent interface",
         epilog="tsf env doctor [--json] detects this machine and prints the matching install and run "
-        "profiles. tsf env storage|usage ... manage capacity and spending (see tsf env storage --help)."
+        "profiles; tsf env setup installs that profile (before TSFLab is installed: python3 scripts/setup_env.py). tsf env storage|usage ... manage capacity and spending (see tsf env storage --help)."
         if args[0] == "env"
         else None,
     )
@@ -44,6 +44,13 @@ def infrastructure_command(args):
             return 0
         if parsed.module and (args[0] != "interface" or parsed.action != "schema"):
             raise ValueError("--module is only valid for tsf agent interface schema")
+        if args[0] == "env" and parsed.action == "setup":
+            from tsflab.cli.runtime import ROOT
+            from tsflab.experiments.infra.machine import format_setup, setup
+
+            payload = setup(str(ROOT))
+            print(json.dumps(payload, indent=2) if parsed.json else format_setup(payload))
+            return 0 if payload["ok"] else 1
         if args[0] == "env" and parsed.action == "doctor":
             from tsflab.experiments.infra.machine import doctor, format_doctor
 
@@ -107,7 +114,7 @@ def infrastructure_command(args):
         else:
             if parsed.action != "audit":
                 raise ValueError(
-                    "usage: tsf env [audit|doctor] [--config <toml>] [--policy <toml>] [--json]"
+                    "usage: tsf env [audit|doctor|setup] [--config <toml>] [--policy <toml>] [--json]"
                 )
             policy = load_policy(parsed.policy)
             if parsed.config:

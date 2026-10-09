@@ -4,6 +4,9 @@ Pure mapping functions (``cuda_from_driver``, ``install_profile``,
 ``run_profile``) take facts and never touch a device, so they are unit-tested
 statically. ``doctor()`` gathers the facts (``nvidia-smi``, ``uv``, and an
 ``import torch`` that allocates nothing) and is read-only: it never installs.
+``setup()`` installs the profile that the driver supports and checks that torch
+sees the GPU; it uses only the standard library, so ``scripts/setup_env.py`` runs
+it before TSFLab is installed.
 
 torch 2.14.1 publishes CUDA wheels for cu126 and cu130 only (no cu128), so every
 CUDA 12.6-12.9 driver uses ``cuda126`` and CUDA >= 13.0 uses ``cuda130``.
@@ -208,6 +211,51 @@ def doctor() -> dict:
         },
         "warnings": warnings,
     }
+
+
+def setup(root: str = ".", extras=EXTRAS, dry_run: bool = False, run=subprocess.run) -> dict:
+    """Install the torch build that this machine's driver supports, then verify it.
+
+    Detects the driver's CUDA version, picks the install profile, and runs its uv
+    commands in ``root``; a CUDA profile must end with torch seeing the GPU.
+    """
+    system = platform.system()
+    nvidia = _nvidia()
+    profile = install_profile(parse_cuda_version(nvidia["cuda"]), system)
+    commands = [c for c in install_commands(profile, system, extras) if not c.startswith("export ")]
+    report = {"driver": nvidia["driver"], "driver_cuda": nvidia["cuda"], "profile": profile,
+              "commands": commands, "ok": True, "torch": None}
+    if dry_run:
+        return report
+    for command in commands:
+        if run(command, shell=True, cwd=root).returncode != 0:
+            return {**report, "ok": False, "failed": command}
+    python = os.path.join(root, ".venv", "bin", "python")
+    probe = ("import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda, "
+             "'cuda_available': torch.cuda.is_available()}))")
+    result = run([python, "-c", probe], cwd=root, capture_output=True, text=True)
+    torch = None
+    if result.returncode == 0 and result.stdout.strip():
+        import json
+
+        torch = json.loads(result.stdout.strip().splitlines()[-1])
+    ok = torch is not None and (profile == "cpu" or torch["cuda_available"])
+    return {**report, "torch": torch, "ok": ok,
+            "no_sync": profile == "cuda126" or (profile == "cpu" and system == "Linux")}
+
+
+def format_setup(report: dict) -> str:
+    lines = [f"driver {report['driver'] or 'none'} (CUDA {report['driver_cuda'] or 'none'}) -> profile {report['profile']}"]
+    lines += [f"  {command}" for command in report["commands"]]
+    if report.get("failed"):
+        lines.append(f"failed: {report['failed']}")
+    elif report.get("torch"):
+        torch = report["torch"]
+        lines.append(f"torch {torch['version']} (CUDA {torch['cuda']}), cuda_available={torch['cuda_available']}")
+    if report.get("no_sync"):
+        lines.append("export UV_NO_SYNC=1  # `uv run` must not re-sync the locked cu130 torch on this machine")
+    lines.append("ready" if report["ok"] else "not ready: see above, then `tsf env doctor`")
+    return "\n".join(lines)
 
 
 def format_doctor(report: dict) -> str:
