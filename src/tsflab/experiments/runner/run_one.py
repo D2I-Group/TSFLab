@@ -152,6 +152,40 @@ def _build_loaders(config):
     return train_set, train_loader, vali_set, vali_loader, test_set, test_loader, adj_norm
 
 
+def _channel_params(spec, config, train_set) -> dict:
+    """Model parameters with the data-dependent channel counts filled in from the data.
+
+    A model card declares which parameters follow the channel count (``[data_params]`` entries with
+    ``from = "channels"``). Presets carry the value of the dataset they were written for, so on other
+    data (multivariate, ``features = "M"``) these parameters are set to the number of channels the
+    dataset actually has. Other modes and parameters are left as configured.
+    """
+    params = dict(config.model.params)
+    data = getattr(train_set, "data", None)
+    if getattr(config.task, "features", "M") != "M" or getattr(data, "ndim", 0) != 2:
+        return params
+    try:
+        from pathlib import Path
+
+        from tsflab.catalog.cards.metadata import read_model_card
+
+        declared = read_model_card(Path(spec.model_card)).get("data_params") or {}
+    except Exception:  # no card (e.g. a test spec): nothing to fill
+        return params
+    channels = int(data.shape[-1])
+    follow = {name for name, rule in declared.items()
+              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"}
+    # In multivariate mode the output and decoder widths equal the input width; presets that set them to
+    # the same value as enc_in follow it even when the card lists only enc_in.
+    if "enc_in" in follow:
+        follow |= {n for n in ("c_out", "dec_in") if params.get(n) == params.get("enc_in")}
+    for name in sorted(follow):
+        if name in params and isinstance(params[name], int) and params[name] != channels:
+            print(f"Setting {name} = {channels} from the data (preset: {params[name]})")
+            params[name] = channels
+    return params
+
+
 def _build_model(config, train_set, adj_norm, device: torch.device):
     """Construct the model for one run and validate its output_type/loss pairing.
 
@@ -168,7 +202,7 @@ def _build_model(config, train_set, adj_norm, device: torch.device):
         ``output_type`` (``"point"`` when the model doesn't declare one).
     """
     spec = MODEL_CATALOG.get(config.model.name)
-    params = spec.validate_params(config.model.params)
+    params = spec.validate_params(_channel_params(spec, config, train_set))
 
     # Pretrained weights/tokenizers are never downloaded implicitly. Required
     # artifacts must already be present and checksum-verified before a factory

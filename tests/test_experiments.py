@@ -1225,3 +1225,19 @@ def test_profile_runs_every_forward_without_autograd(tmp_path):
                   save_path=str(tmp_path / "profile.txt"))
     assert model.grad_modes and not any(model.grad_modes)
     assert "Total MACs" in (tmp_path / "profile.txt").read_text()
+
+
+def test_channel_params_follow_the_data():
+    """Presets written for one dataset get the channel count of the data the run uses (features = M)."""
+    import numpy as np
+    from types import SimpleNamespace as NS
+
+    from tsflab.catalog.registry.models import MODEL_CATALOG
+    from tsflab.experiments.runner.run_one import _channel_params
+
+    spec = MODEL_CATALOG.get("TimeMixer")
+    cfg = NS(model=NS(params={"enc_in": 7, "c_out": 7, "d_model": 16}), task=NS(features="M"))
+    out = _channel_params(spec, cfg, NS(data=np.zeros((10, 8))))
+    assert out["enc_in"] == 8 and out["c_out"] == 8 and out["d_model"] == 16
+    cfg.task.features = "S"
+    assert _channel_params(spec, cfg, NS(data=np.zeros((10, 1))))["enc_in"] == 7
