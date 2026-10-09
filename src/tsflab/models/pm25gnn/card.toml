@@ -32,8 +32,8 @@ adj_mx = { from = "graph", rule = "enc_in x enc_in station adjacency; self loops
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-09"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""

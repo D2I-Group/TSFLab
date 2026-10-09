@@ -32,11 +32,11 @@ kernel_size = { from = "period", rule = "moving-average window of the stable/tre
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-09"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
 
 [[issues]]
 kind = "license"

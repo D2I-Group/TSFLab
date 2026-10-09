@@ -32,7 +32,7 @@ top_k = { from = "seq_len", rule = "dominant periods per block, at most (seq_len
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "28ac5b68"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
 note = ""

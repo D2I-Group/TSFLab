@@ -33,7 +33,7 @@ num_segments = { from = "pred_len", rule = "horizon segments, clamped to pred_le
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "28ac5b68"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
 note = ""

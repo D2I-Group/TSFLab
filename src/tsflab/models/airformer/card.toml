@@ -32,8 +32,8 @@ adj_mx = { from = "graph", rule = "dartboard projection [enc_in, regions, enc_in
 
 [admission]
 status = "passed"
-date = "2026-10-05"
-commit = "a73be734"
+date = "2026-10-09"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
 note = ""

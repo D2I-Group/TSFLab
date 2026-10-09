@@ -30,8 +30,8 @@ enc_in = { from = "channels", rule = "equals the number of variables; the traini
 
 [admission]
 status = "passed"
-date = "2026-10-05"
-commit = "a529541b"
+date = "2026-10-09"
+commit = "6290ad3b"
 device = "cpu"
 reference = "none"
 note = ""

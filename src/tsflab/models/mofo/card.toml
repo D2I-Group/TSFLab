@@ -31,8 +31,8 @@ periodic = { from = "period", rule = "the dominant seasonal period in steps (24 
 
 [admission]
 status = "passed"
-date = "2026-10-05"
-commit = "8a6595a1"
+date = "2026-10-09"
+commit = "6290ad3b"
 device = "cpu"
 reference = "official"
 note = ""
