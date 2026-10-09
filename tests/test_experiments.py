@@ -1254,6 +1254,7 @@ def test_wait_blocks_until_runs_end_and_reports_compactly(monkeypatch):
                          sleep=lambda s: now.__setitem__(0, now[0] + s))
     assert out["done"] and not out["ok"] and out["counts"] == {"failed": 1, "succeeded": 1}
     assert out["unfinished"] == [{"status": "failed", "directory": "r0", "error": None}] and now[0] == 20
+    assert out["results"] == []
     monkeypatch.setattr(execution, "status", lambda d: {"runs": [{"status": "running", "directory": "r0"}]})
     now[0] = 0.0
     out = execution.wait("x", timeout=30, interval=10, clock=lambda: now[0],
@@ -1283,3 +1284,21 @@ def test_summary_row_reports_run_cost():
                                "peak_train_mem_mb": 12.5}, {"mse": 1.0})
     assert (row["params"], row["epochs"], row["peak_train_mem_mb"]) == (10, 3, 12.5)
     assert "peak_train_mem_mb" not in default_summary_row({"model": "m", "peak_train_mem_mb": None}, {})
+
+
+def test_wait_lists_each_finished_run(monkeypatch, tmp_path):
+    import json
+
+    from tsflab.experiments.infra import execution
+
+    run = tmp_path / "r1"
+    run.mkdir()
+    (run / "result.json").write_text(json.dumps({"metrics": {"mse": 0.5, "mae": 0.4}, "train_time_sec": 3.25,
+                                                 "cost": {"params": 10, "epochs": 2, "peak_train_mem_mb": 1.0}}))
+    config = {"model": {"name": "DLinear"}, "task": {"pred_len": 24}, "experiment": {"random_seed": 1},
+              "evaluation": {"split": "val"}}
+    monkeypatch.setattr(execution, "status", lambda d: {"runs": [{"status": "succeeded", "directory": str(run),
+                                                                  "config": config}]})
+    out = execution.wait("x", timeout=1, interval=1)
+    assert out["results"] == [{"model": "DLinear", "pred_len": 24, "seed": 1, "split": "val", "mse": 0.5, "mae": 0.4,
+                               "train_s": 3.2, "params": 10, "epochs": 2, "peak_train_mem_mb": 1.0}]

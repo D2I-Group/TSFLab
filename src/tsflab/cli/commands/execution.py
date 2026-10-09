@@ -113,6 +113,8 @@ def _print_result(result: dict, args) -> None:
     elif "counts" in result:
         state = "done" if result["done"] else f"still running after {args.timeout:.0f}s"
         print(f"{state}: " + ", ".join(f"{n} {k}" for k, n in sorted(result["counts"].items())))
+        for row in sorted(result.get("results", []), key=lambda r: (str(r["model"]), r["pred_len"] or 0, r["seed"] or 0)):
+            print(" ".join(f"{k}={v:.4g}" if isinstance(v, float) else f"{k}={v}" for k, v in row.items()))
         for run in result["unfinished"]:
             print(f"{run['status']}: {run['directory']}" + (f" ({run['error']})" if run.get("error") else ""))
     elif "runs" in result:

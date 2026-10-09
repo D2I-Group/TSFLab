@@ -172,6 +172,25 @@ def status(directory):
     return {"directory": str(directory), **state, "runtime": runtime}
 
 
+def _result_row(run: dict) -> dict | None:
+    """One line of a finished run: model, horizon, seed, scored split, metrics, and cost."""
+    path = Path(run.get("directory") or "") / "result.json"
+    if not path.is_file():
+        return None
+    result = json.loads(path.read_text())
+    config = run.get("config") or {}
+    metrics = result.get("metrics") or {}
+    return {
+        "model": (config.get("model") or {}).get("name"),
+        "pred_len": (config.get("task") or {}).get("pred_len"),
+        "seed": (config.get("experiment") or {}).get("random_seed"),
+        "split": (config.get("evaluation") or {}).get("split", "test"),
+        **{k: metrics[k] for k in ("mse", "mae") if k in metrics},
+        "train_s": round(result.get("train_time_sec") or 0.0, 1),
+        **(result.get("cost") or {}),
+    }
+
+
 def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=time.monotonic, sleep=time.sleep):
     """Block until every run under ``directory`` has ended or ``timeout`` seconds pass.
 
@@ -187,6 +206,7 @@ def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=ti
             break
         sleep(min(interval, max(0.0, deadline - clock())))
     counts: dict[str, int] = {}
+    results = [row for run in runs if run.get("status") == "succeeded" and (row := _result_row(run))]
     for run in runs:
         counts[run.get("status", "unknown")] = counts.get(run.get("status", "unknown"), 0) + 1
     return {
@@ -194,6 +214,7 @@ def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=ti
         "ok": not pending and set(counts) <= {"succeeded"},
         "done": not pending,
         "counts": counts,
+        "results": results,
         "unfinished": [
             {"status": run.get("status"), "directory": run.get("directory"), "error": run.get("error")}
             for run in runs if run.get("status") != "succeeded"

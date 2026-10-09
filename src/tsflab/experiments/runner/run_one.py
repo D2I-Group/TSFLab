@@ -71,6 +71,7 @@ class RunResult:
     test_time_sec: float
     checkpoint_path: str
     run_id: str
+    cost: dict | None = None
 
 
 def _build_device(runtime) -> torch.device:
@@ -688,6 +689,7 @@ def _run_one(
         test_time_sec=test_time,
         checkpoint_path=train_result.best_model_path,
         run_id=run_id,
+        cost=_cost(model, device, train_result),
     )
 
 
