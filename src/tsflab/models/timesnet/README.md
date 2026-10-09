@@ -24,6 +24,9 @@ description: "Task-general 2D-variation backbone: the embedded series is folded 
 - `top_k`: dominant periods per block; at most `(seq_len + pred_len) // 2`.
 
 Other hyperparameters: preset defaults in `configs/models/TimesNet.toml`; tune generically.
+The official scripts (pinned revision) use `d_model`/`d_ff` of 16-64 for data with up to 21 channels
+(ETT, Weather, Exchange) and 256-768 for ECL, Traffic, and ILI; the preset follows the former:
+512/2048 trained two orders of magnitude slower per epoch on 8-channel hourly data (2026-10-09).
 
 ## Differences
 
