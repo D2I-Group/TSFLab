@@ -34,7 +34,7 @@ flow_mx = { from = "graph", rule = "[enc_in, enc_in] directed wind/flow adjacenc
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "6290ad3b"
+commit = "45ed8f22"
 device = "cpu"
 reference = "official"
 note = ""

@@ -32,7 +32,7 @@ cycle = { from = "period", rule = "the dominant seasonal period in steps (24 for
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "6290ad3b"
+commit = "45ed8f22"
 device = "cpu"
 reference = "official"
 note = ""

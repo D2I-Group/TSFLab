@@ -33,7 +33,7 @@ top_k = { from = "channels", rule = "latent-graph neighbours per row; must be <=
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "6290ad3b"
+commit = "45ed8f22"
 device = "cpu"
 reference = "official"
 note = ""

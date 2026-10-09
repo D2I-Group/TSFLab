@@ -32,7 +32,7 @@ relation_period = { from = "period", rule = "cycle length in steps for the chann
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "6290ad3b"
+commit = "45ed8f22"
 device = "cpu"
 reference = "official"
 note = ""

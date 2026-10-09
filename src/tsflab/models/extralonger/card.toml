@@ -33,7 +33,7 @@ steps_per_day = { from = "frequency", rule = "steps per day for the time-of-day 
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "6290ad3b"
+commit = "45ed8f22"
 device = "cpu"
 reference = "official"
 note = ""
