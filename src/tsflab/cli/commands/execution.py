@@ -104,6 +104,35 @@ def _extract_backend(args: list[str]) -> tuple[list[str], str]:
     return rest, backend
 
 
+def _print_result(result: dict, args) -> None:
+    """Print the result of one `tsf run` action (JSON with --json)."""
+    import json
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    elif "counts" in result:
+        state = "done" if result["done"] else f"still running after {args.timeout:.0f}s"
+        print(f"{state}: " + ", ".join(f"{n} {k}" for k, n in sorted(result["counts"].items())))
+        for run in result["unfinished"]:
+            print(f"{run['status']}: {run['directory']}" + (f" ({run['error']})" if run.get("error") else ""))
+    elif "runs" in result:
+        for run in result["runs"]:
+            print(f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}")
+            for error in run.get("errors", []):
+                print(f"  {error}")
+        if result.get("skipped"):
+            print(f"Skipped {result['skipped']} completed runs")
+    elif "run_id" in result:
+        print(f"{result['run_id']}: {result['status']} ({result['stage']})")
+        if result.get("error"):
+            print(result["error"])
+        print(f"Records: {result['directory']}")
+    elif result.get("cancel_requested"):
+        print(f"Cancellation requested: {result['directory']}")
+    else:
+        print(json.dumps(result, indent=2))
+
+
 def run_command(rest: list[str]) -> int:
     """Run, preview, smoke-test, cancel, or resume experiments through one public surface."""
     import json
@@ -114,9 +143,9 @@ def run_command(rest: list[str]) -> int:
         from tsflab.cli.commands.operations import operations_command
 
         return operations_command([backend, *rest])
-    from tsflab.experiments.infra.execution import cancel, execute, preflight, prepare_sweep, status
+    from tsflab.experiments.infra.execution import cancel, execute, preflight, prepare_sweep, status, wait
     from tsflab.experiments.infra.policy import load_policy
-    parser = argparse.ArgumentParser(prog="tsf run", description="Run experiments. Optional: --policy execution.toml. Manage existing runs with status/cancel/resume <directory>. --smoke (--all | --model NAME | --config PATH...) runs smoke configs; --backend queue|slurm ACTION DIR submits prepared sweeps (see tsf run --backend queue --help).", epilog="Also: tsf run --smoke (--all | --model NAME | --config PATH...); tsf run --backend queue|slurm ACTION DIR.")
+    parser = argparse.ArgumentParser(prog="tsf run", description="Run experiments. Optional: --policy execution.toml. Manage existing runs with status/cancel/resume <directory>; wait <directory> [--timeout S] blocks until a run or sweep started in the background ends and prints one summary. --smoke (--all | --model NAME | --config PATH...) runs smoke configs; --backend queue|slurm ACTION DIR submits prepared sweeps (see tsf run --backend queue --help).", epilog="Also: tsf run --smoke (--all | --model NAME | --config PATH...); tsf run --backend queue|slurm ACTION DIR.")
     parser.add_argument("configs", nargs="*")
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--gpus", default=None)
@@ -125,6 +154,7 @@ def run_command(rest: list[str]) -> int:
     parser.add_argument("--prepare-only", action="store_true", help="Persist a validated matrix for queue or Slurm submission")
     parser.add_argument("--dry-run", action="store_true", help="Preview the resolved matrix (coverage summary) and check it without executing")
     parser.add_argument("--json", action="store_true", help="Machine-readable result")
+    parser.add_argument("--timeout", type=float, default=1800.0, help="wait: seconds before returning while runs continue")
     args = parser.parse_args(rest)
     try:
         policy = load_policy(args.policy)
@@ -137,11 +167,13 @@ def run_command(rest: list[str]) -> int:
             policy.budget.max_parallel_jobs = args.jobs
         if args.gpus is not None:
             policy.resources.gpus = [gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
-        if args.configs and args.configs[0] in {"status", "cancel", "resume"}:
+        if args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}:
             if len(args.configs) != 2:
-                raise ValueError("usage: tsf run {status,cancel,resume} <directory> [--json]")
+                raise ValueError("usage: tsf run {status,cancel,resume,wait} <directory> [--json]")
             action, directory = args.configs
-            if action == "status":
+            if action == "wait":
+                result = wait(directory, args.timeout)
+            elif action == "status":
                 result = status(directory)
             elif action == "cancel":
                 result = cancel(directory)
@@ -176,24 +208,7 @@ def run_command(rest: list[str]) -> int:
                     print(f"Experiment records: {directory}", flush=True)
                 result = {"ok": True, "directory": str(directory), "prepared": True} if args.prepare_only else execute(directory, policy, round_id=args.round_id)
         publish(result)
-        if args.json:
-            print(json.dumps(result, indent=2))
-        elif "runs" in result:
-            for run in result["runs"]:
-                print(f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}")
-                for error in run.get("errors", []):
-                    print(f"  {error}")
-            if result.get("skipped"):
-                print(f"Skipped {result['skipped']} completed runs")
-        elif "run_id" in result:
-            print(f"{result['run_id']}: {result['status']} ({result['stage']})")
-            if result.get("error"):
-                print(result["error"])
-            print(f"Records: {result['directory']}")
-        elif result.get("cancel_requested"):
-            print(f"Cancellation requested: {result['directory']}")
-        else:
-            print(json.dumps(result, indent=2))
+        _print_result(result, args)
         return 0 if result.get("ok", True) else 1
     except Exception as exc:
         if args.json:

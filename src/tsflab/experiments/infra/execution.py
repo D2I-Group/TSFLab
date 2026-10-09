@@ -15,7 +15,7 @@ from tsflab.experiments.infra.policy import ExecutionPolicy
 from tsflab.experiments.infra.processes import terminate as _terminate, launch_run, monitor
 from tsflab.experiments.infra import round_execution
 from tsflab.experiments.infra.resources import lease_gpus
-from tsflab.experiments.infra.runs import prepare_run, read_run, verify_resume
+from tsflab.experiments.infra.runs import TERMINAL, prepare_run, read_run, verify_resume
 from tsflab.experiments.infra.storage import file_lock, write_json
 
 
@@ -170,6 +170,35 @@ def status(directory):
         except BlockingIOError:
             pass
     return {"directory": str(directory), **state, "runtime": runtime}
+
+
+def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=time.monotonic, sleep=time.sleep):
+    """Block until every run under ``directory`` has ended or ``timeout`` seconds pass.
+
+    Returns one compact result (counts by status and the runs that did not succeed), so an agent that
+    started a sweep in the background waits with one call instead of polling logs.
+    """
+    deadline = clock() + timeout
+    while True:
+        result = status(directory)
+        runs = result.get("runs") or [result]
+        pending = [run for run in runs if run.get("status") not in TERMINAL]
+        if not pending or clock() >= deadline:
+            break
+        sleep(min(interval, max(0.0, deadline - clock())))
+    counts: dict[str, int] = {}
+    for run in runs:
+        counts[run.get("status", "unknown")] = counts.get(run.get("status", "unknown"), 0) + 1
+    return {
+        "directory": str(Path(directory).resolve()),
+        "ok": not pending and set(counts) <= {"succeeded"},
+        "done": not pending,
+        "counts": counts,
+        "unfinished": [
+            {"status": run.get("status"), "directory": run.get("directory"), "error": run.get("error")}
+            for run in runs if run.get("status") != "succeeded"
+        ],
+    }
 
 
 def cancel(directory):

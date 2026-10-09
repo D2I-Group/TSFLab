@@ -1241,3 +1241,21 @@ def test_channel_params_follow_the_data():
     assert out["enc_in"] == 8 and out["c_out"] == 8 and out["d_model"] == 16
     cfg.task.features = "S"
     assert _channel_params(spec, cfg, NS(data=np.zeros((10, 1))))["enc_in"] == 7
+
+
+def test_wait_blocks_until_runs_end_and_reports_compactly(monkeypatch):
+    from tsflab.experiments.infra import execution
+
+    states = iter([["running", "succeeded"], ["running", "succeeded"], ["failed", "succeeded"]])
+    monkeypatch.setattr(execution, "status", lambda d: {"runs": [
+        {"status": s, "directory": f"r{i}"} for i, s in enumerate(next(states))]})
+    now = [0.0]
+    out = execution.wait("x", timeout=100, interval=10, clock=lambda: now[0],
+                         sleep=lambda s: now.__setitem__(0, now[0] + s))
+    assert out["done"] and not out["ok"] and out["counts"] == {"failed": 1, "succeeded": 1}
+    assert out["unfinished"] == [{"status": "failed", "directory": "r0", "error": None}] and now[0] == 20
+    monkeypatch.setattr(execution, "status", lambda d: {"runs": [{"status": "running", "directory": "r0"}]})
+    now[0] = 0.0
+    out = execution.wait("x", timeout=30, interval=10, clock=lambda: now[0],
+                         sleep=lambda s: now.__setitem__(0, now[0] + s))
+    assert not out["done"] and now[0] == 30

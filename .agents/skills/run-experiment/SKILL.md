@@ -38,6 +38,8 @@ results come back as `work_dirs/` records and round events.
    Attach a round only when one was supplied or the task needs persistent
    research context. Use `--gpus` only after checking memory and device intent.
    Hand a launch to the run machine as the previewed command; do not start it locally.
+   A sweep longer than your command timeout runs in the background; block on it with
+   `tsf run wait <records-dir> --timeout 1800` (one summary per call), never by tailing logs.
 2. New data that is not a preset (for example a CSV handed to you): register it in place,
    check its split, and compare methods on it with one sweep config. Catalog models always
    run through `tsf run`; never write a private training or evaluation loop for them.
