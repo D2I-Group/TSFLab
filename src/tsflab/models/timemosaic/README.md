@@ -25,6 +25,7 @@ description: "Patch Transformer for temporal heterogeneity: each lookback region
 - `num_segments`: horizon segments, clamped to `pred_len`; segment lengths differ by at most one step.
 
 Other hyperparameters: preset defaults in `configs/models/TimeMosaic.toml`; tune generically.
+The preset follows the official `run.py` defaults: `d_model` 512, 8 heads, patch sizes 8/16/32.
 
 ## Differences
 

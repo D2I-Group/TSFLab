@@ -26,6 +26,7 @@ description: "Global Temporal Retriever: a learned full-cycle memory retrieved b
 - `local_period`: local period in steps (preset 24, daily on hourly data); sets the fusion kernel width `1 + 2 * (local_period // 2)`.
 
 Other hyperparameters: preset defaults in `configs/models/GTR.toml`; tune generically.
+The preset follows the official `run.py` default width (`d_model` 512).
 
 ## Differences
 

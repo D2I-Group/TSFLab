@@ -24,6 +24,7 @@ description: "iTransformer variate tokens armored with channel, cycle-phase and 
 - `cycle`: the dominant period in steps (official ETTh1 script: 24).
 
 Other hyperparameters: preset defaults in `configs/models/EMAformer.toml`; tune generically.
+The preset follows the official ETTh1 script: `d_model` and `d_ff` 256, 4 heads, 2 layers, dropout 0.3.
 
 ## Differences
 
