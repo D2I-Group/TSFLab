@@ -37,10 +37,13 @@ class TrainResult:
         Path to the best checkpoint saved during training.
     train_time_sec : float
         Total training time in seconds.
+    epochs_run : int
+        Epochs trained (fewer than configured after early stopping).
     """
 
     best_model_path: str
     train_time_sec: float
+    epochs_run: int = 0
 
 
 def _collect_aux_loss(model: nn.Module) -> torch.Tensor | None:
@@ -277,7 +280,9 @@ def train(
         start_epoch, prior_elapsed, completed = state["epoch"], state["elapsed"], state["completed"]
         progress = state.get("progress")
     start_time = time.perf_counter()
+    epochs_run = start_epoch
     for epoch in range(start_epoch, epochs if not completed else start_epoch):
+        epochs_run = epoch + 1
         epoch_losses = list(progress["losses"]) if progress else []
         skip = progress["next_batch"] if progress else 0
         saved_rng = capture_rng()
@@ -405,7 +410,7 @@ def train(
     train_time = prior_elapsed + time.perf_counter() - start_time
     best_model_path = f"{checkpoint_dir}/best_checkpoint.pth"
     model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
-    return TrainResult(best_model_path=best_model_path, train_time_sec=train_time)
+    return TrainResult(best_model_path=best_model_path, train_time_sec=train_time, epochs_run=epochs_run)
 
 
 def _run_compute_loss_hooks(callbacks, ctx, criterion):

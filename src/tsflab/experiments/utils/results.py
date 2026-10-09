@@ -145,6 +145,10 @@ def default_summary_row(
         row["fit_time"] = base["fit_time"]
     if "inference_time" in base:
         row["inference_time"] = base["inference_time"]
+    # Cost columns of a run: trainable parameters, epochs trained, peak training GPU memory (MB).
+    for name in ("params", "epochs", "peak_train_mem_mb"):
+        if base.get(name) is not None:
+            row[name] = base[name]
 
     if raw and sweep_keys:
         _append_sweep_values(row, raw, sweep_keys)

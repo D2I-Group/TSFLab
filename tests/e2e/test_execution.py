@@ -122,5 +122,7 @@ def test_validation_split_run_reports_no_test_metrics(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Validation metrics |" in out and "Test metrics" not in out
     model_dir = tmp_path / "weather" / "CRIB"
-    assert "split" in (model_dir / "performance.csv").read_text().splitlines()[0]
+    header = (model_dir / "performance.csv").read_text().splitlines()[0]
+    assert "split" in header and "params" in header and "epochs" in header
+    assert "Cost | params=" in out
     assert not list(model_dir.glob("records/*.json"))

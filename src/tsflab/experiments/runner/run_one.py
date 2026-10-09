@@ -329,6 +329,21 @@ def _evaluate(config, model, device, eval_strategy: str, dataset, data_loader):
     )
 
 
+def _reset_peak_memory(device) -> None:
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
+
+def _cost(model, device, train_result) -> dict:
+    """Cost facts of one run: trainable parameters, epochs trained, and peak training GPU memory."""
+    peak = torch.cuda.max_memory_allocated(device) / 2**20 if device.type == "cuda" else None
+    return {
+        "params": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        "epochs": getattr(train_result, "epochs_run", 0),
+        "peak_train_mem_mb": round(peak, 1) if peak is not None else None,
+    }
+
+
 def _write_run_outputs(
     config,
     model,
@@ -347,6 +362,11 @@ def _write_run_outputs(
     """Write the performance CSV row, run record JSON, and optional profile CSV."""
     summary_path = os.path.join(model_dir, "performance.csv")
     print(f"Writing CSV summary to: {summary_path}")
+    cost = _cost(model, device, train_result)
+    print(
+        f"Cost | params={cost['params']} epochs={cost['epochs']} train_s={train_result.train_time_sec:.1f} "
+        f"infer_s={test_time:.1f} peak_train_mem_mb={cost['peak_train_mem_mb']}"
+    )
     summary_row = default_summary_row(
         {
             "run_id": run_id,
@@ -359,6 +379,7 @@ def _write_run_outputs(
             "test_time_sec": test_time,
             "fit_time": train_result.train_time_sec,
             "inference_time": test_time,
+            **cost,
         },
         metrics,
         raw=raw,
@@ -590,6 +611,7 @@ def _run_one(
                 config.evaluation.quantile_levels
             )
 
+        _reset_peak_memory(device)
         train_result = train(
             model=model,
             train_loader=train_loader,

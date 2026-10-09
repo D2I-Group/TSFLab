@@ -1274,3 +1274,12 @@ def test_round_runs_score_validation_unless_the_split_is_set():
     assert plain.config.evaluation.split == "test"
     _round_defaults([plain, final], "r1")
     assert plain.config.evaluation.split == "val" and final.config.evaluation.split == "test"
+
+
+def test_summary_row_reports_run_cost():
+    from tsflab.experiments.utils.results import default_summary_row
+
+    row = default_summary_row({"model": "m", "fit_time": 2.0, "inference_time": 0.5, "params": 10, "epochs": 3,
+                               "peak_train_mem_mb": 12.5}, {"mse": 1.0})
+    assert (row["params"], row["epochs"], row["peak_train_mem_mb"]) == (10, 3, 12.5)
+    assert "peak_train_mem_mb" not in default_summary_row({"model": "m", "peak_train_mem_mb": None}, {})
