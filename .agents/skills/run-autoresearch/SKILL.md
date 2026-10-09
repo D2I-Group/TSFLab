@@ -61,6 +61,10 @@ current Agent (no second Agent needed). Read each reference only at its step.
 
 - Select and stop on train and validation only, with the rule fixed first; test metrics
   confirm frozen candidates once; never act on `shift.train_to_test`.
+- Baseline, search, and seed-confirmation runs set `split = "val"` under `[evaluation]`:
+  `tsf run` then scores the validation split and writes no test metrics or run record.
+  Only the frozen finalists and the bar they are compared against run with the default
+  test split, once.
 
 ## Chain
 

@@ -109,3 +109,18 @@ def test_local_queue_recovers_after_controller_crash(tmp_path):
             break
         time.sleep(0.1)
     assert state["status"] == "succeeded", state
+
+
+def test_validation_split_run_reports_no_test_metrics(tmp_path, capsys):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.runner.run_one import run_one
+
+    loaded = load_config("configs/runs/smoke_crib.toml")[0]
+    loaded.config.experiment.work_dir = str(tmp_path)
+    loaded.config.evaluation.split = "val"
+    run_one(loaded.config, loaded.raw)
+    out = capsys.readouterr().out
+    assert "Validation metrics |" in out and "Test metrics" not in out
+    model_dir = tmp_path / "weather" / "CRIB"
+    assert "split" in (model_dir / "performance.csv").read_text().splitlines()[0]
+    assert not list(model_dir.glob("records/*.json"))

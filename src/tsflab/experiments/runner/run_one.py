@@ -293,6 +293,42 @@ def _build_model(config, train_set, adj_norm, device: torch.device):
     return model, output_type
 
 
+def _evaluate(config, model, device, eval_strategy: str, dataset, data_loader):
+    """Score the trained model on one split (fixed windows, or a rolling walk)."""
+    if eval_strategy == "rolling":
+        rolling_cfg = config.evaluation.rolling
+        print(
+            "Evaluation strategy: rolling "
+            f"(horizon={rolling_cfg.horizon}, stride={rolling_cfg.stride}, "
+            f"num_rollings={rolling_cfg.num_rollings})"
+        )
+        return evaluate_rolling(
+            model=model,
+            dataset=dataset,
+            device=device,
+            seq_len=config.task.seq_len,
+            label_len=config.task.label_len,
+            pred_len=config.task.pred_len,
+            features=config.task.features,
+            inverse=config.task.inverse,
+            horizon=rolling_cfg.horizon,
+            stride=rolling_cfg.stride,
+            num_rollings=rolling_cfg.num_rollings,
+            quantile_levels=config.evaluation.quantile_levels,
+        )
+    return evaluate(
+        model=model,
+        data_loader=data_loader,
+        device=device,
+        label_len=config.task.label_len,
+        pred_len=config.task.pred_len,
+        features=config.task.features,
+        inverse=config.task.inverse,
+        dataset=dataset,
+        quantile_levels=config.evaluation.quantile_levels,
+    )
+
+
 def _write_run_outputs(
     config,
     model,
@@ -333,6 +369,9 @@ def _write_run_outputs(
     # while making rolling runs self-describing.
     if eval_strategy != "fixed":
         summary_row["eval_strategy"] = eval_strategy
+    split = getattr(config.evaluation, "split", "test")
+    if split != "test":
+        summary_row["split"] = split
     from tsflab.experiments.infra.fingerprints import dataset_fingerprint
     from tsflab.experiments.infra.storage import canonical_hash
     snapshot = config.model_dump(mode="json")
@@ -346,18 +385,19 @@ def _write_run_outputs(
     # import-order coupling with benchmark.utils package init.
     from tsflab.experiments.utils.record import write_run_record
 
-    record_path = os.path.join(model_dir, "records", f"{run_id}.json")
-    write_run_record(
-        record_path=record_path,
-        config=config,
-        device=device,
-        run_id=run_id,
-        dataset_id=dataset_name,
-        metrics=metrics,
-        fit_time=train_result.train_time_sec,
-        inference_time=test_time,
-        repo_root=None,
-    )
+    if split == "test":  # a run record is a reported result; validation runs write none
+        record_path = os.path.join(model_dir, "records", f"{run_id}.json")
+        write_run_record(
+            record_path=record_path,
+            config=config,
+            device=device,
+            run_id=run_id,
+            dataset_id=dataset_name,
+            metrics=metrics,
+            fit_time=train_result.train_time_sec,
+            inference_time=test_time,
+            repo_root=None,
+        )
 
     if config.evaluation.enable_profile:
         os.makedirs(os.path.join(model_dir, "profiles"), exist_ok=True)
@@ -580,39 +620,9 @@ def _run_one(
 
     session.stage("evaluation")
     eval_strategy = getattr(config.evaluation, "strategy", "fixed")
-    if eval_strategy == "rolling":
-        rolling_cfg = config.evaluation.rolling
-        print(
-            "Evaluation strategy: rolling "
-            f"(horizon={rolling_cfg.horizon}, stride={rolling_cfg.stride}, "
-            f"num_rollings={rolling_cfg.num_rollings})"
-        )
-        metrics, test_time = evaluate_rolling(
-            model=model,
-            dataset=test_set,
-            device=device,
-            seq_len=config.task.seq_len,
-            label_len=config.task.label_len,
-            pred_len=config.task.pred_len,
-            features=config.task.features,
-            inverse=config.task.inverse,
-            horizon=rolling_cfg.horizon,
-            stride=rolling_cfg.stride,
-            num_rollings=rolling_cfg.num_rollings,
-            quantile_levels=config.evaluation.quantile_levels,
-        )
-    else:
-        metrics, test_time = evaluate(
-            model=model,
-            data_loader=test_loader,
-            device=device,
-            label_len=config.task.label_len,
-            pred_len=config.task.pred_len,
-            features=config.task.features,
-            inverse=config.task.inverse,
-            dataset=test_set,
-            quantile_levels=config.evaluation.quantile_levels,
-        )
+    split = getattr(config.evaluation, "split", "test")
+    eval_set, eval_loader = (vali_set, vali_loader) if split == "val" else (test_set, test_loader)
+    metrics, test_time = _evaluate(config, model, device, eval_strategy, eval_set, eval_loader)
 
     if config.evaluation.metrics:
         # Probabilistic runs always score crps/wql/coverage_80/width_80
@@ -626,10 +636,10 @@ def _run_one(
         metrics = {k: v for k, v in metrics.items() if k in keep}
 
     metrics_str = ", ".join(f"{k}:{v:.4f}" for k, v in metrics.items())
-    print(f"Test metrics | {metrics_str}")
+    print(f"{'Validation' if split == 'val' else 'Test'} metrics | {metrics_str}")
 
     session.stage("outputs")
-    session.tracker.log({f"test/{key}": value for key, value in metrics.items()}, config.training.epochs + 1)
+    session.tracker.log({f"{split}/{key}": value for key, value in metrics.items()}, config.training.epochs + 1)
     _write_run_outputs(
         config=config,
         model=model,
@@ -637,7 +647,7 @@ def _run_one(
         model_dir=model_dir,
         dataset_name=dataset_name,
         device=device,
-        test_loader=test_loader,
+        test_loader=eval_loader,
         metrics=metrics,
         test_time=test_time,
         train_result=train_result,
@@ -646,8 +656,9 @@ def _run_one(
         sweep_keys=sweep_keys,
     )
 
-    from tsflab.experiments.infra.predictions import log_predictions
-    log_predictions(model, test_loader, config, device, session.tracker)
+    if split == "test":
+        from tsflab.experiments.infra.predictions import log_predictions
+        log_predictions(model, test_loader, config, device, session.tracker)
 
     return RunResult(
         metrics=metrics,

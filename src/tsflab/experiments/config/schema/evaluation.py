@@ -59,3 +59,7 @@ class EvaluationConfig(BaseModel):
     # evaluation untouched. "rolling" opts into a TFB-style rolling forecast.
     strategy: Literal["fixed", "rolling"] = "fixed"
     rolling: RollingConfig = Field(default_factory=RollingConfig)
+    # Split the final metrics are computed on. "test" (default) is the reported result; "val" scores
+    # the validation split instead and writes no run record or test predictions, so a search can
+    # select candidates without seeing test metrics.
+    split: Literal["test", "val"] = "test"
