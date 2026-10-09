@@ -33,7 +33,7 @@ cycle = { from = "period", rule = "dominant period in steps; phase comes from th
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "45ed8f22"
+commit = "430ed5e6"
 device = "cpu"
 reference = "official"
 note = ""

@@ -34,7 +34,7 @@ top_k = { from = "seq_len", rule = "dft_decomp only: at most half the coarsest s
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "45ed8f22"
+commit = "430ed5e6"
 device = "cpu"
 reference = "official"
 note = ""

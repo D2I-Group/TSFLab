@@ -33,7 +33,7 @@ top_k = { from = "period", rule = "number of dominant FFT periods folded per blo
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "45ed8f22"
+commit = "430ed5e6"
 device = "cpu"
 reference = "official"
 note = ""
