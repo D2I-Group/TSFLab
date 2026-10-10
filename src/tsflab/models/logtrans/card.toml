@@ -27,7 +27,7 @@ e_layers = { from = "seq_len", rule = "with sparse attention and no local/restar
 [admission]
 status = "passed"
 date = "2026-10-09"
-commit = "430ed5e6"
+commit = "e8a0fdf1"
 device = "cpu"
 reference = "none"
 note = ""

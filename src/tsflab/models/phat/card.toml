@@ -32,8 +32,8 @@ period_list = { from = "period", rule = "optional fixed cycle lengths in steps (
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-09"
+commit = "e8a0fdf1"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
