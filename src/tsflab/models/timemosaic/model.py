@@ -18,7 +18,7 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  patch_sizes: tuple[int, ...] = (4, 8, 16), num_segments: int = 4,
                  num_heads: int = 4, dropout: float = 0.1,
-                 use_revin: bool = True) -> None:
+                 use_revin: bool = True, selection_tau: float = 0.5, budget_weight: float = 0.001) -> None:
         super().__init__()
         sizes = tuple(sorted(set(patch_sizes)))
         if not sizes or min(sizes) < 1:
@@ -34,6 +34,8 @@ class Model(nn.Module):
         self.num_regions = (seq_len + self.pad) // self.region_size
         self.aligned_per_region = self.region_size // min(sizes)
         self.num_segments, self.use_revin = min(num_segments, pred_len), use_revin
+        self.selection_tau, self.budget_weight = selection_tau, budget_weight
+        self.aux_loss = None
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
         self.granularity_classifier = nn.Sequential(nn.Linear(self.region_size, d_model), nn.GELU(), nn.Linear(d_model, len(sizes)))
         self.patch_projections = nn.ModuleList(nn.Linear(size, d_model) for size in sizes)
@@ -50,7 +52,16 @@ class Model(nn.Module):
     def adaptive_patch_tokens(self, channel_history: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         batch_channels = channel_history.size(0)
         regions = channel_history.reshape(batch_channels, self.num_regions, self.region_size)
-        choices = self.granularity_classifier(regions).softmax(-1)
+        logits = self.granularity_classifier(regions)
+        if self.training:
+            # Hard Gumbel choice of one granularity per region (straight-through), as in the official code;
+            # the budget term pulls the mean choice towards uniform use of the granularities.
+            choices = torch.nn.functional.gumbel_softmax(logits, tau=self.selection_tau, hard=True, dim=-1)
+            ratio = choices.reshape(-1, choices.size(-1)).mean(0)
+            self.aux_loss = self.budget_weight * ((ratio - 1.0 / ratio.numel()) ** 2).mean()
+        else:
+            choices = torch.nn.functional.one_hot(logits.argmax(-1), len(self.patch_sizes)).to(logits.dtype)
+            self.aux_loss = None
         candidates = []
         for size, projection in zip(self.patch_sizes, self.patch_projections):
             embedded = projection(regions.unfold(-1, size, size))

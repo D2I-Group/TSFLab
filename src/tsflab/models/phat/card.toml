@@ -4,7 +4,7 @@ name = "PHAT"
 tags = ["transformer", "periodicity", "frequency", "attention-variant", "channel-independent", "normalization"]
 fits = ["multi-periodic", "strong-seasonality"]
 fidelity = "reference-checked"
-issues_checked = "the card records an implementation of paper Eqs. (4)-(13) (FFT period buckets, positive-negative attention, gated feed-forward blocks and the averaged bucket and linear paths); the omitted zero-period bucket and dataset-specific periods are TSFLab scoping choices, and no paper or official-code problem is documented."
+issues_checked = "the card records an implementation of paper Eqs. (4)-(13) (FFT period buckets, positive-negative attention, gated feed-forward blocks and the averaged bucket and linear paths); the zero bucket follows Sec. 3.2 and App. B; dataset-specific periods are a TSFLab scoping choice, and no paper or official-code problem is documented."
 
 [paper]
 title = "PHAT: Modeling Period Heterogeneity for Multivariate Time Series Forecasting"

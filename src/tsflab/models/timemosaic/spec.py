@@ -12,13 +12,16 @@ class ModelParameterConfig(BaseModel):
     num_heads: int = Field(default=4, gt=0)
     dropout: float = Field(default=0.1, ge=0, lt=1)
     use_revin: bool = True
+    selection_tau: float = Field(default=0.5, gt=0)
+    budget_weight: float = Field(default=0.001, ge=0)
 
 
 def build_model(cfg, params):
     return Model(cfg.task.seq_len, cfg.task.pred_len, params['enc_in'],
                  params.get('d_model', 64), tuple(params.get('patch_sizes', (4, 8, 16))),
                  params.get('num_segments', 4), params.get('num_heads', 4),
-                 params.get('dropout', 0.1), bool(params.get('use_revin', True)))
+                 params.get('dropout', 0.1), bool(params.get('use_revin', True)),
+                 float(params.get('selection_tau', 0.5)), float(params.get('budget_weight', 0.001)))
 
 
 SPEC = ModelSpec(name='TimeMosaic', module='tsflab.models.timemosaic', model_class=Model,

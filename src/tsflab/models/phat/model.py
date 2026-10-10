@@ -3,8 +3,10 @@
 The implementation follows the public equations rather than the incomplete
 author repository: FFT-derived periods form phase-by-cycle buckets; equations
 (4)-(12) define positive-negative X-shaped attention; the bucket is unfolded
-and projected to the forecast horizon. Dataset-specific training recipes and
-the paper's special zero-period bucket are intentionally not reproduced.
+and projected to the forecast horizon. Variates whose detected period is not
+shorter than the lookback form the paper's zero bucket: they are not folded,
+and both attentions use absolute instead of periodic distance (Sec. 3.2,
+App. B). Dataset-specific training recipes are not reproduced.
 """
 
 from __future__ import annotations
@@ -16,11 +18,14 @@ from torch.nn import functional as F
 from tsflab.models._components.revin import RevIN
 
 
-def _distance_masks(period: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return Eq. (7)-(8) positive/negative modulation sets."""
+def _distance_masks(period: int, device: torch.device, periodic: bool = True) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return Eq. (7)-(8) positive/negative modulation sets (absolute distance in the zero bucket)."""
     index = torch.arange(period, device=device)
     difference = index[:, None] - index[None, :]
-    distance = torch.minimum(difference.remainder(period), (-difference).remainder(period))
+    if periodic:
+        distance = torch.minimum(difference.remainder(period), (-difference).remainder(period))
+    else:
+        distance = difference.abs()
     query_to_source = distance[:, None, :]
     query_to_key = distance[:, :, None]
     self_position = torch.eye(period, device=device, dtype=torch.bool)[:, None, :]
@@ -55,7 +60,7 @@ class PositiveNegativeAttention(nn.Module):
         batch, phase, cycles, _ = tensor.shape
         return tensor.reshape(batch, phase, cycles, self.heads, self.head_width).permute(0, 3, 1, 2, 4)
 
-    def forward(self, bucket: torch.Tensor) -> torch.Tensor:
+    def forward(self, bucket: torch.Tensor, periodic: bool = True) -> torch.Tensor:
         q_positive, q_negative = self.query(bucket).chunk(2, dim=-1)
         k_positive, k_negative = self.key(bucket).chunk(2, dim=-1)
         q_positive, q_negative = self._heads(q_positive), self._heads(q_negative)
@@ -65,7 +70,7 @@ class PositiveNegativeAttention(nn.Module):
 
         positive_logits = torch.einsum("bhpnd,bhqnd->bhpnq", q_positive, k_positive) * self.scale
         negative_logits = torch.einsum("bhpnd,bhqnd->bhpnq", q_negative, k_negative) * self.scale
-        positive_set, negative_set = _distance_masks(bucket.shape[1], bucket.device)
+        positive_set, negative_set = _distance_masks(bucket.shape[1], bucket.device, periodic)
         positive_logits = positive_logits - torch.einsum(
             "pqs,bhpns->bhpnq", positive_set.to(bucket.dtype), F.softplus(positive_logits)
         )
@@ -100,8 +105,8 @@ class _PHATBlock(nn.Module):
         self.ffn_output = nn.Linear(hidden, width)
         self.ffn_dropout = nn.Dropout(ffn_dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attention(self.attention_norm(x))
+    def forward(self, x: torch.Tensor, periodic: bool = True) -> torch.Tensor:
+        x = x + self.attention(self.attention_norm(x), periodic)
         gate, value = self.ffn_gate(self.ffn_norm(x)).chunk(2, dim=-1)
         return x + self.ffn_output(self.ffn_dropout(F.silu(gate) * value))
 
@@ -160,8 +165,9 @@ class Model(nn.Module):
             embedded = F.pad(embedded, (0, 0, 0, padding))
         cycles = embedded.shape[1] // period
         bucket = embedded.reshape(embedded.shape[0], cycles, period, -1).transpose(1, 2)
+        periodic = period < self.seq_len  # otherwise the zero bucket: no periodicity, absolute distance
         for block in self.blocks:
-            bucket = block(bucket)
+            bucket = block(bucket, periodic)
         unfolded = bucket.transpose(1, 2).reshape(embedded.shape[0], cycles * period, -1)
         return self.bucket_output(unfolded[:, : self.seq_len]).squeeze(-1)
 

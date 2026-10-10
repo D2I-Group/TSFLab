@@ -14,7 +14,7 @@ trained on a 321-billion-observation corpus is competitive with state-of-the-art
 ## Implementation notes
 
 - Regions: `seq_len // max(patch_sizes)`; each region yields `max / min` aligned tokens, so token count = regions * (max / min).
-- Candidate embeddings for coarser sizes are repeated to match the finest token count before the softmax blend.
+- Candidate embeddings for coarser sizes are repeated to match the finest token count before the hard (straight-through) selection.
 - Segment `i` has length `pred_len // num_segments` plus one for the first `pred_len % num_segments` segments.
 - `d_model` must be divisible by `num_heads`.
 

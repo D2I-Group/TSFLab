@@ -29,7 +29,7 @@ Other hyperparameters: preset defaults in `configs/models/PHAT.toml`; tune gener
 
 Independent clean-room implementation of paper Eqs. (4)-(13); the MIT repository is kept as a pinned reference and no source was copied.
 
-- The special zero-period bucket and dataset-specific periods are not included.
+- Dataset-specific periods are not included; variates without periodicity (detected period not shorter than the lookback) form the zero bucket, unfolded and with absolute-distance attention.
 - No comparison with published results is claimed.
 
 Cite: Ma, Huang, Ma, Wang, Huang, Zhou, Wang, Wang, Wang, "PHAT: Modeling Period Heterogeneity for Multivariate Time Series Forecasting", ICLR 2026 (arXiv:2602.00654).
