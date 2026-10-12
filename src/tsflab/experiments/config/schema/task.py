@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskConfig(BaseModel):
@@ -42,8 +42,8 @@ class TaskConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     mode: Literal["time_series", "spatiotemporal", "covariate"] = "time_series"
-    seq_len: int
-    label_len: int
-    pred_len: int
+    seq_len: int = Field(gt=0)
+    label_len: int = Field(ge=0)
+    pred_len: int = Field(gt=0)
     features: str = "M"
     inverse: bool = False

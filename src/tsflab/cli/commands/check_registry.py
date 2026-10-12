@@ -45,7 +45,7 @@ def _cross_model_imports(package: Path) -> list[tuple[Path, int, str]]:
                 if (
                     len(parts) >= 3
                     and parts[:2] == ["tsflab", "models"]
-                    and parts[2] not in {own_name, "_components", "_slots"}
+                    and parts[2] not in {own_name, "_components", "_slots", "_inputs"}
                 ):
                     found.append((path, node.lineno, module))
     return found
