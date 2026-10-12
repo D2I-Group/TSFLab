@@ -53,7 +53,7 @@ data_params, Idea) is the model context AutoResearch retrieves and `tsf catalog 
    contract, and writes `[admission]` (on failure, fix and rerun):
 
    ```bash
-   uv run tsf model add MyModel --verify   # also refreshes generated pages and audits
+   uv run tsf model add MyModel --verify   # refreshes pages, audits, lists reuse candidates
    ```
 
 ## Chain

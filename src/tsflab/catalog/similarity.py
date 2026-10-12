@@ -397,6 +397,19 @@ def clusters(pairs: list[Pair]) -> list[dict]:
     return out
 
 
+def reuse_candidates(root: Path, slug: str, *, threshold: float = 0.6, min_tokens: int = 40,
+                     top: int = 5) -> list[Pair]:
+    """Units of model ``slug`` that resemble a shared component, most similar first.
+
+    ``tsf model add`` reports them so a new model reuses existing units instead of
+    re-implementing them; a nomination only, equivalence is proved before switching.
+    """
+    pairs = similar_pairs(collect_units(root, {slug}), threshold=threshold, min_tokens=min_tokens)
+    hits = [pair for pair in pairs if pair.left.is_component != pair.right.is_component]
+    hits.sort(key=lambda pair: -pair.score)
+    return hits[:top]
+
+
 def similarity_command(argv: list[str], root: Path) -> int:
     import argparse
     import json

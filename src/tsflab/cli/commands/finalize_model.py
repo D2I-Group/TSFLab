@@ -97,6 +97,20 @@ def _run(*arguments: str) -> None:
         raise RuntimeError(f"failed gate: tsf {' '.join(arguments)}")
 
 
+def _report_reuse(slug: str) -> None:
+    """Name the shared components the new model's code resembles (nominations, never a failure)."""
+    from tsflab.catalog.similarity import reuse_candidates
+
+    hits = reuse_candidates(ROOT, slug)
+    if not hits:
+        return
+    print("Reuse candidates (similar shared components; switch only if numerically identical):")
+    for pair in hits:
+        own, shared = (pair.right, pair.left) if pair.left.is_component else (pair.left, pair.right)
+        print(f"  {own.qualname} ({own.path}:{own.line}) ~ {shared.owner.removeprefix('component:')}"
+              f".{shared.qualname}  score {pair.score:.2f}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="tsf model add", description=__doc__)
     add_name(parser, "name", flag="--name", help="public model name of the scaffolded package")
@@ -122,6 +136,7 @@ def main() -> int:
         # Nothing to roll back: the package itself is the catalog entry.
         print(f"Model admission failed: {exc}; fix the package and rerun", file=sys.stderr)
         return 1
+    _report_reuse(module.rpartition(".")[2])
     if args.verify:
         print(f"Admitted verified model {args.name!r} (discovered from its package)")
     else:

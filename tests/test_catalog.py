@@ -983,3 +983,20 @@ def test_cycle_phase_follows_the_calendar():
     assert cycle_phase(marks, 24, step=-1).item() == 14
     assert cycle_phase(marks, 144, step=-1).item() == (14 * 60 + 40) // 10
     assert cycle_phase(marks, 7).item() == 2 and cycle_phase(None, 24, batch=3).tolist() == [0, 0, 0]
+
+
+def test_reuse_candidates_name_a_component_a_new_model_copies(tmp_path):
+    """tsf model add reports model code that duplicates a shared component."""
+    import shutil
+
+    from tsflab.catalog.similarity import reuse_candidates
+    from tsflab.core.paths import repository_root
+
+    source = repository_root() / "src" / "tsflab" / "models" / "_components" / "revin"
+    models = tmp_path / "src" / "tsflab" / "models"
+    shutil.copytree(source, models / "_components" / "revin")
+    (models / "fresh").mkdir()
+    text = (source / "__init__.py").read_text(encoding="utf-8").replace("class RevIN", "class LocalNorm")
+    (models / "fresh" / "model.py").write_text(text, encoding="utf-8")
+    hits = reuse_candidates(tmp_path, "fresh")
+    assert hits and {hits[0].left.owner, hits[0].right.owner} == {"component:revin", "fresh"}
