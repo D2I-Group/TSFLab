@@ -1243,6 +1243,22 @@ def test_channel_params_follow_the_data():
     assert _channel_params(spec, cfg, NS(data=np.zeros((10, 1))))["enc_in"] == 7
 
 
+def test_channel_params_only_set_channel_widths():
+    """Parameters a card declares as channel-dependent by a rule (a formula, a flag) stay as configured."""
+    import numpy as np
+    from types import SimpleNamespace as NS
+
+    from tsflab.catalog.registry.models import MODEL_CATALOG
+    from tsflab.experiments.runner.run_one import _channel_params
+
+    caps = NS(model=NS(params={"enc_in": 7, "d_model": 16}), task=NS(features="M"))
+    out = _channel_params(MODEL_CATALOG.get("CAPS"), caps, NS(data=np.zeros((10, 6))))
+    assert out["enc_in"] == 6 and out["d_model"] == 16  # d_model follows a formula, not equality
+    cost = NS(model=NS(params={"enc_in": 7, "channel_independent": True}), task=NS(features="M"))
+    out = _channel_params(MODEL_CATALOG.get("CoST"), cost, NS(data=np.zeros((10, 6))))
+    assert out["channel_independent"] is True  # a bool is not a channel count
+
+
 def test_wait_blocks_until_runs_end_and_reports_compactly(monkeypatch):
     from tsflab.experiments.infra import execution
 

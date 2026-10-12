@@ -272,7 +272,11 @@ class Model(nn.Module):
         """Appendix A.1 preprocessing: rebuild the training series, smooth it with a
         moving average of length ``seq_len + 1``, and store per-channel ``|ACF|``
         together with the sorted window start timestamps."""
-        starts, first_rows, last = _collect_windows(train_loader)
+        # every training window once, in order: a shuffled loader that drops its last partial
+        # batch would leave out windows that later epochs draw
+        full = torch.utils.data.DataLoader(train_loader.dataset, batch_size=train_loader.batch_size or 1,
+                                           shuffle=False, drop_last=False, collate_fn=train_loader.collate_fn)
+        starts, first_rows, last = _collect_windows(full)
         if last is None:
             raise ValueError("the training loader is empty")
         times = torch.cat(starts)
