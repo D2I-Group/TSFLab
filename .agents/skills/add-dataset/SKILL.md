@@ -30,7 +30,7 @@ strict parameter schema, a preset, and a card. The card and the profile from
 
    ```bash
    uv run tsf data add --name my_data --pattern custom \
-     --path ./dataset/my_data/my_data.csv --target OT
+     --path ./dataset/my_data/my_data.csv --target OT   # also measures characteristics into the card
    ```
 
 4. Keep `[dataset]` to `name`, optional display/track fields, `path`, optional `id`,
@@ -38,13 +38,12 @@ strict parameter schema, a preset, and a card. The card and the profile from
    rejects misspellings.
 5. Write the card `catalog/datasets/<name>/` (`card.toml` facts and a `README.md`
    with Overview, Protocol and pitfalls) from measured or cited facts per
-   [references/card.md](references/card.md), record the measured characteristics,
-   then exercise the data:
+   [references/card.md](references/card.md) (`data add` already recorded the measured
+   characteristics; re-run `tsf data analyze my_data --write-card` if the data changes), then:
 
    ```bash
-   uv run tsf data analyze my_data --write-card   # data characteristics into card.toml
-   uv run tsf data inspect --config configs/datasets/my_data.toml
-   uv run tsf data audit
+   uv run tsf data inspect --config configs/datasets/my_data.toml   # look at the series
+   uv run tsf repo check --audit                                    # card facts, no TODO
    ```
 
 ## Chain
@@ -58,7 +57,7 @@ strict parameter schema, a preset, and a card. The card and the profile from
 
 - Train-only scaling, correct feature/target selection, stable split boundaries,
   and adjacency injection where declared.
-- `uv run tsf data audit` and `uv run tsf repo check --audit` pass: card facts
+- `uv run tsf repo check --audit` passes: card facts
   curated, no `TODO`, `characteristics` recorded with their basis.
 
 ## Stop and hand off

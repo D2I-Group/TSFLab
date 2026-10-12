@@ -34,5 +34,5 @@ modes, and parameters are derived from code; never copy them into the card.
 - Document split conventions, `drop_last`, scaling, zeros or sentinels, shift, and
   leakage risks under Protocol and pitfalls; a differing literature protocol goes
   in `[protocol].literature`.
-- Verify with `uv run tsf catalog show <name>`, `uv run tsf data audit`, and
-  `uv run tsf catalog match <name>`.
+- Verify with `uv run tsf catalog show <name>` and `uv run tsf catalog match <name>`;
+  `tsf repo check --audit` checks the card.
