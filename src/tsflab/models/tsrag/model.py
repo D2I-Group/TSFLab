@@ -45,6 +45,13 @@ class AdaptiveRetrievalMixer(nn.Module):
         return mixed, weights
 
 
+def _per_sample(knowledge: torch.Tensor, batch: int) -> torch.Tensor:
+    """Broadcast a shared ``(N, ...)`` knowledge base to ``(B, N, ...)``."""
+    if knowledge.ndim == 3:
+        return knowledge.unsqueeze(0).expand(batch, -1, -1, -1)
+    return knowledge
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -134,19 +141,20 @@ class Model(nn.Module):
             return self.build_local_knowledge(normalized)
         if contexts is None or futures is None:
             raise ValueError("retrieval_contexts and retrieval_futures must be supplied together")
-        if contexts.ndim == 3:
-            contexts = contexts.unsqueeze(0).expand(normalized.shape[0], -1, -1, -1)
-        if futures.ndim == 3:
-            futures = futures.unsqueeze(0).expand(normalized.shape[0], -1, -1, -1)
-        if contexts.ndim != 4 or contexts.shape[0] != normalized.shape[0]:
+        batch = normalized.shape[0]
+        contexts, futures = _per_sample(contexts, batch), _per_sample(futures, batch)
+        self._check_knowledge(contexts, futures, batch)
+        return contexts.to(normalized), futures.to(normalized)
+
+    def _check_knowledge(self, contexts: torch.Tensor, futures: torch.Tensor, batch: int) -> None:
+        if contexts.ndim != 4 or contexts.shape[0] != batch:
             raise ValueError("retrieval_contexts must have shape (N,L,C) or (B,N,L,C)")
         if contexts.shape[2:] != (self.seq_len, self.enc_in):
             raise ValueError("retrieval context shape does not match the model contract")
         if futures.shape != (
-            normalized.shape[0], contexts.shape[1], self.pred_len, self.enc_in
+            batch, contexts.shape[1], self.pred_len, self.enc_in
         ):
             raise ValueError("retrieval future shape does not match the model contract")
-        return contexts.to(normalized), futures.to(normalized)
 
     def forecast_with_retrieval(
         self,

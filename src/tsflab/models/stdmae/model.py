@@ -135,6 +135,44 @@ class WaveNetGraphBlock(nn.Module):
         return self.norm(mixed), skip
 
 
+def _check_sizes(dims: tuple[int, ...], smallest_wavenet: int) -> None:
+    seq_len, _, _, history_len, patch_size, embed_dim, num_heads = dims
+    if min(dims) < 1 or smallest_wavenet < 1:
+        raise ValueError("STDMAE dimensions must be positive")
+    if seq_len % patch_size:
+        raise ValueError("seq_len must be a multiple of patch_size")
+    if history_len > seq_len:
+        raise ValueError("history_len must not exceed seq_len")
+    if embed_dim % num_heads:
+        raise ValueError("embed_dim must be divisible by num_heads")
+
+
+def _receptive_field(blocks: int, layers: int, kernel_size: int, history_len: int) -> int:
+    receptive = 1
+    for _ in range(blocks):
+        step = kernel_size - 1
+        for _ in range(layers):
+            receptive += step
+            step *= 2
+    if history_len + 1 > receptive:
+        raise ValueError(
+            f"history_len + 1 must not exceed the receptive field {receptive}"
+        )
+    return receptive
+
+
+def _supports(adj_mx: np.ndarray | None, num_nodes: int):
+    """Forward and reverse supports of ``adj_mx`` (the identity graph when absent)."""
+    adjacency = (
+        np.eye(num_nodes, dtype=np.float32)
+        if adj_mx is None
+        else np.asarray(adj_mx, dtype=np.float32)
+    )
+    if adjacency.shape != (num_nodes, num_nodes):
+        raise ValueError("adj_mx shape must match num_nodes")
+    return adj_to_supports(adjacency)
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -162,26 +200,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         dims = (seq_len, pred_len, num_nodes, history_len, patch_size, embed_dim, num_heads)
-        if min(dims) < 1 or min(in_dim, blocks, layers, kernel_size) < 1:
-            raise ValueError("STDMAE dimensions must be positive")
-        if seq_len % patch_size:
-            raise ValueError("seq_len must be a multiple of patch_size")
-        if history_len > seq_len:
-            raise ValueError("history_len must not exceed seq_len")
-        if embed_dim % num_heads:
-            raise ValueError("embed_dim must be divisible by num_heads")
+        _check_sizes(dims, min(in_dim, blocks, layers, kernel_size))
         if not 1 <= in_dim <= 3:
             raise ValueError("in_dim must select 1 to 3 of value, time-of-day, day-of-week")
-        receptive = 1
-        for _ in range(blocks):
-            step = kernel_size - 1
-            for _ in range(layers):
-                receptive += step
-                step *= 2
-        if history_len + 1 > receptive:
-            raise ValueError(
-                f"history_len + 1 must not exceed the receptive field {receptive}"
-            )
+        receptive = _receptive_field(blocks, layers, kernel_size, history_len)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.history_len, self.in_dim, self.receptive_field = history_len, in_dim, receptive
         self.freeze_encoders = freeze_encoders
@@ -198,14 +220,7 @@ class Model(nn.Module):
             for encoder in (self.temporal_encoder, self.spatial_encoder):
                 encoder.requires_grad_(False)
 
-        adjacency = (
-            np.eye(num_nodes, dtype=np.float32)
-            if adj_mx is None
-            else np.asarray(adj_mx, dtype=np.float32)
-        )
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
-        forward_support, reverse_support = adj_to_supports(adjacency)
+        forward_support, reverse_support = _supports(adj_mx, num_nodes)
         self.register_buffer("forward_support", forward_support)
         self.register_buffer("reverse_support", reverse_support)
         self.source_nodes = nn.Parameter(torch.randn(num_nodes, 10))
@@ -243,6 +258,14 @@ class Model(nn.Module):
             spatial = self.spatial_encoder(long_history)[:, :, -1]
         return temporal, spatial
 
+    def _short_input(self, data: torch.Tensor) -> torch.Tensor:
+        """Short history ``(B, C, N, L + 1)``, left-padded to at least the receptive field."""
+        short = data[:, -self.history_len :, :, : self.in_dim]  # (B, L, N, C)
+        x = F.pad(short.permute(0, 3, 2, 1), (1, 0, 0, 0))  # (B, C, N, L + 1)
+        if x.shape[-1] < self.receptive_field:
+            x = F.pad(x, (self.receptive_field - x.shape[-1], 0, 0, 0))
+        return x
+
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
             raise ValueError(
@@ -253,11 +276,7 @@ class Model(nn.Module):
             raise ValueError("STDMAE received fewer input features than configured")
         temporal, spatial = self.encode_long_history(x_enc)
 
-        short = data[:, -self.history_len :, :, : self.in_dim]  # (B, L, N, C)
-        x = F.pad(short.permute(0, 3, 2, 1), (1, 0, 0, 0))  # (B, C, N, L + 1)
-        if x.shape[-1] < self.receptive_field:
-            x = F.pad(x, (self.receptive_field - x.shape[-1], 0, 0, 0))
-        x = self.start_conv(x)
+        x = self.start_conv(self._short_input(data))
         supports = [
             self.forward_support,
             self.reverse_support,

@@ -56,21 +56,25 @@ def training_setup(model, train_loader, *, pred_len, features):
     if series is not None and series.shape[0] > model.lag:
         model.fit_ar(series)
         return
-    xtx = xty = sums = counts = None
+    _fit_ar_from_windows(model, train_loader)
+
+
+def _add(total, part):
+    return part if total is None else total + part
+
+
+def _fit_ar_from_windows(model, train_loader) -> None:
+    """Accumulate Yule-Walker sums/counts or least-squares moments over the history windows."""
+    yule_walker = model.ar_estimator == "yule_walker"
+    statistics = autocorrelation_sums if yule_walker else lagged_moments
+    first = second = None
     for batch_x, *_ in train_loader:
-        segments = batch_x.double()
-        if model.ar_estimator == "yule_walker":
-            part = autocorrelation_sums(segments, model.lag)
-            sums = part[0] if sums is None else sums + part[0]
-            counts = part[1] if counts is None else counts + part[1]
-        else:
-            part = lagged_moments(segments, model.lag)
-            xtx = part[0] if xtx is None else xtx + part[0]
-            xty = part[1] if xty is None else xty + part[1]
-    if model.ar_estimator == "yule_walker" and sums is not None:
-        model.set_ar_weights(solve_yule_walker(sums, counts))
-    elif xtx is not None:
-        model.set_ar_weights(solve_least_squares(xtx, xty))
+        part = statistics(batch_x.double(), model.lag)
+        first = _add(first, part[0])
+        second = _add(second, part[1])
+    if first is not None:
+        solve = solve_yule_walker if yule_walker else solve_least_squares
+        model.set_ar_weights(solve(first, second))
 
 
 def training_objective(model, batch: TrainingBatch, criterion):

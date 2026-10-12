@@ -15,6 +15,13 @@ def cal_orthogonal_loss(matrix: torch.Tensor) -> torch.Tensor:
     return loss.mean()
 
 
+def _check_lengths(seq_len: int, pred_len: int, enc_in: int, period_len: int) -> None:
+    if seq_len < 1 or pred_len < 1 or enc_in < 1:
+        raise ValueError("seq_len, pred_len, and enc_in must be positive")
+    if period_len < 1 or period_len > seq_len:
+        raise ValueError("period_len must be in [1, seq_len]")
+
+
 class TimeBaseModel(nn.Module):
     def __init__(
         self,
@@ -28,10 +35,7 @@ class TimeBaseModel(nn.Module):
         use_period_norm: bool,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1 or enc_in < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
-        if period_len < 1 or period_len > seq_len:
-            raise ValueError("period_len must be in [1, seq_len]")
+        _check_lengths(seq_len, pred_len, enc_in, period_len)
         if basis_num < 1:
             raise ValueError("basis_num must be positive")
         if orthogonal_weight < 0:
@@ -55,6 +59,10 @@ class TimeBaseModel(nn.Module):
             self.seg_num_y += 1
 
         self.individual = individual
+        self._build_projections()
+
+    def _build_projections(self) -> None:
+        """Segment-to-basis and basis-to-segment maps, one pair per channel when ``individual``."""
         if self.individual:
             self.ts2basis = nn.ModuleList()
             self.basis2ts = nn.ModuleList()
@@ -91,25 +99,10 @@ class TimeBaseModel(nn.Module):
         x = x + norm_stats["mean"]
         return x.reshape(-1, self.period_len, self.seg_num_y)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"TimeBase expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
-        batch_size, _, channels = x.shape
-        x = x.permute(0, 2, 1)
-
-        if self.pad_seq_len > 0:
-            pad_start = (self.seg_num_x - 1) * self.period_len
-            x = torch.cat(
-                [x, x[:, :, pad_start - self.pad_seq_len : pad_start]], dim=-1
-            )
-
-        x = x.reshape(batch_size, self.enc_in, self.seg_num_x, self.period_len)
-        x = x.permute(0, 1, 3, 2).reshape(-1, self.period_len, self.seg_num_x)
-
-        x, norm_stats = self._normalize_input(x, batch_size, channels)
-
+    def _project(
+        self, x: torch.Tensor, batch_size: int, channels: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Basis coefficients and forecast segments of the normalized ``[B*C, period, seg_x]`` input."""
         if self.individual:
             x = x.reshape(batch_size, channels, self.period_len, self.seg_num_x)
             x_pred = torch.zeros(
@@ -130,6 +123,28 @@ class TimeBaseModel(nn.Module):
         else:
             x_basis = self.ts2basis(x)
             x = self.basis2ts(x_basis)
+        return x, x_basis
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
+            raise ValueError(
+                f"TimeBase expects input shaped (batch, {self.seq_len}, {self.enc_in})"
+            )
+        batch_size, _, channels = x.shape
+        x = x.permute(0, 2, 1)
+
+        if self.pad_seq_len > 0:
+            pad_start = (self.seg_num_x - 1) * self.period_len
+            x = torch.cat(
+                [x, x[:, :, pad_start - self.pad_seq_len : pad_start]], dim=-1
+            )
+
+        x = x.reshape(batch_size, self.enc_in, self.seg_num_x, self.period_len)
+        x = x.permute(0, 1, 3, 2).reshape(-1, self.period_len, self.seg_num_x)
+
+        x, norm_stats = self._normalize_input(x, batch_size, channels)
+
+        x, x_basis = self._project(x, batch_size, channels)
 
         x = self._denormalize_output(x, norm_stats, batch_size, channels)
 

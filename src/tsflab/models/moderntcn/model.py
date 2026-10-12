@@ -57,6 +57,26 @@ class ModernTCNBlock(nn.Module):
         return residual + mixed.reshape(batch, width, variables, patches).transpose(1, 2)
 
 
+def _head_width(seq_len, dims, patch_size, patch_stride, downsample_ratio, use_multi_scale):
+    patch_counts = []
+    length = seq_len
+    for stage, width in enumerate(dims):
+        kernel = patch_size if stage == 0 else downsample_ratio
+        stride = patch_stride if stage == 0 else downsample_ratio
+        length = (length - kernel) // stride + 1
+        if length < 1:
+            raise ValueError("stage configuration collapses the temporal axis")
+        patch_counts.append(width * length)
+    return sum(patch_counts) if use_multi_scale else patch_counts[-1]
+
+
+def _stage_arrays(num_blocks, large_size, small_size, dims):
+    arrays = [list(value) for value in (num_blocks, large_size, small_size, dims)]
+    if len({len(value) for value in arrays}) != 1 or not arrays[0]:
+        raise ValueError("stage parameter lists must have the same non-zero length")
+    return arrays
+
+
 class ModernTCNBackbone(nn.Module):
     def __init__(self, seq_len, pred_len, variables, ffn_ratio, num_blocks,
                  large_size, small_size, dims, patch_size, patch_stride,
@@ -79,16 +99,8 @@ class ModernTCNBackbone(nn.Module):
                 for _ in range(num_blocks[stage])
             ]))
         self.use_multi_scale = use_multi_scale
-        patch_counts = []
-        length = seq_len
-        for stage, width in enumerate(dims):
-            kernel = patch_size if stage == 0 else downsample_ratio
-            stride = patch_stride if stage == 0 else downsample_ratio
-            length = (length - kernel) // stride + 1
-            if length < 1:
-                raise ValueError("stage configuration collapses the temporal axis")
-            patch_counts.append(width * length)
-        head_width = sum(patch_counts) if use_multi_scale else patch_counts[-1]
+        head_width = _head_width(seq_len, dims, patch_size, patch_stride, downsample_ratio,
+                                 use_multi_scale)
         self.head = nn.Sequential(nn.Dropout(head_dropout), nn.Linear(head_width, pred_len))
 
     def forward_features(self, values, normalize=True):
@@ -123,9 +135,7 @@ class Model(nn.Module):
                  affine=True, subtract_last=False,
                  decomposition=False, kernel_size=25):
         super().__init__()
-        arrays = [list(value) for value in (num_blocks, large_size, small_size, dims)]
-        if len({len(value) for value in arrays}) != 1 or not arrays[0]:
-            raise ValueError("stage parameter lists must have the same non-zero length")
+        arrays = _stage_arrays(num_blocks, large_size, small_size, dims)
         if any(kernel % 2 == 0 for kernel in arrays[1] + arrays[2]):
             raise ValueError("ModernTCN temporal kernels must be odd")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

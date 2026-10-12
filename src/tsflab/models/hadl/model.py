@@ -59,6 +59,13 @@ class LowRankLinear(nn.Module):
         return out if self.B is None else out + self.B
 
 
+def _check_config(seq_len: int, enable_haar: bool, regularization_rate: float) -> None:
+    if seq_len < 2 and enable_haar:
+        raise ValueError("the Haar step needs seq_len >= 2")
+    if regularization_rate < 0:
+        raise ValueError("regularization_rate must be non-negative")
+
+
 class Model(nn.Module):
     """HADL forecaster for ``[batch, seq_len, enc_in]`` inputs."""
 
@@ -76,10 +83,7 @@ class Model(nn.Module):
         regularization_rate: float = 0.1,
     ) -> None:
         super().__init__()
-        if seq_len < 2 and enable_haar:
-            raise ValueError("the Haar step needs seq_len >= 2")
-        if regularization_rate < 0:
-            raise ValueError("regularization_rate must be non-negative")
+        _check_config(seq_len, enable_haar, regularization_rate)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.individual = bool(individual)
         self.enable_haar, self.enable_dct = bool(enable_haar), bool(enable_dct)
@@ -116,11 +120,19 @@ class Model(nn.Module):
         """Eq. 4: ``A_F = (2 / L) DCT(A_T)``, i.e. orthonormal DCT-II over its own length."""
         return (x @ self.dct_matrix.T) / x.shape[-1]
 
-    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
+    def _check_input(self, x_enc: torch.Tensor) -> None:
         if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
             raise ValueError(
                 f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
             )
+
+    def _predict(self, x: torch.Tensor) -> torch.Tensor:
+        if self.individual:
+            return torch.stack([layer(x[:, i]) for i, layer in enumerate(self.pred_layer)], dim=1)
+        return self.pred_layer(x)
+
+    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
+        self._check_input(x_enc)
         x = x_enc.transpose(1, 2)  # [B, C, L]
         mean = x.mean(dim=-1, keepdim=True)
         x = x - mean
@@ -128,10 +140,7 @@ class Model(nn.Module):
             x = self.haar_approximation(x)
         if self.enable_dct:
             x = self.frequency_features(x)
-        if self.individual:
-            out = torch.stack([layer(x[:, i]) for i, layer in enumerate(self.pred_layer)], dim=1)
-        else:
-            out = self.pred_layer(x)
+        out = self._predict(x)
         out = out + mean
         forecast = out.transpose(1, 2)
         # Official L1 regularizer: rate * mean |forecast| added to the training loss.

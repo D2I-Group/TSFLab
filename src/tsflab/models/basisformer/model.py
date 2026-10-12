@@ -157,6 +157,28 @@ class CoefModule(nn.Module):
         return s @ b.transpose(-1, -2) * self.scale
 
 
+def _check_sizes(seq_len, pred_len, enc_in, d_model, heads, basis_nums, block_nums, bottleneck, map_bottleneck) -> None:
+    if min(seq_len, pred_len, enc_in, d_model, heads, basis_nums, bottleneck, map_bottleneck) < 1:
+        raise ValueError("lengths, channels, widths, heads, and basis count must be positive")
+    if block_nums < 0:
+        raise ValueError("block_nums must be non-negative")
+    if d_model < heads:
+        raise ValueError("d_model must be at least heads")
+    if pred_len < heads:
+        raise ValueError("pred_len must be at least heads (the future basis is split into heads)")
+    if pred_len < bottleneck:
+        raise ValueError("pred_len must be at least bottleneck")
+
+
+def _check_scalars(tau, dropout, timestamp_span_years, loss_weight_infonce, loss_weight_smooth) -> None:
+    if tau <= 0 or timestamp_span_years <= 0:
+        raise ValueError("tau and timestamp_span_years must be positive")
+    if loss_weight_infonce < 0 or loss_weight_smooth < 0:
+        raise ValueError("loss weights must be non-negative")
+    if not 0.0 <= dropout < 1.0:
+        raise ValueError("dropout must be in [0, 1)")
+
+
 class Model(nn.Module):
     """BasisFormer point forecaster exposing the paper's alignment and smoothness terms."""
 
@@ -179,22 +201,8 @@ class Model(nn.Module):
         loss_weight_smooth: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, heads, basis_nums, bottleneck, map_bottleneck) < 1:
-            raise ValueError("lengths, channels, widths, heads, and basis count must be positive")
-        if block_nums < 0:
-            raise ValueError("block_nums must be non-negative")
-        if d_model < heads:
-            raise ValueError("d_model must be at least heads")
-        if pred_len < heads:
-            raise ValueError("pred_len must be at least heads (the future basis is split into heads)")
-        if pred_len < bottleneck:
-            raise ValueError("pred_len must be at least bottleneck")
-        if tau <= 0 or timestamp_span_years <= 0:
-            raise ValueError("tau and timestamp_span_years must be positive")
-        if loss_weight_infonce < 0 or loss_weight_smooth < 0:
-            raise ValueError("loss weights must be non-negative")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        _check_sizes(seq_len, pred_len, enc_in, d_model, heads, basis_nums, block_nums, bottleneck, map_bottleneck)
+        _check_scalars(tau, dropout, timestamp_span_years, loss_weight_infonce, loss_weight_smooth)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.heads, self.basis_nums, self.tau = heads, basis_nums, tau
         self.timestamp_origin_year = timestamp_origin_year

@@ -31,16 +31,21 @@ def pyramid_chains(windows: tuple[int, ...]) -> list[list[int]]:
     assigned = [False] * len(windows)
     chains: list[list[int]] = []
     while not all(assigned):
-        chain: list[int] = []
-        for index in range(len(windows) - 1, -1, -1):
-            if assigned[index] and index != 0:
-                continue
-            window = windows[index]
-            if not chain or chain[-1] % window == 0:
-                chain.append(window)
-                assigned[index] = True
-        chains.append(sorted(chain))
+        chains.append(sorted(_next_chain(windows, assigned)))
     return chains
+
+
+def _next_chain(windows: tuple[int, ...], assigned: list[bool]) -> list[int]:
+    """One scan of ``pyramid_chains`` from the largest window down; marks ``assigned``."""
+    chain: list[int] = []
+    for index in range(len(windows) - 1, -1, -1):
+        if assigned[index] and index != 0:
+            continue
+        window = windows[index]
+        if not chain or chain[-1] % window == 0:
+            chain.append(window)
+            assigned[index] = True
+    return chain
 
 
 def scale_hidden_sizes(windows: tuple[int, ...], d_model: int) -> dict[int, int]:
@@ -108,6 +113,13 @@ class PyramidChain(nn.Module):
         return states
 
 
+def _check_windows(seq_len: int, windows: tuple[int, ...]) -> None:
+    if not windows or list(windows) != sorted(set(windows)) or windows[0] < 1:
+        raise ValueError("conv_windows must be strictly increasing positive period lengths")
+    if windows[-1] > seq_len:
+        raise ValueError("every conv window must fit in seq_len")
+
+
 class PyramidalRNNEmbedding(nn.Module):
     """PRE: one ``d_model`` token per univariate series (Eq. 4 plus output linear)."""
 
@@ -115,10 +127,7 @@ class PyramidalRNNEmbedding(nn.Module):
         self, seq_len: int, windows: tuple[int, ...], d_model: int, conv_channels: int, temperature: float
     ) -> None:
         super().__init__()
-        if not windows or list(windows) != sorted(set(windows)) or windows[0] < 1:
-            raise ValueError("conv_windows must be strictly increasing positive period lengths")
-        if windows[-1] > seq_len:
-            raise ValueError("every conv window must fit in seq_len")
+        _check_windows(seq_len, windows)
         self.chain_windows = pyramid_chains(windows)
         self.hidden = scale_hidden_sizes(windows, d_model)
         if min(self.hidden.values()) < 1:
@@ -154,6 +163,17 @@ class PyramidalRNNEmbedding(nn.Module):
         return self.out_linear(embedding).view(batch, channels, -1)
 
 
+def _check_arguments(
+    sizes: tuple[int, ...], d_model: int, n_heads: int, rnn_mix_temperature: float
+) -> None:
+    if min(sizes) < 1:
+        raise ValueError("lengths, channels, widths, heads, and layers must be positive")
+    if d_model % n_heads:
+        raise ValueError("d_model must be divisible by n_heads")
+    if rnn_mix_temperature <= 0:
+        raise ValueError("rnn_mix_temperature must be positive")
+
+
 class Model(nn.Module):
     """PRformer: RevIN, PRE variate tokens, post-norm Transformer encoder, linear head."""
 
@@ -174,12 +194,8 @@ class Model(nn.Module):
         causal_variate_mask: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, conv_channels, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if rnn_mix_temperature <= 0:
-            raise ValueError("rnn_mix_temperature must be positive")
+        sizes = (seq_len, pred_len, enc_in, conv_channels, d_model, n_heads, e_layers, d_ff)
+        _check_arguments(sizes, d_model, n_heads, rnn_mix_temperature)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         # A period longer than the lookback has no complete window to convolve;
         # the official scripts never meet this case (seq_len 660-720). Such

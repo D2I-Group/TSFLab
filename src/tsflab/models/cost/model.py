@@ -105,6 +105,20 @@ def _amplitude_phase(z: torch.Tensor, eps: float = 1e-6):
     return amplitude, phase
 
 
+def _check_config(repr_dims: int, features: str, ridge_valid_fraction: float) -> None:
+    if repr_dims % 2:
+        raise ValueError("repr_dims must be even (trend and season halves)")
+    if features not in {"M", "S", "MS"}:
+        raise ValueError("features must be M, S, or MS")
+    if not 0.0 < ridge_valid_fraction < 1.0:
+        raise ValueError("ridge_valid_fraction must be in (0, 1)")
+
+
+def _freeze(parameters) -> None:
+    for parameter in parameters:
+        parameter.requires_grad_(False)
+
+
 class Model(nn.Module):
     """Frozen CoST encoder followed by a closed-form multi-horizon ridge regression."""
 
@@ -134,12 +148,7 @@ class Model(nn.Module):
         ridge_max_samples: int = 100000,
     ) -> None:
         super().__init__()
-        if repr_dims % 2:
-            raise ValueError("repr_dims must be even (trend and season halves)")
-        if features not in {"M", "S", "MS"}:
-            raise ValueError("features must be M, S, or MS")
-        if not 0.0 < ridge_valid_fraction < 1.0:
-            raise ValueError("ridge_valid_fraction must be in (0, 1)")
+        _check_config(repr_dims, features, ridge_valid_fraction)
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.channel_independent, self.use_marks = channel_independent, use_marks
         self.alpha, self.momentum, self.temperature = alpha, momentum, temperature
@@ -157,8 +166,7 @@ class Model(nn.Module):
         # Momentum (key) encoder and head: updated by EMA only (MoCo).
         self.key_encoder = copy.deepcopy(self.encoder)
         self.key_head = copy.deepcopy(self.head)
-        for parameter in [*self.key_encoder.parameters(), *self.key_head.parameters()]:
-            parameter.requires_grad_(False)
+        _freeze([*self.key_encoder.parameters(), *self.key_head.parameters()])
         self.register_buffer("queue", F.normalize(torch.randn(component, queue_size), dim=0))
         self.register_buffer("queue_ptr", torch.zeros((), dtype=torch.long))
         self.register_buffer("mark_mean", torch.zeros(_CALENDAR))
@@ -288,10 +296,44 @@ class Model(nn.Module):
             labels = future.reshape(future.shape[0], -1)
         return labels.double()
 
+    def _batch_marks(self, batch, device) -> torch.Tensor | None:
+        return batch[2].float().to(device) if len(batch) > 2 and self.use_marks else None
+
     def _features(self, batch, device) -> torch.Tensor:
         x = batch[0].float().to(device)
-        marks = batch[2].float().to(device) if len(batch) > 2 and self.use_marks else None
+        marks = self._batch_marks(batch, device)
         return self.representation(x, marks).double()
+
+    def _subsample(self, index: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+        if len(index) > self.ridge_max_samples:
+            index = index[torch.randperm(len(index), generator=generator)[: self.ridge_max_samples]].sort().values
+        return index
+
+    def _ridge_moments(self, dataset, fit_index, device, batch_size):
+        """Uncentered normal-equation sums over the fitting windows."""
+        dims = self.ridge_weight.shape[0]
+        xtx = torch.zeros(dims, dims, dtype=torch.float64, device=device)
+        xty = torch.zeros(dims, self.ridge_weight.shape[1], dtype=torch.float64, device=device)
+        sum_x = torch.zeros(dims, dtype=torch.float64, device=device)
+        sum_y = torch.zeros(self.ridge_weight.shape[1], dtype=torch.float64, device=device)
+        rows = 0
+        for batch in DataLoader(Subset(dataset, fit_index.tolist()), batch_size=batch_size, shuffle=False):
+            features, labels = self._features(batch, device), self._labels(batch, device)
+            xtx += features.T @ features
+            xty += features.T @ labels
+            sum_x += features.sum(0)
+            sum_y += labels.sum(0)
+            rows += features.shape[0]
+        return xtx, xty, sum_x, sum_y, rows
+
+    def _ridge_score(self, valid_features, valid_loader, weight, bias, device) -> float:
+        squared, absolute, count = 0.0, 0.0, 0
+        for features, batch in zip(valid_features, valid_loader):
+            error = features @ weight + bias - self._labels(batch, device)
+            squared += float((error**2).sum())
+            absolute += float(error.abs().sum())
+            count += error.numel()
+        return math.sqrt(squared / count) + absolute / count
 
     @torch.no_grad()
     def fit_ridge(self, dataset, device, batch_size: int = 256) -> None:
@@ -306,23 +348,10 @@ class Model(nn.Module):
         generator = torch.Generator().manual_seed(0)
         fit_index = torch.arange(split)
         valid_index = torch.arange(split, windows)
-        if len(fit_index) > self.ridge_max_samples:
-            fit_index = fit_index[torch.randperm(len(fit_index), generator=generator)[: self.ridge_max_samples]].sort().values
-        if len(valid_index) > self.ridge_max_samples:
-            valid_index = valid_index[torch.randperm(len(valid_index), generator=generator)[: self.ridge_max_samples]].sort().values
+        fit_index = self._subsample(fit_index, generator)
+        valid_index = self._subsample(valid_index, generator)
         dims = self.ridge_weight.shape[0]
-        xtx = torch.zeros(dims, dims, dtype=torch.float64, device=device)
-        xty = torch.zeros(dims, self.ridge_weight.shape[1], dtype=torch.float64, device=device)
-        sum_x = torch.zeros(dims, dtype=torch.float64, device=device)
-        sum_y = torch.zeros(self.ridge_weight.shape[1], dtype=torch.float64, device=device)
-        rows = 0
-        for batch in DataLoader(Subset(dataset, fit_index.tolist()), batch_size=batch_size, shuffle=False):
-            features, labels = self._features(batch, device), self._labels(batch, device)
-            xtx += features.T @ features
-            xty += features.T @ labels
-            sum_x += features.sum(0)
-            sum_y += labels.sum(0)
-            rows += features.shape[0]
+        xtx, xty, sum_x, sum_y, rows = self._ridge_moments(dataset, fit_index, device, batch_size)
         mean_x, mean_y = sum_x / rows, sum_y / rows
         # Centered normal equations (intercept unpenalized, as sklearn Ridge).
         xtx_c = xtx - rows * torch.outer(mean_x, mean_x)
@@ -335,13 +364,7 @@ class Model(nn.Module):
         for penalty in self.ridge_alphas:
             weight = torch.linalg.solve(xtx_c + penalty * identity, xty_c)
             bias = mean_y - mean_x @ weight
-            squared, absolute, count = 0.0, 0.0, 0
-            for features, batch in zip(valid_features, valid_loader):
-                error = features @ weight + bias - self._labels(batch, device)
-                squared += float((error**2).sum())
-                absolute += float(error.abs().sum())
-                count += error.numel()
-            score = math.sqrt(squared / count) + absolute / count
+            score = self._ridge_score(valid_features, valid_loader, weight, bias, device)
             if best is None or score < best[0]:
                 best = (score, penalty, weight, bias)
         _, penalty, weight, bias = best
@@ -363,7 +386,7 @@ class Model(nn.Module):
         self.train()
         for iteration, batch in enumerate(loader):
             x = batch[0].float().to(device)
-            marks = batch[2].float().to(device) if len(batch) > 2 and self.use_marks else None
+            marks = self._batch_marks(batch, device)
             inputs = self._inputs(x, marks)
             optimizer.zero_grad()
             self.contrastive_loss(self._augment(inputs), self._augment(inputs)).backward()

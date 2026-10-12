@@ -86,6 +86,18 @@ class SelfAttentionBlock(nn.Module):
         return self.norm2(residual + self.dropout2(self.feed_forward(x)))
 
 
+def _adjacency_mask(adj_mx: np.ndarray | None, num_nodes: int) -> torch.Tensor:
+    """Boolean attention mask: the graph's nonzero entries plus self-loops (identity without a graph)."""
+    if adj_mx is None:
+        return torch.eye(num_nodes, dtype=torch.bool)
+    dense = torch.as_tensor(np.asarray(adj_mx), dtype=torch.float32)
+    return (dense != 0) | torch.eye(num_nodes, dtype=torch.bool)
+
+
+def _attention_blocks(width: int, feed_forward_dim: int, num_heads: int, dropout: float, num_layers: int):
+    return nn.ModuleList(SelfAttentionBlock(width, feed_forward_dim, num_heads, dropout) for _ in range(num_layers))
+
+
 class Model(nn.Module):
     """Three-route (temporal / spatial / mixed) fused graph forecaster."""
 
@@ -123,18 +135,11 @@ class Model(nn.Module):
         self.dow_embedding_dim = dow_embedding_dim
         self.spatial_embedding_dim = spatial_embedding_dim
 
-        adj_mask = None
-        if adj_mx is not None:
-            dense = torch.as_tensor(np.asarray(adj_mx), dtype=torch.float32)
-            adj_mask = (dense != 0) | torch.eye(num_nodes, dtype=torch.bool)
-        self.register_buffer("adj_mask", adj_mask if adj_mask is not None else torch.eye(num_nodes, dtype=torch.bool))
+        self.register_buffer("adj_mask", _adjacency_mask(adj_mx, num_nodes))
 
         # temporal/mixed model width: value + tod + dow embeddings (no node embedding).
         self.model_dim = input_embedding_dim + tod_embedding_dim + dow_embedding_dim
-        if self.model_dim % num_heads:
-            raise ValueError("Extralonger model_dim must be divisible by num_heads")
-        if self.seq_len % self._MIX_SPATIAL_HEADS:
-            raise ValueError("Extralonger seq_len must be divisible by the mixed route's fixed head count (2)")
+        self._check_widths(num_heads)
 
         if tod_embedding_dim > 0:
             self.tod_embedding = nn.Embedding(steps_per_day, tod_embedding_dim)
@@ -145,32 +150,18 @@ class Model(nn.Module):
 
         # temporal route: compress the node axis, then attend over time.
         self.t_input = nn.Linear(num_nodes, input_embedding_dim)
-        self.temporal_layers = nn.ModuleList(
-            SelfAttentionBlock(self.model_dim, feed_forward_dim, num_heads, dropout) for _ in range(num_layers)
-        )
-        if seq_len != pred_len:
-            self.t_output = nn.Sequential(
-                nn.Linear(self.model_dim, num_nodes),
-                TransposeAxes(1, 2),
-                nn.Linear(seq_len, pred_len),
-                TransposeAxes(1, 2),
-            )
-        else:
-            self.t_output = nn.Linear(self.model_dim, num_nodes)
+        self.temporal_layers = _attention_blocks(self.model_dim, feed_forward_dim, num_heads, dropout, num_layers)
+        self.t_output = self._temporal_output()
 
         # spatial route: compress the time axis, then attend over nodes with the adjacency blend.
         self.s_input = nn.Linear(seq_len, self.model_dim - spatial_embedding_dim)
-        self.spatial_layers = nn.ModuleList(
-            SelfAttentionBlock(self.model_dim, feed_forward_dim, num_heads, dropout) for _ in range(num_layers)
-        )
+        self.spatial_layers = _attention_blocks(self.model_dim, feed_forward_dim, num_heads, dropout, num_layers)
         self.s_output = nn.Linear(self.model_dim, pred_len)
 
         # mixed route: temporal attention, then a second attention pass with the feature axis as tokens.
-        self.mix_temporal_layers = nn.ModuleList(
-            SelfAttentionBlock(self.model_dim, feed_forward_dim, num_heads, dropout) for _ in range(num_layers)
-        )
-        self.mix_spatial_layers = nn.ModuleList(
-            SelfAttentionBlock(seq_len, feed_forward_dim, self._MIX_SPATIAL_HEADS, dropout) for _ in range(num_layers)
+        self.mix_temporal_layers = _attention_blocks(self.model_dim, feed_forward_dim, num_heads, dropout, num_layers)
+        self.mix_spatial_layers = _attention_blocks(
+            seq_len, feed_forward_dim, self._MIX_SPATIAL_HEADS, dropout, num_layers
         )
         self.mix_proj = nn.Sequential(
             TransposeAxes(1, 2),
@@ -180,14 +171,23 @@ class Model(nn.Module):
             TransposeAxes(1, 2),
         )
 
-    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"Extralonger expects (B, {self.seq_len}, {self.num_nodes}) values")
-        batch_size = x_enc.shape[0]
-        history = to_spatiotemporal(x_enc, x_mark_enc)
-        values = history[..., 0]  # (B, T, N)
+    def _check_widths(self, num_heads: int) -> None:
+        if self.model_dim % num_heads:
+            raise ValueError("Extralonger model_dim must be divisible by num_heads")
+        if self.seq_len % self._MIX_SPATIAL_HEADS:
+            raise ValueError("Extralonger seq_len must be divisible by the mixed route's fixed head count (2)")
 
+    def _temporal_output(self) -> nn.Module:
+        if self.seq_len != self.pred_len:
+            return nn.Sequential(
+                nn.Linear(self.model_dim, self.num_nodes),
+                TransposeAxes(1, 2),
+                nn.Linear(self.seq_len, self.pred_len),
+                TransposeAxes(1, 2),
+            )
+        return nn.Linear(self.model_dim, self.num_nodes)
+
+    def _temporal_tokens(self, history: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
         pieces = [self.t_input(values)]  # (B, T, input_embedding_dim)
         if self.tod_embedding_dim > 0:
             tod = (history[:, :, 0, 1] * self.steps_per_day).long().clamp(0, self.steps_per_day - 1)
@@ -195,7 +195,17 @@ class Model(nn.Module):
         if self.dow_embedding_dim > 0:
             dow = (history[:, :, 0, 2] * 7).long().clamp(0, 6)
             pieces.append(self.dow_embedding(dow))
-        x_t = torch.cat(pieces, dim=-1)  # (B, T, model_dim)
+        return torch.cat(pieces, dim=-1)  # (B, T, model_dim)
+
+    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
+        del x_dec, x_mark_dec
+        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
+            raise ValueError(f"Extralonger expects (B, {self.seq_len}, {self.num_nodes}) values")
+        batch_size = x_enc.shape[0]
+        history = to_spatiotemporal(x_enc, x_mark_enc)
+        values = history[..., 0]  # (B, T, N)
+
+        x_t = self._temporal_tokens(history, values)  # (B, T, model_dim)
         x_mix = x_t
 
         for layer in self.temporal_layers:

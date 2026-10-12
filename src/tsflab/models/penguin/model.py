@@ -87,6 +87,13 @@ class EncoderLayer(nn.Module):
         return self.norm2(x + y)
 
 
+def _token_periods(periods: Sequence[int], stride: int) -> list[int] | None:
+    periods = tuple(periods)
+    if any(p < stride or p % stride for p in periods):
+        raise ValueError("every period must be a positive multiple of stride")
+    return [p // stride for p in periods] or None  # P_S = P / S (Sec. 4.2.2)
+
+
 class Model(nn.Module):
     """PENGUIN forecaster: [B, L, C] history -> [B, H, C] forecast."""
 
@@ -115,10 +122,7 @@ class Model(nn.Module):
             raise ValueError("activation must be 'relu' or 'gelu'")
         if seq_len < patch_len:
             raise ValueError("seq_len must be at least patch_len")
-        periods = tuple(periods)
-        if any(p < stride or p % stride for p in periods):
-            raise ValueError("every period must be a positive multiple of stride")
-        token_periods = [p // stride for p in periods] or None  # P_S = P / S (Sec. 4.2.2)
+        token_periods = _token_periods(periods, stride)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_patches = (seq_len - patch_len) // stride + 2  # one replicate-padded patch at the end
 

@@ -26,6 +26,16 @@ class Model(nn.Module):
     def _lag(values: list[torch.Tensor], offset: int, fallback: torch.Tensor) -> torch.Tensor:
         return values[-offset] if len(values) >= offset else fallback
 
+    def _one_step(self, history: list, innovations: list, shift: int, zero: torch.Tensor) -> torch.Tensor:
+        """Drift + AR over ``history`` + MA over ``innovations``; MA lags ``<= shift`` (future innovations) drop out."""
+        prediction = self.drift + zero
+        for lag, coefficient in enumerate(self.ar_coefficients, start=1):
+            prediction = prediction + coefficient * self._lag(history, lag, zero)
+        for lag, coefficient in enumerate(self.ma_coefficients, start=1):
+            if lag > shift:
+                prediction = prediction + coefficient * self._lag(innovations, lag - shift, zero)
+        return prediction
+
     def forward(
         self,
         x_enc,
@@ -40,24 +50,14 @@ class Model(nn.Module):
         innovations: list[torch.Tensor] = []
         observed: list[torch.Tensor] = []
         for difference in differences:
-            prediction = self.drift + zero
-            for lag, coefficient in enumerate(self.ar_coefficients, start=1):
-                prediction = prediction + coefficient * self._lag(observed, lag, zero)
-            for lag, coefficient in enumerate(self.ma_coefficients, start=1):
-                prediction = prediction + coefficient * self._lag(innovations, lag, zero)
+            prediction = self._one_step(observed, innovations, 0, zero)
             innovations.append(difference - prediction)
             observed.append(difference)
 
         future: list[torch.Tensor] = []
         history = observed.copy()
         for _ in range(self.pred_len):
-            prediction = self.drift + zero
-            for lag, coefficient in enumerate(self.ar_coefficients, start=1):
-                prediction = prediction + coefficient * self._lag(history, lag, zero)
-            for lag, coefficient in enumerate(self.ma_coefficients, start=1):
-                observed_index = lag - len(future)
-                if observed_index > 0:
-                    prediction = prediction + coefficient * self._lag(innovations, observed_index, zero)
+            prediction = self._one_step(history, innovations, len(future), zero)
             future.append(prediction)
             history.append(prediction)
         return x_enc[:, -1:, :] + torch.cumsum(torch.stack(future, dim=1), dim=1)

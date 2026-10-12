@@ -126,6 +126,35 @@ class CrossModalMatch(nn.Module):
         return x_time, x_text
 
 
+def _check_arguments(
+    gpt_layers: int, enc_in: int, n_principal: int, alignment_loss: str, lora_rank: int
+) -> None:
+    if not 1 <= gpt_layers <= GPT2_LAYERS:
+        raise ValueError(f"gpt_layers must be in [1, {GPT2_LAYERS}]")
+    if not 1 <= enc_in <= GPT2_MAX_POSITIONS:
+        raise ValueError(
+            "CALF uses one GPT-2 position per channel; "
+            f"enc_in must be in [1, {GPT2_MAX_POSITIONS}]"
+        )
+    if not 1 <= n_principal <= GPT2_WIDTH:
+        raise ValueError(
+            f"n_principal must be in [1, {GPT2_WIDTH}] (PCA over {GPT2_WIDTH} samples)"
+        )
+    if alignment_loss not in _SIMILARITY:
+        raise ValueError(f"alignment_loss must be one of {sorted(_SIMILARITY)}")
+    if lora_rank < 1:
+        raise ValueError("lora_rank must be positive")
+
+
+def _loads_gpt2_tensor(name: str, gpt_layers: int) -> bool:
+    """Whether a Hugging Face GPT-2 tensor is copied into a ``gpt_layers``-deep backbone."""
+    if name.endswith((".attn.bias", ".attn.masked_bias")):
+        return False  # causal-mask buffers
+    if name.startswith("h.") and int(name.split(".")[1]) >= gpt_layers:
+        return False
+    return name.startswith(("h.", "wpe.", "ln_f."))
+
+
 class Model(nn.Module):
     """CALF temporal/textual twin-branch forecaster; ``forward`` returns ``Y_time``."""
 
@@ -146,21 +175,7 @@ class Model(nn.Module):
         alignment_loss: str = "l1",
     ) -> None:
         super().__init__()
-        if not 1 <= gpt_layers <= GPT2_LAYERS:
-            raise ValueError(f"gpt_layers must be in [1, {GPT2_LAYERS}]")
-        if not 1 <= enc_in <= GPT2_MAX_POSITIONS:
-            raise ValueError(
-                "CALF uses one GPT-2 position per channel; "
-                f"enc_in must be in [1, {GPT2_MAX_POSITIONS}]"
-            )
-        if not 1 <= n_principal <= GPT2_WIDTH:
-            raise ValueError(
-                f"n_principal must be in [1, {GPT2_WIDTH}] (PCA over {GPT2_WIDTH} samples)"
-            )
-        if alignment_loss not in _SIMILARITY:
-            raise ValueError(f"alignment_loss must be one of {sorted(_SIMILARITY)}")
-        if lora_rank < 1:
-            raise ValueError("lora_rank must be positive")
+        _check_arguments(gpt_layers, enc_in, n_principal, alignment_loss, lora_rank)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -229,6 +244,15 @@ class Model(nn.Module):
         x_time, _ = self.match(series)
         return self._branch(self.gpt2_time, x_time)[0]
 
+    def _load_backbones(self, state: dict[str, torch.Tensor]) -> None:
+        for backbone in (self.gpt2_time, self.gpt2_text):
+            missing, unexpected = backbone.load_state_dict(state, strict=False)
+            missing = [key for key in missing if "lora_" not in key]
+            if missing or unexpected:
+                raise ValueError(
+                    f"GPT-2 weights mismatch: missing={missing}, unexpected={unexpected}"
+                )
+
     @torch.no_grad()
     def load_gpt2(self, weights: dict[str, torch.Tensor]) -> None:
         """Copy pretrained GPT-2 tensors into both branches and refit ``D_hat``.
@@ -240,22 +264,12 @@ class Model(nn.Module):
         weights = {name.removeprefix("transformer."): t for name, t in weights.items()}
         state = {}
         for name, tensor in weights.items():
-            if name.endswith((".attn.bias", ".attn.masked_bias")):
-                continue  # causal-mask buffers
-            if name.startswith("h.") and int(name.split(".")[1]) >= self.gpt_layers:
-                continue
-            if not name.startswith(("h.", "wpe.", "ln_f.")):
+            if not _loads_gpt2_tensor(name, self.gpt_layers):
                 continue
             if name.endswith(("c_attn.weight", "c_proj.weight", "c_fc.weight")):
                 tensor = tensor.t()
             state[name] = tensor.float().contiguous()
-        for backbone in (self.gpt2_time, self.gpt2_text):
-            missing, unexpected = backbone.load_state_dict(state, strict=False)
-            missing = [key for key in missing if "lora_" not in key]
-            if missing or unexpected:
-                raise ValueError(
-                    f"GPT-2 weights mismatch: missing={missing}, unexpected={unexpected}"
-                )
+        self._load_backbones(state)
         buffer = self.match.principal_embeddings
         buffer.copy_(principal_word_embeddings(weights.get("wte.weight"), buffer.shape[0]))
         self.pretrained = True

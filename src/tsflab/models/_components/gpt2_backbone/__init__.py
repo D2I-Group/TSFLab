@@ -48,10 +48,16 @@ class GPT2Config:
     lora_dropout: float = 0.0
 
     def __post_init__(self) -> None:
+        self._check_sizes()
+        self._check_regularization()
+
+    def _check_sizes(self) -> None:
         if min(self.n_layer, self.n_embd, self.n_head, self.n_positions) < 1:
             raise ValueError("GPT-2 sizes must be positive")
         if self.n_embd % self.n_head:
             raise ValueError("n_embd must be divisible by n_head")
+
+    def _check_regularization(self) -> None:
         if not all(0.0 <= p < 1.0 for p in (self.embd_pdrop, self.attn_pdrop, self.resid_pdrop)):
             raise ValueError("dropout probabilities must be in [0, 1)")
         if self.attn_implementation not in ("eager", "sdpa"):
@@ -159,6 +165,13 @@ class GPT2Block(nn.Module):
         return hidden + self.mlp(self.ln_2(hidden))
 
 
+def _init_gpt2_module(module: nn.Module) -> None:
+    if isinstance(module, (nn.Linear, nn.Embedding)):
+        nn.init.normal_(module.weight, std=0.02)
+    if isinstance(module, nn.Linear):
+        nn.init.zeros_(module.bias)
+
+
 class GPT2Backbone(nn.Module):
     """GPT-2 trunk mapping ``inputs_embeds [B, T, n_embd]`` to final hidden states.
 
@@ -184,17 +197,16 @@ class GPT2Backbone(nn.Module):
 
         LoRA adapters keep their own start (Kaiming ``A``, zero ``B``).
         """
-        adapters = {id(m) for a in self.modules() if isinstance(a, LoRAAdapter) for m in a.modules()}
+        adapters = self._adapter_module_ids()
         for module in self.modules():
-            if id(module) in adapters:
-                continue
-            if isinstance(module, (nn.Linear, nn.Embedding)):
-                nn.init.normal_(module.weight, std=0.02)
-            if isinstance(module, nn.Linear):
-                nn.init.zeros_(module.bias)
+            if id(module) not in adapters:
+                _init_gpt2_module(module)
         for block in self.h:
             for proj in (block.attn.c_proj, block.mlp.c_proj):
                 nn.init.normal_(proj.weight, std=0.02 / math.sqrt(2 * self.config.n_layer))
+
+    def _adapter_module_ids(self) -> set[int]:
+        return {id(m) for a in self.modules() if isinstance(a, LoRAAdapter) for m in a.modules()}
 
     def _embed(self, inputs_embeds: torch.Tensor) -> torch.Tensor:
         if inputs_embeds.ndim != 3 or inputs_embeds.shape[-1] != self.config.n_embd:
@@ -248,15 +260,48 @@ def read_safetensors(path: str | Path, keep=lambda name: True) -> dict[str, torc
         for name, info in header.items():
             if name == "__metadata__" or not keep(name):
                 continue
-            dtype = _SAFETENSORS_DTYPES.get(info["dtype"])
-            if dtype is None:
-                raise ValueError(f"unsupported safetensors dtype {info['dtype']!r} for {name!r}")
-            start, end = info["data_offsets"]
-            handle.seek(base + start)
-            raw = bytearray(handle.read(end - start))
-            flat = torch.frombuffer(raw, dtype=dtype) if raw else torch.empty(0, dtype=dtype)
-            tensors[name] = flat.reshape(info["shape"]).clone()
+            tensors[name] = _read_safetensor(handle, base, name, info)
     return tensors
+
+
+def _read_safetensor(handle, base: int, name: str, info: dict) -> torch.Tensor:
+    dtype = _SAFETENSORS_DTYPES.get(info["dtype"])
+    if dtype is None:
+        raise ValueError(f"unsupported safetensors dtype {info['dtype']!r} for {name!r}")
+    start, end = info["data_offsets"]
+    handle.seek(base + start)
+    raw = bytearray(handle.read(end - start))
+    flat = torch.frombuffer(raw, dtype=dtype) if raw else torch.empty(0, dtype=dtype)
+    return flat.reshape(info["shape"]).clone()
+
+
+def _gpt2_state_from_checkpoint(raw: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    state = {}
+    for name, tensor in raw.items():
+        name = name.removeprefix("transformer.")
+        if name.endswith(_CONV1D_WEIGHTS):
+            tensor = tensor.t().contiguous()
+        state[name] = tensor
+    return state
+
+
+def _expected_gpt2_state(backbone: GPT2Backbone) -> tuple[set[str], dict[str, torch.Tensor]]:
+    """LoRA adapter keys and the remaining (checkpoint-backed) state of ``backbone``."""
+    adapter_keys = {name for name in backbone.state_dict() if ".attn.lora." in name}
+    expected = {k: v for k, v in backbone.state_dict().items() if k not in adapter_keys}
+    return adapter_keys, expected
+
+
+def _check_gpt2_state(state: dict[str, torch.Tensor], expected: dict[str, torch.Tensor]) -> None:
+    missing = sorted(set(expected) - set(state))
+    if missing:
+        raise KeyError(f"GPT-2 checkpoint is missing tensors: {', '.join(missing[:5])}")
+    for name, tensor in state.items():
+        if tensor.shape != expected[name].shape:
+            raise ValueError(
+                f"GPT-2 checkpoint tensor {name!r} has shape {tuple(tensor.shape)}, "
+                f"expected {tuple(expected[name].shape)}"
+            )
 
 
 def load_gpt2_weights(backbone: GPT2Backbone, path: str | Path) -> GPT2Backbone:
@@ -280,24 +325,9 @@ def load_gpt2_weights(backbone: GPT2Backbone, path: str | Path) -> GPT2Backbone:
             return int(name.split(".", 2)[1]) < n_layer
         return name.split(".", 1)[0] in {"wpe", "ln_f"}
 
-    raw = read_safetensors(path, wanted)
-    state = {}
-    for name, tensor in raw.items():
-        name = name.removeprefix("transformer.")
-        if name.endswith(_CONV1D_WEIGHTS):
-            tensor = tensor.t().contiguous()
-        state[name] = tensor
-    adapter_keys = {name for name in backbone.state_dict() if ".attn.lora." in name}
-    expected = {k: v for k, v in backbone.state_dict().items() if k not in adapter_keys}
-    missing = sorted(set(expected) - set(state))
-    if missing:
-        raise KeyError(f"GPT-2 checkpoint is missing tensors: {', '.join(missing[:5])}")
-    for name, tensor in state.items():
-        if tensor.shape != expected[name].shape:
-            raise ValueError(
-                f"GPT-2 checkpoint tensor {name!r} has shape {tuple(tensor.shape)}, "
-                f"expected {tuple(expected[name].shape)}"
-            )
+    state = _gpt2_state_from_checkpoint(read_safetensors(path, wanted))
+    adapter_keys, expected = _expected_gpt2_state(backbone)
+    _check_gpt2_state(state, expected)
     if not adapter_keys:
         backbone.load_state_dict(state, strict=True)
         return backbone

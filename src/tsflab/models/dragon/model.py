@@ -19,6 +19,7 @@ encoders, mixed by softmax weights, are concatenated with the TimesNet embedding
 from __future__ import annotations
 
 import math
+from functools import partial
 
 import numpy as np
 import torch
@@ -53,23 +54,16 @@ def uniform_bin_edges(series: np.ndarray, n_bins: int) -> np.ndarray:
     bin 0 (scikit-learn's single-bin treatment of constant features).
     """
     series = np.asarray(series, dtype=np.float64)
-    low, high = series.min(axis=0), series.max(axis=0)
-    rows = []
-    for lo, hi in zip(low, high):
-        if hi > lo:
-            rows.append(np.linspace(lo, hi, n_bins + 1))
-        else:
-            rows.append(np.concatenate([[-np.inf], np.full(n_bins, np.inf)]))
-    return np.stack(rows)
+    constant = np.concatenate([[-np.inf], np.full(n_bins, np.inf)])
+    ranges = zip(series.min(axis=0), series.max(axis=0))
+    return np.stack([np.linspace(lo, hi, n_bins + 1) if hi > lo else constant for lo, hi in ranges])
 
 
 def discretize(values: np.ndarray, edges: np.ndarray) -> np.ndarray:
     """Bin index in ``[0, n_bins)`` of every value of ``[..., D]``, searched right over the inner edges."""
     values = np.asarray(values, dtype=np.float64)
-    out = np.empty(values.shape, dtype=np.int64)
-    for dim in range(values.shape[-1]):
-        out[..., dim] = np.searchsorted(edges[dim, 1:-1], values[..., dim], side="right")
-    return out
+    bins = [np.searchsorted(edges[dim, 1:-1], values[..., dim], side="right") for dim in range(values.shape[-1])]
+    return np.stack(bins, axis=-1).astype(np.int64, copy=False)
 
 
 def count_mdbg_nodes(series: np.ndarray, k: int, n_bins: int) -> int:
@@ -84,6 +78,48 @@ def count_mdbg_nodes(series: np.ndarray, k: int, n_bins: int) -> int:
     codes = discretize(series, uniform_bin_edges(series, n_bins))
     windows = np.lib.stride_tricks.sliding_window_view(codes, k - 1, axis=0)  # [T-k+2, D, k-1]
     return int(sum(np.unique(windows[:, dim], axis=0).shape[0] for dim in range(codes.shape[1])))
+
+
+def _mdbg_nodes(series: np.ndarray, codes: np.ndarray, k: int):
+    """Nodes in first-appearance order, their raw tuples, the k-tuple edges and ``window_ids[s, d]``, the
+    node of the ``(k-1)``-window at step ``s`` of dimension ``d`` (prefix at ``s``, suffix at ``s - 1``)."""
+    steps, dims = series.shape
+    index: dict[tuple[int, tuple[int, ...]], int] = {}
+    features: dict[int, list[np.ndarray]] = {}
+
+    def visit(key, raw) -> int:
+        node = index.setdefault(key, len(index))
+        features.setdefault(node, []).append(raw)
+        return node
+
+    tuple_edges: set[tuple[int, int]] = set()
+    window_ids = np.empty((steps - k + 2, dims), dtype=np.int64)
+    for t in range(steps - k + 1):
+        for d in range(dims):
+            code = codes[t : t + k, d].tolist()
+            raw = series[t : t + k, d]
+            window_ids[t, d] = prefix = visit((d, tuple(code[:-1])), raw[:-1])
+            window_ids[t + 1, d] = suffix = visit((d, tuple(code[1:])), raw[1:])
+            tuple_edges.add((prefix, suffix))
+    return list(index), list(features.values()), tuple_edges, window_ids
+
+
+def _add_hyper_edges(keys: np.ndarray, window_ids: np.ndarray, num_nodes: int, max_edges: int | None) -> np.ndarray:
+    """Union ``keys`` with the hyper-tuple cliques of every row of ``window_ids``, a bounded chunk at a time."""
+    dims = window_ids.shape[1]
+    left, right = np.where(~np.eye(dims, dtype=bool))
+    rows = max(1, _HYPER_PAIRS_PER_CHUNK // left.size)
+    for start in range(0, len(window_ids), rows):
+        chunk = window_ids[start : start + rows]
+        hyper = np.unique((chunk[:, left] * num_nodes + chunk[:, right]).ravel())
+        keys = np.union1d(keys, hyper)
+        if max_edges is not None and keys.size > max_edges:
+            raise ValueError(
+                f"the MdBG has more than {max_edges} distinct edges ({dims} variables, "
+                f"{num_nodes} nodes); DRAGON's graph attention over the whole graph per window "
+                "does not fit this dataset"
+            )
+    return keys
 
 
 def build_mdbg(series: np.ndarray, k: int, n_bins: int, max_edges: int | None = None) -> dict[str, np.ndarray]:
@@ -101,38 +137,8 @@ def build_mdbg(series: np.ndarray, k: int, n_bins: int, max_edges: int | None = 
     if series.ndim != 2 or series.shape[0] < k:
         raise ValueError("the MdBG needs a [T, D] series with T >= k")
     edges = uniform_bin_edges(series, n_bins)
-    codes = discretize(series, edges)
-    steps, dims = series.shape
-    index: dict[tuple[int, tuple[int, ...]], int] = {}
-    node_dim: list[int] = []
-    node_keys: list[tuple[int, ...]] = []
-    features: list[list[np.ndarray]] = []
-
-    def visit(key, raw) -> int:
-        node = index.get(key)
-        if node is None:
-            node = len(node_dim)
-            index[key] = node
-            node_dim.append(key[0])
-            node_keys.append(key[1])
-            features.append([])
-        features[node].append(raw)
-        return node
-
-    tuple_edges: set[tuple[int, int]] = set()
-    suffix_ids = np.empty((steps - k + 1, dims), dtype=np.int64)
-    prefix_ids = np.empty(dims, dtype=np.int64)
-    for t in range(steps - k + 1):
-        for d in range(dims):
-            code = codes[t : t + k, d].tolist()
-            raw = series[t : t + k, d]
-            prefix = visit((d, tuple(code[:-1])), raw[:-1])
-            suffix = visit((d, tuple(code[1:])), raw[1:])
-            tuple_edges.add((prefix, suffix))
-            if t == 0:
-                prefix_ids[d] = prefix
-            suffix_ids[t, d] = suffix
-    num_nodes = len(node_dim)
+    nodes, features, tuple_edges, window_ids = _mdbg_nodes(series, discretize(series, edges), k)
+    num_nodes = len(nodes)
     # Edges are deduplicated as sorted int64 keys ``source * N + target``, which is
     # the lexicographic order of ``np.unique(pairs, axis=0)``. The hyper-tuple
     # cliques (``D (D - 1)`` ordered pairs per step) are expanded a bounded number
@@ -140,30 +146,17 @@ def build_mdbg(series: np.ndarray, k: int, n_bins: int, max_edges: int | None = 
     # ``steps x D^2`` (several hundred GB for 2000 variables).
     tuple_pairs = np.array(sorted(tuple_edges), dtype=np.int64).reshape(-1, 2)
     keys = np.unique(tuple_pairs[:, 0] * num_nodes + tuple_pairs[:, 1])
-    if dims > 1:
-        left, right = np.where(~np.eye(dims, dtype=bool))
-        groups = np.concatenate([prefix_ids[None], suffix_ids])
-        rows = max(1, _HYPER_PAIRS_PER_CHUNK // left.size)
-        for start in range(0, len(groups), rows):
-            chunk = groups[start : start + rows]
-            hyper = np.unique((chunk[:, left] * num_nodes + chunk[:, right]).ravel())
-            keys = np.union1d(keys, hyper)
-            if max_edges is not None and keys.size > max_edges:
-                raise ValueError(
-                    f"the MdBG has more than {max_edges} distinct edges ({dims} variables, "
-                    f"{num_nodes} nodes); DRAGON's graph attention over the whole graph per window "
-                    "does not fit this dataset"
-                )
-    edge_list = np.stack([keys // num_nodes, keys % num_nodes], axis=1)
-    counts = np.array([len(rows) for rows in features], dtype=np.int64)
+    if series.shape[1] > 1:
+        keys = _add_hyper_edges(keys, window_ids, num_nodes, max_edges)
+    counts = np.array(list(map(len, features)), dtype=np.int64)
     return {
         "bin_edges": edges,
-        "node_dim": np.asarray(node_dim, dtype=np.int64),
-        "node_keys": np.asarray(node_keys, dtype=np.int64).reshape(num_nodes, k - 1),
-        "feature_values": np.concatenate([np.stack(rows) for rows in features]).astype(np.float32),
+        "node_dim": np.asarray([dim for dim, _ in nodes], dtype=np.int64),
+        "node_keys": np.asarray([key for _, key in nodes], dtype=np.int64).reshape(num_nodes, k - 1),
+        "feature_values": np.concatenate(list(map(np.stack, features))).astype(np.float32),
         "feature_counts": counts,
         "feature_offsets": np.concatenate([[0], np.cumsum(counts)[:-1]]).astype(np.int64),
-        "edge_index": edge_list.T.copy(),
+        "edge_index": np.stack([keys // num_nodes, keys % num_nodes]),
     }
 
 
@@ -181,8 +174,7 @@ def ppr_topk_edges(edge_index: np.ndarray, num_nodes: int, alpha: float, topk: i
     source, target = torch.as_tensor(edge_index, dtype=torch.long)
     matrix.index_put_((source, target), torch.ones(source.numel(), dtype=torch.float64), accumulate=True)
     matrix.diagonal().add_(1.0)
-    degree = matrix.sum(dim=0)
-    inv_sqrt = degree.pow(-0.5)
+    inv_sqrt = matrix.sum(dim=0).pow(-0.5)  # d^-1/2
     inv_sqrt[torch.isinf(inv_sqrt)] = 0.0
     matrix.mul_(inv_sqrt[:, None]).mul_(inv_sqrt[None, :])  # T = D^-1/2 A D^-1/2
     matrix.mul_(-(1.0 - alpha)).diagonal().add_(1.0)  # I - (1 - alpha) T
@@ -230,14 +222,9 @@ class GraphAttentionConv(nn.Module):
     def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         nodes = x.shape[0]
         h = F.linear(x, self.weight).view(nodes, self.heads, self.out_channels)
-        score_src = (h * self.att_src).sum(-1)
-        score_dst = (h * self.att_dst).sum(-1)
-        source, target = edge_index
-        keep = source != target
-        loops = torch.arange(nodes, device=x.device)
-        source = torch.cat([source[keep], loops])
-        target = torch.cat([target[keep], loops])
-        logits = F.leaky_relu(score_src[source] + score_dst[target], 0.2)
+        loops = torch.arange(nodes, device=x.device).expand(2, -1)
+        source, target = torch.cat([edge_index[:, edge_index[0] != edge_index[1]], loops], dim=1)
+        logits = F.leaky_relu((h * self.att_src).sum(-1)[source] + (h * self.att_dst).sum(-1)[target], 0.2)
         peak = torch.full((nodes, self.heads), float("-inf"), dtype=logits.dtype, device=x.device)
         peak = peak.scatter_reduce(0, target[:, None].expand_as(logits), logits.detach(), reduce="amax")
         weights = (logits - peak[target]).exp()
@@ -252,28 +239,13 @@ class GraphAttentionConv(nn.Module):
 # DRAGON encoder (Fig. 2)
 # ----------------------------------------------------------------------------
 
-_GRAPH_BUFFERS = (
-    "bin_edges", "node_dim", "node_keys", "feature_values", "feature_counts", "feature_offsets", "edge_index",
-)
-
 
 class DragonEncoder(nn.Module):
     """One MdBG encoder: graph state from the training split, GAT, mask, time-query pooling."""
 
     def __init__(
-        self,
-        channels: int,
-        seq_len: int,
-        k: int,
-        n_bins: int,
-        d_graph: int,
-        num_layers: int,
-        node_feat_size: int,
-        heads: int,
-        dropout: float,
-        use_gdc: bool,
-        gdc_topk: int,
-        ppr_alpha: float,
+        self, channels: int, seq_len: int, k: int, n_bins: int, d_graph: int, num_layers: int, node_feat_size: int,
+        heads: int, dropout: float, use_gdc: bool, gdc_topk: int, ppr_alpha: float,
     ) -> None:
         super().__init__()
         self.channels = channels
@@ -294,10 +266,7 @@ class DragonEncoder(nn.Module):
         self.convs = nn.ModuleList(layers)
         self.time_queries = nn.Parameter(torch.randn(seq_len, d_graph))
         self.attn_score = nn.Linear(d_graph, d_graph)
-        self._reset_graph()
-
-    # -- graph state --------------------------------------------------------
-    def _reset_graph(self) -> None:
+        # -- graph state (empty until ``fit``) -------------------------------
         empty = {
             "bin_edges": torch.zeros(self.channels, self.n_bins + 1, dtype=torch.float64),
             "node_dim": torch.zeros(0, dtype=torch.long),
@@ -322,6 +291,23 @@ class DragonEncoder(nn.Module):
     def fit(self, series: np.ndarray) -> None:
         """Build the MdBG of the ``[T, channels]`` training series (and its diffusion)."""
         series = np.asarray(series, dtype=np.float64)
+        nodes, max_edges = self._graph_budget(series)
+        graph = build_mdbg(series, self.k, self.n_bins, max_edges=None if self.use_gdc else max_edges)
+        if self.use_gdc:
+            graph["edge_index"] = ppr_topk_edges(graph["edge_index"], nodes, self.ppr_alpha, self.gdc_topk)
+        edges = graph["edge_index"]
+        if edges.shape[1] > max_edges:
+            raise ValueError(
+                f"DRAGON's MdBG (alphabet {self.n_bins}) keeps {edges.shape[1]} edges, above the limit of "
+                f"{max_edges} for {self.heads} heads x {self.channels} variables: the whole-graph "
+                "attention per window does not fit (the method is not applicable to this dataset)"
+            )
+        for name, current in list(self.named_buffers(recurse=False)):
+            setattr(self, name, torch.as_tensor(graph[name], dtype=current.dtype).to(self.time_queries.device))
+        self._lookup_cache = None
+
+    def _graph_budget(self, series: np.ndarray) -> tuple[int, int]:
+        """Node count of the training series' MdBG and its edge limit; ValueError above the scale limits."""
         if series.ndim != 2 or series.shape[1] != self.channels:
             raise ValueError(f"DRAGON expects a [T, {self.channels}] training series")
         nodes = count_mdbg_nodes(series, self.k, self.n_bins)
@@ -334,28 +320,11 @@ class DragonEncoder(nn.Module):
             )
         # One attention layer holds about edges x heads x width floats per window.
         per_edge = self.heads * max(self.channels, self.d_graph)
-        max_edges = max(_MAX_EDGE_ACTIVATIONS // per_edge - nodes, 0)
-        graph = build_mdbg(series, self.k, self.n_bins, max_edges=None if self.use_gdc else max_edges)
-        edges = graph["edge_index"]
-        if self.use_gdc:
-            edges = ppr_topk_edges(edges, nodes, self.ppr_alpha, self.gdc_topk)
-        if edges.shape[1] > max_edges:
-            raise ValueError(
-                f"DRAGON's MdBG (alphabet {self.n_bins}) keeps {edges.shape[1]} edges, above the limit of "
-                f"{max_edges} for {self.heads} heads x {self.channels} variables: the whole-graph "
-                "attention per window does not fit (the method is not applicable to this dataset)"
-            )
-        graph["edge_index"] = edges
-        device = self.time_queries.device
-        for name in _GRAPH_BUFFERS:
-            current = getattr(self, name)
-            setattr(self, name, torch.as_tensor(graph[name], dtype=current.dtype).to(device))
-        self._lookup_cache = None
+        return nodes, max(_MAX_EDGE_ACTIVATIONS // per_edge - nodes, 0)
 
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
-        for name in _GRAPH_BUFFERS:
+        for name, current in list(self.named_buffers(recurse=False)):
             incoming = state_dict.get(prefix + name)
-            current = getattr(self, name)
             if incoming is not None and incoming.shape != current.shape:
                 setattr(self, name, torch.empty(incoming.shape, dtype=current.dtype, device=current.device))
         self._lookup_cache = None
@@ -389,21 +358,18 @@ class DragonEncoder(nn.Module):
         """``[B, N]`` indicator of the nodes of every window ``(k-1)``-tuple of ``[B, T, channels]``."""
         codes = discretize(values.detach().cpu().double().numpy(), self.bin_edges.cpu().numpy())
         batch, steps, dims = codes.shape
-        width = self.k - 1
         mask = np.zeros((batch, self.num_nodes), dtype=np.float32)
-        for b in range(batch):
-            for d in range(dims):
-                series = codes[b, :, d].tolist()
-                for start in range(steps - width + 1):
-                    mask[b, self.nearest_node(d, tuple(series[start : start + width]))] = 1.0
+        for b, d in np.ndindex(batch, dims):
+            series = codes[b, :, d].tolist()
+            for start in range(steps - self.k + 2):  # every (k-1)-window
+                mask[b, self.nearest_node(d, tuple(series[start : start + self.k - 1]))] = 1.0
         return torch.from_numpy(mask).to(values.device)
 
     # -- encoding ------------------------------------------------------------
     def sample_node_inputs(self) -> torch.Tensor:
         """``[N, node_feat_size * (k-1)]`` raw tuples drawn per node (slot ``j % count`` of ``U[0, max count)``)."""
-        draws = torch.randint(
-            0, int(self.feature_counts.max()), (self.num_nodes, self.node_feat_size), device=self.node_dim.device
-        )
+        high = int(self.feature_counts.max())
+        draws = torch.randint(0, high, (self.num_nodes, self.node_feat_size), device=self.node_dim.device)
         rows = self.feature_offsets[:, None] + draws % self.feature_counts[:, None]
         return self.feature_values[rows].reshape(self.num_nodes, -1)
 
@@ -414,15 +380,12 @@ class DragonEncoder(nn.Module):
             x = F.elu(conv(F.dropout(x, self.dropout, self.training), self.edge_index))
         return self.convs[-1](F.dropout(x, self.dropout, self.training), self.edge_index)
 
-    def pool(self, nodes: torch.Tensor) -> torch.Tensor:
-        """Time-query attention over all ``N`` (masked) nodes: ``[N, G] -> [seq_len, G]``."""
+    def encode_window(self, row: torch.Tensor) -> torch.Tensor:
+        """One window: sampled node inputs, GAT over the whole graph, mask, and time-query
+        attention pooling over all ``N`` (masked) nodes: ``[N, G] -> [seq_len, G]``."""
+        nodes = self.encode_nodes(self.sample_node_inputs()) * row.unsqueeze(-1)
         scores = self.time_queries @ self.attn_score(nodes).T / self.d_graph**0.5
         return scores.softmax(dim=-1) @ nodes
-
-    def encode_window(self, row: torch.Tensor) -> torch.Tensor:
-        """One window: sampled node inputs, GAT over the whole graph, mask, pooling."""
-        nodes = self.encode_nodes(self.sample_node_inputs()) * row.unsqueeze(-1)
-        return self.pool(nodes)
 
     def forward(self, mask: torch.Tensor) -> torch.Tensor:
         # As in the official encoder, every window samples its own node inputs
@@ -432,14 +395,10 @@ class DragonEncoder(nn.Module):
         # checkpointed: only its pooled output is kept and the window is
         # recomputed in backward with the same random state, so the result and
         # gradients are unchanged.
-        recompute = torch.is_grad_enabled() and any(p.requires_grad for p in self.parameters())
-        pooled = []
-        for row in mask:
-            if recompute:
-                pooled.append(checkpoint(self.encode_window, row, use_reentrant=False, preserve_rng_state=True))
-            else:
-                pooled.append(self.encode_window(row))
-        return torch.stack(pooled)
+        encode = self.encode_window
+        if torch.is_grad_enabled() and any(p.requires_grad for p in self.parameters()):
+            encode = partial(checkpoint, self.encode_window, use_reentrant=False, preserve_rng_state=True)
+        return torch.stack([encode(row) for row in mask])
 
 
 # ----------------------------------------------------------------------------
@@ -455,8 +414,7 @@ class TimesBlock(nn.Module):
         self.length = length
         self.top_k = top_k
         self.conv = nn.Sequential(
-            InceptionBlock2d(width, d_ff, num_kernels), nn.GELU(), InceptionBlock2d(d_ff, width, num_kernels)
-        )
+            InceptionBlock2d(width, d_ff, num_kernels), nn.GELU(), InceptionBlock2d(d_ff, width, num_kernels))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch, length, width = x.shape
@@ -476,57 +434,38 @@ class Model(nn.Module):
     """DRAGON encoders (one per alphabet size) concatenated with a TimesNet embedding."""
 
     def __init__(
-        self,
-        seq_len: int,
-        pred_len: int,
-        enc_in: int,
-        d_model: int = 16,
-        d_ff: int = 32,
-        e_layers: int = 2,
-        top_k: int = 5,
-        num_kernels: int = 6,
-        dropout: float = 0.1,
-        k: int = 4,
-        alphabet_sizes: tuple[int, ...] = (20, 25, 30),
-        d_graph: int = 16,
-        graph_layers: int = 2,
-        node_feat_size: int = 4,
-        graph_heads: int = 16,
-        graph_dropout: float = 0.4,
-        use_gdc: bool = True,
-        gdc_topk: int = 32,
-        ppr_alpha: float = 0.05,
+        self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 16, d_ff: int = 32, e_layers: int = 2,
+        top_k: int = 5, num_kernels: int = 6, dropout: float = 0.1, k: int = 4,
+        alphabet_sizes: tuple[int, ...] = (20, 25, 30), d_graph: int = 16, graph_layers: int = 2,
+        node_feat_size: int = 4, graph_heads: int = 16, graph_dropout: float = 0.4, use_gdc: bool = True,
+        gdc_topk: int = 32, ppr_alpha: float = 0.05,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_ff, e_layers, top_k, num_kernels, d_graph, node_feat_size) < 1:
-            raise ValueError("DRAGON sizes must be positive")
-        if k < 2 or seq_len < k - 1:
-            raise ValueError("k must be at least 2 and seq_len at least k - 1")
-        if graph_layers < 2:
-            raise ValueError("graph_layers must be at least 2 (input and output attention layers)")
-        if not alphabet_sizes or min(alphabet_sizes) < 1:
-            raise ValueError("alphabet_sizes needs at least one positive size")
-        if top_k > (seq_len + pred_len) // 2:
-            raise ValueError("top_k exceeds the non-DC frequencies of seq_len + pred_len")
-        if d_model % 2:
-            raise ValueError("d_model must be even (sinusoidal positions)")
+        for failed, message in (
+            (min(seq_len, pred_len, enc_in, d_model, d_ff, e_layers, top_k, num_kernels, d_graph, node_feat_size) < 1,
+             "DRAGON sizes must be positive"),
+            (k < 2 or seq_len < k - 1, "k must be at least 2 and seq_len at least k - 1"),
+            (graph_layers < 2, "graph_layers must be at least 2 (input and output attention layers)"),
+            (not alphabet_sizes or min(alphabet_sizes) < 1, "alphabet_sizes needs at least one positive size"),
+            (top_k > (seq_len + pred_len) // 2, "top_k exceeds the non-DC frequencies of seq_len + pred_len"),
+            (d_model % 2, "d_model must be even (sinusoidal positions)"),
+        ):
+            if failed:
+                raise ValueError(message)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.d_graph = d_graph
         self.norm = RevIN(enc_in, eps=1e-5, affine=False)
         self.embedding = DataEmbedding(enc_in, d_model, embed_type="timeF", freq="h", dropout=dropout, time_feature_dim=4)
-        self.encoders = nn.ModuleList(
-            DragonEncoder(enc_in, seq_len, k, size, d_graph, graph_layers, node_feat_size, graph_heads,
-                          graph_dropout, use_gdc, gdc_topk, ppr_alpha)
-            for size in alphabet_sizes
-        )
+        self.encoders = nn.ModuleList(DragonEncoder(
+            enc_in, seq_len, k, size, d_graph, graph_layers, node_feat_size, graph_heads, graph_dropout, use_gdc,
+            gdc_topk, ppr_alpha) for size in alphabet_sizes)
         self.encoder_weights = nn.Parameter(torch.randn(len(alphabet_sizes)))
         width = d_model + d_graph
         self.predict_linear = nn.Linear(seq_len, seq_len + pred_len)
         self.blocks = nn.ModuleList(
-            TimesBlock(seq_len + pred_len, width, d_ff, top_k, num_kernels) for _ in range(e_layers)
-        )
+            TimesBlock(seq_len + pred_len, width, d_ff, top_k, num_kernels) for _ in range(e_layers))
         self.layer_norm = nn.LayerNorm(width)
         self.projection = nn.Linear(width, enc_in)
 

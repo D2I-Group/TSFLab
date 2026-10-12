@@ -207,6 +207,29 @@ class BandHeads(nn.Module):
         return torch.stack(outputs, dim=2)
 
 
+def _check_options(num_components: int, tree_depth: int, overlap: int) -> None:
+    if num_components < 2:
+        raise ValueError("num_components must be at least 2")
+    if tree_depth < 1:
+        raise ValueError("tree_depth must be at least 1")
+    if overlap < 0:
+        raise ValueError("overlap must be non-negative")
+
+
+def _segment_lengths(seq_len: int, tree_depth: int, overlap: int) -> list[int]:
+    """Length of the halves produced at each internal level (official ``calculate_level_sizes``)."""
+    lengths = []
+    length = seq_len
+    for _ in range(tree_depth):
+        if 2 * split_length(length, overlap) < length:
+            raise ValueError("without overlap every split segment length must be even")
+        length = split_length(length, overlap)
+        if length < 3:
+            raise ValueError("seq_len is too short for this tree_depth (segments need >= 3 steps)")
+        lengths.append(length)
+    return lengths
+
+
 class Model(nn.Module):
     """PRISM forecaster (channel-independent, weights shared across variates)."""
 
@@ -221,12 +244,7 @@ class Model(nn.Module):
         use_last_layer_only: bool = False,
     ) -> None:
         super().__init__()
-        if num_components < 2:
-            raise ValueError("num_components must be at least 2")
-        if tree_depth < 1:
-            raise ValueError("tree_depth must be at least 1")
-        if overlap < 0:
-            raise ValueError("overlap must be non-negative")
+        _check_options(num_components, tree_depth, overlap)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -235,17 +253,7 @@ class Model(nn.Module):
         self.overlap = overlap
         self.use_last_layer_only = use_last_layer_only
 
-        # Length of the halves produced at each internal level (official
-        # ``calculate_level_sizes``).
-        lengths = []
-        length = seq_len
-        for _ in range(tree_depth):
-            if 2 * split_length(length, overlap) < length:
-                raise ValueError("without overlap every split segment length must be even")
-            length = split_length(length, overlap)
-            if length < 3:
-                raise ValueError("seq_len is too short for this tree_depth (segments need >= 3 steps)")
-            lengths.append(length)
+        lengths = _segment_lengths(seq_len, tree_depth, overlap)
         self.segment_lengths = tuple(lengths)
         # Levels whose bands reach the forecast: only the root level when
         # ``use_last_layer_only`` (the official flag name), otherwise all internal levels.

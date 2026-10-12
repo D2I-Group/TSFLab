@@ -71,20 +71,26 @@ class ChronosRuntime:
             prediction_length=prediction_length,
             quantile_levels=list(quantile_levels),
         )
-        if isinstance(quantiles, list):
-            quantiles = torch.stack(quantiles)
-        if isinstance(mean, list):
-            mean = torch.stack(mean)
-        quantiles = torch.as_tensor(quantiles)
-        mean = torch.as_tensor(mean)
-        if quantiles.ndim == 4 and quantiles.shape[1] == 1:
-            quantiles = quantiles[:, 0]
-        if mean.ndim == 3 and mean.shape[1] == 1:
-            mean = mean[:, 0]
+        quantiles = _stacked_tensor(quantiles)
+        mean = _stacked_tensor(mean)
+        quantiles = _squeeze_axis1(quantiles, 4)
+        mean = _squeeze_axis1(mean, 3)
         normalized_quantiles = (
             quantiles if quantile_levels else None
         )
         return FoundationForecast(mean, normalized_quantiles)
+
+
+def _stacked_tensor(value):
+    if isinstance(value, list):
+        value = torch.stack(value)
+    return torch.as_tensor(value)
+
+
+def _squeeze_axis1(value: torch.Tensor, ndim: int) -> torch.Tensor:
+    if value.ndim == ndim and value.shape[1] == 1:
+        return value[:, 0]
+    return value
 
 
 class TimesFMRuntime:
@@ -167,6 +173,21 @@ class MoiraiRuntime:
         self.model = model
 
     def predict(self, context, prediction_length, quantile_levels):
+        raw = self._raw_forecast(context, prediction_length)
+        available = tuple(float(level) for level in self.model.module.quantile_levels)
+        missing = sorted(set(quantile_levels) - set(available))
+        if missing:
+            raise ValueError(f"Moirai checkpoint lacks quantiles: {missing}")
+        median_index = min(range(len(available)), key=lambda i: abs(available[i] - 0.5))
+        mean = torch.as_tensor(raw[:, median_index, :])
+        if not quantile_levels:
+            return FoundationForecast(mean)
+        selected = raw[:, [available.index(level) for level in quantile_levels], :]
+        quantiles = torch.as_tensor(selected).permute(0, 2, 1)
+        return FoundationForecast(mean, quantiles)
+
+    def _raw_forecast(self, context, prediction_length) -> np.ndarray:
+        """Official ``[batch, quantile, horizon]`` forecast after the horizon check."""
         configured = int(self.model.hparams.prediction_length)
         if prediction_length != configured:
             raise ValueError(
@@ -179,14 +200,4 @@ class MoiraiRuntime:
             raw = raw[..., 0]
         if raw.ndim != 3:
             raise ValueError(f"unexpected Moirai forecast shape: {raw.shape}")
-        available = tuple(float(level) for level in self.model.module.quantile_levels)
-        missing = sorted(set(quantile_levels) - set(available))
-        if missing:
-            raise ValueError(f"Moirai checkpoint lacks quantiles: {missing}")
-        median_index = min(range(len(available)), key=lambda i: abs(available[i] - 0.5))
-        mean = torch.as_tensor(raw[:, median_index, :])
-        if not quantile_levels:
-            return FoundationForecast(mean)
-        selected = raw[:, [available.index(level) for level in quantile_levels], :]
-        quantiles = torch.as_tensor(selected).permute(0, 2, 1)
-        return FoundationForecast(mean, quantiles)
+        return raw

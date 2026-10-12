@@ -88,23 +88,28 @@ class FrequencyGraph(nn.Module):
         return torch.softmax(scores * mask, dim=-1)
 
 
+def _checked_adjacency(adj_mx, num_nodes, residual_channels, dilation_channels, subgraph, steps_per_day) -> np.ndarray:
+    if residual_channels != dilation_channels:
+        raise ValueError("local DFDGCN requires equal residual and dilation widths")
+    if min(subgraph, steps_per_day) < 1:
+        raise ValueError("subgraph and steps_per_day must be positive")
+    if adj_mx is None:
+        raise ValueError(
+            "DFDGCN needs the dataset adjacency adj_mx [N, N] for its predefined graphs; "
+            "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
+        )
+    adjacency = np.asarray(adj_mx, dtype=np.float32)
+    if adjacency.shape != (num_nodes, num_nodes):
+        raise ValueError("adj_mx shape must match num_nodes")
+    return adjacency
+
+
 class Model(nn.Module):
     """Dilated temporal forecaster with frequency-derived dynamic graphs."""
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2, a: float = 1.0, fft_emb: int = 10, identity_emb: int = 10, hidden_emb: int = 30, subgraph: int = 20, steps_per_day: int = 288) -> None:
         super().__init__()
-        if residual_channels != dilation_channels:
-            raise ValueError("local DFDGCN requires equal residual and dilation widths")
-        if min(subgraph, steps_per_day) < 1:
-            raise ValueError("subgraph and steps_per_day must be positive")
-        if adj_mx is None:
-            raise ValueError(
-                "DFDGCN needs the dataset adjacency adj_mx [N, N] for its predefined graphs; "
-                "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
-            )
-        adjacency = np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = _checked_adjacency(adj_mx, num_nodes, residual_channels, dilation_channels, subgraph, steps_per_day)
         static = adj_to_supports(adjacency)
         self.register_buffer("forward_support", static[0])
         self.register_buffer("reverse_support", static[1])
@@ -123,6 +128,14 @@ class Model(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.output = nn.Sequential(nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1))
 
+    def _inputs(self, x_enc, x_mark_enc):
+        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
+            raise ValueError(f"DFDGCN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        data = to_spatiotemporal(x_enc, x_mark_enc)[..., :3]
+        if data.shape[-1] < 3:
+            raise ValueError("DFDGCN needs time-of-day and day-of-week covariates")
+        return data
+
     def forward(
         self,
         x_enc,
@@ -131,11 +144,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"DFDGCN expects (B, {self.seq_len}, {self.num_nodes}) values")
-        data = to_spatiotemporal(x_enc, x_mark_enc)[..., :3]
-        if data.shape[-1] < 3:
-            raise ValueError("DFDGCN needs time-of-day and day-of-week covariates")
+        data = self._inputs(x_enc, x_mark_enc)
         hidden = self.input_projection(data[..., :2].permute(0, 3, 2, 1))
         adaptive = adaptive_node_embedding_adjacency(self.adaptive_source, self.adaptive_target)
         latest = data[:, -1]

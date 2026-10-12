@@ -38,6 +38,19 @@ class Model(nn.Module):
         node_memory=torch.einsum("bnm,md->bnd",attention,self.memory); learned=torch.softmax(torch.einsum("bnd,bmd->bnm",node_memory,node_memory)/node_memory.shape[-1]**0.5,-1)
         weight=torch.sigmoid(self.graph_mix); graph=weight*learned+(1-weight)*self.predefined_graph.unsqueeze(0)
         self.last_memory_attention,self.last_meta_graph=attention,graph; return graph,node_memory
+    def _inputs(self,x_enc,x_mark_enc):
+        if x_enc.shape[1:]!=(self.seq_len,self.num_nodes): raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.num_nodes}]")
+        st=to_spatiotemporal(x_enc,x_mark_enc)
+        if st.shape[-1]<self.input_dim: st=torch.cat((st,st.new_zeros(*st.shape[:-1],self.input_dim-st.shape[-1])),-1)
+        return st
+    @staticmethod
+    def _step(cells,value,states,graph):
+        for index,cell in enumerate(cells): states[index]=cell(value,states[index],graph); value=states[index]
+        return value
+    def _future(self,x_enc,x_mark_enc,x_mark_dec):
+        source_marks=x_mark_dec if x_mark_dec is not None else x_mark_enc
+        marks=coerce_time_length(source_marks,self.pred_len) if source_marks is not None else None
+        return future_time_features(marks,self.num_nodes)[...,0] if marks is not None else x_enc.new_zeros(x_enc.shape[0],self.pred_len,self.num_nodes)
     def forward(
         self,
         x_enc,
@@ -45,21 +58,16 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim!=3 or x_enc.shape[1:]!=(self.seq_len,self.num_nodes): raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.num_nodes}]")
-        st=to_spatiotemporal(x_enc,x_mark_enc)
-        if st.shape[-1]<self.input_dim: st=torch.cat((st,st.new_zeros(*st.shape[:-1],self.input_dim-st.shape[-1])),-1)
+        st=self._inputs(x_enc,x_mark_enc)
         states=[x_enc.new_zeros(x_enc.shape[0],self.num_nodes,cell.hidden) for cell in self.encoder]; graph=self.predefined_graph.unsqueeze(0).expand(x_enc.shape[0],-1,-1)
         for step in range(self.seq_len):
-            value=self.encoder_input(st[:,step,:,:self.input_dim])
-            for index,cell in enumerate(self.encoder): states[index]=cell(value,states[index],graph); value=states[index]
+            self._step(self.encoder,self.encoder_input(st[:,step,:,:self.input_dim]),states,graph)
             graph,_=self._meta_graph(states[-1])
         graph,memory=self._meta_graph(states[-1]); decoder_states=[state.clone() for state in states]; previous=x_enc[:,-1]
-        source_marks=x_mark_dec if x_mark_dec is not None else x_mark_enc
-        marks=coerce_time_length(source_marks,self.pred_len) if source_marks is not None else None
-        future=future_time_features(marks,self.num_nodes)[...,0] if marks is not None else x_enc.new_zeros(x_enc.shape[0],self.pred_len,self.num_nodes)
+        future=self._future(x_enc,x_mark_enc,x_mark_dec)
         outputs=[]
         for step in range(self.pred_len):
             value=self.decoder_input(torch.cat((previous.unsqueeze(-1)+future[:,step].unsqueeze(-1),memory),-1))
-            for index,cell in enumerate(self.decoder): decoder_states[index]=cell(value,decoder_states[index],graph); value=decoder_states[index]
+            value=self._step(self.decoder,value,decoder_states,graph)
             previous=self.output(value).squeeze(-1); outputs.append(previous)
         return torch.stack(outputs,1)

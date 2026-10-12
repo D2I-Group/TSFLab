@@ -57,6 +57,22 @@ def localized_adjacency(adj_mx, steps: int) -> torch.Tensor:
     return torch.from_numpy(local)
 
 
+def _check_filters(
+    filters: tuple[int, ...], num_nodes: int, steps: int, in_dim: int, num_modules: int
+) -> None:
+    if not filters or min(filters) < 1 or min(num_nodes, steps, in_dim, num_modules) < 1:
+        raise ValueError("num_nodes, steps, in_dim, num_modules and every filter must be positive")
+    if len(set(filters)) != 1:
+        raise ValueError("max aggregation needs equal filter widths")
+
+
+def _check_options(activation: str, crop: int, steps: int) -> None:
+    if activation not in {"GLU", "relu"}:
+        raise ValueError("activation must be 'GLU' or 'relu'")
+    if not 0 <= crop < steps:
+        raise ValueError("crop must index a time block in [0, steps)")
+
+
 class SynchronousGraphModule(nn.Module):
     """Stacked window-graph convolutions, max aggregation, and cropping to one time block."""
 
@@ -74,14 +90,8 @@ class SynchronousGraphModule(nn.Module):
     ) -> None:
         super().__init__()
         filters = tuple(int(width) for width in filters)
-        if not filters or min(filters) < 1 or min(num_nodes, steps, in_dim, num_modules) < 1:
-            raise ValueError("num_nodes, steps, in_dim, num_modules and every filter must be positive")
-        if len(set(filters)) != 1:
-            raise ValueError("max aggregation needs equal filter widths")
-        if activation not in {"GLU", "relu"}:
-            raise ValueError("activation must be 'GLU' or 'relu'")
-        if not 0 <= crop < steps:
-            raise ValueError("crop must index a time block in [0, steps)")
+        _check_filters(filters, num_nodes, steps, in_dim, num_modules)
+        _check_options(activation, crop, steps)
         self.num_nodes, self.steps, self.crop = num_nodes, steps, crop
         self.activation, self.num_modules = activation, num_modules
         self.out_dim = filters[-1]
@@ -109,14 +119,16 @@ class SynchronousGraphModule(nn.Module):
         for weight, bias in zip(self.weights, self.biases):
             propagated = torch.einsum("uv,bmvc->bmuc", adjacency, hidden)
             projected = torch.einsum("bmuc,mco->bmuo", propagated, weight.expand(windows, -1, -1)) + bias
-            if self.activation == "GLU":
-                value, gate = projected.chunk(2, dim=-1)
-                hidden = value * torch.sigmoid(gate)
-            else:
-                hidden = torch.relu(projected)
+            hidden = self._activate(projected)
             outputs.append(hidden)
         block = slice(self.crop * self.num_nodes, (self.crop + 1) * self.num_nodes)
         return torch.stack([output[:, :, block] for output in outputs], dim=0).amax(dim=0)
+
+    def _activate(self, projected: torch.Tensor) -> torch.Tensor:
+        if self.activation == "GLU":
+            value, gate = projected.chunk(2, dim=-1)
+            return value * torch.sigmoid(gate)
+        return torch.relu(projected)
 
 
 __all__ = ["SynchronousGraphModule", "localized_adjacency", "mxnet_xavier_uniform_"]

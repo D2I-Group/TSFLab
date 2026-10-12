@@ -11,19 +11,49 @@ from torch import nn
 from tsflab.models._components.revin import RevIN
 
 
+_ACTIVATIONS = {
+    "relu": nn.ReLU,
+    "gelu": nn.GELU,
+    "silu": nn.SiLU,
+    "tanh": nn.Tanh,
+    "leaky_relu": nn.LeakyReLU,
+}
+
+
 def make_act(name: str):
     name = (name or "").lower()
-    if name == "relu":
-        return nn.ReLU()
-    if name == "gelu":
-        return nn.GELU()
-    if name == "silu":
-        return nn.SiLU()
-    if name == "tanh":
-        return nn.Tanh()
-    if name == "leaky_relu":
-        return nn.LeakyReLU()
-    raise ValueError(f"Unsupported PWS activation: {name!r}")
+    if name not in _ACTIVATIONS:
+        raise ValueError(f"Unsupported PWS activation: {name!r}")
+    return _ACTIVATIONS[name]()
+
+
+def _check_lengths(c_in: int, seq_len: int, pred_len: int) -> None:
+    if c_in < 1 or seq_len < 1 or pred_len < 1:
+        raise ValueError("c_in, seq_len, and pred_len must be positive")
+
+
+def _check_patching(period: int, seq_len: int, patch_size: int) -> None:
+    if period < 1 or period > seq_len:
+        raise ValueError("period must be in [1, seq_len]")
+    if patch_size < 1 or patch_size > period:
+        raise ValueError("patch_size must be in [1, period]")
+
+
+def _parse_hidden_string(analysis_hidden: str) -> list[int]:
+    s = analysis_hidden.strip()
+    return [int(x) for x in s.split(",") if x] if s else []
+
+
+def _parse_hidden(analysis_hidden) -> list[int]:
+    if isinstance(analysis_hidden, str):
+        hidden_sizes = _parse_hidden_string(analysis_hidden)
+    elif isinstance(analysis_hidden, (list, tuple)):
+        hidden_sizes = [int(x) for x in analysis_hidden]
+    else:
+        hidden_sizes = []
+    if any(size < 1 for size in hidden_sizes):
+        raise ValueError("analysis_hidden entries must be positive")
+    return hidden_sizes
 
 
 class PWSModel(nn.Module):
@@ -41,12 +71,8 @@ class PWSModel(nn.Module):
         analysis_hidden: list[int] | tuple[int, ...] = (512, 256),
     ):
         super().__init__()
-        if c_in < 1 or seq_len < 1 or pred_len < 1:
-            raise ValueError("c_in, seq_len, and pred_len must be positive")
-        if period < 1 or period > seq_len:
-            raise ValueError("period must be in [1, seq_len]")
-        if patch_size < 1 or patch_size > period:
-            raise ValueError("patch_size must be in [1, period]")
+        _check_lengths(c_in, seq_len, pred_len)
+        _check_patching(period, seq_len, patch_size)
         self.c_in = c_in
         self.period = period
         self.seq_len = seq_len
@@ -60,17 +86,7 @@ class PWSModel(nn.Module):
         self.num_future_periods = (self.pred_len + self.period - 1) // self.period
         self.num_patches = math.ceil(self.period / self.patch_size)
 
-        if isinstance(analysis_hidden, str):
-            s = analysis_hidden.strip()
-            hidden_sizes = [int(x) for x in s.split(",") if x] if s else []
-        elif isinstance(analysis_hidden, (list, tuple)):
-            hidden_sizes = [int(x) for x in analysis_hidden]
-        else:
-            hidden_sizes = []
-
-        self.hidden_sizes = hidden_sizes
-        if any(size < 1 for size in hidden_sizes):
-            raise ValueError("analysis_hidden entries must be positive")
+        self.hidden_sizes = _parse_hidden(analysis_hidden)
         self.analysis_act = analysis_act
 
         self.analysis_layers = nn.ModuleList(
@@ -93,15 +109,13 @@ class PWSModel(nn.Module):
     def make_wsum(self):
         return nn.Linear(self.num_seq_periods, self.num_future_periods)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _check_input(self, x: torch.Tensor) -> None:
         if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.c_in):
             raise ValueError(
                 f"PWS expects input shaped (batch, {self.seq_len}, {self.c_in})"
             )
-        if self.revin:
-            x = self.revin_layer(x, "norm")
-        x = x.permute(0, 2, 1)
 
+    def _to_periods(self, x: torch.Tensor) -> torch.Tensor:
         if self.seq_len % self.period != 0:
             x = x[:, :, -(self.num_seq_periods * self.period) :]
 
@@ -110,10 +124,13 @@ class PWSModel(nn.Module):
             "b n (i p) -> (b n) p i",
             p=int(self.period),
         )
-        bn, period, num_seq_periods = x.shape
+        _, period, num_seq_periods = x.shape
         if period != self.period or num_seq_periods != self.num_seq_periods:
             raise ValueError("Unexpected period dimensions for PWS")
+        return x
 
+    def _patch_forecast(self, x: torch.Tensor) -> torch.Tensor:
+        bn = x.shape[0]
         out = x.new_zeros(bn, self.period, self.num_future_periods)
 
         for patch_idx in range(self.num_patches):
@@ -125,8 +142,16 @@ class PWSModel(nn.Module):
             x_patch = self.analysis_layers[patch_idx](x_patch) + x_patch
             x_patch = self.weighted_sum_layers[patch_idx](x_patch)
             out[:, start:end, :] = x_patch
+        return out
 
-        x = out
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        self._check_input(x)
+        if self.revin:
+            x = self.revin_layer(x, "norm")
+        x = x.permute(0, 2, 1)
+        x = self._to_periods(x)
+
+        x = self._patch_forecast(x)
         x = einops.rearrange(
             x,
             "(b n) p i -> b n (i p)",

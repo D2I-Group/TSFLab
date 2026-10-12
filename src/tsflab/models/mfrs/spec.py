@@ -46,13 +46,22 @@ def build_model(cfg, params):
     return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, **values)
 
 
+def _dataset_series(train_loader, enc_in: int) -> torch.Tensor | None:
+    """The loader dataset's ``[T, C]`` split when it has at least 4 steps, else ``None``."""
+    data = getattr(getattr(train_loader, "dataset", None), "data", None)
+    if data is None:
+        return None
+    series = torch.as_tensor(data).float()
+    if series.ndim == 2 and series.shape[1] == enc_in and series.shape[0] >= 4:
+        return series
+    return None
+
+
 def _training_series(train_loader, enc_in: int) -> torch.Tensor:
     """The ``[T, C]`` training split behind the loader, else rebuilt from time-ordered windows."""
-    data = getattr(getattr(train_loader, "dataset", None), "data", None)
-    if data is not None:
-        series = torch.as_tensor(data).float()
-        if series.ndim == 2 and series.shape[1] == enc_in and series.shape[0] >= 4:
-            return series
+    series = _dataset_series(train_loader, enc_in)
+    if series is not None:
+        return series
     starts, rows = [], []
     for batch in train_loader:
         x, x_mark = torch.as_tensor(batch[0]).float(), batch[2]

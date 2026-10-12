@@ -24,13 +24,7 @@ def periodic_alibi_bias(
     period is ``None`` and, for a period ``P``, the triangle wave of
     ``u = |i - j| mod P``: ``u`` if ``u < P / 2`` else ``P - u``.
     """
-    if seq_len < 1 or num_heads < 1:
-        raise ValueError("seq_len and num_heads must be positive")
-    groups = list(periods) if periods else [None]
-    if num_heads % len(groups) != 0:
-        raise ValueError("num_heads must be divisible by the number of period groups")
-    if any(p is not None and p < 1 for p in groups):
-        raise ValueError("periods must be positive integers or None")
+    groups = _period_groups(seq_len, num_heads, periods)
     per_group = num_heads // len(groups)
     positions = torch.arange(seq_len, device=device)
     distance = (positions.view(1, -1) - positions.view(-1, 1)).abs().to(dtype)
@@ -40,13 +34,34 @@ def periodic_alibi_bias(
     )
     blocks = []
     for period in groups:
-        if period is None:
-            shaped = distance
-        else:
-            u = distance % period
-            shaped = torch.where(u < period / 2, u, period - u)
+        shaped = _shaped_distance(distance, period)
         blocks.append(-slopes.view(-1, 1, 1) * shaped.unsqueeze(0))
     return torch.cat(blocks, dim=0)
+
+
+def _period_groups(
+    seq_len: int, num_heads: int, periods: Sequence[int | None] | None
+) -> list[int | None]:
+    """Validate the arguments and return one period (or ``None``) per head group."""
+    if seq_len < 1 or num_heads < 1:
+        raise ValueError("seq_len and num_heads must be positive")
+    return _checked_groups(num_heads, periods)
+
+
+def _checked_groups(num_heads: int, periods: Sequence[int | None] | None) -> list[int | None]:
+    groups = list(periods) if periods else [None]
+    if num_heads % len(groups) != 0:
+        raise ValueError("num_heads must be divisible by the number of period groups")
+    if any(p is not None and p < 1 for p in groups):
+        raise ValueError("periods must be positive integers or None")
+    return groups
+
+
+def _shaped_distance(distance: torch.Tensor, period: int | None) -> torch.Tensor:
+    if period is None:
+        return distance
+    u = distance % period
+    return torch.where(u < period / 2, u, period - u)
 
 
 __all__ = ["periodic_alibi_bias"]

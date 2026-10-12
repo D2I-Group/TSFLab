@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.mqrnn.model import Model
+from tsflab.models.mqrnn.model import Model, check_quantile_levels
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -21,12 +21,8 @@ class ModelParameterConfig(BaseModel):
     @field_validator("quantile_levels")
     @classmethod
     def _quantile_levels(cls, values: list[float] | None) -> list[float] | None:
-        if values is None:
-            return values
-        if not values or any(not 0.0 < value < 1.0 for value in values):
-            raise ValueError("quantile_levels must be non-empty values in (0, 1)")
-        if any(left >= right for left, right in zip(values, values[1:])):
-            raise ValueError("quantile_levels must be strictly ascending")
+        if values is not None:
+            check_quantile_levels(values)
         return values
 
 

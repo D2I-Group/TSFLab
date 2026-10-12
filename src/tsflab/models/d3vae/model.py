@@ -69,12 +69,8 @@ class CalendarEmbedding(nn.Module):
     def forward(self, marks: torch.Tensor) -> torch.Tensor:
         raw = marks.shape[-1] == 6
         calendar = adapt_tslib_marks(marks, embed_type="learned", freq=self.freq).long()
-        parts = [
-            self.hour(calendar[..., 3]),
-            self.weekday(calendar[..., 2]),
-            self.day(calendar[..., 1]),
-            self.month(calendar[..., 0]),
-        ]
+        tables = (self.hour, self.weekday, self.day, self.month)
+        parts = [table(calendar[..., column]) for table, column in zip(tables, (3, 2, 1, 0))]
         if self.minute is not None:
             minute = calendar[..., 4] // 15 if raw else calendar[..., 4]
             parts.insert(0, self.minute(minute))
@@ -120,14 +116,10 @@ class InvertedResidual(nn.Module):
         self.upsample = upsample
         self.layers = nn.Sequential(
             _batch_norm(c_in),
-            nn.Conv2d(c_in, hidden, 1),
-            _batch_norm(hidden),
-            nn.SiLU(),
-            nn.Conv2d(hidden, hidden, kernel, padding=kernel // 2, groups=hidden),
-            _batch_norm(hidden),
-            nn.SiLU(),
-            nn.Conv2d(hidden, c_out, 1),
-            _batch_norm(c_out),
+            nn.Conv2d(c_in, hidden, 1), _batch_norm(hidden), nn.SiLU(),  # expand
+            nn.Conv2d(hidden, hidden, kernel, padding=kernel // 2, groups=hidden),  # depthwise
+            _batch_norm(hidden), nn.SiLU(),
+            nn.Conv2d(hidden, c_out, 1), _batch_norm(c_out),  # project
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -165,33 +157,49 @@ class UpsampleSkip(nn.Module):
         return self.conv(F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=True))
 
 
+# Cell kind -> (skip path or None for identity, operations from (c_in, c_out)).
+_CELL_KINDS = {
+    "normal_pre": (None, lambda a, b: [BNSwishConv(a, b, 1), BNSwishConv(b, b, 1)]),
+    "normal_enc": (None, lambda a, b: [BNSwishConv(a, b, 1), BNSwishConv(b, b, 1)]),
+    "down_pre": (FactorizedReduce, lambda a, b: [BNSwishConv(a, b, 2), BNSwishConv(b, b, 1)]),
+    "normal_dec": (None, lambda a, b: [InvertedResidual(a, b, 6, 5, upsample=False)]),
+    "up_post": (UpsampleSkip, lambda a, b: [InvertedResidual(a, b, 3, 5, upsample=True)]),
+    "normal_post": (None, lambda a, b: [InvertedResidual(a, b, 3, 5, upsample=False)]),
+}
+
+
 class Cell(nn.Module):
     """Residual cell ``skip(s) + 0.1 * ops(s)`` of the BVAE towers."""
 
     def __init__(self, c_in: int, c_out: int, kind: str) -> None:
         super().__init__()
         self.kind = kind
-        if kind in {"normal_pre", "normal_enc"}:
-            self.skip: nn.Module = nn.Identity()
-            ops = [BNSwishConv(c_in, c_out, 1), BNSwishConv(c_out, c_out, 1)]
-        elif kind == "down_pre":
-            self.skip = FactorizedReduce(c_in, c_out)
-            ops = [BNSwishConv(c_in, c_out, 2), BNSwishConv(c_out, c_out, 1)]
-        elif kind == "normal_dec":
-            self.skip = nn.Identity()
-            ops = [InvertedResidual(c_in, c_out, 6, 5, upsample=False)]
-        elif kind == "up_post":
-            self.skip = UpsampleSkip(c_in, c_out)
-            ops = [InvertedResidual(c_in, c_out, 3, 5, upsample=True)]
-        elif kind == "normal_post":
-            self.skip = nn.Identity()
-            ops = [InvertedResidual(c_in, c_out, 3, 5, upsample=False)]
-        else:  # pragma: no cover - construction is internal
-            raise ValueError(kind)
-        self.ops = nn.Sequential(*ops)
+        skip, ops = _CELL_KINDS[kind]
+        self.skip: nn.Module = nn.Identity() if skip is None else skip(c_in, c_out)
+        self.ops = nn.Sequential(*ops(c_in, c_out))
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
         return self.skip(s) + 0.1 * self.ops(s)
+
+
+def _pre_process_cells(channels: int, num_blocks: int, cells: int) -> nn.Sequential:
+    """Encoder preprocessing; each block ends with a stride-2 cell doubling the channels."""
+    pre = []
+    for _ in range(num_blocks):
+        pre += [Cell(channels, channels, "normal_pre") for _ in range(cells - 1)]
+        pre.append(Cell(channels, 2 * channels, "down_pre"))
+        channels *= 2
+    return nn.Sequential(*pre)
+
+
+def _post_process_cells(channels: int, num_blocks: int, cells: int) -> nn.Sequential:
+    """Decoder postprocessing; each block starts with an upsampling cell halving the channels."""
+    post = []
+    for _ in range(num_blocks):
+        post.append(Cell(channels, channels // 2, "up_post"))
+        channels //= 2
+        post += [Cell(channels, channels, "normal_post") for _ in range(cells - 1)]
+    return nn.Sequential(*post)
 
 
 class BidirectionalVAE(nn.Module):
@@ -206,34 +214,16 @@ class BidirectionalVAE(nn.Module):
 
     def __init__(
         self,
-        time_len: int,
-        width: int,
-        target_dim: int,
-        num_channels_enc: int,
-        num_channels_dec: int,
-        num_blocks: int,
-        num_preprocess_cells: int,
-        num_postprocess_cells: int,
-        groups: int,
-        latent_per_group: int,
-        clamp: float,
+        time_len: int, width: int, target_dim: int,
+        num_channels_enc: int, num_channels_dec: int, num_blocks: int,
+        num_preprocess_cells: int, num_postprocess_cells: int,
+        groups: int, latent_per_group: int, clamp: float,
     ) -> None:
         super().__init__()
-        self.width = width
-        self.clamp = clamp
+        self.width, self.clamp = width, clamp
         self.stem = WeightNormConv2d(1, num_channels_enc, 3, padding=1)
-        mult = 1
-        pre = []
-        for _ in range(num_blocks):
-            for cell in range(num_preprocess_cells):
-                channels = num_channels_enc * mult
-                if cell == num_preprocess_cells - 1:
-                    pre.append(Cell(channels, 2 * channels, "down_pre"))
-                    mult *= 2
-                else:
-                    pre.append(Cell(channels, channels, "normal_pre"))
-        self.pre_process = nn.ModuleList(pre)
-        enc_c, dec_c = num_channels_enc * mult, num_channels_dec * mult
+        self.pre_process = _pre_process_cells(num_channels_enc, num_blocks, num_preprocess_cells)
+        enc_c, dec_c = num_channels_enc * 2**num_blocks, num_channels_dec * 2**num_blocks
         self.enc_cells = nn.ModuleList(Cell(enc_c, enc_c, "normal_enc") for _ in range(groups))
         # Encoder combiner: x_enc + conv1x1(decoder state).
         self.enc_combiners = nn.ModuleList(
@@ -248,45 +238,29 @@ class BidirectionalVAE(nn.Module):
         self.dec_combiners = nn.ModuleList(
             WeightNormConv2d(dec_c + latent_per_group, dec_c, 1) for _ in range(groups)
         )
-        latent_time = time_len // 2**num_blocks
-        latent_width = width
-        for _ in range(num_blocks):
-            latent_width = (latent_width + 1) // 2
-        self.prior_ftr0 = nn.Parameter(torch.rand(dec_c, latent_time, latent_width))
-        post = []
-        for _ in range(num_blocks):
-            for cell in range(num_postprocess_cells):
-                channels = num_channels_dec * mult
-                if cell == 0:
-                    post.append(Cell(channels, channels // 2, "up_post"))
-                    mult //= 2
-                else:
-                    post.append(Cell(channels, channels, "normal_post"))
-        self.post_process = nn.ModuleList(post)
+        latent_width = -(-width // 2**num_blocks)  # ceil-halved once per block
+        self.prior_ftr0 = nn.Parameter(torch.rand(dec_c, time_len // 2**num_blocks, latent_width))
+        self.post_process = _post_process_cells(dec_c, num_blocks, num_postprocess_cells)
         self.image_conditional = nn.Sequential(
-            nn.ELU(), WeightNormConv2d(num_channels_dec * mult, 2, 3, padding=1)
+            nn.ELU(), WeightNormConv2d(num_channels_dec, 2, 3, padding=1)
         )
         self.projection = nn.Linear(width, target_dim)
 
     def _posterior(self, features: torch.Tensor, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        raw_mu, raw_log_sigma = self.enc_samplers[index](features).chunk(2, dim=1)
-        mu = soft_clamp(raw_mu, self.clamp)
-        log_sigma = soft_clamp(raw_log_sigma, self.clamp)
+        params = self.enc_samplers[index](features).chunk(2, dim=1)
+        mu, log_sigma = (soft_clamp(part, self.clamp) for part in params)
         z = mu + torch.exp(log_sigma) * torch.randn_like(mu)
         # The official TC estimator reads the second chunk as a log-variance.
         return z, total_correlation(z, mu, log_sigma)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return target mean, target log-scale ``[B, 1, T, D]`` and the mean TC (Eq. 13)."""
-        s = self.stem(2 * x - 1.0)
-        for cell in self.pre_process:
-            s = cell(s)
+        s = self.pre_process(self.stem(2 * x - 1.0))
         skips = []
-        for index, cell in enumerate(self.enc_cells):
+        for cell in self.enc_cells:
             s = cell(s)
-            if index < len(self.enc_cells) - 1:
-                skips.append(s)
-        skips.reverse()
+            skips.append(s)
+        skips = skips[-2::-1]  # all but the last encoder state, top-down
         combiners = list(self.enc_combiners)[::-1]
 
         z, tc = self._posterior(self.enc0(s), 0)
@@ -299,12 +273,9 @@ class BidirectionalVAE(nn.Module):
             z, tc = self._posterior(features, index)
             tc_terms.append(tc)
             state = self.dec_combiners[index](torch.cat([state, z], dim=1))
-        for cell in self.post_process:
-            state = cell(state)
-        params = self.image_conditional(state)
+        params = self.image_conditional(self.post_process(state))
         params = self.projection(params[..., -self.width :])
-        mu = soft_clamp(params[:, :1], self.clamp)
-        log_sigma = soft_clamp(params[:, 1:], self.clamp)
+        mu, log_sigma = (soft_clamp(part, self.clamp) for part in params.chunk(2, dim=1))
         return mu, log_sigma, torch.stack(tc_terms).mean()
 
 
@@ -326,8 +297,7 @@ class EnergyNetwork(nn.Module):
 
     def __init__(self, channels: int, time_len: int, target_dim: int) -> None:
         super().__init__()
-        widths = [channels, 2 * channels, 2 * channels, 4 * channels, 4 * channels]
-        widths += [8 * channels, 8 * channels]
+        widths = [factor * channels for factor in (1, 2, 2, 4, 4, 8, 8)]
         self.conv_in = nn.Conv2d(1, channels, 3, padding=1)
         self.blocks = nn.Sequential(
             *(EnergyResidualBlock(a, b) for a, b in zip(widths[:-1], widths[1:]))
@@ -378,29 +348,26 @@ class Model(nn.Module):
         gamma: float = 0.01,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, embedding_dim, hidden_size, num_layers, diff_steps) < 1:
-            raise ValueError("lengths, channels, widths and diffusion steps must be positive")
-        if features not in {"M", "S", "MS"}:
-            raise ValueError("features must be M, S, or MS")
-        if freq not in {"h", "t"}:
-            raise ValueError("freq must be 'h' or 't'")
-        if embedding_dim % 2:
-            raise ValueError("embedding_dim must be even (sinusoidal positions)")
-        if num_blocks < 1 or pred_len % 2**num_blocks:
-            raise ValueError("pred_len must be divisible by 2 ** num_blocks")
-        if num_preprocess_cells < 1 or num_postprocess_cells < 1 or groups_per_scale < 1:
-            raise ValueError("cell and group counts must be positive")
-        if not 0.0 <= beta_start <= beta_end < 1.0:
-            raise ValueError("need 0 <= beta_start <= beta_end < 1")
-        if not 0.0 < target_scale < 1.0:
-            raise ValueError("target_scale (omega) must be in (0, 1)")
-        self.seq_len = seq_len
-        self.pred_len = pred_len
-        self.enc_in = enc_in
+        checks = (
+            (min(seq_len, pred_len, enc_in, embedding_dim, hidden_size, num_layers, diff_steps) < 1,
+             "lengths, channels, widths and diffusion steps must be positive"),
+            (features not in {"M", "S", "MS"}, "features must be M, S, or MS"),
+            (freq not in {"h", "t"}, "freq must be 'h' or 't'"),
+            (embedding_dim % 2, "embedding_dim must be even (sinusoidal positions)"),
+            (num_blocks < 1 or pred_len % 2**num_blocks,
+             "pred_len must be divisible by 2 ** num_blocks"),
+            (min(num_preprocess_cells, num_postprocess_cells, groups_per_scale) < 1,
+             "cell and group counts must be positive"),
+            (not 0.0 <= beta_start <= beta_end < 1.0, "need 0 <= beta_start <= beta_end < 1"),
+            (not 0.0 < target_scale < 1.0, "target_scale (omega) must be in (0, 1)"),
+        )
+        for failed, message in checks:
+            if failed:
+                raise ValueError(message)
+        self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.features = features
         self.target_dim = 1 if features == "MS" else enc_in
-        self.diff_steps = diff_steps
-        self.denoise_step = denoise_step
+        self.diff_steps, self.denoise_step = diff_steps, denoise_step
         self.psi, self.lambda_dsm, self.gamma = psi, lambda_dsm, gamma
 
         self.value_embedding = TokenEmbedding(enc_in, embedding_dim)
@@ -408,27 +375,15 @@ class Model(nn.Module):
         self.calendar_embedding = CalendarEmbedding(embedding_dim, freq)
         self.embedding_dropout = nn.Dropout(dropout)
         self.rnn = nn.GRU(
-            embedding_dim,
-            hidden_size,
-            num_layers=num_layers,
-            dropout=dropout if num_layers > 1 else 0.0,
-            batch_first=True,
+            embedding_dim, hidden_size, num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0, batch_first=True,
         )
         # Local adapter: the BVAE grid is horizon-long; identity when seq_len == pred_len.
         self.time_map = nn.Linear(seq_len, pred_len) if seq_len != pred_len else None
         width = embedding_dim + hidden_size
         self.bvae = BidirectionalVAE(
-            pred_len,
-            width,
-            self.target_dim,
-            num_channels_enc,
-            num_channels_dec,
-            num_blocks,
-            num_preprocess_cells,
-            num_postprocess_cells,
-            groups_per_scale,
-            latent_per_group,
-            clamp,
+            pred_len, width, self.target_dim, num_channels_enc, num_channels_dec, num_blocks,
+            num_preprocess_cells, num_postprocess_cells, groups_per_scale, latent_per_group, clamp,
         )
         self.energy = EnergyNetwork(score_channels, pred_len, self.target_dim)
 
@@ -443,7 +398,7 @@ class Model(nn.Module):
     # ------------------------------------------------------------------ inputs
     def representation(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
         """``X_input = concat(GRU(E(X)), E(X))`` mapped to the horizon: ``[B, pred_len, E+H]``."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
+        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
         embedded = self.value_embedding(x_enc) + self.position_embedding(x_enc)
         if x_mark_enc is not None:
@@ -462,15 +417,14 @@ class Model(nn.Module):
     def _at(schedule: torch.Tensor, step: torch.Tensor, ndim: int) -> torch.Tensor:
         return schedule[step].view(-1, *([1] * (ndim - 1)))
 
-    def diffuse_input(self, x: torch.Tensor, step: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        """Eq. 3-4: ``X(t) = sqrt(abar_t) X + sqrt(1 - abar_t) dX``."""
-        abar = self._at(self.alphas_cumprod, step, x.ndim)
+    def diffuse(
+        self, schedule: torch.Tensor, x: torch.Tensor, step: torch.Tensor, noise: torch.Tensor
+    ) -> torch.Tensor:
+        """``X(t) = sqrt(abar_t) X + sqrt(1 - abar_t) dX``: the input (Eq. 3-4) with
+        ``alphas_cumprod`` and the target (Eq. 6, ``beta'_t = omega beta_t``) with
+        ``target_alphas_cumprod``."""
+        abar = self._at(schedule, step, x.ndim)
         return abar.sqrt() * x + (1.0 - abar).sqrt() * noise
-
-    def diffuse_target(self, y: torch.Tensor, step: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        """Eq. 6 with ``beta'_t = omega beta_t``."""
-        abar = self._at(self.target_alphas_cumprod, step, y.ndim)
-        return abar.sqrt() * y + (1.0 - abar).sqrt() * noise
 
     # ----------------------------------------------------------------- denoise
     def energy_gradient(self, y: torch.Tensor, create_graph: bool) -> torch.Tensor:
@@ -508,13 +462,14 @@ class Model(nn.Module):
         """Algorithm 1 terms for target ``y`` ``[B, pred_len, target_dim]``."""
         if y.shape != (x_enc.shape[0], self.pred_len, self.target_dim):
             raise ValueError(f"target must have shape [batch, {self.pred_len}, {self.target_dim}]")
-        batch = x_enc.shape[0]
         if step is None:
-            step = torch.randint(0, self.diff_steps, (batch,), device=x_enc.device)
+            step = torch.randint(0, self.diff_steps, (x_enc.shape[0],), device=x_enc.device)
         features = self.representation(x_enc, x_mark_enc)
-        noisy_input = self.diffuse_input(features, step, torch.randn_like(features))
+        noisy_input = self.diffuse(self.alphas_cumprod, features, step, torch.randn_like(features))
         target = y.unsqueeze(1)
-        noisy_target = self.diffuse_target(target, step, torch.randn_like(target))
+        noisy_target = self.diffuse(
+            self.target_alphas_cumprod, target, step, torch.randn_like(target)
+        )
         mu, log_sigma, tc = self.bvae(noisy_input.unsqueeze(1))
         sigma = torch.exp(log_sigma)
 
@@ -539,9 +494,5 @@ class Model(nn.Module):
     ) -> torch.Tensor:
         """Eq. 14: ``psi * NLL + lambda * DSM + gamma * TC + MSE``."""
         terms = self.loss_terms(x_enc, x_mark_enc, y)
-        return (
-            self.psi * terms["nll"]
-            + self.lambda_dsm * terms["dsm"]
-            + self.gamma * terms["tc"]
-            + terms["mse"]
-        )
+        weighted = self.psi * terms["nll"] + self.lambda_dsm * terms["dsm"]
+        return weighted + self.gamma * terms["tc"] + terms["mse"]

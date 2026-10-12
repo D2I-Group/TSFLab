@@ -147,6 +147,20 @@ class BetaBlock(nn.Module):
         return self.head(rep), rep
 
 
+def _check_variant(variant: str, block_norm: str, body_layers: int) -> None:
+    if variant not in {"alpha", "beta"}:
+        raise ValueError("variant must be 'alpha' or 'beta'")
+    if block_norm not in {"layer", "instance"}:
+        raise ValueError("block_norm must be 'layer' or 'instance'")
+    if variant == "alpha" and (block_norm != "layer" or body_layers != 1):
+        raise ValueError("ReNF-alpha uses LayerNorm blocks with one transform layer")
+
+
+def _check_blocks(num_blocks: int, pred_len: int) -> None:
+    if num_blocks < 1 or pred_len % num_blocks != 0:
+        raise ValueError(f"num_blocks={num_blocks} must divide pred_len={pred_len}")
+
+
 class Model(nn.Module):
     """ReNF: Boosted Direct Output over N sub-forecasters of growing horizon.
 
@@ -171,14 +185,8 @@ class Model(nn.Module):
         alpha_freq: float = 0.2,
     ) -> None:
         super().__init__()
-        if variant not in {"alpha", "beta"}:
-            raise ValueError("variant must be 'alpha' or 'beta'")
-        if block_norm not in {"layer", "instance"}:
-            raise ValueError("block_norm must be 'layer' or 'instance'")
-        if variant == "alpha" and (block_norm != "layer" or body_layers != 1):
-            raise ValueError("ReNF-alpha uses LayerNorm blocks with one transform layer")
-        if num_blocks < 1 or pred_len % num_blocks != 0:
-            raise ValueError(f"num_blocks={num_blocks} must divide pred_len={pred_len}")
+        _check_variant(variant, block_norm, body_layers)
+        _check_blocks(num_blocks, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -201,8 +209,7 @@ class Model(nn.Module):
                 blocks.append(BetaBlock(width, horizon, d_ff, dropout, input_dropout, body_layers, block_norm))
         self.blocks = nn.ModuleList(blocks)
 
-    def sub_forecasts(self, x_enc: torch.Tensor) -> list[torch.Tensor]:
-        """All sub-forecasts ``[B, k * H / N, V]`` for k = 1..N, denormalized (Eq. 3)."""
+    def _normalized(self, x_enc: torch.Tensor) -> torch.Tensor:
         if x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
             raise ValueError(
                 f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
@@ -210,6 +217,11 @@ class Model(nn.Module):
         x = self.revin(x_enc, "norm")
         if self.position is not None:
             x = x + self.position
+        return x
+
+    def sub_forecasts(self, x_enc: torch.Tensor) -> list[torch.Tensor]:
+        """All sub-forecasts ``[B, k * H / N, V]`` for k = 1..N, denormalized (Eq. 3)."""
+        x = self._normalized(x_enc)
         window = x.transpose(1, 2)  # [B, V, T]; every projection acts on time
         outputs: list[torch.Tensor] = []
         block_input = window

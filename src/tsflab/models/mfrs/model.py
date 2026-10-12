@@ -153,6 +153,22 @@ class ReferenceCrossAttentionLayer(nn.Module):
         return self.norm2(hidden + update)
 
 
+def _check_sizes(smallest: int, d_model: int, n_heads: int) -> None:
+    if smallest < 1:
+        raise ValueError("MFRS lengths, widths and counts must be positive")
+    if d_model % n_heads:
+        raise ValueError("d_model must be divisible by n_heads")
+
+
+def _check_choices(waveform: str, activation: str, periods) -> None:
+    if waveform not in WAVEFORMS:
+        raise ValueError(f"waveform must be one of {WAVEFORMS}")
+    if activation not in {"gelu", "relu"}:
+        raise ValueError("activation must be 'gelu' or 'relu'")
+    if any(int(period) < 2 for period in periods):
+        raise ValueError("manual periods must be integers of at least 2")
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -173,16 +189,8 @@ class Model(nn.Module):
         share_embedding: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("MFRS lengths, widths and counts must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if waveform not in WAVEFORMS:
-            raise ValueError(f"waveform must be one of {WAVEFORMS}")
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
-        if any(int(period) < 2 for period in periods):
-            raise ValueError("manual periods must be integers of at least 2")
+        _check_sizes(min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff), d_model, n_heads)
+        _check_choices(waveform, activation, periods)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.waveform = waveform
         self.periods = tuple(int(period) for period in periods)
@@ -213,6 +221,17 @@ class Model(nn.Module):
         if series.ndim != 2 or series.shape[1] != self.enc_in or series.shape[0] < 4:
             raise ValueError(f"MFRS needs a [time, {self.enc_in}] training series of at least 4 steps")
         length = series.shape[0]
+        chosen = self._base_patterns(series)
+        device = self.pattern_period.device
+        self.pattern_period = torch.tensor([p for p, _ in chosen], dtype=torch.long, device=device)
+        self.pattern_harmonic = torch.tensor([k for _, k in chosen], dtype=torch.long, device=device)
+        span = min(length, int(self.pattern_period.max()) + self.seq_len)
+        self.align_series = series[length - span:].float().to(device)
+        self.align_start = torch.tensor(length - span, dtype=torch.long, device=device)
+
+    def _base_patterns(self, series: torch.Tensor) -> list[tuple[int, int]]:
+        """Extracted primary and harmonic patterns, then the manual periods, one per reduced pattern."""
+        length = series.shape[0]
         patterns: list[tuple[int, int]] = [(period, 1) for period in self.periods]
         if self.extract:
             spectra = amplitude_spectrum(series)
@@ -222,13 +241,7 @@ class Model(nn.Module):
         unique: dict[tuple[int, int], tuple[int, int]] = {}
         for period, harmonic in patterns:
             unique.setdefault(_reduced(period, harmonic), (period, harmonic))
-        chosen = list(unique.values()) or [(self.seq_len, 1)]
-        device = self.pattern_period.device
-        self.pattern_period = torch.tensor([p for p, _ in chosen], dtype=torch.long, device=device)
-        self.pattern_harmonic = torch.tensor([k for _, k in chosen], dtype=torch.long, device=device)
-        span = min(length, int(self.pattern_period.max()) + self.seq_len)
-        self.align_series = series[length - span:].float().to(device)
-        self.align_start = torch.tensor(length - span, dtype=torch.long, device=device)
+        return list(unique.values()) or [(self.seq_len, 1)]
 
     def align_steps(self, x_enc: torch.Tensor) -> torch.Tensor:
         """Algorithm 3: start step maximizing the summed per-channel Pearson correlation."""

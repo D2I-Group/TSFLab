@@ -174,6 +174,24 @@ class EncodingLayer(nn.Module):
         return self.merge(h), residual + h
 
 
+def _check_conv_fit(kernel: int, dilation: int, seq_len: int) -> None:
+    if kernel < 1 or dilation < 1 or conv_length(seq_len, kernel, dilation) < 1:
+        raise ValueError("every convolution must fit the input window")
+
+
+def _check_conv_groups(groups: int, d_model: int) -> None:
+    if groups != -1 and (groups < 1 or d_model % groups):
+        raise ValueError("convolution groups must be -1 (depthwise) or divide d_model")
+
+
+def _checked_conv_layers(conv_layers, seq_len: int, d_model: int) -> tuple[tuple[int, int, int], ...]:
+    conv_layers = tuple(tuple(int(v) for v in layer) for layer in conv_layers)
+    for kernel, dilation, groups in conv_layers:
+        _check_conv_fit(kernel, dilation, seq_len)
+        _check_conv_groups(groups, d_model)
+    return conv_layers
+
+
 class Model(nn.Module):
     """TSRM forecaster with the four-input TSFLab interface."""
 
@@ -193,12 +211,7 @@ class Model(nn.Module):
         super().__init__()
         if attention not in {"softmax", "entmax15"}:
             raise ValueError("attention must be 'softmax' or 'entmax15'")
-        conv_layers = tuple(tuple(int(v) for v in layer) for layer in conv_layers)
-        for kernel, dilation, groups in conv_layers:
-            if kernel < 1 or dilation < 1 or conv_length(seq_len, kernel, dilation) < 1:
-                raise ValueError("every convolution must fit the input window")
-            if groups != -1 and (groups < 1 or d_model % groups):
-                raise ValueError("convolution groups must be -1 (depthwise) or divide d_model")
+        conv_layers = _checked_conv_layers(conv_layers, seq_len, d_model)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

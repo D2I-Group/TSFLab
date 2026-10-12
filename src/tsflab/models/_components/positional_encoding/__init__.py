@@ -34,6 +34,34 @@ def _coordinate(length: int, width: int, power: float) -> torch.Tensor:
     return _standardize(2.0 * time * feature - 1.0)
 
 
+def _column(length: int, width: int, low: float, high: float) -> torch.Tensor:
+    return torch.empty(length, 1).uniform_(low, high)
+
+
+def _normal_column(length: int, width: int) -> torch.Tensor:
+    return torch.empty(length, 1).normal_(mean=0.0, std=0.1)
+
+
+def _small_uniform_table(length: int, width: int) -> torch.Tensor:
+    return torch.empty(length, width).uniform_(-0.02, 0.02)
+
+
+_POSITIONAL_TABLES = {
+    "zero": lambda length, width: _column(length, width, -0.02, 0.02),
+    "small_uniform": lambda length, width: _column(length, width, -0.02, 0.02),
+    "normal": _normal_column,
+    "gauss": _normal_column,
+    "uniform": lambda length, width: _column(length, width, 0.0, 0.1),
+    "zeros": _small_uniform_table,
+    "small_uniform_2d": _small_uniform_table,
+    "sincos": _sinusoidal,
+    "lin1d": lambda length, width: _coordinate(length, 1, 1.0),
+    "exp1d": lambda length, width: _coordinate(length, 1, 0.5),
+    "lin2d": lambda length, width: _coordinate(length, width, 1.0),
+    "exp2d": lambda length, width: _coordinate(length, width, 0.5),
+}
+
+
 def positional_encoding(
     kind: str | None,
     learnable: bool,
@@ -52,24 +80,11 @@ def positional_encoding(
     if length < 1 or width < 1:
         raise ValueError("length and width must be positive")
     if kind is None:
-        table = torch.empty(length, width).uniform_(-0.02, 0.02)
+        table = _small_uniform_table(length, width)
         learnable = False
-    elif kind in {"zero", "small_uniform", "normal", "gauss", "uniform"}:
-        table = torch.empty(length, 1)
-        if kind in {"zero", "small_uniform"}:
-            table.uniform_(-0.02, 0.02)
-        elif kind in {"normal", "gauss"}:
-            table.normal_(mean=0.0, std=0.1)
-        else:
-            table.uniform_(0.0, 0.1)
-    elif kind in {"zeros", "small_uniform_2d"}:
-        table = torch.empty(length, width).uniform_(-0.02, 0.02)
-    elif kind == "sincos":
-        table = _sinusoidal(length, width)
-    elif kind in {"lin1d", "exp1d", "lin2d", "exp2d"}:
-        table_width = width if kind.endswith("2d") else 1
-        power = 0.5 if kind.startswith("exp") else 1.0
-        table = _coordinate(length, table_width, power)
     else:
-        raise ValueError(f"unsupported positional encoding: {kind!r}")
+        builder = _POSITIONAL_TABLES.get(kind)
+        if builder is None:
+            raise ValueError(f"unsupported positional encoding: {kind!r}")
+        table = builder(length, width)
     return nn.Parameter(table, requires_grad=bool(learnable))

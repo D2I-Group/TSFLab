@@ -88,6 +88,23 @@ class WDformerEncoderLayer(nn.Module):
         return self.out_norm(x + self.feed_forward(x))
 
 
+def _check_arguments(
+    seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, e_layers: int, wave_size: int
+) -> None:
+    if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, wave_size) < 1:
+        raise ValueError("invalid WDformer dimension")
+    if d_model % n_heads:
+        raise ValueError("d_model must be divisible by n_heads")
+    if wave_size > 12:
+        raise ValueError("wave_size too large for the supplied sequence lengths")
+
+
+def _subband_sizes(wavelet: DecimatedWaveletTransform, length: int) -> list[int]:
+    """Coefficient count of every subband that ``wavelet`` produces for a ``length``-step series."""
+    with torch.no_grad():
+        return [c.shape[-1] for c in wavelet.decompose(torch.zeros(1, 1, length))]
+
+
 class Model(nn.Module):
     """WDformer: a Haar wavelet decomposition of the raw window feeds a
     per-subband linear embedding (concatenated into one ``d_model``-wide
@@ -110,12 +127,7 @@ class Model(nn.Module):
         wave_size: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, wave_size) < 1:
-            raise ValueError("invalid WDformer dimension")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if wave_size > 12:
-            raise ValueError("wave_size too large for the supplied sequence lengths")
+        _check_arguments(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, wave_size)
         del d_ff  # accepted for preset/CLI parity; the official SwiGLU feed-forward
         # width is fixed at 2 * d_model and never reads d_ff (its only official
         # consumer, a Conv1d-based feed-forward branch, is unused dead code in
@@ -127,8 +139,7 @@ class Model(nn.Module):
         self.wave_size = wave_size
 
         self.embed_wavelet = DecimatedWaveletTransform("haar", level=wave_size)
-        with torch.no_grad():
-            embed_sizes = [c.shape[-1] for c in self.embed_wavelet.decompose(torch.zeros(1, 1, seq_len))]
+        embed_sizes = _subband_sizes(self.embed_wavelet, seq_len)
         band_dim = d_model // (wave_size + 1)
         band_dims = [band_dim] * wave_size + [d_model - wave_size * band_dim]
         self.subband_embedding = nn.ModuleList(
@@ -143,10 +154,7 @@ class Model(nn.Module):
         self.final_norm = RMSNorm(d_model)
 
         self.output_wavelet = DecimatedWaveletTransform("haar", level=wave_size)
-        with torch.no_grad():
-            self.output_split_sizes = [
-                c.shape[-1] for c in self.output_wavelet.decompose(torch.zeros(1, 1, pred_len))
-            ]
+        self.output_split_sizes = _subband_sizes(self.output_wavelet, pred_len)
         # The deepest level may pad an odd intermediate length by one sample
         # (trimmed again inside ``reconstruct``), so the fabricated
         # coefficients can total one or two elements more than ``pred_len``.

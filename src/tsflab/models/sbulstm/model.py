@@ -106,6 +106,32 @@ class AveragedLSTMLayer(nn.Module):
         return 0.5 * (forward + backward)
 
 
+def _check_options(smallest: int, layers: Sequence[str], value_range: str, imputation_weight: float) -> None:
+    if smallest < 1:
+        raise ValueError("seq_len, pred_len and enc_in must be positive")
+    _check_layers(layers)
+    if value_range not in ("unit", "unbounded"):
+        raise ValueError("value_range must be 'unit' or 'unbounded'")
+    if imputation_weight < 0.0:
+        raise ValueError("imputation_weight must be non-negative")
+
+
+def _check_layers(layers: Sequence[str]) -> None:
+    if not layers:
+        raise ValueError("layers must name at least one layer")
+    if any(kind not in ("bidirectional", "unidirectional") for kind in layers):
+        raise ValueError("layers entries must be 'bidirectional' or 'unidirectional'")
+
+
+def _layer_widths(enc_in: int, hidden_dim: int | None, count: int) -> list[int]:
+    width = enc_in if hidden_dim is None else hidden_dim
+    if width < 1:
+        raise ValueError("hidden_dim must be positive")
+    # Every layer but the last is `width` wide; the last is `enc_in` wide because
+    # its final hidden state is the next sensor vector (Section 4.5.1).
+    return [width] * (count - 1) + [enc_in]
+
+
 class Model(nn.Module):
     """Stacked LSTM-I/BDLSTM-I first layer and LSTM/BDLSTM layers over the sensor vector."""
 
@@ -121,27 +147,13 @@ class Model(nn.Module):
         value_range: ValueRange = "unit",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("seq_len, pred_len and enc_in must be positive")
-        if not layers:
-            raise ValueError("layers must name at least one layer")
-        if any(kind not in ("bidirectional", "unidirectional") for kind in layers):
-            raise ValueError("layers entries must be 'bidirectional' or 'unidirectional'")
-        if value_range not in ("unit", "unbounded"):
-            raise ValueError("value_range must be 'unit' or 'unbounded'")
-        if imputation_weight < 0.0:
-            raise ValueError("imputation_weight must be non-negative")
-        width = enc_in if hidden_dim is None else hidden_dim
-        if width < 1:
-            raise ValueError("hidden_dim must be positive")
+        _check_options(min(seq_len, pred_len, enc_in), layers, value_range, imputation_weight)
+        widths = _layer_widths(enc_in, hidden_dim, len(layers))
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.imputation_weight = imputation_weight
         self.value_range = value_range
-        # Every layer but the last is `width` wide; the last is `enc_in` wide because
-        # its final hidden state is the next sensor vector (Section 4.5.1).
-        widths = [width] * (len(layers) - 1) + [enc_in]
         first = layers[0] == "bidirectional"
         self.first_layer: nn.Module = (
             ImputationLSTMLayer(enc_in, widths[0], first, value_range == "unit")
@@ -182,6 +194,17 @@ class Model(nn.Module):
             raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
         observed = torch.isfinite(x_enc).to(x_enc.dtype)
         values = torch.where(observed.bool(), x_enc, torch.zeros_like(x_enc))
+        predictions, error = self._rollout(values, observed)
+        # Eq. 22 regularizer, added to the configured forecast loss by the trainer.
+        self.aux_loss = (
+            self.imputation_weight * error if self.training and error is not None else None
+        )
+        return torch.stack(predictions, dim=1)
+
+    def _rollout(
+        self, values: torch.Tensor, observed: torch.Tensor
+    ) -> tuple[list[torch.Tensor], torch.Tensor | None]:
+        """``pred_len`` next-step forecasts and the imputation error of the first step."""
         predictions = []
         error = None
         for step in range(self.pred_len):
@@ -193,8 +216,4 @@ class Model(nn.Module):
                 # Recursive multi-step rollout: the forecast enters the window as observed.
                 values = torch.cat((values[:, 1:], prediction.unsqueeze(1)), dim=1)
                 observed = torch.cat((observed[:, 1:], torch.ones_like(prediction).unsqueeze(1)), dim=1)
-        # Eq. 22 regularizer, added to the configured forecast loss by the trainer.
-        self.aux_loss = (
-            self.imputation_weight * error if self.training and error is not None else None
-        )
-        return torch.stack(predictions, dim=1)
+        return predictions, error

@@ -17,6 +17,21 @@ from tsflab.models._components.quantile_head import QuantileHead
 _DEFAULT_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 
+def _check_sizes(seq_len: int, pred_len: int, enc_in: int, smallest_hidden: int) -> None:
+    if seq_len < 1 or pred_len < 1 or enc_in < 1:
+        raise ValueError("seq_len, pred_len, and enc_in must be positive")
+    if smallest_hidden < 1:
+        raise ValueError("all hidden dimensions and num_layers must be positive")
+
+
+def check_quantile_levels(levels: list[float]) -> None:
+    """Raise unless ``levels`` is a non-empty, strictly ascending list inside (0, 1)."""
+    if not levels or any(not 0.0 < level < 1.0 for level in levels):
+        raise ValueError("quantile_levels must be non-empty values in (0, 1)")
+    if any(left >= right for left, right in zip(levels, levels[1:])):
+        raise ValueError("quantile_levels must be strictly ascending")
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -33,10 +48,7 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1 or enc_in < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
-        if min(hidden_size, num_layers, context_size, decoder_hidden) < 1:
-            raise ValueError("all hidden dimensions and num_layers must be positive")
+        _check_sizes(seq_len, pred_len, enc_in, min(hidden_size, num_layers, context_size, decoder_hidden))
         if future_covariate_size < 0:
             raise ValueError("future_covariate_size must be non-negative")
         if not 0.0 <= dropout < 1.0:
@@ -50,10 +62,7 @@ class Model(nn.Module):
         self.context_size = context_size
         self.output_type = "quantile"
         levels = list(quantile_levels) if quantile_levels else _DEFAULT_LEVELS
-        if not levels or any(not 0.0 < level < 1.0 for level in levels):
-            raise ValueError("quantile_levels must be non-empty values in (0, 1)")
-        if any(left >= right for left, right in zip(levels, levels[1:])):
-            raise ValueError("quantile_levels must be strictly ascending")
+        check_quantile_levels(levels)
 
         self.encoder = nn.LSTM(
             input_size=1 + future_covariate_size,
@@ -76,6 +85,15 @@ class Model(nn.Module):
         )
         self.quantile_head = QuantileHead(levels, in_features=decoder_hidden)
 
+    def _check_marks(self, marks: torch.Tensor, batch: int) -> None:
+        if marks.ndim != 3 or marks.shape[0] != batch:
+            raise ValueError("MQRNN temporal covariates must be rank-3 and batch-aligned")
+        if marks.shape[-1] != self.future_covariate_size:
+            raise ValueError(
+                "MQRNN expected temporal covariate width "
+                f"{self.future_covariate_size}, got {marks.shape[-1]}"
+            )
+
     def _covariates(
         self,
         marks: torch.Tensor | None,
@@ -89,13 +107,7 @@ class Model(nn.Module):
             return reference.new_zeros(batch, length, 0)
         if marks is None:
             return reference.new_zeros(batch, length, self.future_covariate_size)
-        if marks.ndim != 3 or marks.shape[0] != batch:
-            raise ValueError("MQRNN temporal covariates must be rank-3 and batch-aligned")
-        if marks.shape[-1] != self.future_covariate_size:
-            raise ValueError(
-                "MQRNN expected temporal covariate width "
-                f"{self.future_covariate_size}, got {marks.shape[-1]}"
-            )
+        self._check_marks(marks, batch)
         if take_last:
             if marks.shape[1] < length:
                 raise ValueError("future covariates do not cover the prediction horizon")

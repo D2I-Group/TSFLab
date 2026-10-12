@@ -101,17 +101,21 @@ class AutoformerDecoderLayer(DecompositionDecoderLayer):
         )
 
 
+def _check_sizes(seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int) -> None:
+    if min(seq_len, pred_len, enc_in, dec_in, c_out) < 1:
+        raise ValueError("lengths and channel counts must be positive")
+    if label_len < 0 or label_len > seq_len:
+        raise ValueError("label_len must be between zero and seq_len")
+    if not (enc_in == dec_in == c_out):
+        raise ValueError("clean-room Autoformer requires enc_in=dec_in=c_out")
+
+
 class Model(nn.Module):
     """Forecast-only Autoformer with the paper's decomposition/correlation path."""
 
     def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int, d_model: int, n_heads: int, e_layers: int, d_layers: int, d_ff: int, moving_avg: int, factor: float, dropout: float, activation: str = "gelu") -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, dec_in, c_out) < 1:
-            raise ValueError("lengths and channel counts must be positive")
-        if label_len < 0 or label_len > seq_len:
-            raise ValueError("label_len must be between zero and seq_len")
-        if not (enc_in == dec_in == c_out):
-            raise ValueError("clean-room Autoformer requires enc_in=dec_in=c_out")
+        _check_sizes(seq_len, label_len, pred_len, enc_in, dec_in, c_out)
         self.seq_len = seq_len
         self.label_len = label_len
         self.pred_len = pred_len
@@ -129,26 +133,26 @@ class Model(nn.Module):
     def _default_marks(values: torch.Tensor, length: int) -> torch.Tensor:
         return values.new_zeros(values.shape[0], length, 6)
 
-    def forward(
-        self,
-        x_enc,
-        x_mark_enc=None,
-        x_dec=None,
-        x_mark_dec=None,
-    ):
-
+    def _check_inputs(self, x_enc: torch.Tensor, x_dec: torch.Tensor | None) -> None:
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
             raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
-        decoder_length = self.label_len + self.pred_len
-        if x_dec is not None and (x_dec.ndim != 3 or x_dec.shape[0] != x_enc.shape[0] or x_dec.shape[1:] != (decoder_length, self.channels)):
+        # Same as ndim == 3, matching batch and shape[1:] == (label_len + pred_len, channels).
+        if x_dec is not None and x_dec.shape != (x_enc.shape[0], self.label_len + self.pred_len, self.channels):
             raise ValueError("x_dec has an incompatible decoder contract")
+
+    def _marks(self, x_enc: torch.Tensor, x_mark_enc, x_mark_dec) -> tuple[torch.Tensor, torch.Tensor]:
+        """Encoder and decoder marks (zeros when absent), checked against the input and decoder lengths."""
+        decoder_length = self.label_len + self.pred_len
         x_mark_enc = self._default_marks(x_enc, self.seq_len) if x_mark_enc is None else x_mark_enc
         x_mark_dec = self._default_marks(x_enc, decoder_length) if x_mark_dec is None else x_mark_dec
         if x_mark_enc.shape[:2] != x_enc.shape[:2]:
             raise ValueError("encoder marks do not align with x_enc")
         if x_mark_dec.shape[:2] != (x_enc.shape[0], decoder_length):
             raise ValueError("decoder marks do not align with the forecast decoder")
+        return x_mark_enc, x_mark_dec
 
+    def _decoder_init(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Seasonal (label part, then zeros) and trend (label part, then the input mean) decoder inputs."""
         seasonal_history, trend_history = self.decomposition(x_enc)
         mean_future = x_enc.mean(dim=1, keepdim=True).expand(-1, self.pred_len, -1)
         zero_future = torch.zeros_like(mean_future)
@@ -158,6 +162,18 @@ class Model(nn.Module):
         else:
             seasonal_init = zero_future
             trend = mean_future
+        return seasonal_init, trend
+
+    def forward(
+        self,
+        x_enc,
+        x_mark_enc=None,
+        x_dec=None,
+        x_mark_dec=None,
+    ):
+        self._check_inputs(x_enc, x_dec)
+        x_mark_enc, x_mark_dec = self._marks(x_enc, x_mark_enc, x_mark_dec)
+        seasonal_init, trend = self._decoder_init(x_enc)
 
         memory = self.encoder_embedding(x_enc, x_mark_enc)
         for layer in self.encoder:

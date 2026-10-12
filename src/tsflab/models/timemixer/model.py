@@ -91,8 +91,7 @@ class PastDecomposableMixing(nn.Module):
 
     def forward(self, scales: list[torch.Tensor]) -> list[torch.Tensor]:
         decomposed = [self.decomposition(scale) for scale in scales]
-        seasonal = [parts[0] for parts in decomposed]
-        trend = [parts[1] for parts in decomposed]
+        seasonal, trend = map(list, zip(*decomposed))
         for index, mixer in enumerate(self.seasonal_bottom_up):
             contribution = mixer(seasonal[index].transpose(1, 2)).transpose(1, 2)
             seasonal[index + 1] = seasonal[index + 1] + contribution
@@ -117,17 +116,32 @@ def multiscale_lengths(seq_len: int, window: int, layers: int) -> tuple[int, ...
     return tuple(lengths)
 
 
+def _check_arguments(
+    seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int,
+    down_sampling_window: int, down_sampling_layers: int,
+) -> None:
+    if min(seq_len, pred_len, enc_in, c_out, e_layers, d_model, d_ff) < 1:
+        raise ValueError("lengths, channels, widths, and layers must be positive")
+    if enc_in != c_out:
+        raise ValueError("TimeMixer denormalization requires enc_in=c_out")
+    if down_sampling_window < 2 or down_sampling_layers < 1:
+        raise ValueError("TimeMixer requires at least one coarse scale and window >= 2")
+
+
+def _check_top_k(decomp_method: str, top_k: int, scale_lengths: tuple[int, ...]) -> None:
+    if decomp_method == "dft_decomp" and top_k > min(scale_lengths) // 2:
+        raise ValueError("top_k exceeds the coarsest scale's non-DC frequencies")
+
+
 class Model(nn.Module):
     """Forecast-only TimeMixer using average-pooled scales and sum-ensemble FMM."""
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int, down_sampling_window: int, down_sampling_layers: int, moving_avg: int, top_k: int, dropout: float, use_norm: bool, decomp_method: str) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, c_out, e_layers, d_model, d_ff) < 1:
-            raise ValueError("lengths, channels, widths, and layers must be positive")
-        if enc_in != c_out:
-            raise ValueError("TimeMixer denormalization requires enc_in=c_out")
-        if down_sampling_window < 2 or down_sampling_layers < 1:
-            raise ValueError("TimeMixer requires at least one coarse scale and window >= 2")
+        _check_arguments(
+            seq_len, pred_len, enc_in, c_out, e_layers, d_model, d_ff,
+            down_sampling_window, down_sampling_layers,
+        )
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
@@ -135,8 +149,7 @@ class Model(nn.Module):
         self.scale_lengths = multiscale_lengths(
             seq_len, down_sampling_window, down_sampling_layers
         )
-        if decomp_method == "dft_decomp" and top_k > min(self.scale_lengths) // 2:
-            raise ValueError("top_k exceeds the coarsest scale's non-DC frequencies")
+        _check_top_k(decomp_method, top_k, self.scale_lengths)
         self.normalizers = nn.ModuleList(
             [RevIN(enc_in, affine=True, enabled=use_norm) for _ in self.scale_lengths]
         )
@@ -183,7 +196,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
+        if x_enc.shape[1:] != (self.seq_len, self.channels):
             raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
         raw_scales = self._downsample(x_enc)
         normalized = [

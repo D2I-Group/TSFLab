@@ -3,6 +3,10 @@ from pydantic import BaseModel, Field, model_validator
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.moderntcn.model import Model
 
+def _check_stages(arrays):
+    if len({len(x) for x in arrays}) != 1: raise ValueError("stage lists must have equal length")
+    if any(x <= 0 for values in arrays for x in values): raise ValueError("stage values must be positive")
+
 class ModelParameterConfig(BaseModel):
     enc_in: int = Field(gt=0); ffn_ratio: int = Field(default=1, gt=0)
     num_blocks: list[int] = Field(default_factory=lambda:[1], min_length=1)
@@ -17,9 +21,7 @@ class ModelParameterConfig(BaseModel):
     kernel_size: int = Field(default=25, gt=0)
     @model_validator(mode="after")
     def architecture(self):
-        arrays=(self.num_blocks,self.large_size,self.small_size,self.dims)
-        if len({len(x) for x in arrays}) != 1: raise ValueError("stage lists must have equal length")
-        if any(x <= 0 for values in arrays for x in values): raise ValueError("stage values must be positive")
+        _check_stages((self.num_blocks,self.large_size,self.small_size,self.dims))
         if any(x % 2 == 0 for x in self.large_size+self.small_size): raise ValueError("kernels must be odd")
         if self.decomposition and self.kernel_size % 2 == 0: raise ValueError("kernel_size must be odd")
         return self

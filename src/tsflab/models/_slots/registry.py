@@ -149,6 +149,16 @@ def all_components() -> tuple[str, ...]:
 
 def check_assignment(assignment: dict[str, str]) -> list[str]:
     """Return every reason the canonical slot assignment cannot be built (empty = ok)."""
+    problems = _option_problems(assignment)
+    if problems:
+        return problems
+    temporal, channel, head = assignment["temporal"], assignment["channel"], assignment["head"]
+    problems.extend(_pairing_problems(temporal, channel, head))
+    problems.extend(_loss_problems(assignment, head))
+    return problems
+
+
+def _option_problems(assignment: dict[str, str]) -> list[str]:
     problems: list[str] = []
     for slot in SLOTS:
         if slot == "loss":
@@ -158,15 +168,22 @@ def check_assignment(assignment: dict[str, str]) -> list[str]:
             problems.append(f"slot {slot}: unknown option {assignment.get(slot)!r}")
         elif opt.unsupported:
             problems.append(f"slot {slot}: {opt.name} is not executable: {opt.unsupported}")
-    if problems:
-        return problems
-    temporal, channel, head = assignment["temporal"], assignment["channel"], assignment["head"]
+    return problems
+
+
+def _pairing_problems(temporal: str, channel: str, head: str) -> list[str]:
+    problems: list[str] = []
     if temporal == "mixer_block" and channel != "mixing":
         problems.append("temporal mixer_block mixes channels in its feature MLP; set channel to mixing (it cannot be channel-independent)")
     if channel == "mixing" and temporal != "mixer_block":
         problems.append(f"channel mixing is only provided by mixer_block; temporal {temporal} is channel-independent (use channel independent or individual)")
     if head == "gaussian_parameter_head" and channel == "individual":
         problems.append("GaussianParameterHead has shared weights only; per-channel (individual) weights are unsupported with it")
+    return problems
+
+
+def _loss_problems(assignment: dict[str, str], head: str) -> list[str]:
+    problems: list[str] = []
     loss = assignment.get("loss", DEFAULTS["loss"])
     required = OUTPUT_LOSS[OPTIONS["head"][head].output]
     if required is not None and loss != required:
@@ -186,29 +203,41 @@ def resolve_assignment(slots: dict[str, list[str] | str]) -> tuple[dict[str, str
     errors: list[str] = []
     resolved: dict[str, str] = {}
     for slot in SLOTS:
-        raw = slots.get(slot)
-        if raw is None or raw == []:
-            if slot == "temporal":
-                errors.append("slot temporal: required for an executable composition")
-            else:
-                resolved[slot] = DEFAULTS[slot]
-            continue
-        items = [raw] if isinstance(raw, str) else list(raw)
-        if len(items) != 1:
-            errors.append(f"slot {slot}: an executable composition takes exactly one option, got {items}")
-            continue
-        text = str(items[0])
-        try:
-            if slot == "loss":
-                resolved[slot] = text.removeprefix("loss:")
-            else:
-                resolved[slot] = canonical(slot, text)
-        except ValueError as exc:
-            errors.append(str(exc))
+        value, error = _resolve_slot(slot, slots.get(slot))
+        if error is None:
+            resolved[slot] = value
+        else:
+            errors.append(error)
     for slot in slots:
         if slot not in SLOTS:
             errors.append(f"unknown slot {slot!r}; choose from {list(SLOTS)}")
     return resolved, errors
+
+
+def _resolve_slot(slot: str, raw: list[str] | str | None) -> tuple[str | None, str | None]:
+    """``(option, None)`` for one spec slot, or ``(None, error)``."""
+    if raw is None or raw == []:
+        if slot == "temporal":
+            return None, "slot temporal: required for an executable composition"
+        return DEFAULTS[slot], None
+    return _resolve_given_slot(slot, raw)
+
+
+def _resolve_given_slot(slot: str, raw: list[str] | str) -> tuple[str | None, str | None]:
+    items = [raw] if isinstance(raw, str) else list(raw)
+    if len(items) != 1:
+        return None, f"slot {slot}: an executable composition takes exactly one option, got {items}"
+    text = str(items[0])
+    try:
+        if slot == "loss":
+            return text.removeprefix("loss:"), None
+        return canonical(slot, text), None
+    except ValueError as exc:
+        return None, str(exc)
+
+
+#: Card prefixes for temporal options that are not ``component:<name>``.
+_CARD_TEMPORAL_PARTS = {"linear": "local:linear", "tst_transformer": "component:tst_transformer"}
 
 
 def card_composition(assignment: dict[str, str]) -> list[str]:
@@ -222,10 +251,8 @@ def card_composition(assignment: dict[str, str]) -> list[str]:
         opt = OPTIONS[slot][name]
         if slot == "channel":
             return f"{slot}=local:{name}"
-        if slot == "temporal" and name == "linear":
-            return f"{slot}=local:linear"
-        if slot == "temporal" and name == "tst_transformer":
-            return f"{slot}=component:tst_transformer"
+        if slot == "temporal" and name in _CARD_TEMPORAL_PARTS:
+            return f"{slot}={_CARD_TEMPORAL_PARTS[name]}"
         del opt
         return f"{slot}=component:{name}"
     return [part(slot) for slot in SLOTS]

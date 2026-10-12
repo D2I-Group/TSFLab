@@ -28,6 +28,28 @@ def _adjacency(adj_mx: np.ndarray) -> np.ndarray:
     return adjacency
 
 
+def _with_self_loops(adjacency: np.ndarray) -> list[np.ndarray]:
+    with_self_loops = adjacency.copy()
+    np.fill_diagonal(with_self_loops, 1.0)
+    return [with_self_loops]
+
+
+_SUPPORT_BUILDERS = {
+    "normlap": lambda adjacency: [symmetric_normalized_laplacian(adjacency)],
+    "scalap": lambda adjacency: [scaled_laplacian(adjacency)],
+    "symadj": lambda adjacency: [
+        np.eye(adjacency.shape[0])
+        - symmetric_normalized_laplacian(adjacency)
+    ],
+    "transition": lambda adjacency: [transition_matrix(adjacency)],
+    "doubletransition": lambda adjacency: [
+        transition_matrix(adjacency), reverse_transition_matrix(adjacency)
+    ],
+    "identity": lambda adjacency: [np.eye(adjacency.shape[0])],
+    "origin": _with_self_loops,
+}
+
+
 def normalize_adj_mx(
     adj_mx: np.ndarray, adj_type: str, return_type: str = "dense"
 ) -> list[np.ndarray | sp.coo_matrix]:
@@ -38,27 +60,10 @@ def normalize_adj_mx(
     outputs contain the same values.
     """
     adjacency = _adjacency(adj_mx)
-    if adj_type == "normlap":
-        supports = [symmetric_normalized_laplacian(adjacency)]
-    elif adj_type == "scalap":
-        supports = [scaled_laplacian(adjacency)]
-    elif adj_type == "symadj":
-        supports = [
-            np.eye(adjacency.shape[0])
-            - symmetric_normalized_laplacian(adjacency)
-        ]
-    elif adj_type == "transition":
-        supports = [transition_matrix(adjacency)]
-    elif adj_type == "doubletransition":
-        supports = [transition_matrix(adjacency), reverse_transition_matrix(adjacency)]
-    elif adj_type == "identity":
-        supports = [np.eye(adjacency.shape[0])]
-    elif adj_type == "origin":
-        with_self_loops = adjacency.copy()
-        np.fill_diagonal(with_self_loops, 1.0)
-        supports = [with_self_loops]
-    else:
+    builder = _SUPPORT_BUILDERS.get(adj_type)
+    if builder is None:
         raise ValueError(f"unknown adjacency normalization: {adj_type}")
+    supports = builder(adjacency)
 
     dense = [np.asarray(support, dtype=np.float32) for support in supports]
     if return_type == "dense":

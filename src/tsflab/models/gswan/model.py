@@ -165,6 +165,26 @@ class GSWaNLayer(nn.Module):
         return self.norm(hidden), skip
 
 
+def _check_options(smallest: int, kernel_size: int, num_heads: int, softmax_temp: float, time_feature: str) -> None:
+    if smallest < 1:
+        raise ValueError("GSWaN sizes must be positive")
+    if kernel_size < 2 or num_heads < 0 or softmax_temp <= 0:
+        raise ValueError("GSWaN needs kernel_size >= 2, num_heads >= 0 and softmax_temp > 0")
+    if time_feature not in ("time_of_week", "time_of_day"):
+        raise ValueError("time_feature must be 'time_of_week' or 'time_of_day'")
+
+
+def _static_supports(adj_mx: np.ndarray | None, num_nodes: int) -> list[torch.Tensor]:
+    # Predefined road graph A_r as forward/backward random-walk supports; omitted
+    # when no adjacency is supplied (the adaptive support A_adp is always present).
+    if adj_mx is None:
+        return []
+    adjacency = np.asarray(adj_mx, dtype=np.float32)
+    if adjacency.shape != (num_nodes, num_nodes):
+        raise ValueError("adj_mx shape must match num_nodes")
+    return adj_to_supports(adjacency, "doubletransition")
+
+
 class Model(nn.Module):
     """G-SWaN: Graph WaveNet backbone whose graph convolutions are SGT modules."""
 
@@ -187,24 +207,14 @@ class Model(nn.Module):
         time_feature: TimeFeature = "time_of_week",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, hidden_channels, skip_channels, end_channels, blocks, layers, order) < 1:
-            raise ValueError("GSWaN sizes must be positive")
-        if kernel_size < 2 or num_heads < 0 or softmax_temp <= 0:
-            raise ValueError("GSWaN needs kernel_size >= 2, num_heads >= 0 and softmax_temp > 0")
-        if time_feature not in ("time_of_week", "time_of_day"):
-            raise ValueError("time_feature must be 'time_of_week' or 'time_of_day'")
+        _check_options(
+            min(seq_len, pred_len, num_nodes, hidden_channels, skip_channels, end_channels, blocks, layers, order),
+            kernel_size, num_heads, softmax_temp, time_feature,
+        )
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.time_feature = time_feature
         self.padded_len, dilations, lengths = wavenet_lengths(seq_len, kernel_size, blocks, layers)
-        # Predefined road graph A_r as forward/backward random-walk supports; omitted
-        # when no adjacency is supplied (the adaptive support A_adp is always present).
-        if adj_mx is None:
-            static: list[torch.Tensor] = []
-        else:
-            adjacency = np.asarray(adj_mx, dtype=np.float32)
-            if adjacency.shape != (num_nodes, num_nodes):
-                raise ValueError("adj_mx shape must match num_nodes")
-            static = adj_to_supports(adjacency, "doubletransition")
+        static = _static_supports(adj_mx, num_nodes)
         self.num_static = len(static)
         for index, support in enumerate(static):
             self.register_buffer(f"static_support_{index}", support)

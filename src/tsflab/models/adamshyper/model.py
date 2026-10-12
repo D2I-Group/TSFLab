@@ -110,6 +110,24 @@ class ScaleConv(nn.Module):
         return F.elu(self.norm(self.conv(x)))
 
 
+def _check_sizes(smallest: int, gamma: float, const_weight: float, window_size: tuple, hyper_num: tuple) -> None:
+    """Reject non-positive sizes and a ``hyper_num`` without one entry per scale."""
+    if smallest < 1 or gamma <= 0 or const_weight < 0:
+        raise ValueError("invalid AdaMSHyper dimension")
+    if len(hyper_num) != len(window_size) + 1 or min(hyper_num + window_size, default=1) < 1:
+        raise ValueError("hyper_num needs one entry per scale (len(window_size) + 1)")
+
+
+def _scale_nodes(seq_len: int, window_size: tuple) -> list[int]:
+    """Node count of every scale: ``seq_len`` floor-divided by the windows in turn."""
+    nodes = [seq_len]
+    for w in window_size:
+        nodes.append(nodes[-1] // w)
+    if nodes[-1] < 1:
+        raise ValueError("seq_len is too short for the aggregation windows")
+    return nodes
+
+
 class Model(nn.Module):
     """AdaMSHyper forecaster: [B, L, C] history -> [B, H, C] forecast."""
 
@@ -130,19 +148,12 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         window_size, hyper_num = tuple(window_size), tuple(hyper_num)
-        if min(seq_len, pred_len, enc_in, d_embed, eta) < 1 or gamma <= 0 or const_weight < 0:
-            raise ValueError("invalid AdaMSHyper dimension")
-        if len(hyper_num) != len(window_size) + 1 or min(hyper_num + window_size, default=1) < 1:
-            raise ValueError("hyper_num needs one entry per scale (len(window_size) + 1)")
+        _check_sizes(min(seq_len, pred_len, enc_in, d_embed, eta), gamma, const_weight, window_size, hyper_num)
         if not 0.0 <= beta < 1.0 or not 0.0 <= lambda_balance <= 1.0:
             raise ValueError("beta must lie in [0, 1) and lambda_balance in [0, 1]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.lambda_balance, self.const_weight = lambda_balance, const_weight
-        nodes = [seq_len]
-        for w in window_size:
-            nodes.append(nodes[-1] // w)
-        if nodes[-1] < 1:
-            raise ValueError("seq_len is too short for the aggregation windows")
+        nodes = _scale_nodes(seq_len, window_size)
         self.num_nodes = tuple(nodes)
         self.hyper_num = hyper_num
 

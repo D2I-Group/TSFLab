@@ -95,6 +95,23 @@ class PatchEncoding(nn.Module):
         return self.dropout(tokens)
 
 
+def _check_config(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers, freq,
+                  align_epochs, probe_epochs, align_lr, probe_lr) -> None:
+    if min(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers) < 1:
+        raise ValueError("LLM4TS sizes must be positive")
+    if patch_len > seq_len + stride:
+        raise ValueError("patch_len must not exceed seq_len + stride")
+    if freq not in {"h", "t"}:
+        raise ValueError("freq must be 'h' or 't'")
+    if min(align_epochs, probe_epochs) < 0 or min(align_lr, probe_lr) <= 0:
+        raise ValueError("stage epochs must be >= 0 and learning rates positive")
+
+
+def _batch_to(batch, device):
+    """``(x, y, x_mark)`` of a loader batch as float tensors on ``device`` (``None`` kept)."""
+    return (t.float().to(device) if t is not None else None for t in batch[:3])
+
+
 class Model(nn.Module):
     """LLM4TS: GPT-2 (first ``first_k_layers`` blocks) aligned and fine-tuned for forecasting."""
 
@@ -121,14 +138,8 @@ class Model(nn.Module):
         probe_weight_decay: float = 0.0014555863788252605,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers) < 1:
-            raise ValueError("LLM4TS sizes must be positive")
-        if patch_len > seq_len + stride:
-            raise ValueError("patch_len must not exceed seq_len + stride")
-        if freq not in {"h", "t"}:
-            raise ValueError("freq must be 'h' or 't'")
-        if min(align_epochs, probe_epochs) < 0 or min(align_lr, probe_lr) <= 0:
-            raise ValueError("stage epochs must be >= 0 and learning rates positive")
+        _check_config(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers, freq,
+                      align_epochs, probe_epochs, align_lr, probe_lr)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.num_patches = (seq_len + stride - patch_len) // stride + 1
@@ -241,7 +252,7 @@ class Model(nn.Module):
             self.train()
             for _ in range(epochs):
                 for batch in train_loader:
-                    x, y, x_mark = (t.float().to(device) if t is not None else None for t in batch[:3])
+                    x, y, x_mark = _batch_to(batch, device)
                     optimizer.zero_grad()
                     step(x, y, x_mark).backward()
                     optimizer.step()

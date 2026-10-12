@@ -188,6 +188,33 @@ class STFGNL(nn.Module):
         return output
 
 
+def _check_layers(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day,
+                  filters, first_layer_embedding, gated_conv) -> None:
+    if min(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day) < 1:
+        raise ValueError("lengths, nodes, layers, widths and steps_per_day must be positive")
+    if seq_len - (_WINDOW - 1) * num_layers < 1:
+        raise ValueError(f"seq_len ({seq_len}) must exceed 3 * num_layers ({3 * num_layers})")
+    if gated_conv and filters[-1] != first_layer_embedding:
+        raise ValueError("the gated-conv residual needs filters[-1] == first_layer_embedding")
+
+
+def _check_dtw(dtw_order: int, dtw_band: int, dtw_sparsity: float) -> None:
+    if dtw_order not in (1, 2) or dtw_band < 0 or not 0.0 <= dtw_sparsity <= 1.0:
+        raise ValueError("dtw_order must be 1 or 2, dtw_band >= 0 and dtw_sparsity in [0, 1]")
+
+
+def _checked_adjacency(adj_mx, enc_in: int) -> np.ndarray:
+    if adj_mx is None:
+        raise ValueError(
+            "STFGNN needs the road-network adjacency adj_mx [enc_in, enc_in] for its fusion graph; "
+            "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
+        )
+    spatial = np.asarray(adj_mx, dtype=np.float64)
+    if spatial.shape != (enc_in, enc_in):
+        raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+    return spatial
+
+
 class Model(nn.Module):
     """STFGNN; the temporal graph is the identity until ``fit_temporal_graph`` runs."""
 
@@ -213,22 +240,10 @@ class Model(nn.Module):
         dtw_sparsity: float = 0.01,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day) < 1:
-            raise ValueError("lengths, nodes, layers, widths and steps_per_day must be positive")
-        if seq_len - (_WINDOW - 1) * num_layers < 1:
-            raise ValueError(f"seq_len ({seq_len}) must exceed 3 * num_layers ({3 * num_layers})")
-        if gated_conv and filters[-1] != first_layer_embedding:
-            raise ValueError("the gated-conv residual needs filters[-1] == first_layer_embedding")
-        if dtw_order not in (1, 2) or dtw_band < 0 or not 0.0 <= dtw_sparsity <= 1.0:
-            raise ValueError("dtw_order must be 1 or 2, dtw_band >= 0 and dtw_sparsity in [0, 1]")
-        if adj_mx is None:
-            raise ValueError(
-                "STFGNN needs the road-network adjacency adj_mx [enc_in, enc_in] for its fusion graph; "
-                "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
-            )
-        spatial = np.asarray(adj_mx, dtype=np.float64)
-        if spatial.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        _check_layers(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day,
+                      filters, first_layer_embedding, gated_conv)
+        _check_dtw(dtw_order, dtw_band, dtw_sparsity)
+        spatial = _checked_adjacency(adj_mx, enc_in)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.huber_delta, self.steps_per_day = huber_delta, steps_per_day
         self.dtw_band, self.dtw_order, self.dtw_sparsity = dtw_band, dtw_order, dtw_sparsity
@@ -287,6 +302,16 @@ class Model(nn.Module):
         return torch.einsum("bqnh,qh->bqn", hidden, self.head_output) + self.head_output_bias[:, None]
 
 
+def _history_span(values: torch.Tensor, dataset) -> torch.Tensor:
+    """Restrict ``values`` to the history span of the dataset's training windows (``idx`` ends)."""
+    idx = getattr(dataset, "idx", None)
+    if idx is not None and len(idx):
+        ends = np.asarray(idx).reshape(-1)
+        start = max(int(ends.min()) - int(getattr(dataset, "seq_len", 1)) + 1, 0)
+        values = values[start : int(ends.max()) + 1]
+    return values
+
+
 def training_series(dataset, num_nodes: int) -> torch.Tensor | None:
     """The ``[T, N]`` value series of the training split behind ``dataset``, or ``None``.
 
@@ -300,11 +325,7 @@ def training_series(dataset, num_nodes: int) -> torch.Tensor | None:
     values = torch.as_tensor(np.asarray(data), dtype=torch.float32)
     if values.ndim == 3:
         values = values[..., 0]
-    idx = getattr(dataset, "idx", None)
-    if idx is not None and len(idx):
-        ends = np.asarray(idx).reshape(-1)
-        start = max(int(ends.min()) - int(getattr(dataset, "seq_len", 1)) + 1, 0)
-        values = values[start : int(ends.max()) + 1]
+    values = _history_span(values, dataset)
     if values.ndim != 2 or values.shape[1] != num_nodes or values.shape[0] < 2:
         return None
     return values

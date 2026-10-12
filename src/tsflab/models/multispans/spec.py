@@ -10,6 +10,11 @@ from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.multispans.model import Model
 
 
+def _check_kernels(conv_kernels) -> None:
+    if any(k < 1 for k in conv_kernels):
+        raise ValueError("conv_kernels must be positive")
+
+
 class ModelParameterConfig(BaseModel):
     """Parameters supplied through ``model.params``.
 
@@ -37,8 +42,7 @@ class ModelParameterConfig(BaseModel):
 
     @model_validator(mode="after")
     def _contract(self) -> "ModelParameterConfig":
-        if any(k < 1 for k in self.conv_kernels):
-            raise ValueError("conv_kernels must be positive")
+        _check_kernels(self.conv_kernels)
         if self.embed_dim % (len(self.conv_kernels) * (self.gconv_hops + 1)) or self.embed_dim % self.num_heads:
             raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
         if self.spatial_masks and self.max_tree_height >= self.num_heads:

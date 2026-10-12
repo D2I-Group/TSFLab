@@ -20,6 +20,22 @@ from tsflab.models._components.fft_extrapolation_conv import FFTExtrapolationCon
 from tsflab.models._components.weight_set_router import WeightSetRouter, mix_weight_sets
 
 
+def _check_arguments(
+    seq_len: int, pred_len: int, enc_in: int, num_experts: int, loss_alpha: float, dropout: float
+) -> None:
+    if min(pred_len, enc_in, num_experts) < 1 or seq_len < 2:
+        raise ValueError("seq_len must be >= 2 and other sizes positive")
+    if not 0 <= loss_alpha <= 1:
+        raise ValueError("loss_alpha must lie in [0, 1]")
+    if not 0 <= dropout < 1:
+        raise ValueError("dropout must lie in [0, 1)")
+
+
+def _check_schedule(temperature_start: float, temperature_end: float, anneal_epochs: int) -> None:
+    if not 0 < temperature_end <= temperature_start or anneal_epochs < 1:
+        raise ValueError("need 0 < temperature_end <= temperature_start and anneal_epochs >= 1")
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -37,14 +53,8 @@ class Model(nn.Module):
         anneal_epochs: int = 10,
     ) -> None:
         super().__init__()
-        if min(pred_len, enc_in, num_experts) < 1 or seq_len < 2:
-            raise ValueError("seq_len must be >= 2 and other sizes positive")
-        if not 0 <= loss_alpha <= 1:
-            raise ValueError("loss_alpha must lie in [0, 1]")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must lie in [0, 1)")
-        if not 0 < temperature_end <= temperature_start or anneal_epochs < 1:
-            raise ValueError("need 0 < temperature_end <= temperature_start and anneal_epochs >= 1")
+        _check_arguments(seq_len, pred_len, enc_in, num_experts, loss_alpha, dropout)
+        _check_schedule(temperature_start, temperature_end, anneal_epochs)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_experts = num_experts
         self.use_revin, self.use_time_w, self.use_freq_w = use_revin, use_time_w, use_freq_w
@@ -85,7 +95,7 @@ class Model(nn.Module):
 
     # ------------------------------------------------------------------- forward
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
+        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(
                 f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
             )
@@ -117,19 +127,21 @@ class Model(nn.Module):
             return time_loss
         y, y_hat = target.transpose(1, 2), forecast.transpose(1, 2)
         diff = (torch.fft.rfft(y, norm="ortho") - torch.fft.rfft(y_hat, norm="ortho")).abs()
-        weight = 1.0
-        if self.freq_weight is not None:
-            with torch.no_grad():  # theta_sfa is detached in the loss
-                weight = self._mix(self.freq_weight, self._routing()).detach()
-                weight = weight / weight.abs().mean(dim=-1, keepdim=True).clamp_min(1e-12)
-                bins = diff.shape[-1]
-                weight = weight[..., :bins]  # horizon spectrum is shorter or longer than the history's
-                if weight.shape[-1] < bins:
-                    weight = nn.functional.pad(weight, (0, bins - weight.shape[-1]))
-                if weight.ndim == 2:  # channel-specific weights; keep the trailing channels
-                    weight = weight[-channels:]
+        weight = 1.0 if self.freq_weight is None else self._loss_weight(diff.shape[-1], channels)
         freq_loss = (weight * diff).mean()  # Eq. (9)
         return self.loss_alpha * freq_loss + (1 - self.loss_alpha) * time_loss
+
+    def _loss_weight(self, bins: int, channels: int) -> torch.Tensor:
+        """theta_sfa normalized and aligned to the ``bins`` of the horizon spectrum."""
+        with torch.no_grad():  # theta_sfa is detached in the loss
+            weight = self._mix(self.freq_weight, self._routing()).detach()
+            weight = weight / weight.abs().mean(dim=-1, keepdim=True).clamp_min(1e-12)
+            weight = weight[..., :bins]  # horizon spectrum is shorter or longer than the history's
+            if weight.shape[-1] < bins:
+                weight = nn.functional.pad(weight, (0, bins - weight.shape[-1]))
+            if weight.ndim == 2:  # channel-specific weights; keep the trailing channels
+                weight = weight[-channels:]
+        return weight
 
     def training_objective(self, forecast: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Loss for one training pass; advances the annealing step counter."""

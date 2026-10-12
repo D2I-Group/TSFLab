@@ -53,21 +53,38 @@ def pyramid_neighbour_table(
     rows: list[list[int]] = []
     for scale, size in enumerate(sizes):
         for local in range(size):
-            neighbours = {
-                starts[scale] + index
-                for index in range(max(0, local - radius), min(size, local + radius + 1))
-            }
-            if scale > 0:
-                factor = branching[scale - 1]
-                child_start = local * factor
-                neighbours.update(
-                    starts[scale - 1] + child
-                    for child in range(child_start, child_start + factor)
-                )
-            if scale + 1 < len(sizes):
-                neighbours.add(starts[scale + 1] + local // branching[scale])
-            rows.append(sorted(neighbours))
+            rows.append(_pam_neighbours(sizes, branching, starts, radius, scale, local))
+    return _padded_table(rows)
 
+
+def _pam_neighbours(
+    sizes: tuple[int, ...],
+    branching: tuple[int, ...],
+    starts: list[int],
+    radius: int,
+    scale: int,
+    local: int,
+) -> list[int]:
+    """Sorted PAM neighbourhood of node ``local`` at ``scale``: siblings, children, parent."""
+    size = sizes[scale]
+    neighbours = {
+        starts[scale] + index
+        for index in range(max(0, local - radius), min(size, local + radius + 1))
+    }
+    if scale > 0:
+        factor = branching[scale - 1]
+        child_start = local * factor
+        neighbours.update(
+            starts[scale - 1] + child
+            for child in range(child_start, child_start + factor)
+        )
+    if scale + 1 < len(sizes):
+        neighbours.add(starts[scale + 1] + local // branching[scale])
+    return sorted(neighbours)
+
+
+def _padded_table(rows: list[list[int]]) -> tuple[torch.Tensor, torch.Tensor]:
+    """Pad neighbour lists into an index table and its validity mask."""
     width = max(map(len, rows))
     indices = torch.zeros(len(rows), width, dtype=torch.long)
     valid = torch.zeros(len(rows), width, dtype=torch.bool)

@@ -93,6 +93,15 @@ class CausalLayer(nn.Module):
         return self.output_norm(value + self.feed_forward(value))
 
 
+def _check_dims(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments) -> None:
+    if min(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments) <= 0:
+        raise ValueError("AirCade dimensions and layer counts must be positive")
+    if d_model % num_heads:
+        raise ValueError("d_model must be divisible by num_heads")
+    if d_model <= 2 * prompt_dim:
+        raise ValueError("d_model must be larger than twice prompt_dim")
+
+
 class Model(nn.Module):
     """Spatiotemporal causal-decoupling air-quality forecaster."""
 
@@ -111,12 +120,7 @@ class Model(nn.Module):
         environments: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments) <= 0:
-            raise ValueError("AirCade dimensions and layer counts must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
-        if d_model <= 2 * prompt_dim:
-            raise ValueError("d_model must be larger than twice prompt_dim")
+        _check_dims(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -173,6 +177,34 @@ class Model(nn.Module):
         )
         return result.reshape(batch, steps, nodes, width)
 
+    def _causal_stack(
+        self, temporal: nn.ModuleList, spatial: nn.ModuleList, weather: torch.Tensor, value: torch.Tensor
+    ) -> torch.Tensor:
+        for layer in temporal:
+            value = self._temporal(layer, weather, value)
+        for layer in spatial:
+            value = self._spatial(layer, weather, value)
+        return value
+
+    def _history(self, x_enc, x_mark_enc):
+        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
+            raise ValueError("AirCade expects (batch, configured seq_len, enc_in)")
+        if x_mark_enc is None:
+            x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
+        history = to_spatiotemporal(x_enc, x_mark_enc)
+        if history.shape[-1] != 1 + self.cov_dim:
+            raise ValueError(f"AirCade expects exactly {self.cov_dim} historical covariates")
+        return history, x_mark_enc
+
+    def _covariates(self, x_enc, x_mark_enc, x_mark_dec):
+        history, x_mark_enc = self._history(x_enc, x_mark_enc)
+        future_marks = x_mark_enc if x_mark_dec is None else x_mark_dec
+        future_marks = coerce_time_length(future_marks, self.pred_len)
+        future = future_time_features(future_marks, self.enc_in)
+        if future.shape[-1] != self.cov_dim:
+            raise ValueError(f"AirCade expects exactly {self.cov_dim} future covariates")
+        return history, future
+
     def forward(
         self,
         x_enc,
@@ -181,34 +213,17 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("AirCade expects (batch, configured seq_len, enc_in)")
-        if x_mark_enc is None:
-            x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
-        history = to_spatiotemporal(x_enc, x_mark_enc)
-        if history.shape[-1] != 1 + self.cov_dim:
-            raise ValueError(f"AirCade expects exactly {self.cov_dim} historical covariates")
-        future_marks = x_mark_enc if x_mark_dec is None else x_mark_dec
-        future_marks = coerce_time_length(future_marks, self.pred_len)
-        future = future_time_features(future_marks, self.enc_in)
-        if future.shape[-1] != self.cov_dim:
-            raise ValueError(f"AirCade expects exactly {self.cov_dim} future covariates")
+        history, future = self._covariates(x_enc, x_mark_enc, x_mark_dec)
 
         value = self._prompted(self.value_embedding(history[..., :1]), self.past_time_prompt)
         past_weather = self._prompted(
             self.past_weather_embedding(history[..., 1:]), self.past_time_prompt
         )
-        for layer in self.temporal_cade:
-            value = self._temporal(layer, past_weather, value)
-        for layer in self.spatial_cade:
-            value = self._spatial(layer, past_weather, value)
+        value = self._causal_stack(self.temporal_cade, self.spatial_cade, past_weather, value)
 
         value = self.history_to_future(value.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         future_weather = self._prompted(
             self.future_weather_embedding(future), self.future_time_prompt
         )
-        for layer in self.temporal_cadi:
-            value = self._temporal(layer, future_weather, value)
-        for layer in self.spatial_cadi:
-            value = self._spatial(layer, future_weather, value)
+        value = self._causal_stack(self.temporal_cadi, self.spatial_cadi, future_weather, value)
         return self.predictor(value).squeeze(-1)

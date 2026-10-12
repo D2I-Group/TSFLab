@@ -148,6 +148,36 @@ def global_autocon(features: torch.Tensor, positions: torch.Tensor, acf: torch.T
 # ---------------------------------------------------------------------------- model
 
 
+def _check_scales(scales) -> None:
+    if not scales or any(scale < 2 or scale % 2 for scale in scales):
+        raise ValueError("scales must be positive even lengths (moving-average kernels scale + 1)")
+
+
+def _check_config(seq_len: int, scales, window_norm: str) -> None:
+    if seq_len < 6 or seq_len % 2:
+        raise ValueError("seq_len must be even (smoothing kernel seq_len + 1) and at least 6")
+    _check_scales(scales)
+    if window_norm not in ("last", "mean", "revin", "decomp"):
+        raise ValueError("window_norm must be 'last', 'mean', 'revin', or 'decomp'")
+
+
+def _collect_windows(train_loader):
+    """Window start times, first rows, and the latest window ``(time, x, y)`` of a loader."""
+    starts, first_rows, last = [], [], None
+    for batch in train_loader:
+        x, y, x_mark = batch[0], batch[1], batch[2]
+        if x_mark is None:
+            raise ValueError("SSCLForecaster's AutoCon objective needs calendar marks")
+        times = mark_minutes(torch.as_tensor(x_mark)[:, 0])
+        x, y = torch.as_tensor(x).float(), torch.as_tensor(y).float()
+        starts.append(times)
+        first_rows.append(x[:, 0])
+        latest = int(times.argmax())
+        if last is None or times[latest] > last[0]:
+            last = (times[latest], x[latest], y[latest])
+    return starts, first_rows, last
+
+
 class Model(nn.Module):
     """AutoConNet (Fig. 4) for ``[B, seq_len, enc_in]`` histories, channel independent."""
 
@@ -167,12 +197,7 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if seq_len < 6 or seq_len % 2:
-            raise ValueError("seq_len must be even (smoothing kernel seq_len + 1) and at least 6")
-        if not scales or any(scale < 2 or scale % 2 for scale in scales):
-            raise ValueError("scales must be positive even lengths (moving-average kernels scale + 1)")
-        if window_norm not in ("last", "mean", "revin", "decomp"):
-            raise ValueError("window_norm must be 'last', 'mean', 'revin', or 'decomp'")
+        _check_config(seq_len, scales, window_norm)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -259,18 +284,7 @@ class Model(nn.Module):
         """Appendix A.1 preprocessing: rebuild the training series, smooth it with a
         moving average of length ``seq_len + 1``, and store per-channel ``|ACF|``
         together with the sorted window start timestamps."""
-        starts, first_rows, last = [], [], None
-        for batch in train_loader:
-            x, y, x_mark = batch[0], batch[1], batch[2]
-            if x_mark is None:
-                raise ValueError("SSCLForecaster's AutoCon objective needs calendar marks")
-            times = mark_minutes(torch.as_tensor(x_mark)[:, 0])
-            x, y = torch.as_tensor(x).float(), torch.as_tensor(y).float()
-            starts.append(times)
-            first_rows.append(x[:, 0])
-            latest = int(times.argmax())
-            if last is None or times[latest] > last[0]:
-                last = (times[latest], x[latest], y[latest])
+        starts, first_rows, last = _collect_windows(train_loader)
         if last is None:
             raise ValueError("the training loader is empty")
         times = torch.cat(starts)

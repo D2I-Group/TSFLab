@@ -31,6 +31,18 @@ def binary_routes(depth: int) -> tuple[torch.Tensor, torch.Tensor]:
     return nodes, right
 
 
+def _checked_split_mask(
+    split_mask: torch.Tensor | None, split_count: int, input_dim: int
+) -> torch.Tensor:
+    if split_mask is None:
+        split_mask = torch.ones(split_count, input_dim)
+    if split_mask.shape != (split_count, input_dim):
+        raise ValueError("split_mask has the wrong shape")
+    if (split_mask.sum(dim=-1) == 0).any():
+        raise ValueError("every split node must retain at least one feature")
+    return split_mask
+
+
 class SoftDecisionTree(nn.Module):
     """Interpolate leaf values with differentiable binary path probabilities.
 
@@ -59,14 +71,23 @@ class SoftDecisionTree(nn.Module):
         self.temperature = float(temperature)
         split_count = 2**depth - 1
 
-        if split_mask is None:
-            split_mask = torch.ones(split_count, input_dim)
-        if split_mask.shape != (split_count, input_dim):
-            raise ValueError("split_mask has the wrong shape")
-        if (split_mask.sum(dim=-1) == 0).any():
-            raise ValueError("every split node must retain at least one feature")
+        split_mask = _checked_split_mask(split_mask, split_count, input_dim)
         self.register_buffer("split_mask", split_mask.to(dtype=torch.float32))
+        self._init_split_geometry(split_count, input_dim, fixed_split_weight, fixed_threshold)
 
+        self.leaf_value = nn.Parameter(torch.empty(2**depth, output_dim))
+        nn.init.normal_(self.leaf_value, std=0.02)
+        route_nodes, route_right = binary_routes(depth)
+        self.register_buffer("route_nodes", route_nodes)
+        self.register_buffer("route_right", route_right)
+
+    def _init_split_geometry(
+        self,
+        split_count: int,
+        input_dim: int,
+        fixed_split_weight: torch.Tensor | None,
+        fixed_threshold: torch.Tensor | None,
+    ) -> None:
         if (fixed_split_weight is None) != (fixed_threshold is None):
             raise ValueError("fixed split weights and thresholds must be supplied together")
         if fixed_split_weight is None:
@@ -80,12 +101,6 @@ class SoftDecisionTree(nn.Module):
                 raise ValueError("fixed_threshold has the wrong shape")
             self.register_buffer("split_weight", fixed_split_weight.to(dtype=torch.float32))
             self.register_buffer("threshold", fixed_threshold.to(dtype=torch.float32))
-
-        self.leaf_value = nn.Parameter(torch.empty(2**depth, output_dim))
-        nn.init.normal_(self.leaf_value, std=0.02)
-        route_nodes, route_right = binary_routes(depth)
-        self.register_buffer("route_nodes", route_nodes)
-        self.register_buffer("route_right", route_right)
 
     def leaf_probabilities(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim != 2 or x.shape[-1] != self.input_dim:

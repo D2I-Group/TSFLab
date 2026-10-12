@@ -101,6 +101,21 @@ class AirFormerBlock(nn.Module):
         return values + self.ff(self.ff_norm(values))
 
 
+def _dartboard_projection(dartboard_mx: np.ndarray | torch.Tensor | None, enc_in: int) -> torch.Tensor:
+    """Row-normalized ``[enc_in, regions, enc_in]`` projection; a plain adjacency is one region."""
+    if dartboard_mx is None:
+        raise ValueError(
+            "AirFormer needs a station graph: a dartboard projection [enc_in, regions, enc_in] or the "
+            "dataset adjacency adj_mx [enc_in, enc_in]; use a graph dataset that ships adj_mx.npy"
+        )
+    projection = torch.as_tensor(dartboard_mx, dtype=torch.float32)
+    if projection.ndim == 2:
+        projection = projection.unsqueeze(1)
+    if projection.ndim != 3 or projection.shape[0] != enc_in or projection.shape[2] != enc_in:
+        raise ValueError("dartboard_mx must have shape (enc_in, regions, enc_in)")
+    return projection / projection.sum(-1, keepdim=True).clamp_min(1e-6)
+
+
 class Model(nn.Module):
     """Nationwide air-quality Transformer with top-down stochastic latents."""
 
@@ -125,18 +140,7 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.cov_dim = cov_dim
-        if dartboard_mx is None:
-            raise ValueError(
-                "AirFormer needs a station graph: a dartboard projection [enc_in, regions, enc_in] or the "
-                "dataset adjacency adj_mx [enc_in, enc_in]; use a graph dataset that ships adj_mx.npy"
-            )
-        projection = torch.as_tensor(dartboard_mx, dtype=torch.float32)
-        if projection.ndim == 2:
-            projection = projection.unsqueeze(1)
-        if projection.ndim != 3 or projection.shape[0] != enc_in or projection.shape[2] != enc_in:
-            raise ValueError("dartboard_mx must have shape (enc_in, regions, enc_in)")
-        projection = projection / projection.sum(-1, keepdim=True).clamp_min(1e-6)
-        self.register_buffer("dartboard_projection", projection)
+        self.register_buffer("dartboard_projection", _dartboard_projection(dartboard_mx, enc_in))
 
         self.input_projection = nn.Sequential(
             nn.Linear(1 + cov_dim, d_model), nn.GELU(), nn.Linear(d_model, d_model)
@@ -155,6 +159,16 @@ class Model(nn.Module):
         self.temporal_head = nn.Linear(seq_len, pred_len)
         self.output_head = nn.Linear(d_model * 2, 1)
 
+    def _features(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
+        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
+            raise ValueError("AirFormer expects (batch, configured seq_len, enc_in)")
+        if x_mark_enc is None:
+            x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
+        features = to_spatiotemporal(x_enc, x_mark_enc)
+        if features.shape[-1] != 1 + self.cov_dim:
+            raise ValueError(f"AirFormer expects exactly {self.cov_dim} covariates")
+        return features
+
     def forward(
         self,
         x_enc,
@@ -163,14 +177,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("AirFormer expects (batch, configured seq_len, enc_in)")
-        if x_mark_enc is None:
-            x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
-        features = to_spatiotemporal(x_enc, x_mark_enc)
-        if features.shape[-1] != 1 + self.cov_dim:
-            raise ValueError(f"AirFormer expects exactly {self.cov_dim} covariates")
-        state = self.input_projection(features)
+        state = self.input_projection(self._features(x_enc, x_mark_enc))
         levels = []
         for block in self.blocks:
             state = block(state, self.dartboard_projection)

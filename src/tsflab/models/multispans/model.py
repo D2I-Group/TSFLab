@@ -124,6 +124,138 @@ def structural_entropy(adj: np.ndarray, tree: EncodingTree) -> float:
     return total
 
 
+class _GreedyTreeSearch:
+    """State of the greedy combine/merge search behind :func:`build_encoding_tree`."""
+
+    def __init__(self, weights: np.ndarray, max_height: int) -> None:
+        self.weights = weights
+        self.n = weights.shape[0]
+        self.tree = EncodingTree(self.n)
+        self.degree = weights.sum(axis=1)
+        self.volume = self.degree.sum()
+        self.max_height = max_height
+        self.member: dict[int, np.ndarray] = {}
+        self.cache: dict[int, tuple[float, str | None, int, int]] = {}
+
+    def remember(self, node: int) -> None:
+        mask = np.zeros(self.n)
+        mask[self.tree.vertices(node)] = 1.0
+        self.member[node] = mask
+
+    def init_statistics(self) -> None:
+        for node in list(self.tree.parent):
+            self.remember(node)
+        self.vol = {node: float(self.degree @ m) for node, m in self.member.items()}
+        self.cut = {node: self.vol[node] - float(m @ self.weights @ m) for node, m in self.member.items()}
+        self.height = {node: self.tree.height(node) for node in self.tree.parent}
+
+    def _between(self, kids: list[int]) -> np.ndarray:
+        """Sibling-to-sibling weights w(a, b) via a label vector over the parent's vertices: O(n^2)."""
+        label = np.full(self.n, -1)
+        for column, kid in enumerate(kids):
+            label[self.member[kid] > 0] = column
+        inside = label >= 0
+        sub_label = label[inside]
+        by_row = np.zeros((len(kids), int(inside.sum())))
+        np.add.at(by_row, sub_label, self.weights[np.ix_(inside, inside)])
+        between = np.zeros((len(kids), len(kids)))
+        np.add.at(between.T, sub_label, by_row.T)
+        return between
+
+    def _inner_cut(self, k: int) -> float:
+        children = self.tree.children
+        return sum(self.cut[c] for c in children[k]) if k in children else self.cut[k]
+
+    def _kid_statistics(self, kids: list[int]):
+        v = np.array([self.vol[k] for k in kids])
+        g = np.array([self.cut[k] for k in kids])
+        h = np.array([self.height[k] for k in kids])
+        # Sum of the children's cuts; a leaf behaves as a module whose only child is itself.
+        inner = np.array([self._inner_cut(k) for k in kids])
+        return v, g, h, inner
+
+    def _deltas(self, parent: int, kids: list[int], between: np.ndarray):
+        volume = self.volume
+        v, g, h, inner = self._kid_statistics(kids)
+        v_parent = self.vol[parent]
+        v_pair = v[:, None] + v[None, :]
+        off_diagonal = ~np.eye(len(kids), dtype=bool)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            combine = -2.0 * between / volume * np.log2(v_parent / v_pair)
+            fits = self.tree.depth(parent) + 2 + np.maximum(h[:, None], h[None, :]) <= self.max_height
+            combine = np.where(off_diagonal & fits & (v_pair > 0) & (v_pair < v_parent), combine, np.inf)
+            g_new = g[:, None] + g[None, :] - 2.0 * between
+            term = -g / volume * np.log2(v / v_parent)
+            shift = (inner / volume)[:, None] * np.log2(v_pair / v[:, None])
+            merge = -g_new / volume * np.log2(v_pair / v_parent) - term[:, None] - term[None, :] + shift + shift.T
+            module = h > 0
+            usable = (module[:, None] | module[None, :]) & (v[:, None] > 0) & (v[None, :] > 0)
+            merge = np.where(off_diagonal & usable, merge, np.inf)
+        return combine, merge
+
+    def best_under(self, parent: int) -> tuple[float, str | None, int, int]:
+        kids = self.tree.children[parent]
+        if len(kids) < 2:
+            return (np.inf, None, -1, -1)
+        combine, merge = self._deltas(parent, kids, self._between(kids))
+        best = (np.inf, None, -1, -1)
+        for kind, delta in (("combine", combine), ("merge", merge)):
+            flat = int(np.argmin(delta))
+            if delta.flat[flat] < best[0]:
+                a, b = divmod(flat, len(kids))
+                best = (float(delta.flat[flat]), kind, kids[a], kids[b])
+        return best
+
+    def refresh_cache(self) -> None:
+        for parent in self.tree.children:
+            if parent not in self.cache:
+                self.cache[parent] = self.best_under(parent)
+
+    def _fused_cut(self, node: int) -> float:
+        return float(self.member[node] @ (self.degree - self.weights @ self.member[node]))
+
+    def _combine(self, a: int, b: int, dirty: set[int]) -> None:
+        tree = self.tree
+        node = tree.combine(a, b)
+        self.member[node] = self.member[a] + self.member[b]
+        self.vol[node] = self.vol[a] + self.vol[b]
+        self.cut[node] = self._fused_cut(node)
+        self.height[node] = 1 + max(self.height[a], self.height[b])
+        # Subtrees below the new node moved one level down.
+        stack = [a, b]
+        while stack:
+            x = stack.pop()
+            if x in tree.children:
+                dirty.add(x)
+                stack.extend(tree.children[x])
+        dirty.add(node)
+
+    def _merge(self, a: int, b: int, dirty: set[int]) -> None:
+        if self.tree.is_leaf(a):
+            a, b = b, a
+        node = self.tree.merge(a, b)
+        self.member[node] = self.member[a] + self.member[b]
+        self.vol[node] += self.vol[b]
+        self.cut[node] = self._fused_cut(node)
+        self.height[node] = 1 + max(self.height[c] for c in self.tree.children[node])
+        self.cache.pop(b, None)
+        dirty.add(node)
+
+    def apply(self, parent: int, kind: str, a: int, b: int) -> None:
+        dirty = {parent}
+        if kind == "combine":
+            self._combine(a, b, dirty)
+        else:
+            self._merge(a, b, dirty)
+        x = parent
+        while x != -1:  # ancestors: heights (and so admissible combines) may change
+            self.height[x] = 1 + max(self.height[c] for c in self.tree.children[x])
+            dirty.add(x)
+            x = self.tree.parent[x]
+        for x in dirty:
+            self.cache.pop(x, None)
+
+
 def build_encoding_tree(adj: np.ndarray, max_height: int, tol: float = 1e-12) -> EncodingTree:
     """Greedy structural-entropy minimization with the combine and merge operators (Sec. 3.3.3).
 
@@ -135,108 +267,18 @@ def build_encoding_tree(adj: np.ndarray, max_height: int, tol: float = 1e-12) ->
     largest entropy reduction (first index on ties), and stops when no operator reduces the
     entropy. Operators that would make the tree taller than ``max_height`` are skipped.
     """
-    weights = _symmetric_weights(adj)
-    n = weights.shape[0]
-    tree = EncodingTree(n)
-    degree = weights.sum(axis=1)
-    volume = degree.sum()
-    if volume <= 0 or max_height < 2:
-        return tree
-    member: dict[int, np.ndarray] = {}
-
-    def remember(node: int) -> None:
-        mask = np.zeros(n)
-        mask[tree.vertices(node)] = 1.0
-        member[node] = mask
-
-    for node in list(tree.parent):
-        remember(node)
-    vol = {node: float(degree @ m) for node, m in member.items()}
-    cut = {node: vol[node] - float(m @ weights @ m) for node, m in member.items()}
-    height = {node: tree.height(node) for node in tree.parent}
-    cache: dict[int, tuple[float, str | None, int, int]] = {}
-
-    def best_under(parent: int) -> tuple[float, str | None, int, int]:
-        kids = tree.children[parent]
-        if len(kids) < 2:
-            return (np.inf, None, -1, -1)
-        # Sibling-to-sibling weights w(a, b) via a label vector over the parent's vertices: O(n^2).
-        label = np.full(n, -1)
-        for column, kid in enumerate(kids):
-            label[member[kid] > 0] = column
-        inside = label >= 0
-        sub_label = label[inside]
-        by_row = np.zeros((len(kids), int(inside.sum())))
-        np.add.at(by_row, sub_label, weights[np.ix_(inside, inside)])
-        between = np.zeros((len(kids), len(kids)))
-        np.add.at(between.T, sub_label, by_row.T)
-        v = np.array([vol[k] for k in kids])
-        g = np.array([cut[k] for k in kids])
-        h = np.array([height[k] for k in kids])
-        # Sum of the children's cuts; a leaf behaves as a module whose only child is itself.
-        inner = np.array([sum(cut[c] for c in tree.children[k]) if k in tree.children else cut[k] for k in kids])
-        v_parent = vol[parent]
-        v_pair = v[:, None] + v[None, :]
-        off_diagonal = ~np.eye(len(kids), dtype=bool)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            combine = -2.0 * between / volume * np.log2(v_parent / v_pair)
-            fits = tree.depth(parent) + 2 + np.maximum(h[:, None], h[None, :]) <= max_height
-            combine = np.where(off_diagonal & fits & (v_pair > 0) & (v_pair < v_parent), combine, np.inf)
-            g_new = g[:, None] + g[None, :] - 2.0 * between
-            term = -g / volume * np.log2(v / v_parent)
-            shift = (inner / volume)[:, None] * np.log2(v_pair / v[:, None])
-            merge = -g_new / volume * np.log2(v_pair / v_parent) - term[:, None] - term[None, :] + shift + shift.T
-            module = h > 0
-            usable = (module[:, None] | module[None, :]) & (v[:, None] > 0) & (v[None, :] > 0)
-            merge = np.where(off_diagonal & usable, merge, np.inf)
-        best = (np.inf, None, -1, -1)
-        for kind, delta in (("combine", combine), ("merge", merge)):
-            flat = int(np.argmin(delta))
-            if delta.flat[flat] < best[0]:
-                a, b = divmod(flat, len(kids))
-                best = (float(delta.flat[flat]), kind, kids[a], kids[b])
-        return best
-
+    search = _GreedyTreeSearch(_symmetric_weights(adj), max_height)
+    if search.volume <= 0 or max_height < 2:
+        return search.tree
+    search.init_statistics()
+    cache = search.cache
     while True:
-        for parent in tree.children:
-            if parent not in cache:
-                cache[parent] = best_under(parent)
+        search.refresh_cache()
         parent = min(cache, key=lambda p: (cache[p][0], p))
         value, kind, a, b = cache[parent]
         if kind is None or value >= -tol:
-            return tree
-        dirty = {parent}
-        if kind == "combine":
-            node = tree.combine(a, b)
-            member[node] = member[a] + member[b]
-            vol[node] = vol[a] + vol[b]
-            cut[node] = float(member[node] @ (degree - weights @ member[node]))
-            height[node] = 1 + max(height[a], height[b])
-            # Subtrees below the new node moved one level down.
-            stack = [a, b]
-            while stack:
-                x = stack.pop()
-                if x in tree.children:
-                    dirty.add(x)
-                    stack.extend(tree.children[x])
-            dirty.add(node)
-        else:
-            if tree.is_leaf(a):
-                a, b = b, a
-            node = tree.merge(a, b)
-            member[node] = member[a] + member[b]
-            vol[node] += vol[b]
-            cut[node] = float(member[node] @ (degree - weights @ member[node]))
-            height[node] = 1 + max(height[c] for c in tree.children[node])
-            cache.pop(b, None)
-            dirty.add(node)
-        x = parent
-        while x != -1:  # ancestors: heights (and so admissible combines) may change
-            height[x] = 1 + max(height[c] for c in tree.children[x])
-            dirty.add(x)
-            x = tree.parent[x]
-        for x in dirty:
-            cache.pop(x, None)
+            return search.tree
+        search.apply(parent, kind, a, b)
 
 
 def multilevel_masks(adj: np.ndarray, num_heads: int, max_height: int) -> torch.Tensor:
@@ -396,6 +438,20 @@ class TransposedConvDecoder(nn.Module):
         return y.reshape(b, n, -1, y.shape[-1])
 
 
+def _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routing) -> None:
+    if embed_dim % (len(conv_kernels) * (gconv_hops + 1)) or embed_dim % num_heads:
+        raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
+    if position_routing not in ("official", "matched"):
+        raise ValueError("position_routing must be 'official' or 'matched'")
+
+
+def _checked_adjacency(adj_mx, num_nodes: int) -> np.ndarray:
+    adjacency = np.eye(num_nodes, dtype=np.float64) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
+    if adjacency.shape != (num_nodes, num_nodes):
+        raise ValueError("adj_mx shape must match num_nodes")
+    return adjacency
+
+
 class Model(nn.Module):
     """MultiSPANS forecaster: ``[B, T, N]`` history -> ``[B, H, N]`` forecast."""
 
@@ -421,16 +477,11 @@ class Model(nn.Module):
         position_routing: str = "official",
     ) -> None:
         super().__init__()
-        if embed_dim % (len(conv_kernels) * (gconv_hops + 1)) or embed_dim % num_heads:
-            raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
-        if position_routing not in ("official", "matched"):
-            raise ValueError("position_routing must be 'official' or 'matched'")
+        _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routing)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.mark_features = mark_features
         self.position_routing = position_routing
-        adjacency = np.eye(num_nodes, dtype=np.float64) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = _checked_adjacency(adj_mx, num_nodes)
         finite = np.where(np.isfinite(adjacency), adjacency, 0.0) + np.eye(num_nodes)
         self.register_buffer("propagation", torch.from_numpy(finite / finite.sum(axis=1, keepdims=True)).float())
         self.register_buffer(

@@ -37,6 +37,17 @@ def patch_count(seq_len: int, cover: int, stride: int) -> int:
     return (seq_len - cover) // stride + 1
 
 
+# Linear-family value encoders by kind; the CNN family runs ``ValueEncoder._cnn``.
+_LINEAR_FORWARD = {
+    "single_linear": lambda m, x: m.proj(x),
+    "linear": lambda m, x: m.outer(F.gelu(m.inner(x))),
+    "glu": lambda m, x: F.glu(m.outer(F.gelu(m.inner(x))), dim=-1),
+    "simple_linear": lambda m, x: x @ m.matrix,
+    "double_linear": lambda m, x: m.outer(x @ m.matrix),
+    "double_linear_glu": lambda m, x: F.glu(m.outer(x @ m.matrix), dim=-1),
+}
+
+
 class ValueEncoder(nn.Module):
     """Embed one sub-sequence ``[B, P, F, n]`` to ``[B, P, F, e]`` (Sec. 2.2, Appendix C).
 
@@ -58,17 +69,23 @@ class ValueEncoder(nn.Module):
             self.inner = nn.Linear(length, 2 * encoding, bias=False)
             self.outer = nn.Linear(2 * encoding, 2 * encoding if kind == "glu" else encoding)
         elif kind in ("simple_linear", "double_linear", "double_linear_glu"):
-            self.matrix = nn.Parameter(torch.randn(length, encoding))
-            if kind == "double_linear":
-                self.outer = nn.Linear(encoding, encoding)
-            elif kind == "double_linear_glu":
-                self.outer = nn.Linear(encoding, 2 * encoding)
+            self._build_matrix(kind, length, encoding)
         else:
-            width = encoding * num_vars
-            self.conv1 = nn.Conv1d(num_vars, width, 3, padding=1, groups=num_vars)
-            if kind != "cnn_1":
-                self.conv2 = nn.Conv1d(width, width, 3, padding=1, groups=num_vars)
-            self.readout = nn.Linear(length, 1)
+            self._build_cnn(kind, length, encoding, num_vars)
+
+    def _build_matrix(self, kind: str, length: int, encoding: int) -> None:
+        self.matrix = nn.Parameter(torch.randn(length, encoding))
+        if kind == "double_linear":
+            self.outer = nn.Linear(encoding, encoding)
+        elif kind == "double_linear_glu":
+            self.outer = nn.Linear(encoding, 2 * encoding)
+
+    def _build_cnn(self, kind: str, length: int, encoding: int, num_vars: int) -> None:
+        width = encoding * num_vars
+        self.conv1 = nn.Conv1d(num_vars, width, 3, padding=1, groups=num_vars)
+        if kind != "cnn_1":
+            self.conv2 = nn.Conv1d(width, width, 3, padding=1, groups=num_vars)
+        self.readout = nn.Linear(length, 1)
 
     @staticmethod
     def _pool(x: torch.Tensor) -> torch.Tensor:
@@ -76,19 +93,11 @@ class ValueEncoder(nn.Module):
         return F.max_pool1d(F.pad(x, (1, 1)), kernel_size=3, stride=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        linear = _LINEAR_FORWARD.get(self.kind)
+        return self._cnn(x) if linear is None else linear(self, x)
+
+    def _cnn(self, x: torch.Tensor) -> torch.Tensor:
         kind = self.kind
-        if kind == "single_linear":
-            return self.proj(x)
-        if kind == "linear":
-            return self.outer(F.gelu(self.inner(x)))
-        if kind == "glu":
-            return F.glu(self.outer(F.gelu(self.inner(x))), dim=-1)
-        if kind == "simple_linear":
-            return x @ self.matrix
-        if kind == "double_linear":
-            return self.outer(x @ self.matrix)
-        if kind == "double_linear_glu":
-            return F.glu(self.outer(x @ self.matrix), dim=-1)
         batch, patches, variables, length = x.shape
         h = self.conv1(x.reshape(batch * patches, variables, length))
         if kind == "cnn_2":
@@ -152,17 +161,22 @@ class TimeEncoding(nn.Module):
             out = out + self.minute(idx[..., 4] // 15 if raw else idx[..., 4])
         return self._min_max(out)
 
+    def _mark_parts(self, marks: torch.Tensor) -> list[torch.Tensor]:
+        parts = []
+        if "timeF" in self.kinds:
+            features = adapt_tslib_marks(marks, embed_type="timeF", freq=self.freq)
+            parts.append(self._min_max(self.time_feature(features.float())))
+        if "tempEmb" in self.kinds:
+            parts.append(self.calendar(marks))
+        return parts
+
     def forward(self, marks: torch.Tensor | None, batch: int) -> torch.Tensor:
         parts = []
         if "posEmb" in self.kinds:
             parts.append(self.position_table.expand(batch, -1, -1))
         if ("timeF" in self.kinds or "tempEmb" in self.kinds) and marks is None:
             raise ValueError("REPNet timeF/tempEmb time embeddings require x_mark_enc")
-        if "timeF" in self.kinds:
-            features = adapt_tslib_marks(marks, embed_type="timeF", freq=self.freq)
-            parts.append(self._min_max(self.time_feature(features.float())))
-        if "tempEmb" in self.kinds:
-            parts.append(self.calendar(marks))
+        parts += self._mark_parts(marks)
         total = parts[0]
         for part in parts[1:]:
             total = total + part
@@ -185,16 +199,23 @@ class Representation(nn.Module):
     ) -> None:
         super().__init__()
         self.extractors = [tuple(int(v) for v in spec) for spec in extractors]
-        self.patch_counts = [patch_count(seq_len, cover, stride) for cover, _, stride in self.extractors]
-        if min(self.patch_counts) < 1:
-            raise ValueError("every patch extractor cover size must be <= seq_len")
+        self.patch_counts = self._patch_counts(seq_len)
         self.time = TimeEncoding(time_kinds, time_size, seq_len, freq) if time_kinds else None
         value_size = encoding // 2 if self.time is not None else encoding
         self.value_encoders = nn.ModuleList(
             ValueEncoder(kind, math.ceil(cover / dilation), value_size, num_vars)
             for cover, dilation, _ in self.extractors
         )
-        self.time_encoders = nn.ModuleList(
+        self.time_encoders = self._time_encoders(encoding, time_size)
+
+    def _patch_counts(self, seq_len: int) -> list[int]:
+        counts = [patch_count(seq_len, cover, stride) for cover, _, stride in self.extractors]
+        if min(counts) < 1:
+            raise ValueError("every patch extractor cover size must be <= seq_len")
+        return counts
+
+    def _time_encoders(self, encoding: int, time_size: int) -> nn.ModuleList:
+        return nn.ModuleList(
             nn.Linear(cover * time_size, encoding // 2) for cover, _, _ in self.extractors
         ) if self.time is not None else nn.ModuleList()
 

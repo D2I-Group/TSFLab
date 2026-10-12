@@ -53,6 +53,24 @@ class Model(nn.Module):
         ]
         return self.meta_projection(torch.cat(pieces, -1))
 
+    @staticmethod
+    def _step(cells: nn.ModuleList, value: torch.Tensor, states: list[torch.Tensor], meta: torch.Tensor) -> torch.Tensor:
+        for layer, cell in enumerate(cells):
+            states[layer] = cell(value, states[layer], meta)
+            value = states[layer]
+        return value
+
+    def _future_features(self, x_mark_dec: torch.Tensor | None) -> torch.Tensor | None:
+        return normalized_time_features(x_mark_dec[:, -self.pred_len :]) if x_mark_dec is not None and x_mark_dec.ndim == 3 else None
+
+    def _future_calendar(self, future: torch.Tensor | None, horizon: int, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        if future is None:
+            tod = torch.full((x_enc.shape[0], self.num_nodes), horizon % self.steps_per_day, device=x_enc.device, dtype=torch.long)
+            return tod, torch.zeros_like(tod)
+        tod = (future[:, horizon, 0:1] * self.steps_per_day).long().expand(-1, self.num_nodes).clamp(0, self.steps_per_day - 1)
+        dow = (future[:, horizon, 1:2] * 7).long().expand(-1, self.num_nodes).clamp(0, 6)
+        return tod, dow
+
     def forward(
         self,
         x_enc,
@@ -61,7 +79,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
+        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
             raise ValueError(f"HimNet expects (B, {self.seq_len}, {self.num_nodes}) values")
         data = to_spatiotemporal(x_enc, x_mark_enc)
         states = [x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden) for cell in self.encoder]
@@ -69,29 +87,15 @@ class Model(nn.Module):
         for index, step in enumerate(data[..., : self.input_dim].unbind(1)):
             tod = (data[:, index, :, 1] * self.steps_per_day).long().clamp(0, self.steps_per_day - 1)
             dow = (data[:, index, :, 2] * 7).long().clamp(0, 6)
-            meta = self._meta(tod, dow, zero_horizon)
-            value = step
-            for layer, cell in enumerate(self.encoder):
-                states[layer] = cell(value, states[layer], meta)
-                value = states[layer]
+            self._step(self.encoder, step, states, self._meta(tod, dow, zero_horizon))
         decoder_input = x_enc[:, -1].unsqueeze(-1)
         outputs = []
-        future = normalized_time_features(x_mark_dec[:, -self.pred_len :]) if x_mark_dec is not None and x_mark_dec.ndim == 3 else None
+        future = self._future_features(x_mark_dec)
         for horizon in range(self.pred_len):
-            if future is None:
-                tod = torch.full((x_enc.shape[0], self.num_nodes), horizon % self.steps_per_day, device=x_enc.device, dtype=torch.long)
-                dow = torch.zeros_like(tod)
-            else:
-                tod = (future[:, horizon, 0:1] * self.steps_per_day).long().expand(-1, self.num_nodes).clamp(0, self.steps_per_day - 1)
-                dow = (future[:, horizon, 1:2] * 7).long().expand(-1, self.num_nodes).clamp(0, 6)
+            tod, dow = self._future_calendar(future, horizon, x_enc)
             meta = self._meta(tod, dow, self.horizon_embedding[horizon])
-            value = decoder_input
-            for layer, cell in enumerate(self.decoder):
-                states[layer] = cell(value, states[layer], meta)
-                value = states[layer]
-            decoder_input = self.output(value)
+            decoder_input = self.output(self._step(self.decoder, decoder_input, states, meta))
             outputs.append(decoder_input.squeeze(-1))
         return torch.stack(outputs, dim=1)
-
 
 __all__ = ["Model", "MetaGraphGRUCell"]

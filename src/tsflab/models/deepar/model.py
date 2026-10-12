@@ -9,6 +9,19 @@ from torch.utils.checkpoint import checkpoint
 from tsflab.models._components.gaussian_parameter_head import GaussianParameterHead
 
 
+def _check_options(smallest: int, cov_feat_size: int, dropout: float, features: str, checkpoint_steps: int) -> None:
+    if smallest < 1:
+        raise ValueError("lengths, channels, and recurrent widths must be positive")
+    if cov_feat_size < 0:
+        raise ValueError("cov_feat_size must be non-negative")
+    if not 0.0 <= dropout < 1.0:
+        raise ValueError("dropout must be in [0, 1)")
+    if features not in {"M", "S", "MS"}:
+        raise ValueError("features must be M, S, or MS")
+    if checkpoint_steps < 0:
+        raise ValueError("checkpoint_steps must be non-negative (0 disables checkpointing)")
+
+
 class Model(nn.Module):
     """Global autoregressive LSTM with an independent Gaussian likelihood."""
 
@@ -31,18 +44,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len
-        if min(
-            seq_len, pred_len, enc_in, embedding_size, hidden_size, num_layers
-        ) < 1:
-            raise ValueError("lengths, channels, and recurrent widths must be positive")
-        if cov_feat_size < 0:
-            raise ValueError("cov_feat_size must be non-negative")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
-        if features not in {"M", "S", "MS"}:
-            raise ValueError("features must be M, S, or MS")
-        if checkpoint_steps < 0:
-            raise ValueError("checkpoint_steps must be non-negative (0 disables checkpointing)")
+        _check_options(
+            min(seq_len, pred_len, enc_in, embedding_size, hidden_size, num_layers),
+            cov_feat_size, dropout, features, checkpoint_steps,
+        )
         self.checkpoint_steps = checkpoint_steps
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -115,6 +120,40 @@ class Model(nn.Module):
         return (feedback, *state, torch.stack(locations, dim=1),
                 torch.stack(scales, dim=1))
 
+    def _future_marks(self, x_mark_dec: torch.Tensor | None) -> torch.Tensor | None:
+        if x_mark_dec is None:
+            return None
+        future_marks = x_mark_dec[:, -self.pred_len :]
+        if future_marks.shape[1] != self.pred_len:
+            raise ValueError("x_mark_dec does not cover the forecast horizon")
+        return future_marks
+
+    def _rollout(self, feedback, state, future_cov) -> tuple[torch.Tensor, torch.Tensor]:
+        """``[series, pred_len, 1]`` decoder locations and scales from ``(feedback, state)``."""
+        segment = self.checkpoint_steps
+        if not (segment and self.training and torch.is_grad_enabled()):
+            _, _, _, location, scale = self._decode(
+                feedback, *state, future_cov, False
+            )
+            return location, scale
+        # Recompute each decoder segment in backward: with autograd the full
+        # rollout keeps every step of every series alive (about 50 GB for
+        # 16 x 862 series over 720 steps). The forward value and gradient are
+        # those of the plain rollout; LSTM dropout runs on the native kernel,
+        # whose torch RNG the checkpoint replays, so recomputed masks match.
+        native = self.recurrent.dropout > 0 and self.recurrent.num_layers > 1
+        h, c = state
+        locations, scales = [], []
+        for start in range(0, self.pred_len, segment):
+            feedback, h, c, location, scale = checkpoint(
+                self._decode, feedback, h, c,
+                future_cov[:, start : start + segment], native,
+                use_reentrant=False, preserve_rng_state=True,
+            )
+            locations.append(location)
+            scales.append(scale)
+        return torch.cat(locations, dim=1), torch.cat(scales, dim=1)
+
     def forward(
         self,
         x_enc,
@@ -138,40 +177,10 @@ class Model(nn.Module):
         encoded = torch.cat((self.value_embedding(history), history_cov), dim=-1)
         _, state = self.recurrent(encoded)
 
-        if x_mark_dec is not None:
-            future_marks = x_mark_dec[:, -self.pred_len :]
-            if future_marks.shape[1] != self.pred_len:
-                raise ValueError("x_mark_dec does not cover the forecast horizon")
-        else:
-            future_marks = None
         future_cov = self._covariates(
-            future_marks, batch, self.pred_len, channels
+            self._future_marks(x_mark_dec), batch, self.pred_len, channels
         )
-        feedback = history[:, -1:]
-        segment = self.checkpoint_steps
-        if segment and self.training and torch.is_grad_enabled():
-            # Recompute each decoder segment in backward: with autograd the full
-            # rollout keeps every step of every series alive (about 50 GB for
-            # 16 x 862 series over 720 steps). The forward value and gradient are
-            # those of the plain rollout; LSTM dropout runs on the native kernel,
-            # whose torch RNG the checkpoint replays, so recomputed masks match.
-            native = self.recurrent.dropout > 0 and self.recurrent.num_layers > 1
-            h, c = state
-            locations, scales = [], []
-            for start in range(0, self.pred_len, segment):
-                feedback, h, c, location, scale = checkpoint(
-                    self._decode, feedback, h, c,
-                    future_cov[:, start : start + segment], native,
-                    use_reentrant=False, preserve_rng_state=True,
-                )
-                locations.append(location)
-                scales.append(scale)
-            location = torch.cat(locations, dim=1)
-            scale = torch.cat(scales, dim=1)
-        else:
-            _, _, _, location, scale = self._decode(
-                feedback, *state, future_cov, False
-            )
+        location, scale = self._rollout(history[:, -1:], state, future_cov)
         location = location.view(batch, channels, self.pred_len)
         scale = scale.view(batch, channels, self.pred_len)
         location = location.transpose(1, 2)

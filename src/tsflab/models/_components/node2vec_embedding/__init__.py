@@ -116,14 +116,9 @@ def node2vec_embedding(
     entries are rejected. The returned vectors are the SGNS input ("word") vectors.
     """
     weights = torch.as_tensor(np.asarray(adj_mx, dtype=np.float64))
-    if weights.ndim != 2 or weights.shape[0] != weights.shape[1]:
-        raise ValueError("adj_mx must be a square [N, N] matrix")
-    if not torch.isfinite(weights).all() or (weights < 0).any():
-        raise ValueError("adj_mx must hold finite non-negative edge weights")
-    if dim < 1 or num_walks < 1 or walk_length < 2 or window < 1 or negative < 1:
-        raise ValueError("dim, num_walks, window and negative must be >= 1 and walk_length >= 2")
-    if p <= 0 or q <= 0 or steps < 0 or batch_size < 1 or lr <= 0:
-        raise ValueError("p, q and lr must be positive; steps >= 0; batch_size >= 1")
+    _check_weights(weights)
+    _check_sizes(dim, num_walks, walk_length, window, negative)
+    _check_rates(p, q, steps, batch_size, lr)
     nodes = weights.shape[0]
     generator = torch.Generator().manual_seed(seed)
     walks = _simulate_walks(weights, p, q, num_walks, walk_length, generator)
@@ -139,6 +134,43 @@ def node2vec_embedding(
     pair_weights = flat[positive]
     frequency = torch.bincount(walks[walks >= 0], minlength=nodes).double()
     noise = frequency.pow(0.75)
+    _fit_sgns(inputs, outputs, positive, pair_weights, noise, nodes, dim,
+              negative, steps, batch_size, lr, generator)
+    return inputs.detach().float()
+
+
+def _check_weights(weights: torch.Tensor) -> None:
+    if weights.ndim != 2 or weights.shape[0] != weights.shape[1]:
+        raise ValueError("adj_mx must be a square [N, N] matrix")
+    if not torch.isfinite(weights).all() or (weights < 0).any():
+        raise ValueError("adj_mx must hold finite non-negative edge weights")
+
+
+def _check_sizes(dim: int, num_walks: int, walk_length: int, window: int, negative: int) -> None:
+    if dim < 1 or num_walks < 1 or walk_length < 2 or window < 1 or negative < 1:
+        raise ValueError("dim, num_walks, window and negative must be >= 1 and walk_length >= 2")
+
+
+def _check_rates(p: float, q: float, steps: int, batch_size: int, lr: float) -> None:
+    if p <= 0 or q <= 0 or steps < 0 or batch_size < 1 or lr <= 0:
+        raise ValueError("p, q and lr must be positive; steps >= 0; batch_size >= 1")
+
+
+def _fit_sgns(
+    inputs: torch.Tensor,
+    outputs: torch.Tensor,
+    positive: torch.Tensor,
+    pair_weights: torch.Tensor,
+    noise: torch.Tensor,
+    nodes: int,
+    dim: int,
+    negative: int,
+    steps: int,
+    batch_size: int,
+    lr: float,
+    generator: torch.Generator,
+) -> None:
+    """Fit the SGNS input/output vectors in place with Adam."""
     optimizer = torch.optim.Adam([inputs, outputs], lr=lr)
     for _ in range(steps):
         drawn = positive[torch.multinomial(pair_weights, batch_size, replacement=True, generator=generator)]
@@ -153,7 +185,6 @@ def node2vec_embedding(
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    return inputs.detach().float()
 
 
 __all__ = ["node2vec_embedding"]

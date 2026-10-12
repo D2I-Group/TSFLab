@@ -238,6 +238,20 @@ def amplitude_scale(y0: torch.Tensor, count: int) -> torch.Tensor:
     return y0.unsqueeze(1) * factors
 
 
+def _check_contrast(contrast_form: str, contrast_weight: float, n_negatives: int, temperature: float) -> None:
+    if contrast_form not in {"regression", "similarity"}:
+        raise ValueError("contrast_form must be 'regression' or 'similarity'")
+    if contrast_weight < 0 or n_negatives < 0 or temperature <= 0:
+        raise ValueError("invalid contrastive settings")
+
+
+def _checked_levels(quantile_levels: list[float]) -> list[float]:
+    levels = list(quantile_levels)
+    if not levels or any(not 0.0 < q < 1.0 for q in levels) or levels != sorted(set(levels)):
+        raise ValueError("quantile levels must be strictly increasing inside (0, 1)")
+    return levels
+
+
 class Model(nn.Module):
     """CCDM: channel-aware conditional DDPM with denoising-based contrastive refinement.
 
@@ -280,13 +294,8 @@ class Model(nn.Module):
             raise ValueError("CCDM sizes must be positive")
         if (cont_hidden_dim + pred_hidden_dim) % n_heads:
             raise ValueError("cont_hidden_dim + pred_hidden_dim must be divisible by n_heads")
-        if contrast_form not in {"regression", "similarity"}:
-            raise ValueError("contrast_form must be 'regression' or 'similarity'")
-        if contrast_weight < 0 or n_negatives < 0 or temperature <= 0:
-            raise ValueError("invalid contrastive settings")
-        levels = list(quantile_levels)
-        if not levels or any(not 0.0 < q < 1.0 for q in levels) or levels != sorted(set(levels)):
-            raise ValueError("quantile levels must be strictly increasing inside (0, 1)")
+        _check_contrast(contrast_form, contrast_weight, n_negatives, temperature)
+        levels = _checked_levels(quantile_levels)
         self.output_type = "quantile"
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_steps = diffusion_steps
@@ -355,6 +364,15 @@ class Model(nn.Module):
         variance = self._at("posterior_variance", k)
         return mean + variance.sqrt() * torch.randn_like(y_k)
 
+    def _sample_chunk(self, x: torch.Tensor, count: int) -> torch.Tensor:
+        """``[count, B, pred_len, D]`` ancestral trajectories from Gaussian noise, normalized scale."""
+        batch = x.shape[0]
+        condition = x.repeat(count, 1, 1)
+        y = torch.randn(count * batch, self.pred_len, self.enc_in, device=x.device, dtype=x.dtype)
+        for step in reversed(range(self.num_steps)):
+            y = self.reverse_step(condition, y, step)
+        return y.view(count, batch, self.pred_len, self.enc_in)
+
     @torch.no_grad()
     def sample(self, x_enc: torch.Tensor, num_samples: int | None = None) -> torch.Tensor:
         """``[S, B, pred_len, D]`` forecasts in the input scale."""
@@ -362,15 +380,10 @@ class Model(nn.Module):
             raise ValueError(f"CCDM expects [batch, {self.seq_len}, {self.enc_in}]")
         mean, std = self.window_statistics(x_enc)
         x = (x_enc - mean) / std
-        batch = x.shape[0]
         chunks, remaining = [], num_samples or self.num_samples
         while remaining > 0:
             count = min(remaining, self.sample_batch_size)
-            condition = x.repeat(count, 1, 1)
-            y = torch.randn(count * batch, self.pred_len, self.enc_in, device=x.device, dtype=x.dtype)
-            for step in reversed(range(self.num_steps)):
-                y = self.reverse_step(condition, y, step)
-            chunks.append(y.view(count, batch, self.pred_len, self.enc_in))
+            chunks.append(self._sample_chunk(x, count))
             remaining -= count
         samples = torch.cat(chunks, dim=0)
         return samples * std.unsqueeze(0) + mean.unsqueeze(0)

@@ -155,6 +155,24 @@ class SparseEncoderLayer(nn.Module):
         return self.norm2(x + self.feed_forward(x)), attention
 
 
+def _check_layers(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff, dropout, activation) -> None:
+    if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
+        raise ValueError("lengths, channels, widths, heads, and layers must be positive")
+    if d_model % n_heads:
+        raise ValueError("d_model must be divisible by n_heads")
+    if activation not in {"gelu", "relu"}:
+        raise ValueError("activation must be 'gelu' or 'relu'")
+    if not 0.0 <= dropout < 1.0:
+        raise ValueError("dropout must lie in [0, 1)")
+
+
+def _check_interpolation(interpolation: str, seq_len: int) -> None:
+    if interpolation == "four_aver" and (seq_len % 2 or seq_len < 4):
+        raise ValueError("four_aver interpolation needs an even seq_len of at least 4")
+    if interpolation == "two_aver" and seq_len < 2:
+        raise ValueError("two_aver interpolation needs seq_len >= 2")
+
+
 class Model(nn.Module):
     """Esiformer: interpolation, variate tokens, sparse-FFN encoder, linear head."""
 
@@ -177,18 +195,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must lie in [0, 1)")
-        if interpolation == "four_aver" and (seq_len % 2 or seq_len < 4):
-            raise ValueError("four_aver interpolation needs an even seq_len of at least 4")
-        if interpolation == "two_aver" and seq_len < 2:
-            raise ValueError("two_aver interpolation needs seq_len >= 2")
+        _check_layers(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff, dropout, activation)
+        _check_interpolation(interpolation, seq_len)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.interpolation = interpolation
         self.token_length = interpolated_length(seq_len, interpolation)

@@ -169,6 +169,31 @@ class SpatialEmbedding(nn.Module):
         return embedding  # [N, d]
 
 
+def _check_arguments(
+    seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, num_layers: int,
+    kernel_size: int, dropout: float, smooth_layer_num: int,
+) -> None:
+    if min(seq_len, pred_len, enc_in, d_model, n_heads, num_layers, kernel_size) < 1:
+        raise ValueError("lengths, nodes, widths, heads, layers and kernel must be positive")
+    if smooth_layer_num < 0 or not 0.0 <= dropout < 1.0:
+        raise ValueError("smooth_layer_num must be >= 0 and dropout in [0, 1)")
+
+
+def _normalized_adjacency(adj_mx: np.ndarray | None, enc_in: int) -> torch.Tensor:
+    if adj_mx is None:
+        raise ValueError(
+            "ASTGNN needs the road-network adjacency adj_mx [enc_in, enc_in]; "
+            "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
+        )
+    adjacency = np.asarray(adj_mx, dtype=np.float64)
+    if adjacency.shape != (enc_in, enc_in):
+        raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+    # A_hat = D^-1 (A + I): self-loops set to one, then row normalization.
+    adjacency = adjacency.copy()
+    np.fill_diagonal(adjacency, 1.0)
+    return torch.as_tensor(transition_matrix(adjacency), dtype=torch.float32)
+
+
 class Model(nn.Module):
     """ASTGNN on the recent history window with autoregressive decoding."""
 
@@ -187,24 +212,11 @@ class Model(nn.Module):
         teacher_forcing: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, num_layers, kernel_size) < 1:
-            raise ValueError("lengths, nodes, widths, heads, layers and kernel must be positive")
-        if smooth_layer_num < 0 or not 0.0 <= dropout < 1.0:
-            raise ValueError("smooth_layer_num must be >= 0 and dropout in [0, 1)")
-        if adj_mx is None:
-            raise ValueError(
-                "ASTGNN needs the road-network adjacency adj_mx [enc_in, enc_in]; "
-                "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
-            )
-        adjacency = np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
-        # A_hat = D^-1 (A + I): self-loops set to one, then row normalization.
-        adjacency = adjacency.copy()
-        np.fill_diagonal(adjacency, 1.0)
-        self.register_buffer(
-            "adjacency", torch.as_tensor(transition_matrix(adjacency), dtype=torch.float32)
+        _check_arguments(
+            seq_len, pred_len, enc_in, d_model, n_heads, num_layers, kernel_size, dropout,
+            smooth_layer_num,
         )
+        self.register_buffer("adjacency", _normalized_adjacency(adj_mx, enc_in))
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.num_nodes = enc_in
@@ -229,6 +241,9 @@ class Model(nn.Module):
         self.encoder_norm = nn.LayerNorm(d_model)
         self.decoder_norm = nn.LayerNorm(d_model)
         self.generator = nn.Linear(d_model, 1)
+        self._reset_parameters()
+
+    def _reset_parameters(self) -> None:
         for parameter in self.parameters():
             if parameter.dim() > 1:
                 nn.init.xavier_uniform_(parameter)

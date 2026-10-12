@@ -54,11 +54,37 @@ def sharpness_aware_loss(
         raise ValueError("model has no trainable parameters")
     aux, loss = loss_fn(model)
     grads = torch.autograd.grad(loss, list(named.values()), allow_unused=True)
+    perturbed = _perturbed_parameters(named, grads, rho, adaptive, eps)
+
+    def run(*args, **kwargs):
+        return functional_call(model, perturbed, args, kwargs)
+
+    _, adv_loss = loss_fn(run)
+    return (None if aux is None else aux.detach()), adv_loss
+
+
+def _gradient_norm(
+    named: dict[str, nn.Parameter],
+    grads: tuple[torch.Tensor | None, ...],
+    adaptive: bool,
+) -> torch.Tensor:
+    """Joint L2 norm of ``g`` (or ``|w| g`` when ``adaptive``) over parameters with a gradient."""
     weighted = [
         None if g is None else ((p.detach().abs() if adaptive else 1.0) * g)
         for p, g in zip(named.values(), grads)
     ]
-    norm = torch.sqrt(sum((w.detach() ** 2).sum() for w in weighted if w is not None))
+    return torch.sqrt(sum((w.detach() ** 2).sum() for w in weighted if w is not None))
+
+
+def _perturbed_parameters(
+    named: dict[str, nn.Parameter],
+    grads: tuple[torch.Tensor | None, ...],
+    rho: float,
+    adaptive: bool,
+    eps: float,
+) -> dict[str, torch.Tensor]:
+    """Parameters at ``w + e(w)`` for every trainable parameter with a gradient."""
+    norm = _gradient_norm(named, grads, adaptive)
     scale = rho / (norm + eps)
     perturbed = {}
     for (name, p), g in zip(named.items(), grads):
@@ -66,12 +92,7 @@ def sharpness_aware_loss(
             continue
         e = (p.detach() ** 2 if adaptive else 1.0) * g.detach() * scale
         perturbed[name] = p + e
-
-    def run(*args, **kwargs):
-        return functional_call(model, perturbed, args, kwargs)
-
-    _, adv_loss = loss_fn(run)
-    return (None if aux is None else aux.detach()), adv_loss
+    return perturbed
 
 
 __all__ = ["sharpness_aware_loss"]

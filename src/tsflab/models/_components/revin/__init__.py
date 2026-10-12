@@ -48,32 +48,41 @@ class RevIN(nn.Module):
                 f"expected final feature width {self.num_features}, got {tuple(values.shape)}"
             )
         if mode == "norm":
-            axes = tuple(range(1, values.ndim - 1))
-            mean = values.mean(dim=axes, keepdim=True)
-            if self.subtract_last:
-                center = values.select(1, values.shape[1] - 1).unsqueeze(1)
-                extra = tuple(range(2, values.ndim - 1))
-                if extra:
-                    center = center.mean(dim=extra, keepdim=True)
-            else:
-                center = mean
-            scale = (
-                values.var(dim=axes, keepdim=True, unbiased=False)
-                .add(self.eps)
-                .sqrt()
-            )
-            self._center, self._scale = center.detach(), scale.detach()
-            normalized = (values - self._center) / self._scale
-            if self.affine:
-                normalized = normalized * self.affine_weight + self.affine_bias
-            return normalized
+            return self._normalize(values)
         if mode == "denorm":
-            if self._center is None or self._scale is None:
-                raise RuntimeError("denorm requires a preceding norm call")
-            restored = values
-            if self.affine:
-                restored = (restored - self.affine_bias) / (
-                    self.affine_weight + self.eps * self.eps
-                )
-            return restored * self._scale + self._center
+            return self._denormalize(values)
         raise ValueError("mode must be 'norm' or 'denorm'")
+
+    def _center_of(self, values: torch.Tensor, mean: torch.Tensor) -> torch.Tensor:
+        if not self.subtract_last:
+            return mean
+        center = values.select(1, values.shape[1] - 1).unsqueeze(1)
+        extra = tuple(range(2, values.ndim - 1))
+        if extra:
+            center = center.mean(dim=extra, keepdim=True)
+        return center
+
+    def _normalize(self, values: torch.Tensor) -> torch.Tensor:
+        axes = tuple(range(1, values.ndim - 1))
+        mean = values.mean(dim=axes, keepdim=True)
+        center = self._center_of(values, mean)
+        scale = (
+            values.var(dim=axes, keepdim=True, unbiased=False)
+            .add(self.eps)
+            .sqrt()
+        )
+        self._center, self._scale = center.detach(), scale.detach()
+        normalized = (values - self._center) / self._scale
+        if self.affine:
+            normalized = normalized * self.affine_weight + self.affine_bias
+        return normalized
+
+    def _denormalize(self, values: torch.Tensor) -> torch.Tensor:
+        if self._center is None or self._scale is None:
+            raise RuntimeError("denorm requires a preceding norm call")
+        restored = values
+        if self.affine:
+            restored = (restored - self.affine_bias) / (
+                self.affine_weight + self.eps * self.eps
+            )
+        return restored * self._scale + self._center

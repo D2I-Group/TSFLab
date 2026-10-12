@@ -49,6 +49,47 @@ _KNOWN_COLUMNS = (1, 2, 3, 4, 5)
 _KNOWN_CARDINALITY = (13, 32, 7, 24, 60)
 
 
+def _check_arguments(
+    seq_len: int, pred_len: int, enc_in: int, d_model: int, num_heads: int, dropout: float
+) -> None:
+    if min(seq_len, pred_len, enc_in) < 1:
+        raise ValueError("seq_len, pred_len, and enc_in must be positive")
+    if min(d_model, num_heads) < 1 or d_model % num_heads:
+        raise ValueError("d_model must be a positive multiple of num_heads")
+    if not 0.0 <= dropout < 1.0:
+        raise ValueError("dropout must be in [0, 1)")
+
+
+def _quantile_levels(quantile_levels: list[float] | None) -> list[float]:
+    levels = list(quantile_levels) if quantile_levels else list(_DEFAULT_LEVELS)
+    if any(not 0.0 < level < 1.0 for level in levels):
+        raise ValueError("quantile_levels must lie in (0, 1)")
+    if any(left >= right for left, right in zip(levels, levels[1:])):
+        raise ValueError("quantile_levels must be strictly ascending")
+    return levels
+
+
+def _check_marks(marks: torch.Tensor, length: int, batch: int) -> None:
+    if marks.ndim != 3 or marks.shape[0] != batch or marks.shape[-1] != _MARK_WIDTH:
+        raise ValueError(
+            f"TFT expects raw marks [B, T, {_MARK_WIDTH}] "
+            "(year, month, day, weekday, hour, minute)"
+        )
+    if marks.shape[1] < length:
+        raise ValueError("time marks do not cover the required window")
+
+
+def _init_lstm(module: nn.LSTM) -> None:
+    hidden = module.hidden_size
+    for gate in range(4):
+        rows = slice(gate * hidden, (gate + 1) * hidden)
+        nn.init.xavier_uniform_(module.weight_ih_l0.data[rows])
+        nn.init.orthogonal_(module.weight_hh_l0.data[rows])
+    nn.init.zeros_(module.bias_ih_l0)
+    nn.init.zeros_(module.bias_hh_l0)
+    module.bias_ih_l0.data[hidden : 2 * hidden] = 1.0
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -62,17 +103,8 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1 or enc_in < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
-        if d_model < 1 or num_heads < 1 or d_model % num_heads:
-            raise ValueError("d_model must be a positive multiple of num_heads")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
-        levels = list(quantile_levels) if quantile_levels else list(_DEFAULT_LEVELS)
-        if any(not 0.0 < level < 1.0 for level in levels):
-            raise ValueError("quantile_levels must lie in (0, 1)")
-        if any(left >= right for left, right in zip(levels, levels[1:])):
-            raise ValueError("quantile_levels must be strictly ascending")
+        _check_arguments(seq_len, pred_len, enc_in, d_model, num_heads, dropout)
+        levels = _quantile_levels(quantile_levels)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -140,14 +172,7 @@ class Model(nn.Module):
             elif isinstance(module, nn.Embedding):
                 nn.init.uniform_(module.weight, -0.05, 0.05)
             elif isinstance(module, nn.LSTM):
-                hidden = module.hidden_size
-                for gate in range(4):
-                    rows = slice(gate * hidden, (gate + 1) * hidden)
-                    nn.init.xavier_uniform_(module.weight_ih_l0.data[rows])
-                    nn.init.orthogonal_(module.weight_hh_l0.data[rows])
-                nn.init.zeros_(module.bias_ih_l0)
-                nn.init.zeros_(module.bias_hh_l0)
-                module.bias_ih_l0.data[hidden : 2 * hidden] = 1.0
+                _init_lstm(module)
         # Per-variable Linear(1, d_model): fan_in 1, fan_out d_model.
         bound = (6.0 / (1 + self.observed_weight.shape[1])) ** 0.5
         nn.init.uniform_(self.observed_weight, -bound, bound)
@@ -162,13 +187,7 @@ class Model(nn.Module):
                 batch, length, len(_KNOWN_COLUMNS), dtype=torch.long, device=reference.device
             )
         else:
-            if marks.ndim != 3 or marks.shape[0] != batch or marks.shape[-1] != _MARK_WIDTH:
-                raise ValueError(
-                    f"TFT expects raw marks [B, T, {_MARK_WIDTH}] "
-                    "(year, month, day, weekday, hour, minute)"
-                )
-            if marks.shape[1] < length:
-                raise ValueError("time marks do not cover the required window")
+            _check_marks(marks, length, batch)
             codes = marks[:, -length:, list(_KNOWN_COLUMNS)].round().long()
         embedded = [
             table(codes[..., j].clamp(0, table.num_embeddings - 1))
@@ -185,7 +204,7 @@ class Model(nn.Module):
         """Run the network; return quantiles [B, pred_len, C_out, Q] and the
         interpretability weights (static, past, and future variable selection,
         decoder self-attention)."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
+        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(
                 f"TFT expects input shaped (batch, {self.seq_len}, {self.enc_in})"
             )

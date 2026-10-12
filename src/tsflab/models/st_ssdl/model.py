@@ -61,22 +61,20 @@ class ChebGraphConv(nn.Module):
         self.bias = nn.Parameter(torch.zeros(dim_out))
         nn.init.xavier_normal_(self.weight)
 
+    def _basis(self, support: torch.Tensor) -> list[torch.Tensor]:
+        """Chebyshev polynomials ``T_0 = I, T_1 = S, T_k = 2 S T_{k-1} - T_{k-2}`` up to ``cheb_k``."""
+        eye = torch.eye(support.shape[-1], device=support.device, dtype=support.dtype)
+        basis = [eye if support.dim() == 2 else eye.expand(support.shape[0], -1, -1), support]
+        for _ in range(2, self.cheb_k):
+            basis.append(2 * support @ basis[-1] - basis[-2])
+        return basis[: self.cheb_k]
+
     def forward(self, x: torch.Tensor, supports: list[torch.Tensor]) -> torch.Tensor:
         gathered = []
         for support in supports:
-            if support.dim() == 2:
-                basis = [torch.eye(support.shape[0], device=support.device, dtype=support.dtype), support]
-                for _ in range(2, self.cheb_k):
-                    basis.append(2 * support @ basis[-1] - basis[-2])
-                for graph in basis[: self.cheb_k]:
-                    gathered.append(torch.einsum("nm,bmc->bnc", graph, x))
-            else:
-                eye = torch.eye(support.shape[-1], device=support.device, dtype=support.dtype)
-                basis = [eye.expand(support.shape[0], -1, -1), support]
-                for _ in range(2, self.cheb_k):
-                    basis.append(2 * support @ basis[-1] - basis[-2])
-                for graph in basis[: self.cheb_k]:
-                    gathered.append(torch.einsum("bnm,bmc->bnc", graph, x))
+            # A static (N, N) support is shared by the batch; a (B, N, N) one is per sample.
+            equation = "nm,bmc->bnc" if support.dim() == 2 else "bnm,bmc->bnc"
+            gathered.extend(torch.einsum(equation, graph, x) for graph in self._basis(support))
         stacked = torch.cat(gathered, dim=-1)
         return torch.einsum("bni,io->bno", stacked, self.weight) + self.bias
 
@@ -108,6 +106,15 @@ class ChebGRUCell(nn.Module):
         )
 
 
+def _check_arguments(output_dim: int, input_dim: int, sizes: tuple[int, ...]) -> None:
+    if output_dim != 1:
+        raise ValueError("TSFLab ST-SSDL exposes one value per node")
+    if min(sizes) < 1:
+        raise ValueError("ST-SSDL dimensions must be positive")
+    if input_dim < 1:
+        raise ValueError("input_dim must include at least the value channel")
+
+
 class Model(nn.Module):
     """ST-SSDL: prototype-memory-augmented graph-conv GRU encoder-decoder."""
 
@@ -126,25 +133,17 @@ class Model(nn.Module):
         output_dim: int = 1,
     ) -> None:
         super().__init__()
-        if output_dim != 1:
-            raise ValueError("TSFLab ST-SSDL exposes one value per node")
-        if min(seq_len, pred_len, num_nodes, input_dim, rnn_units, rnn_layers, cheb_k, prototype_num, prototype_dim) < 1:
-            raise ValueError("ST-SSDL dimensions must be positive")
-        if input_dim < 1:
-            raise ValueError("input_dim must include at least the value channel")
+        _check_arguments(
+            output_dim, input_dim,
+            (seq_len, pred_len, num_nodes, input_dim, rnn_units, rnn_layers, cheb_k, prototype_num, prototype_dim),
+        )
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
         self.rnn_units = rnn_units
         self.output_dim = output_dim
         self.cov_dim = input_dim - 1  # calendar covariate channels driving decoder input
 
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
-        static_supports = adj_to_supports(adjacency, adj_type="symadj")
-        for index, support in enumerate(static_supports):
-            self.register_buffer(f"encoder_support_{index}", support)
-        self._num_static_supports = len(static_supports)
+        self._register_supports(adj_mx, num_nodes)
 
         self.encoder_cells = nn.ModuleList(
             ChebGRUCell(input_dim if layer == 0 else rnn_units, rnn_units, cheb_k, self._num_static_supports)
@@ -163,6 +162,15 @@ class Model(nn.Module):
         # Data-driven decoding graph built from the prototype-augmented state (paper's hypernetwork).
         self.graph_hypernet = nn.Linear(decoder_dim, prototype_dim)
         self.output_proj = nn.Linear(decoder_dim, output_dim)
+
+    def _register_supports(self, adj_mx: np.ndarray | None, num_nodes: int) -> None:
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
+        if adjacency.shape != (num_nodes, num_nodes):
+            raise ValueError("adj_mx shape must match num_nodes")
+        static_supports = adj_to_supports(adjacency, adj_type="symadj")
+        for index, support in enumerate(static_supports):
+            self.register_buffer(f"encoder_support_{index}", support)
+        self._num_static_supports = len(static_supports)
 
     def _encoder_supports(self) -> list[torch.Tensor]:
         return [getattr(self, f"encoder_support_{index}") for index in range(self._num_static_supports)]
@@ -191,7 +199,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
+        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
             raise ValueError(f"ST-SSDL expects (B, {self.seq_len}, {self.num_nodes}) values")
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:

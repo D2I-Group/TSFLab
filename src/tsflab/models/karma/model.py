@@ -117,6 +117,24 @@ class HybridFrequencyTemporalEncoder(nn.Module):
         return self.norm(self.wavelet.synthesize(low, high) + tokens)
 
 
+def _check_sizes(smallest: int, d_model: int, embed_dim: int) -> None:
+    if smallest < 1:
+        raise ValueError("KARMA sizes must be positive")
+    if d_model % 2 or d_model < 8:
+        raise ValueError("d_model must be even and at least 8 for the db4 transform")
+    if embed_dim % ATCD_HEADS:
+        raise ValueError(f"embed_dim must be divisible by {ATCD_HEADS}")
+
+
+def _check_choices(decomposition: str, dropout: float, time_loss_weight: float) -> None:
+    if decomposition not in {"atcd", "moving_avg"}:
+        raise ValueError("decomposition must be 'atcd' or 'moving_avg'")
+    if not 0 <= dropout < 1:
+        raise ValueError("dropout must lie in [0, 1)")
+    if not 0 <= time_loss_weight <= 1:
+        raise ValueError("time_loss_weight must lie in [0, 1]")
+
+
 class Model(nn.Module):
     def __init__(
         self,
@@ -139,18 +157,9 @@ class Model(nn.Module):
         time_loss_weight: float = 0.2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, e_layers, d_state, d_conv, expand, embed_dim, moving_avg) < 1:
-            raise ValueError("KARMA sizes must be positive")
-        if d_model % 2 or d_model < 8:
-            raise ValueError("d_model must be even and at least 8 for the db4 transform")
-        if embed_dim % ATCD_HEADS:
-            raise ValueError(f"embed_dim must be divisible by {ATCD_HEADS}")
-        if decomposition not in {"atcd", "moving_avg"}:
-            raise ValueError("decomposition must be 'atcd' or 'moving_avg'")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must lie in [0, 1)")
-        if not 0 <= time_loss_weight <= 1:
-            raise ValueError("time_loss_weight must lie in [0, 1]")
+        _check_sizes(min(seq_len, pred_len, enc_in, d_model, e_layers, d_state, d_conv, expand, embed_dim, moving_avg),
+                     d_model, embed_dim)
+        _check_choices(decomposition, dropout, time_loss_weight)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
