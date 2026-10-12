@@ -1,4 +1,5 @@
 """Runtime specification for DeepAir."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.deepair.model import Model
 from pydantic import BaseModel, Field
@@ -13,12 +14,17 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     params.pop("num_nodes", None)
-    return Model(cfg.task.seq_len, cfg.task.pred_len,
-        spatial_mx=params.pop("adj_mx", None), **params)
+    return Model(
+        cfg.task.seq_len, cfg.task.pred_len, spatial_mx=params.pop("adj_mx", None), **params
+    )
 
 
-SPEC = ModelSpec(name="DeepAir", module="tsflab.models.deepair", model_class=Model,
-    factory=build_model, params_schema=ModelParameterConfig,
-    config_path="configs/models/DeepAir.toml", model_card="src/tsflab/models/deepair/README.md",
-    capabilities=frozenset(["covariate"]), components=("marks",),
-    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0})
+SPEC = ModelSpec(
+    name="DeepAir",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["covariate"]),
+    components=("marks",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
+)

@@ -35,14 +35,10 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="MoSSL",
-    module="tsflab.models.mossl",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MoSSL.toml",
-    model_card="src/tsflab/models/mossl/README.md",
     smoke_config="configs/runs/smoke_mossl.toml",
     capabilities=frozenset({"spatiotemporal"}),
-    components=(),
     contract_task={"seq_len": 16, "pred_len": 3, "label_len": 0},
 )

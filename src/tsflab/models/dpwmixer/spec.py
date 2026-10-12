@@ -26,24 +26,21 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 128),
-        dropout=params.get("dropout", 0.1),
-        patch_len=params.get("patch_len", 16),
-        stride=params.get("stride", 8),
-        down_sampling_layers=params.get("down_sampling_layers", 2),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        patch_len=params["patch_len"],
+        stride=params["stride"],
+        down_sampling_layers=params["down_sampling_layers"],
     )
 
 
 SPEC = ModelSpec(
     name="DPWMixer",
-    module="tsflab.models.dpwmixer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DPWMixer.toml",
-    model_card="src/tsflab/models/dpwmixer/README.md",
     smoke_config="configs/runs/smoke_dpwmixer.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('revin', 'wavelet'),
+    capabilities=frozenset({"time-series"}),
+    components=("revin", "wavelet"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

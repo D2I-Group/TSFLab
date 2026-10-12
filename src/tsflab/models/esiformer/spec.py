@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Esiformer",
-    module="tsflab.models.esiformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Esiformer.toml",
-    model_card="src/tsflab/models/esiformer/README.md",
     smoke_config="configs/runs/smoke_esiformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "self_attention_family", "transformer_encdec"),

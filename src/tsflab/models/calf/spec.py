@@ -77,12 +77,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="CALF",
-    module="tsflab.models.calf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CALF.toml",
-    model_card="src/tsflab/models/calf/README.md",
     smoke_config="configs/runs/smoke_calf.toml",
     capabilities=frozenset({"time-series"}),
     components=("gpt2_backbone", "revin"),

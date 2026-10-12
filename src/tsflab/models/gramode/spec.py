@@ -65,12 +65,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="GRAMODE",
-    module="tsflab.models.gramode",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GRAMODE.toml",
-    model_card="src/tsflab/models/gramode/README.md",
     smoke_config="configs/runs/smoke_gramode.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("adj_norm", "marks"),

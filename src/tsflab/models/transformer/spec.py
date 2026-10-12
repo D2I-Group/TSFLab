@@ -25,21 +25,32 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct Transformer from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, label_len=cfg.task.label_len, features=cfg.task.features, enc_in=params['enc_in'], dec_in=params.get('dec_in'), c_out=params.get('c_out'), d_model=params.get('d_model', 128), n_heads=params.get('n_heads', 8), e_layers=params.get('e_layers', 2), d_layers=params.get('d_layers', 1), d_ff=params.get('d_ff', 256), dropout=params.get('dropout', 0.1), activation=params.get('activation', 'gelu'), embed=params.get('embed', 'timeF'), freq=params.get('freq', 'h'))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        dec_in=params.get("dec_in"),
+        c_out=params.get("c_out"),
+        d_model=params["d_model"],
+        n_heads=params["n_heads"],
+        e_layers=params["e_layers"],
+        d_layers=params["d_layers"],
+        d_ff=params["d_ff"],
+        dropout=params["dropout"],
+        activation=params["activation"],
+        embed=params["embed"],
+        freq=params["freq"],
     )
 
 
 SPEC = ModelSpec(
-    name='Transformer',
-    module='tsflab.models.transformer',
+    name="Transformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/Transformer.toml',
-    model_card='src/tsflab/models/transformer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('embed', 'self_attention_family', 'transformer_encdec'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("embed", "self_attention_family", "transformer_encdec"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

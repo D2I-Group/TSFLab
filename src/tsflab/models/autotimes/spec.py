@@ -31,12 +31,12 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        token_len=params.get("token_len", 96),
-        mlp_hidden_dim=params.get("mlp_hidden_dim", 512),
-        mlp_hidden_layers=params.get("mlp_hidden_layers", 2),
-        mlp_activation=params.get("mlp_activation", "tanh"),
-        dropout=params.get("dropout", 0.1),
-        llm_layers=params.get("llm_layers", 12),
+        token_len=params["token_len"],
+        mlp_hidden_dim=params["mlp_hidden_dim"],
+        mlp_hidden_layers=params["mlp_hidden_layers"],
+        mlp_activation=params["mlp_activation"],
+        dropout=params["dropout"],
+        llm_layers=params["llm_layers"],
     )
 
 
@@ -49,7 +49,7 @@ def build_pretrained_model(cfg, params, paths):
 
 def training_objective(model, batch: TrainingBatch, criterion):
     """Next-segment supervision of every context position (paper Eq. 8)."""
-    x, future = batch.x, batch.y[:, -batch.pred_len:]
+    x, future = batch.x, batch.y[:, -batch.pred_len :]
     if batch.features == "MS":
         x, future = x[..., -1:], future[..., -1:]
     return None, model.next_segment_loss(x, future, criterion)
@@ -57,13 +57,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="AutoTimes",
-    module="tsflab.models.autotimes",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/AutoTimes.toml",
-    model_card="src/tsflab/models/autotimes/README.md",
-    smoke_config=None,
     capabilities=frozenset({"time-series"}),
     components=("gpt2_backbone", "revin", "segment_mlp"),
     contract_task={"seq_len": 192, "pred_len": 96, "label_len": 0},

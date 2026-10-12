@@ -18,21 +18,22 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct PM25_GNN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], adj_mx=params.get('adj_mx'), cov_dim=params.get('cov_dim', 2), hid_dim=params.get('hid_dim', 64))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        adj_mx=params.get("adj_mx"),
+        cov_dim=params["cov_dim"],
+        hid_dim=params["hid_dim"],
     )
 
 
 SPEC = ModelSpec(
-    name='PM25_GNN',
-    module='tsflab.models.pm25gnn',
+    name="PM25_GNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/PM25_GNN.toml',
-    model_card='src/tsflab/models/pm25gnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['covariate']),
-    components=('graph_conv_gru', 'marks'),
-    contract_task={'seq_len': 24, 'pred_len': 24, 'label_len': 0},
+    capabilities=frozenset(["covariate"]),
+    components=("graph_conv_gru", "marks"),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
 )

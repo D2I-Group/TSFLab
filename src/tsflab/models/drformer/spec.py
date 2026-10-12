@@ -59,12 +59,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="DRFormer",
-    module="tsflab.models.drformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DRFormer.toml",
-    model_card="src/tsflab/models/drformer/README.md",
     smoke_config="configs/runs/smoke_drformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "revin", "self_attention_family", "transformer_encdec"),

@@ -34,13 +34,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="MambaSimple",
-    module="tsflab.models.mambasimple",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MambaSimple.toml",
-    model_card="src/tsflab/models/mambasimple/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
     components=("mamba",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

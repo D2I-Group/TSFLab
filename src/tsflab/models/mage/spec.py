@@ -21,23 +21,22 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     """Construct MAGE from a validated run configuration."""
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        enc_in=params["enc_in"], model_dim=params.get("model_dim", 64),
-        recur_num=params.get("recur_num", 8), topk=params.get("topk", 2),
-        node_dim=params.get("node_dim", 16),
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        model_dim=params["model_dim"],
+        recur_num=params["recur_num"],
+        topk=params["topk"],
+        node_dim=params["node_dim"],
     )
 
 
 SPEC = ModelSpec(
-    name='MAGE',
-    module='tsflab.models.mage',
+    name="MAGE",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/MAGE.toml',
-    model_card='src/tsflab/models/mage/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('marks',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("marks",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

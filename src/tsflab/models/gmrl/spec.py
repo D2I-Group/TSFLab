@@ -36,14 +36,10 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GMRL",
-    module="tsflab.models.gmrl",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GMRL.toml",
-    model_card="src/tsflab/models/gmrl/README.md",
     smoke_config="configs/runs/smoke_gmrl.toml",
     capabilities=frozenset({"spatiotemporal"}),
-    components=(),
     contract_task={"seq_len": 16, "pred_len": 3, "label_len": 0},
 )

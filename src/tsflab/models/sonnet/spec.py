@@ -21,22 +21,17 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 16),
-        num_wavelets=params.get("num_wavelets", 4),
-        dropout=params.get("dropout", 0.0),
+        d_model=params["d_model"],
+        num_wavelets=params["num_wavelets"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='Sonnet',
-    module='tsflab.models.sonnet',
+    name="Sonnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/Sonnet.toml',
-    model_card='src/tsflab/models/sonnet/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

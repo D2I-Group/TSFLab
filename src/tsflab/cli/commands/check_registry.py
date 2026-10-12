@@ -154,15 +154,15 @@ def check() -> list[str]:
             if forward_problem:
                 problems.append(forward_problem)
         expected_module = f"tsflab.models.{package.name}"
-        declared_module = fields.get("module")
+        declared_module = fields.get("module", expected_module)
         if declared_module != expected_module:
             problems.append(f"{name!r} declares module={declared_module!r}, expected {expected_module!r}")
         expected_config = f"configs/models/{name}.toml"
-        config_path = fields.get("config_path")
+        config_path = fields.get("config_path", expected_config)
         if config_path != expected_config:
             problems.append(f"{name!r} declares config_path={config_path!r}, expected {expected_config!r}")
         expected_card = f"src/tsflab/models/{package.name}/README.md"
-        model_card = fields.get("model_card")
+        model_card = fields.get("model_card", expected_card)
         if model_card != expected_card:
             problems.append(f"{name!r} declares model_card={model_card!r}, expected {expected_card!r}")
         config_file = ROOT / str(config_path)

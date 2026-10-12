@@ -1,4 +1,5 @@
 """Model specification for SEMPO."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sempo.model import Model
 from pydantic import BaseModel, Field
@@ -15,13 +16,25 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params['enc_in'],
-                 params.get('d_model', 64), params.get('patch_len', 16),
-                 params.get('num_prompts', 4), params.get('num_heads', 4),
-                 params.get('dropout', 0.1), bool(params.get('use_revin', True)))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["d_model"],
+        params["patch_len"],
+        params["num_prompts"],
+        params["num_heads"],
+        params["dropout"],
+        bool(params["use_revin"]),
+    )
 
 
-SPEC = ModelSpec(name='SEMPO', module='tsflab.models.sempo', model_class=Model,
-                 factory=build_model, params_schema=ModelParameterConfig,
-                 config_path='configs/models/SEMPO.toml', model_card='src/tsflab/models/sempo/README.md',
-                 smoke_config=None, capabilities=frozenset(['time-series']),                  components=('revin',), contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0})
+SPEC = ModelSpec(
+    name="SEMPO",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

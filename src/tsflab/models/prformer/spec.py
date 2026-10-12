@@ -44,12 +44,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="PRformer",
-    module="tsflab.models.prformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PRformer.toml",
-    model_card="src/tsflab/models/prformer/README.md",
     smoke_config="configs/runs/smoke_prformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin", "self_attention_family", "transformer_encdec"),

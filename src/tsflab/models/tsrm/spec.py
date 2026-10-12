@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="TSRM",
-    module="tsflab.models.tsrm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TSRM.toml",
-    model_card="src/tsflab/models/tsrm/README.md",
     smoke_config="configs/runs/smoke_tsrm.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "revin"),

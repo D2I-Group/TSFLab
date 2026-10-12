@@ -24,22 +24,19 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        expert_num=params.get("expert_num", 4),
-        freq_num_blocks=params.get("freq_num_blocks", 1),
-        dropout_freq=params.get("dropout_freq", 0.1),
+        expert_num=params["expert_num"],
+        freq_num_blocks=params["freq_num_blocks"],
+        dropout_freq=params["dropout_freq"],
     )
 
 
 SPEC = ModelSpec(
     name="FreqMoE",
-    module="tsflab.models.freqmoe",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FreqMoE.toml",
-    model_card="src/tsflab/models/freqmoe/README.md",
     smoke_config="configs/runs/smoke_freqmoe.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('freq_band_moe',),
+    capabilities=frozenset({"time-series"}),
+    components=("freq_band_moe",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

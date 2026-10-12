@@ -51,15 +51,11 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="SCAM",
-    module="tsflab.models.scam",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SCAM.toml",
-    model_card="src/tsflab/models/scam/README.md",
     smoke_config="configs/runs/smoke_scam.toml",
     capabilities=frozenset({"time-series"}),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
 )

@@ -14,7 +14,22 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params.get("num_support", 16), params.get("kernel_gamma", 0.1), params.get("epsilon", 0.1), params.get("l2_penalty", 1e-4))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["num_support"],
+        params["kernel_gamma"],
+        params["epsilon"],
+        params["l2_penalty"],
+    )
 
 
-SPEC = ModelSpec(name="SVRForecasterTS", module="tsflab.models.svr_forecaster_ts", model_class=Model, factory=build_model, params_schema=ModelParameterConfig, config_path="configs/models/SVRForecasterTS.toml", model_card="src/tsflab/models/svr_forecaster_ts/README.md", capabilities=frozenset(["time-series"]), components=(), contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0})
+SPEC = ModelSpec(
+    name="SVRForecasterTS",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

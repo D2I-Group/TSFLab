@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="ASGMamba",
-    module="tsflab.models.asgmamba",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ASGMamba.toml",
-    model_card="src/tsflab/models/asgmamba/README.md",
     smoke_config="configs/runs/smoke_asgmamba.toml",
     capabilities=frozenset({"time-series"}),
     components=("mamba", "revin"),

@@ -26,19 +26,26 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct MegaCRN from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), rnn_units=params.get('rnn_units', 32), num_layers=params.get('num_layers', 1), cheb_k=params.get('cheb_k', 3), mem_num=params.get('mem_num', 8), mem_dim=params.get('mem_dim', 16))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        rnn_units=params["rnn_units"],
+        num_layers=params["num_layers"],
+        cheb_k=params["cheb_k"],
+        mem_num=params["mem_num"],
+        mem_dim=params["mem_dim"],
+    )
 
 
 SPEC = ModelSpec(
-    name='MegaCRN',
-    module='tsflab.models.megacrn',
+    name="MegaCRN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/MegaCRN.toml',
-    model_card='src/tsflab/models/megacrn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('graph_conv_gru', 'marks'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("graph_conv_gru", "marks"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

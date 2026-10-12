@@ -21,21 +21,26 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimeEmb from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], d_model=params.get('d_model', 512), use_revin=bool(params.get('use_revin', True)), use_hour_index=bool(params.get('use_hour_index', True)), use_day_index=bool(params.get('use_day_index', False)), scale=params.get('scale', 0.02), hour_length=params.get('hour_length', 24), day_length=params.get('day_length', 7))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        d_model=params["d_model"],
+        use_revin=bool(params["use_revin"]),
+        use_hour_index=bool(params["use_hour_index"]),
+        use_day_index=bool(params["use_day_index"]),
+        scale=params["scale"],
+        hour_length=params["hour_length"],
+        day_length=params["day_length"],
     )
 
 
 SPEC = ModelSpec(
-    name='TimeEmb',
-    module='tsflab.models.timeemb',
+    name="TimeEmb",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TimeEmb.toml',
-    model_card='src/tsflab/models/timeemb/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

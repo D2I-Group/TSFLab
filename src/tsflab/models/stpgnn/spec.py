@@ -30,21 +30,27 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct STPGNN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), dropout=params.get('dropout', 0.1), topk=params.get('topk', 4), residual_channels=params.get('residual_channels', 16), end_channels=params.get('end_channels', 64), kernel_size=params.get('kernel_size', 2), blocks=params.get('blocks', 2), layers=params.get('layers', 2), dims=params.get('dims', 16))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        dropout=params["dropout"],
+        topk=params["topk"],
+        residual_channels=params["residual_channels"],
+        end_channels=params["end_channels"],
+        kernel_size=params["kernel_size"],
+        blocks=params["blocks"],
+        layers=params["layers"],
+        dims=params["dims"],
     )
 
 
 SPEC = ModelSpec(
-    name='STPGNN',
-    module='tsflab.models.stpgnn',
+    name="STPGNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/STPGNN.toml',
-    model_card='src/tsflab/models/stpgnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=(),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

@@ -19,11 +19,11 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        params.get("d_model", 64),
-        params.get("mask_samples", 4),
-        params.get("lambda_aml", 0.1),
-        params.get("lambda_esp", 0.1),
-        bool(params.get("use_revin", True)),
+        params["d_model"],
+        params["mask_samples"],
+        params["lambda_aml"],
+        params["lambda_esp"],
+        bool(params["use_revin"]),
     )
 
 
@@ -34,12 +34,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="AMRC",
-    module="tsflab.models.amrc",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/AMRC.toml",
-    model_card="src/tsflab/models/amrc/README.md",
     capabilities=frozenset(["time-series"]),
     components=("revin",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

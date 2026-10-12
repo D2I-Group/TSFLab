@@ -44,12 +44,9 @@ def training_objective(model: Model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="MTSUNMixers",
-    module="tsflab.models.mtsunmixers",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MTSUNMixers.toml",
-    model_card="src/tsflab/models/mtsunmixers/README.md",
     smoke_config="configs/runs/smoke_mtsunmixers.toml",
     capabilities=frozenset({"time-series"}),
     components=("mamba",),

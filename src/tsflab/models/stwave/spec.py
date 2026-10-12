@@ -27,23 +27,22 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     """Construct STWave from a validated run configuration."""
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
         num_nodes=params.get("num_nodes", params["enc_in"]),
-        adj_mx=params.get("adj_mx"), hidden_size=params.get("hidden_size", 16),
-        layers=params.get("layers", 1), log_samples=params.get("log_samples", 1),
+        adj_mx=params.get("adj_mx"),
+        hidden_size=params["hidden_size"],
+        layers=params["layers"],
+        log_samples=params["log_samples"],
     )
 
 
 SPEC = ModelSpec(
-    name='STWave',
-    module='tsflab.models.stwave',
+    name="STWave",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/STWave.toml',
-    model_card='src/tsflab/models/stwave/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('marks',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("marks",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

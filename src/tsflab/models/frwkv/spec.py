@@ -48,9 +48,13 @@ def build_model(cfg, params):
     )
 
 
-def horizon_weighted_l1(prediction: torch.Tensor, target: torch.Tensor, alpha: float) -> torch.Tensor:
+def horizon_weighted_l1(
+    prediction: torch.Tensor, target: torch.Tensor, alpha: float
+) -> torch.Tensor:
     """Official ``WeightedL1Loss``: L1 error weighted by ``(h + 1) ** -alpha`` along the horizon."""
-    steps = torch.arange(1, prediction.shape[1] + 1, device=prediction.device, dtype=prediction.dtype)
+    steps = torch.arange(
+        1, prediction.shape[1] + 1, device=prediction.device, dtype=prediction.dtype
+    )
     weights = steps.pow(-alpha).view(1, -1, 1)
     return ((prediction - target).abs() * weights).mean()
 
@@ -66,12 +70,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="FRWKV",
-    module="tsflab.models.frwkv",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FRWKV.toml",
-    model_card="src/tsflab/models/frwkv/README.md",
     smoke_config="configs/runs/smoke_frwkv.toml",
     capabilities=frozenset({"time-series"}),
     components=("frwkv_linear_attention", "revin"),

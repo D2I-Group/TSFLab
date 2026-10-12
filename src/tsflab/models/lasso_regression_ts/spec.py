@@ -15,19 +15,15 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        l1_penalty=params.get("l1_penalty", 1e-5),
+        l1_penalty=params["l1_penalty"],
     )
 
 
 SPEC = ModelSpec(
     name="LassoRegressionTS",
-    module="tsflab.models.lasso_regression_ts",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/LassoRegressionTS.toml",
-    model_card="src/tsflab/models/lasso_regression_ts/README.md",
     capabilities=frozenset(["time-series"]),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

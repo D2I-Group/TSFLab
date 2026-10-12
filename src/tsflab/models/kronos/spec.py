@@ -23,11 +23,11 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 64),
-        dropout=params.get("dropout", 0.1),
-        code_bits=params.get("code_bits", 8),
-        num_layers=params.get("num_layers", 2),
-        num_heads=params.get("num_heads", 4),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        code_bits=params["code_bits"],
+        num_layers=params["num_layers"],
+        num_heads=params["num_heads"],
     )
 
 
@@ -40,15 +40,10 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="Kronos",
-    module="tsflab.models.kronos",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Kronos.toml",
-    model_card="src/tsflab/models/kronos/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
-        components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
 )

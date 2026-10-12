@@ -31,12 +31,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="FPPformer",
-    module="tsflab.models.fppformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FPPformer.toml",
-    model_card="src/tsflab/models/fppformer/README.md",
     smoke_config="configs/runs/smoke_fppformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "revin"),

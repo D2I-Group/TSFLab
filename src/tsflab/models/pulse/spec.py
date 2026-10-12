@@ -20,25 +20,20 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 32),
-        phase_period=params.get("phase_period", 24),
-        phase_resolution=params.get("phase_resolution", 8),
-        router_heads=params.get("router_heads", 4),
-        dropout=params.get("dropout", 0.1),
-        eps=params.get("eps", 1e-5),
+        d_model=params["d_model"],
+        phase_period=params["phase_period"],
+        phase_resolution=params["phase_resolution"],
+        router_heads=params["router_heads"],
+        dropout=params["dropout"],
+        eps=params["eps"],
     )
 
 
 SPEC = ModelSpec(
     name="PULSE",
-    module="tsflab.models.pulse",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PULSE.toml",
-    model_card="src/tsflab/models/pulse/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
-        components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

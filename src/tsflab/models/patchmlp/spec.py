@@ -14,7 +14,9 @@ class ModelParameterConfig(BaseModel):
     e_layers: int = Field(default=1, gt=0)
     use_norm: bool = True
     moving_avg: int = Field(default=13, gt=0)
-    patch_len: list[int] = Field(default_factory=lambda: [48, 24, 12, 6], min_length=4, max_length=4)
+    patch_len: list[int] = Field(
+        default_factory=lambda: [48, 24, 12, 6], min_length=4, max_length=4
+    )
 
     @field_validator("moving_avg")
     @classmethod
@@ -33,21 +35,23 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct PatchMLP from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], d_model=params.get('d_model', 1024), e_layers=params.get('e_layers', 1), use_norm=bool(params.get('use_norm', True)), moving_avg=params.get('moving_avg', 13), patch_len=params.get('patch_len'))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        d_model=params["d_model"],
+        e_layers=params["e_layers"],
+        use_norm=bool(params["use_norm"]),
+        moving_avg=params["moving_avg"],
+        patch_len=params.get("patch_len"),
     )
 
 
 SPEC = ModelSpec(
-    name='PatchMLP',
-    module='tsflab.models.patchmlp',
+    name="PatchMLP",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/PatchMLP.toml',
-    model_card='src/tsflab/models/patchmlp/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

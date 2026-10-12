@@ -25,13 +25,13 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 64),
-        dropout=params.get("dropout", 0.1),
-        num_intervals=params.get("num_intervals", 4),
-        interval_min=params.get("interval_min", -2.0),
-        interval_max=params.get("interval_max", 2.0),
-        decay_rate=params.get("decay_rate", 50.0),
-        classification_weight=params.get("classification_weight", 0.1),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        num_intervals=params["num_intervals"],
+        interval_min=params["interval_min"],
+        interval_max=params["interval_max"],
+        decay_rate=params["decay_rate"],
+        classification_weight=params["classification_weight"],
     )
 
 
@@ -43,15 +43,10 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="GOTSF",
-    module="tsflab.models.gotsf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GOTSF.toml",
-    model_card="src/tsflab/models/gotsf/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
-        components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
 )

@@ -1,4 +1,5 @@
 """Runtime specification for CauAir."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.cauair.model import Model
 from pydantic import BaseModel, Field, model_validator
@@ -24,8 +25,12 @@ def build_model(cfg, params):
     return Model(cfg.task.seq_len, cfg.task.pred_len, **params)
 
 
-SPEC = ModelSpec(name="CauAir", module="tsflab.models.cauair", model_class=Model,
-    factory=build_model, params_schema=ModelParameterConfig,
-    config_path="configs/models/CauAir.toml", model_card="src/tsflab/models/cauair/README.md",
-    capabilities=frozenset(["covariate"]), components=("marks",),
-    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0})
+SPEC = ModelSpec(
+    name="CauAir",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["covariate"]),
+    components=("marks",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
+)

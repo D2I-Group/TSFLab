@@ -32,12 +32,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="PGN",
-    module="tsflab.models.pgn",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PGN.toml",
-    model_card="src/tsflab/models/pgn/README.md",
     smoke_config="configs/runs/smoke_pgn.toml",
     capabilities=frozenset({"time-series"}),
     components=("marks", "revin"),

@@ -17,9 +17,9 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        params.get("gamma", 0.1),
-        params.get("covariance_eps", 1e-5),
-        bool(params.get("use_revin", True)),
+        params["gamma"],
+        params["covariance_eps"],
+        bool(params["use_revin"]),
     )
 
 
@@ -30,12 +30,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="DistDF",
-    module="tsflab.models.distdf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DistDF.toml",
-    model_card="src/tsflab/models/distdf/README.md",
     capabilities=frozenset(["time-series"]),
     components=("channel_wise_linear", "revin"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

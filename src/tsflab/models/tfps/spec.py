@@ -55,12 +55,9 @@ def training_objective(model: Model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="TFPS",
-    module="tsflab.models.tfps",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TFPS.toml",
-    model_card="src/tsflab/models/tfps/README.md",
     smoke_config="configs/runs/smoke_tfps.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "positional_encoding", "revin"),

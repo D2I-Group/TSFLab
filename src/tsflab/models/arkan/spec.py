@@ -86,12 +86,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="ARKAN",
-    module="tsflab.models.arkan",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ARKAN.toml",
-    model_card="src/tsflab/models/arkan/README.md",
     smoke_config="configs/runs/smoke_arkan.toml",
     capabilities=frozenset({"time-series"}),
     components=("bspline_basis",),

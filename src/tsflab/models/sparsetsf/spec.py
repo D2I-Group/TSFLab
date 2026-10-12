@@ -17,21 +17,21 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct SparseTSF from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], period=params.get('period', 24), d_model=params.get('d_model', 64), model_type=params.get('model_type', 'linear'))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        period=params["period"],
+        d_model=params["d_model"],
+        model_type=params["model_type"],
     )
 
 
 SPEC = ModelSpec(
-    name='SparseTSF',
-    module='tsflab.models.sparsetsf',
+    name="SparseTSF",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/SparseTSF.toml',
-    model_card='src/tsflab/models/sparsetsf/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

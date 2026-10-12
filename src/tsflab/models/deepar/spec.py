@@ -20,21 +20,27 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DeepAR from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, label_len=cfg.task.label_len, features=cfg.task.features, enc_in=params['enc_in'], embedding_size=params.get('embedding_size', 32), hidden_size=params.get('hidden_size', 64), num_layers=params.get('num_layers', 2), cov_feat_size=params.get('cov_feat_size', 0), dropout=params.get('dropout', 0.1), checkpoint_steps=params.get('checkpoint_steps', 24))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        embedding_size=params["embedding_size"],
+        hidden_size=params["hidden_size"],
+        num_layers=params["num_layers"],
+        cov_feat_size=params["cov_feat_size"],
+        dropout=params["dropout"],
+        checkpoint_steps=params["checkpoint_steps"],
     )
 
 
 SPEC = ModelSpec(
-    name='DeepAR',
-    module='tsflab.models.deepar',
+    name="DeepAR",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DeepAR.toml',
-    model_card='src/tsflab/models/deepar/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['distribution-output', 'time-series']),
-    components=('gaussian_parameter_head',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["distribution-output", "time-series"]),
+    components=("gaussian_parameter_head",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -27,12 +27,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="TFKAN",
-    module="tsflab.models.tfkan",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TFKAN.toml",
-    model_card="src/tsflab/models/tfkan/README.md",
     smoke_config="configs/runs/smoke_tfkan.toml",
     capabilities=frozenset({"time-series"}),
     components=("bspline_basis",),

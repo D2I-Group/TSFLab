@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="WaveRoRA",
-    module="tsflab.models.waverora",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/WaveRoRA.toml",
-    model_card="src/tsflab/models/waverora/README.md",
     smoke_config="configs/runs/smoke_waverora.toml",
     capabilities=frozenset({"time-series"}),
     components=("orthogonal_dwt", "revin"),

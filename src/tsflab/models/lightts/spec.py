@@ -17,21 +17,21 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct LightTS from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], hid_dim=params.get('hid_dim', 128), dropout=params.get('dropout', 0.0), chunk_size=params.get('chunk_size', 24))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        hid_dim=params["hid_dim"],
+        dropout=params["dropout"],
+        chunk_size=params["chunk_size"],
     )
 
 
 SPEC = ModelSpec(
-    name='LightTS',
-    module='tsflab.models.lightts',
+    name="LightTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/LightTS.toml',
-    model_card='src/tsflab/models/lightts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

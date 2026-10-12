@@ -37,7 +37,9 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    options = {key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")}
+    options = {
+        key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")
+    }
     options["anchors"] = tuple(options["anchors"])
     return Model(
         seq_len=cfg.task.seq_len,
@@ -55,12 +57,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="GWNetGMM",
-    module="tsflab.models.gwnet_gmm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GWNetGMM.toml",
-    model_card="src/tsflab/models/gwnet_gmm/README.md",
     smoke_config="configs/runs/smoke_gwnet_gmm.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("adaptive_node_embedding_adjacency", "diffusion_conv", "marks"),

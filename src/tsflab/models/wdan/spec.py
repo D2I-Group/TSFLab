@@ -59,12 +59,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="WDAN",
-    module="tsflab.models.wdan",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/WDAN.toml",
-    model_card="src/tsflab/models/wdan/README.md",
     smoke_config="configs/runs/smoke_wdan.toml",
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("patchtst",),

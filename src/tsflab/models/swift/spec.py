@@ -26,24 +26,21 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        hidden_size=params.get("hidden_size", 0),
-        conv_kernel=params.get("conv_kernel", 3),
-        use_convdropout=params.get("use_convdropout", False),
-        conv_dropout=params.get("conv_dropout", 0.1),
-        not_independent=params.get("not_independent", False),
+        hidden_size=params["hidden_size"],
+        conv_kernel=params["conv_kernel"],
+        use_convdropout=params["use_convdropout"],
+        conv_dropout=params["conv_dropout"],
+        not_independent=params["not_independent"],
     )
 
 
 SPEC = ModelSpec(
     name="SWIFT",
-    module="tsflab.models.swift",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SWIFT.toml",
-    model_card="src/tsflab/models/swift/README.md",
     smoke_config="configs/runs/smoke_swift.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('haar_dwt1d', 'revin'),
+    capabilities=frozenset({"time-series"}),
+    components=("haar_dwt1d", "revin"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

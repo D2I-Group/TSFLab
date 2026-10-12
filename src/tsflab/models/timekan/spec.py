@@ -25,21 +25,32 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimeKAN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, label_len=cfg.task.label_len, features=cfg.task.features, enc_in=params['enc_in'], c_out=params.get('c_out', None), d_model=params.get('d_model', 16), e_layers=params.get('e_layers', 1), down_sampling_window=params.get('down_sampling_window', 2), down_sampling_layers=params.get('down_sampling_layers', 1), begin_order=params.get('begin_order', 0), moving_avg=params.get('moving_avg', 25), dropout=params.get('dropout', 0.1), embed=params.get('embed', 'timeF'), freq=params.get('freq', 'h'), use_norm=params.get('use_norm', 1))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        c_out=params["c_out"],
+        d_model=params["d_model"],
+        e_layers=params["e_layers"],
+        down_sampling_window=params["down_sampling_window"],
+        down_sampling_layers=params["down_sampling_layers"],
+        begin_order=params["begin_order"],
+        moving_avg=params["moving_avg"],
+        dropout=params["dropout"],
+        embed=params["embed"],
+        freq=params["freq"],
+        use_norm=params["use_norm"],
     )
 
 
 SPEC = ModelSpec(
-    name='TimeKAN',
-    module='tsflab.models.timekan',
+    name="TimeKAN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TimeKAN.toml',
-    model_card='src/tsflab/models/timekan/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

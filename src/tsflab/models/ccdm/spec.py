@@ -66,18 +66,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     the target (the runner selects the ``MS`` target channel at evaluation). No
     forecast is produced by the same pass.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.training_loss(batch.x, future)
 
 
 SPEC = ModelSpec(
     name="CCDM",
-    module="tsflab.models.ccdm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CCDM.toml",
-    model_card="src/tsflab/models/ccdm/README.md",
     smoke_config="configs/runs/smoke_ccdm.toml",
     capabilities=frozenset({"quantile-output", "time-series"}),
     components=("empirical_quantiles",),

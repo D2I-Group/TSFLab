@@ -35,21 +35,34 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct MTGNN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), gcn_depth=params.get('gcn_depth', 2), subgraph_size=params.get('subgraph_size', 20), node_dim=params.get('node_dim', 40), conv_channels=params.get('conv_channels', 16), residual_channels=params.get('residual_channels', 16), skip_channels=params.get('skip_channels', 32), end_channels=params.get('end_channels', 64), layers=params.get('layers', 3), dropout=params.get('dropout', 0.3), propalpha=params.get('propalpha', 0.05), tanhalpha=params.get('tanhalpha', 3.0), dilation_exponential=params.get('dilation_exponential', 1), build_adj=params.get('build_adj', True))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        gcn_depth=params["gcn_depth"],
+        subgraph_size=params["subgraph_size"],
+        node_dim=params["node_dim"],
+        conv_channels=params["conv_channels"],
+        residual_channels=params["residual_channels"],
+        skip_channels=params["skip_channels"],
+        end_channels=params["end_channels"],
+        layers=params["layers"],
+        dropout=params["dropout"],
+        propalpha=params["propalpha"],
+        tanhalpha=params["tanhalpha"],
+        dilation_exponential=params["dilation_exponential"],
+        build_adj=params["build_adj"],
     )
 
 
 SPEC = ModelSpec(
-    name='MTGNN',
-    module='tsflab.models.mtgnn',
+    name="MTGNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/MTGNN.toml',
-    model_card='src/tsflab/models/mtgnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('gated_dilated_conv', 'marks'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("gated_dilated_conv", "marks"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

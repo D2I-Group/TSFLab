@@ -21,9 +21,9 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        d_model=params.get("d_model", 64),
-        alpha=params.get("alpha", 0.8),
-        rank_ratio=params.get("rank_ratio", 0.5),
+        d_model=params["d_model"],
+        alpha=params["alpha"],
+        rank_ratio=params["rank_ratio"],
     )
 
 
@@ -45,15 +45,10 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="TimeO1",
-    module="tsflab.models.timeo1",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TimeO1.toml",
-    model_card="src/tsflab/models/timeo1/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
-        components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
     training_setup=training_setup,

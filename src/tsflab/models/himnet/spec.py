@@ -33,21 +33,31 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct HimNet from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), output_dim=params.get('output_dim', 1), hidden_dim=params.get('hidden_dim', 32), num_layers=params.get('num_layers', 1), cheb_k=params.get('cheb_k', 2), node_embedding_dim=params.get('node_embedding_dim', 8), st_embedding_dim=params.get('st_embedding_dim', 8), tod_embedding_dim=params.get('tod_embedding_dim', 8), dow_embedding_dim=params.get('dow_embedding_dim', 8), steps_per_day=params.get('steps_per_day', 288), use_teacher_forcing=params.get('use_teacher_forcing', True))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        output_dim=params["output_dim"],
+        hidden_dim=params["hidden_dim"],
+        num_layers=params["num_layers"],
+        cheb_k=params["cheb_k"],
+        node_embedding_dim=params["node_embedding_dim"],
+        st_embedding_dim=params["st_embedding_dim"],
+        tod_embedding_dim=params["tod_embedding_dim"],
+        dow_embedding_dim=params["dow_embedding_dim"],
+        steps_per_day=params["steps_per_day"],
+        use_teacher_forcing=params["use_teacher_forcing"],
     )
 
 
 SPEC = ModelSpec(
-    name='HimNet',
-    module='tsflab.models.himnet',
+    name="HimNet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/HimNet.toml',
-    model_card='src/tsflab/models/himnet/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('graph_conv_gru', 'marks', 'node_adaptive_graph_conv'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("graph_conv_gru", "marks", "node_adaptive_graph_conv"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

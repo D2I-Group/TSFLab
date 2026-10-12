@@ -41,12 +41,9 @@ def training_objective(model: Model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="SORMamba",
-    module="tsflab.models.sormamba",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SORMamba.toml",
-    model_card="src/tsflab/models/sormamba/README.md",
     smoke_config="configs/runs/smoke_sormamba.toml",
     capabilities=frozenset({"time-series"}),
     components=("mamba",),

@@ -21,22 +21,18 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 64),
-        e_layers=params.get("e_layers", 2),
-        dropout=params.get("dropout", 0.1),
+        d_model=params["d_model"],
+        e_layers=params["e_layers"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='TSMixer',
-    module='tsflab.models.tsmixer',
+    name="TSMixer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TSMixer.toml',
-    model_card='src/tsflab/models/tsmixer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('channel_wise_linear', 'mixer_block'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("channel_wise_linear", "mixer_block"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

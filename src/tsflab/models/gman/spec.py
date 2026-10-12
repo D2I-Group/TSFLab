@@ -48,13 +48,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GMAN",
-    module="tsflab.models.gman",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GMAN.toml",
-    model_card="src/tsflab/models/gman/README.md",
-    smoke_config=None,
     capabilities=frozenset({"spatiotemporal"}),
     components=("gated_fusion", "marks", "node2vec_embedding"),
     contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},

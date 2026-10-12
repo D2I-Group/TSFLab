@@ -39,12 +39,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="CLoRA",
-    module="tsflab.models.clora",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CLoRA.toml",
-    model_card="src/tsflab/models/clora/README.md",
     smoke_config="configs/runs/smoke_clora.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "revin", "self_attention_family", "transformer_encdec"),

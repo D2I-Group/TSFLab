@@ -20,23 +20,22 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     """Construct PCDCNet from a validated run configuration."""
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        enc_in=params["enc_in"], adj_mx=params.get("adj_mx"),
-        cov_dim=params.get("cov_dim"), d_model=params.get("d_model", 64),
-        dropout=params.get("dropout", 0.1),
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        adj_mx=params.get("adj_mx"),
+        cov_dim=params.get("cov_dim"),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='PCDCNet',
-    module='tsflab.models.pcdcnet',
+    name="PCDCNet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/PCDCNet.toml',
-    model_card='src/tsflab/models/pcdcnet/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['covariate']),
-    components=('marks',),
-    contract_task={'seq_len': 24, 'pred_len': 24, 'label_len': 0},
+    capabilities=frozenset(["covariate"]),
+    components=("marks",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
 )

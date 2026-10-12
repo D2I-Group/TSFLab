@@ -21,25 +21,22 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        params.get("d_model", 64),
-        params.get("num_layers", 2),
-        params.get("patch_unit", 4),
-        params.get("num_scales", 3),
-        params.get("stride", 2),
-        params.get("dropout", 0.1),
-        bool(params.get("use_revin", True)),
+        params["d_model"],
+        params["num_layers"],
+        params["patch_unit"],
+        params["num_scales"],
+        params["stride"],
+        params["dropout"],
+        bool(params["use_revin"]),
     )
 
 
 SPEC = ModelSpec(
     name="FTP",
-    module="tsflab.models.ftp",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FTP.toml",
-    model_card="src/tsflab/models/ftp/README.md",
     capabilities=frozenset(["time-series"]),
-        components=("revin",),
+    components=("revin",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -54,12 +54,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="DiPELinear",
-    module="tsflab.models.dipelinear",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DiPELinear.toml",
-    model_card="src/tsflab/models/dipelinear/README.md",
     smoke_config="configs/runs/smoke_dipelinear.toml",
     capabilities=frozenset({"time-series"}),
     components=("fft_extrapolation_conv", "weight_set_router"),

@@ -27,25 +27,22 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 128),
-        n_heads=params.get("n_heads", 8),
-        e_layers=params.get("e_layers", 2),
-        d_ff=params.get("d_ff", 256),
-        dropout=params.get("dropout", 0.1),
-        wave_size=params.get("wave_size", 3),
+        d_model=params["d_model"],
+        n_heads=params["n_heads"],
+        e_layers=params["e_layers"],
+        d_ff=params["d_ff"],
+        dropout=params["dropout"],
+        wave_size=params["wave_size"],
     )
 
 
 SPEC = ModelSpec(
     name="WDformer",
-    module="tsflab.models.wdformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/WDformer.toml",
-    model_card="src/tsflab/models/wdformer/README.md",
     smoke_config="configs/runs/smoke_wdformer.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('differential_attention', 'wavelet'),
+    capabilities=frozenset({"time-series"}),
+    components=("differential_attention", "wavelet"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

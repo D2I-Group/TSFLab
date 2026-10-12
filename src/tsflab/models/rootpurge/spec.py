@@ -40,15 +40,11 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="RootPurge",
-    module="tsflab.models.rootpurge",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/RootPurge.toml",
-    model_card="src/tsflab/models/rootpurge/README.md",
     smoke_config="configs/runs/smoke_rootpurge.toml",
     capabilities=frozenset({"time-series"}),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
     training_objective=training_objective,
 )

@@ -32,14 +32,10 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="FDNet",
-    module="tsflab.models.fdnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FDNet.toml",
-    model_card="src/tsflab/models/fdnet/README.md",
     smoke_config="configs/runs/smoke_fdnet.toml",
     capabilities=frozenset({"time-series"}),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

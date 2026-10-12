@@ -17,22 +17,22 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DecisionTreeTS from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-                 enc_in=params['enc_in'], tree_depth=params.get('tree_depth', 4),
-                 temperature=params.get('temperature', 1.0),
-                 use_revin=bool(params.get('use_revin', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        tree_depth=params["tree_depth"],
+        temperature=params["temperature"],
+        use_revin=bool(params["use_revin"]),
+    )
 
 
 SPEC = ModelSpec(
-    name='DecisionTreeTS',
-    module='tsflab.models.decision_tree_ts',
+    name="DecisionTreeTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DecisionTreeTS.toml',
-    model_card='src/tsflab/models/decision_tree_ts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin', 'soft_tree'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin", "soft_tree"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

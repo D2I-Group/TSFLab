@@ -237,13 +237,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name={name!r},
-    module="tsflab.models.{slug}",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/{name}.toml",
-    model_card="src/tsflab/models/{slug}/README.md",
-    smoke_config=None,
     capabilities=frozenset({capabilities!r}),
     components={tuple(comps)!r},
     contract_task={{"seq_len": 96, "pred_len": 96, "label_len": 0}},

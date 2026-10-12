@@ -20,25 +20,25 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct RandomForestTS from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-                 enc_in=params['enc_in'], num_estimators=params.get('num_estimators', 16),
-                 tree_depth=params.get('tree_depth', 3),
-                 feature_fraction=params.get('feature_fraction', 0.7),
-                 temperature=params.get('temperature', 1.0),
-                 random_seed=params.get('random_seed', 1729),
-                 use_revin=bool(params.get('use_revin', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        num_estimators=params["num_estimators"],
+        tree_depth=params["tree_depth"],
+        feature_fraction=params["feature_fraction"],
+        temperature=params["temperature"],
+        random_seed=params["random_seed"],
+        use_revin=bool(params["use_revin"]),
+    )
 
 
 SPEC = ModelSpec(
-    name='RandomForestTS',
-    module='tsflab.models.random_forest_ts',
+    name="RandomForestTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/RandomForestTS.toml',
-    model_card='src/tsflab/models/random_forest_ts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin', 'soft_tree'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin", "soft_tree"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

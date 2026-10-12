@@ -72,15 +72,18 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="STHD",
-    module="tsflab.models.sthd",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STHD.toml",
-    model_card="src/tsflab/models/sthd/README.md",
     smoke_config="configs/runs/smoke_sthd.toml",
     capabilities=frozenset({"time-series"}),
-    components=("embed", "flatten_forecast_head", "revin", "self_attention_family", "transformer_encdec"),
+    components=(
+        "embed",
+        "flatten_forecast_head",
+        "revin",
+        "self_attention_family",
+        "transformer_encdec",
+    ),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
     training_setup=training_setup,

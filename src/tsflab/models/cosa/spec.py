@@ -16,20 +16,17 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        params.get("context_len", 10),
-        params.get("gate_init", 0.1),
+        params["context_len"],
+        params["gate_init"],
     )
 
 
 SPEC = ModelSpec(
     name="COSA",
-    module="tsflab.models.cosa",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/COSA.toml",
-    model_card="src/tsflab/models/cosa/README.md",
     capabilities=frozenset(["time-series", "test-time-adaptation"]),
-        components=("channel_wise_linear",),
+    components=("channel_wise_linear",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -42,14 +42,10 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="ReCycle",
-    module="tsflab.models.recycle",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ReCycle.toml",
-    model_card="src/tsflab/models/recycle/README.md",
     smoke_config="configs/runs/smoke_recycle.toml",
     capabilities=frozenset({"time-series"}),
-    components=(),
     contract_task={"seq_len": 504, "pred_len": 168, "label_len": 0},
 )

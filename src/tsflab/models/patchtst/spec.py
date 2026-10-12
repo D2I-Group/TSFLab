@@ -58,13 +58,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="PatchTST",
-    module="tsflab.models.patchtst",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PatchTST.toml",
-    model_card="src/tsflab/models/patchtst/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
     components=("revin",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

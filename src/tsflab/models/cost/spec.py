@@ -43,17 +43,16 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, features=cfg.task.features, **params)
+    return Model(
+        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, features=cfg.task.features, **params
+    )
 
 
 SPEC = ModelSpec(
     name="CoST",
-    module="tsflab.models.cost",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CoST.toml",
-    model_card="src/tsflab/models/cost/README.md",
     smoke_config="configs/runs/smoke_cost.toml",
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("dilated_conv_encoder", "marks"),

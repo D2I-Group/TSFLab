@@ -24,21 +24,31 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct NHiTS from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, label_len=cfg.task.label_len, features=cfg.task.features, enc_in=params['enc_in'], stack_types=params.get('stack_types', ['identity', 'identity', 'identity']), n_blocks=params.get('n_blocks', [1, 1, 1]), mlp_units=params.get('mlp_units', [[256, 256]]), n_pool_kernel_size=params.get('n_pool_kernel_size', [2, 2, 1]), n_freq_downsample=params.get('n_freq_downsample', [4, 2, 1]), pooling_mode=params.get('pooling_mode', 'MaxPool1d'), interpolation_mode=params.get('interpolation_mode', 'linear'), dropout=params.get('dropout', 0.0), activation=params.get('activation', 'ReLU'), use_norm=bool(params.get('use_norm', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        stack_types=params["stack_types"],
+        n_blocks=params["n_blocks"],
+        mlp_units=params["mlp_units"],
+        n_pool_kernel_size=params["n_pool_kernel_size"],
+        n_freq_downsample=params["n_freq_downsample"],
+        pooling_mode=params["pooling_mode"],
+        interpolation_mode=params["interpolation_mode"],
+        dropout=params["dropout"],
+        activation=params["activation"],
+        use_norm=bool(params["use_norm"]),
     )
 
 
 SPEC = ModelSpec(
-    name='NHiTS',
-    module='tsflab.models.nhits',
+    name="NHiTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/NHiTS.toml',
-    model_card='src/tsflab/models/nhits/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -59,13 +59,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="STSGCN",
-    module="tsflab.models.stsgcn",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STSGCN.toml",
-    model_card="src/tsflab/models/stsgcn/README.md",
-    smoke_config=None,
     capabilities=frozenset({"spatiotemporal"}),
     components=("synchronous_graph_conv",),
     contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},

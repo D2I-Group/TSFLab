@@ -34,12 +34,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GBT",
-    module="tsflab.models.gbt",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GBT.toml",
-    model_card="src/tsflab/models/gbt/README.md",
     smoke_config="configs/runs/smoke_gbt.toml",
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("embed", "masking"),

@@ -26,21 +26,30 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct Pathformer from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, features=cfg.task.features, enc_in=params['enc_in'], layer_nums=params.get('layer_nums', 2), k=params.get('k', 2), num_experts=params.get('num_experts', 4), patch_size_list=params.get('patch_size_list', [16, 12, 8, 6, 16, 12, 8, 6]), d_model=params.get('d_model', 16), d_ff=params.get('d_ff', 64), residual_connection=params.get('residual_connection', 1), revin=bool(params.get('revin', True)), n_heads=params.get('n_heads', 4), dropout=params.get('dropout', 0.1))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        layer_nums=params["layer_nums"],
+        k=params["k"],
+        num_experts=params["num_experts"],
+        patch_size_list=params["patch_size_list"],
+        d_model=params["d_model"],
+        d_ff=params["d_ff"],
+        residual_connection=params["residual_connection"],
+        revin=bool(params["revin"]),
+        n_heads=params["n_heads"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='Pathformer',
-    module='tsflab.models.pathformer',
+    name="Pathformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/Pathformer.toml',
-    model_card='src/tsflab/models/pathformer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

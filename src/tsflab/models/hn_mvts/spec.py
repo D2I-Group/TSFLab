@@ -1,4 +1,5 @@
 """Model specification for HN_MVTS."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.hn_mvts.model import Model
 from pydantic import BaseModel, Field
@@ -13,12 +14,23 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params['enc_in'],
-                 params.get('d_model', 64), params.get('embedding_dim', 8),
-                 params.get('hyper_hidden', 32), bool(params.get('use_revin', True)))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["d_model"],
+        params["embedding_dim"],
+        params["hyper_hidden"],
+        bool(params["use_revin"]),
+    )
 
 
-SPEC = ModelSpec(name='HN_MVTS', module='tsflab.models.hn_mvts', model_class=Model,
-                 factory=build_model, params_schema=ModelParameterConfig,
-                 config_path='configs/models/HN_MVTS.toml', model_card='src/tsflab/models/hn_mvts/README.md',
-                 smoke_config=None, capabilities=frozenset(['time-series']),                  components=('revin',), contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0})
+SPEC = ModelSpec(
+    name="HN_MVTS",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

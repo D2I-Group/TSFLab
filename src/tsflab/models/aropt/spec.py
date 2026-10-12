@@ -45,12 +45,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="AROpt",
-    module="tsflab.models.aropt",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/AROpt.toml",
-    model_card="src/tsflab/models/aropt/README.md",
     smoke_config="configs/runs/smoke_aropt.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "self_attention_family", "transformer_encdec"),

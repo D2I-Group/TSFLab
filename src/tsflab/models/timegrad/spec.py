@@ -69,18 +69,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     the target (the runner selects the ``MS`` target channel at evaluation). No
     forecast is produced by the same pass.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.training_loss(batch.x, batch.x_mark, future, batch.y_mark)
 
 
 SPEC = ModelSpec(
     name="TimeGrad",
-    module="tsflab.models.timegrad",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TimeGrad.toml",
-    model_card="src/tsflab/models/timegrad/README.md",
     smoke_config="configs/runs/smoke_timegrad.toml",
     capabilities=frozenset({"quantile-output", "time-series"}),
     components=("ddpm_epsilon", "empirical_quantiles"),

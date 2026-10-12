@@ -46,12 +46,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GSWaN",
-    module="tsflab.models.gswan",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GSWaN.toml",
-    model_card="src/tsflab/models/gswan/README.md",
     smoke_config="configs/runs/smoke_gswan.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("adaptive_node_embedding_adjacency", "graph_utils", "marks"),

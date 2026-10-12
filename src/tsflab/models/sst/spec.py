@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="SST",
-    module="tsflab.models.sst",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SST.toml",
-    model_card="src/tsflab/models/sst/README.md",
     smoke_config="configs/runs/smoke_sst.toml",
     capabilities=frozenset({"time-series"}),
     components=("mamba", "revin"),

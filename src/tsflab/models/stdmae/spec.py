@@ -35,7 +35,9 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    options = {key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")}
+    options = {
+        key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")
+    }
     return Model(
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
@@ -47,12 +49,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="STDMAE",
-    module="tsflab.models.stdmae",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STDMAE.toml",
-    model_card="src/tsflab/models/stdmae/README.md",
     smoke_config="configs/runs/smoke_stdmae.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=(

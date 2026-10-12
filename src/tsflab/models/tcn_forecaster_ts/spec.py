@@ -18,10 +18,11 @@ def build_model(cfg, params):
 
 
 SPEC = ModelSpec(
-    name="TCNForecasterTS", module="tsflab.models.tcn_forecaster_ts", model_class=Model,
-    factory=build_model, params_schema=ModelParameterConfig,
-    config_path="configs/models/TCNForecasterTS.toml",
-    model_card="src/tsflab/models/tcn_forecaster_ts/README.md",
-    capabilities=frozenset(["time-series"]), components=("revin",),
+    name="TCNForecasterTS",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

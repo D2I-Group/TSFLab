@@ -24,22 +24,19 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        leader_num=params.get("leader_num", 4),
-        state_num=params.get("state_num", 8),
-        temperature=params.get("temperature", 1.0),
-        kernel_size=params.get("kernel_size", 25),
-        lead_chunk_size=params.get("lead_chunk_size", 32),
+        leader_num=params["leader_num"],
+        state_num=params["state_num"],
+        temperature=params["temperature"],
+        kernel_size=params["kernel_size"],
+        lead_chunk_size=params["lead_chunk_size"],
     )
 
 
 SPEC = ModelSpec(
     name="LIFT",
-    module="tsflab.models.lift",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/LIFT.toml",
-    model_card="src/tsflab/models/lift/README.md",
     smoke_config="configs/runs/smoke_lift.toml",
     capabilities=frozenset({"time-series"}),
     components=("dlinear",),

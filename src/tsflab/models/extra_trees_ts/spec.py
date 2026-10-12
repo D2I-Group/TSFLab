@@ -20,25 +20,25 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct ExtraTreesTS from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-                 enc_in=params['enc_in'], num_estimators=params.get('num_estimators', 24),
-                 tree_depth=params.get('tree_depth', 2),
-                 threshold_range=params.get('threshold_range', 1.0),
-                 temperature=params.get('temperature', 1.0),
-                 random_seed=params.get('random_seed', 1733),
-                 use_revin=bool(params.get('use_revin', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        num_estimators=params["num_estimators"],
+        tree_depth=params["tree_depth"],
+        threshold_range=params["threshold_range"],
+        temperature=params["temperature"],
+        random_seed=params["random_seed"],
+        use_revin=bool(params["use_revin"]),
+    )
 
 
 SPEC = ModelSpec(
-    name='ExtraTreesTS',
-    module='tsflab.models.extra_trees_ts',
+    name="ExtraTreesTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/ExtraTreesTS.toml',
-    model_card='src/tsflab/models/extra_trees_ts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin', 'soft_tree'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin", "soft_tree"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

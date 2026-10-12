@@ -34,22 +34,35 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DFDGCN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), dropout=params.get('dropout', 0.3), residual_channels=params.get('residual_channels', 16), dilation_channels=params.get('dilation_channels', 16), skip_channels=params.get('skip_channels', 64), end_channels=params.get('end_channels', 128), kernel_size=params.get('kernel_size', 2), blocks=params.get('blocks', 2), layers=params.get('layers', 2), a=params.get('a', 1.0), fft_emb=params.get('fft_emb', 10), identity_emb=params.get('identity_emb', 10), hidden_emb=params.get('hidden_emb', 30), subgraph=params.get('subgraph', 20), steps_per_day=params.get('steps_per_day', 288))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        dropout=params["dropout"],
+        residual_channels=params["residual_channels"],
+        dilation_channels=params["dilation_channels"],
+        skip_channels=params["skip_channels"],
+        end_channels=params["end_channels"],
+        kernel_size=params["kernel_size"],
+        blocks=params["blocks"],
+        layers=params["layers"],
+        a=params["a"],
+        fft_emb=params["fft_emb"],
+        identity_emb=params["identity_emb"],
+        hidden_emb=params["hidden_emb"],
+        subgraph=params["subgraph"],
+        steps_per_day=params["steps_per_day"],
     )
 
 
 SPEC = ModelSpec(
-    name='DFDGCN',
-    module='tsflab.models.dfdgcn',
+    name="DFDGCN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DFDGCN.toml',
-    model_card='src/tsflab/models/dfdgcn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('adaptive_node_embedding_adjacency', 'gated_dilated_conv', 'graph_utils', 'marks'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("adaptive_node_embedding_adjacency", "gated_dilated_conv", "graph_utils", "marks"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
     requires_graph=True,
 )

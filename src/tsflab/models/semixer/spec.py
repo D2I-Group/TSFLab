@@ -44,14 +44,11 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="SEMixer",
-    module="tsflab.models.semixer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SEMixer.toml",
-    model_card="src/tsflab/models/semixer/README.md",
     smoke_config="configs/runs/smoke_semixer.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('flatten_forecast_head', 'positional_encoding', 'revin'),
+    capabilities=frozenset({"time-series"}),
+    components=("flatten_forecast_head", "positional_encoding", "revin"),
     contract_task={"seq_len": 336, "pred_len": 96, "label_len": 0},
 )

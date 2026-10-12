@@ -41,21 +41,45 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct QuantilePatchTST from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], features=cfg.task.features, patch_len=params.get('patch_len', 16), stride=params.get('stride', 8), padding_patch=params.get('padding_patch', 'end'), e_layers=params.get('e_layers', 3), d_model=params.get('d_model', 512), n_heads=params.get('n_heads', 8), d_k=params.get('d_k'), d_v=params.get('d_v'), d_ff=params.get('d_ff', 2048), activation=params.get('activation', 'gelu'), norm=params.get('norm', 'BatchNorm'), attn_dropout=params.get('attn_dropout', 0.0), res_dropout=params.get('res_dropout', 0.0), ffn_dropout=params.get('ffn_dropout', 0.0), proj_dropout=params.get('proj_dropout', 0.0), head_dropout=params.get('head_dropout', 0.0), pre_norm=bool(params.get('pre_norm', False)), pe=params.get('pe', 'zeros'), learn_pe=bool(params.get('learn_pe', False)), head_type=params.get('head_type', 'flatten'), individual=bool(params.get('individual', False)), revin=bool(params.get('revin', True)), affine=bool(params.get('affine', False)), subtract_last=bool(params.get('subtract_last', False)), quantile_levels=params.get('quantile_levels') or list(cfg.evaluation.quantile_levels))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        features=cfg.task.features,
+        patch_len=params["patch_len"],
+        stride=params["stride"],
+        padding_patch=params["padding_patch"],
+        e_layers=params["e_layers"],
+        d_model=params["d_model"],
+        n_heads=params["n_heads"],
+        d_k=params.get("d_k"),
+        d_v=params.get("d_v"),
+        d_ff=params["d_ff"],
+        activation=params["activation"],
+        norm=params["norm"],
+        attn_dropout=params["attn_dropout"],
+        res_dropout=params["res_dropout"],
+        ffn_dropout=params["ffn_dropout"],
+        proj_dropout=params["proj_dropout"],
+        head_dropout=params["head_dropout"],
+        pre_norm=bool(params["pre_norm"]),
+        pe=params["pe"],
+        learn_pe=bool(params["learn_pe"]),
+        head_type=params["head_type"],
+        individual=bool(params["individual"]),
+        revin=bool(params["revin"]),
+        affine=bool(params["affine"]),
+        subtract_last=bool(params["subtract_last"]),
+        quantile_levels=params.get("quantile_levels") or list(cfg.evaluation.quantile_levels),
     )
 
 
 SPEC = ModelSpec(
-    name='QuantilePatchTST',
-    module='tsflab.models.quantile_patchtst',
+    name="QuantilePatchTST",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/QuantilePatchTST.toml',
-    model_card='src/tsflab/models/quantile_patchtst/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['quantile-output', 'time-series']),
-    components=('patchtst', 'quantile_head'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["quantile-output", "time-series"]),
+    components=("patchtst", "quantile_head"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

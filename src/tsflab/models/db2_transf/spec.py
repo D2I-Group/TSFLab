@@ -37,12 +37,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="DB2TransF",
-    module="tsflab.models.db2_transf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DB2TransF.toml",
-    model_card="src/tsflab/models/db2_transf/README.md",
     smoke_config="configs/runs/smoke_db2_transf.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "revin"),

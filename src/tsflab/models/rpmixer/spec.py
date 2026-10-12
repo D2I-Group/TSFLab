@@ -20,21 +20,17 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        random_dim=params.get("random_dim", 4),
-        e_layers=params.get("e_layers", 3),
+        random_dim=params["random_dim"],
+        e_layers=params["e_layers"],
     )
 
 
 SPEC = ModelSpec(
-    name='RPMixer',
-    module='tsflab.models.rpmixer',
+    name="RPMixer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/RPMixer.toml',
-    model_card='src/tsflab/models/rpmixer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('channel_wise_linear',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("channel_wise_linear",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

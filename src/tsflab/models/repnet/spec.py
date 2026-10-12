@@ -8,8 +8,15 @@ from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.repnet.model import Model
 
 Representation = Literal[
-    "single_linear", "linear", "glu", "simple_linear", "double_linear", "double_linear_glu",
-    "cnn_1", "cnn_2", "cnn_3",
+    "single_linear",
+    "linear",
+    "glu",
+    "simple_linear",
+    "double_linear",
+    "double_linear_glu",
+    "cnn_1",
+    "cnn_2",
+    "cnn_3",
 ]
 
 
@@ -24,7 +31,9 @@ class ModelParameterConfig(BaseModel):
     )
     encoding_size: int = Field(default=16, gt=0)
     representation: Representation = "linear"
-    time_embedding: list[Literal["posEmb", "timeF", "tempEmb"]] = Field(default_factory=lambda: ["posEmb"])
+    time_embedding: list[Literal["posEmb", "timeF", "tempEmb"]] = Field(
+        default_factory=lambda: ["posEmb"]
+    )
     time_embedding_size: int = Field(default=16, gt=0)
     freq: str = "h"
     memory_layers: int = Field(default=3, ge=0)
@@ -40,7 +49,9 @@ class ModelParameterConfig(BaseModel):
     @classmethod
     def _triples(cls, value: list[list[int]]) -> list[list[int]]:
         if any(len(spec) != 3 or min(spec) < 1 for spec in value):
-            raise ValueError("each patch extractor is [cover_size, dilation, stride] of positive integers")
+            raise ValueError(
+                "each patch extractor is [cover_size, dilation, stride] of positive integers"
+            )
         return value
 
     @field_validator("time_embedding")
@@ -69,12 +80,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="REPNet",
-    module="tsflab.models.repnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/REPNet.toml",
-    model_card="src/tsflab/models/repnet/README.md",
     smoke_config="configs/runs/smoke_repnet.toml",
     capabilities=frozenset({"time-series"}),
     components=("marks", "revin"),

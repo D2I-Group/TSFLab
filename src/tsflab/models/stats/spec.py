@@ -44,7 +44,9 @@ def build_model(cfg, params):
     levels = options.pop("quantile_levels") or list(cfg.evaluation.quantile_levels)
     if options["bands"] > cfg.task.seq_len // 2 + 1:
         raise ValueError("bands must not exceed the number of rFFT bins of seq_len")
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options)
+    return Model(
+        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options
+    )
 
 
 def training_objective(model, batch: TrainingBatch, criterion):
@@ -53,18 +55,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     The diffusion is multivariate over every input channel, so the full future is
     the target (the runner selects the ``MS`` target channel at evaluation).
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.denoiser_loss(batch.x, future)
 
 
 SPEC = ModelSpec(
     name="StaTS",
-    module="tsflab.models.stats",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/StaTS.toml",
-    model_card="src/tsflab/models/stats/README.md",
     smoke_config="configs/runs/smoke_stats.toml",
     capabilities=frozenset({"quantile-output", "time-series", "pretraining-stage"}),
     components=("empirical_quantiles",),

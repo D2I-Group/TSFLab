@@ -25,12 +25,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="TSLIF",
-    module="tsflab.models.tslif",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TSLIF.toml",
-    model_card="src/tsflab/models/tslif/README.md",
     smoke_config="configs/runs/smoke_tslif.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin",),

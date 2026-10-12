@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="SCFormer",
-    module="tsflab.models.scformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SCFormer.toml",
-    model_card="src/tsflab/models/scformer/README.md",
     smoke_config="configs/runs/smoke_scformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("self_attention_family",),

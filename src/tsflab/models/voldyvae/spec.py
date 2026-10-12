@@ -45,12 +45,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="VolDyVAE",
-    module="tsflab.models.voldyvae",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/VolDyVAE.toml",
-    model_card="src/tsflab/models/voldyvae/README.md",
     smoke_config="configs/runs/smoke_voldyvae.toml",
     capabilities=frozenset({"quantile-output", "time-series"}),
     components=("empirical_quantiles", "revin"),

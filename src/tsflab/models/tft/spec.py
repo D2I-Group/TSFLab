@@ -53,12 +53,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="TFT",
-    module="tsflab.models.tft",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TFT.toml",
-    model_card="src/tsflab/models/tft/README.md",
     smoke_config="configs/runs/smoke_tft.toml",
     capabilities=frozenset({"time-series", "quantile-output"}),
     components=("gated_residual_network", "interpretable_attention"),

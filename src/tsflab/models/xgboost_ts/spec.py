@@ -24,29 +24,29 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct XGBoostTS from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-                 enc_in=params['enc_in'], num_estimators=params.get('num_estimators', 16),
-                 tree_depth=params.get('tree_depth', 3),
-                 learning_rate=params.get('learning_rate', 0.1),
-                 column_fraction=params.get('column_fraction', 0.8),
-                 l1_penalty=params.get('l1_penalty', 0.0),
-                 l2_penalty=params.get('l2_penalty', 0.0001),
-                 temperature=params.get('temperature', 1.0),
-                 random_seed=params.get('random_seed', 1741),
-                 use_revin=bool(params.get('use_revin', True)),
-                 max_dense_parameters=params.get('max_dense_parameters', MAX_DENSE_PARAMETERS))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        num_estimators=params["num_estimators"],
+        tree_depth=params["tree_depth"],
+        learning_rate=params["learning_rate"],
+        column_fraction=params["column_fraction"],
+        l1_penalty=params["l1_penalty"],
+        l2_penalty=params["l2_penalty"],
+        temperature=params["temperature"],
+        random_seed=params["random_seed"],
+        use_revin=bool(params["use_revin"]),
+        max_dense_parameters=params["max_dense_parameters"],
+    )
 
 
 SPEC = ModelSpec(
-    name='XGBoostTS',
-    module='tsflab.models.xgboost_ts',
+    name="XGBoostTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/XGBoostTS.toml',
-    model_card='src/tsflab/models/xgboost_ts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin', 'soft_tree'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin", "soft_tree"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

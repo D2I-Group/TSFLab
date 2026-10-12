@@ -41,12 +41,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="OLMA",
-    module="tsflab.models.olma",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/OLMA.toml",
-    model_card="src/tsflab/models/olma/README.md",
     smoke_config="configs/runs/smoke_olma.toml",
     capabilities=frozenset({"time-series"}),
     components=("dlinear", "haar_dwt1d"),

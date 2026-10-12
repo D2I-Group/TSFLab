@@ -42,12 +42,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Times2D",
-    module="tsflab.models.times2d",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Times2D.toml",
-    model_card="src/tsflab/models/times2d/README.md",
     smoke_config="configs/runs/smoke_times2d.toml",
     capabilities=frozenset({"time-series"}),
     components=("inception_block", "positional_encoding", "revin"),

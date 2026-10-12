@@ -58,15 +58,11 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="SARAF",
-    module="tsflab.models.saraf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SARAF.toml",
-    model_card="src/tsflab/models/saraf/README.md",
     smoke_config="configs/runs/smoke_saraf.toml",
     capabilities=frozenset({"time-series"}),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 24, "label_len": 0},
     training_objective=training_objective,
     training_setup=training_setup,

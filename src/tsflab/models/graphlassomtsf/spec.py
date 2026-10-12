@@ -76,15 +76,12 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="GraphLassoMTSF",
-    module="tsflab.models.graphlassomtsf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GraphLassoMTSF.toml",
-    model_card="src/tsflab/models/graphlassomtsf/README.md",
     smoke_config="configs/runs/smoke_graphlassomtsf.toml",
     capabilities=frozenset({"time-series"}),
-    components=('graph_conv_gru',),
+    components=("graph_conv_gru",),
     contract_task={"seq_len": 14, "pred_len": 7, "label_len": 0},
     training_objective=training_objective,
     training_setup=training_setup,

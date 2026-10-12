@@ -18,7 +18,12 @@ class ModelParameterConfig(BaseModel):
     normalization: Literal["none", "revin", "last_value_center"] = "none"
     decomposition: Literal["none", "series_decomposition"] = "none"
     temporal: Literal[
-        "linear", "channel_wise_linear", "tst_transformer", "mamba", "gated_dilated_conv", "mixer_block"
+        "linear",
+        "channel_wise_linear",
+        "tst_transformer",
+        "mamba",
+        "gated_dilated_conv",
+        "mixer_block",
     ] = "linear"
     channel: Literal["independent", "individual", "mixing"] = "independent"
     head: Literal["flatten_forecast_head"] = "flatten_forecast_head"
@@ -86,17 +91,21 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Composed",
-    module="tsflab.models.composed",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Composed.toml",
-    model_card="src/tsflab/models/composed/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
     components=(
-        "channel_wise_linear", "flatten_forecast_head", "gated_dilated_conv", "last_value_center",
-        "mamba", "mixer_block", "positional_encoding", "revin", "series_decomposition", "tst_transformer",
+        "channel_wise_linear",
+        "flatten_forecast_head",
+        "gated_dilated_conv",
+        "last_value_center",
+        "mamba",
+        "mixer_block",
+        "positional_encoding",
+        "revin",
+        "series_decomposition",
+        "tst_transformer",
     ),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

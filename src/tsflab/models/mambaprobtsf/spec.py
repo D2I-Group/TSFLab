@@ -35,12 +35,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="MambaProbTSF",
-    module="tsflab.models.mambaprobtsf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MambaProbTSF.toml",
-    model_card="src/tsflab/models/mambaprobtsf/README.md",
     smoke_config="configs/runs/smoke_mambaprobtsf.toml",
     capabilities=frozenset({"distribution-output", "time-series"}),
     components=("embed", "mamba", "marks", "revin"),

@@ -24,15 +24,20 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        label_len=cfg.task.label_len, features=cfg.task.features, **params,
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        **params,
     )
 
 
 SPEC = ModelSpec(
-    name="FiLM", module="tsflab.models.film", model_class=Model, factory=build_model,
-    params_schema=ModelParameterConfig, config_path="configs/models/FiLM.toml",
-    model_card="src/tsflab/models/film/README.md", smoke_config=None,
-    capabilities=frozenset(["time-series"]), components=("revin",),
+    name="FiLM",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

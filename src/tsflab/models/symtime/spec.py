@@ -20,25 +20,21 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        d_model=params.get("d_model", 64),
-        patch_len=params.get("patch_len", 16),
-        num_layers=params.get("num_layers", 2),
-        num_heads=params.get("num_heads", 4),
-        trend_kernel=params.get("trend_kernel", 25),
-        dropout=params.get("dropout", 0.1),
+        d_model=params["d_model"],
+        patch_len=params["patch_len"],
+        num_layers=params["num_layers"],
+        num_heads=params["num_heads"],
+        trend_kernel=params["trend_kernel"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
     name="SymTime",
-    module="tsflab.models.symtime",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SymTime.toml",
-    model_card="src/tsflab/models/symtime/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
-        components=("revin", "series_decomposition"),
+    components=("revin", "series_decomposition"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

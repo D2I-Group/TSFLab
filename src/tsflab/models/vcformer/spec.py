@@ -40,12 +40,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="VCformer",
-    module="tsflab.models.vcformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/VCformer.toml",
-    model_card="src/tsflab/models/vcformer/README.md",
     smoke_config="configs/runs/smoke_vcformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "revin"),

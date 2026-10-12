@@ -33,12 +33,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="DecompRevisit",
-    module="tsflab.models.decomprevisit",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DecompRevisit.toml",
-    model_card="src/tsflab/models/decomprevisit/README.md",
     smoke_config="configs/runs/smoke_decomprevisit.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin", "series_decomposition"),

@@ -13,7 +13,21 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params.get("num_inducing", 16), params.get("length_scale", 1.0), params.get("noise", 1e-3))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["num_inducing"],
+        params["length_scale"],
+        params["noise"],
+    )
 
 
-SPEC = ModelSpec(name="GaussianProcessTS", module="tsflab.models.gaussian_process_ts", model_class=Model, factory=build_model, params_schema=ModelParameterConfig, config_path="configs/models/GaussianProcessTS.toml", model_card="src/tsflab/models/gaussian_process_ts/README.md", capabilities=frozenset(["time-series"]), components=(), contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0})
+SPEC = ModelSpec(
+    name="GaussianProcessTS",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

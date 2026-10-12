@@ -47,13 +47,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="FEDformer",
-    module="tsflab.models.fedformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/FEDformer.toml",
-    model_card="src/tsflab/models/fedformer/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
     components=("decomposition_encdec", "forecast_embedding", "series_decomposition"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

@@ -47,12 +47,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="DropoutTS",
-    module="tsflab.models.dropoutts",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DropoutTS.toml",
-    model_card="src/tsflab/models/dropoutts/README.md",
     smoke_config="configs/runs/smoke_dropoutts.toml",
     capabilities=frozenset({"time-series"}),
     components=("patchtst",),

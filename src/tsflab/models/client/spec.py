@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Client",
-    module="tsflab.models.client",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Client.toml",
-    model_card="src/tsflab/models/client/README.md",
     smoke_config="configs/runs/smoke_client.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin", "self_attention_family", "transformer_encdec"),

@@ -21,19 +21,25 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct GAGNN from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], adj_mx=params.get('adj_mx'), cov_dim=params.get('cov_dim', 2), d_model=params.get('d_model', 64), num_layers=params.get('num_layers', 3), dropout=params.get('dropout', 0.1), group_num=params.get('group_num', 4))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        adj_mx=params.get("adj_mx"),
+        cov_dim=params["cov_dim"],
+        d_model=params["d_model"],
+        num_layers=params["num_layers"],
+        dropout=params["dropout"],
+        group_num=params["group_num"],
+    )
 
 
 SPEC = ModelSpec(
-    name='GAGNN',
-    module='tsflab.models.gagnn',
+    name="GAGNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/GAGNN.toml',
-    model_card='src/tsflab/models/gagnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['covariate']),
-    components=('marks',),
-    contract_task={'seq_len': 24, 'pred_len': 24, 'label_len': 0},
+    capabilities=frozenset(["covariate"]),
+    components=("marks",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
 )

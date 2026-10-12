@@ -31,7 +31,7 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct CANet from a validated run configuration."""
-    patch_sizes = tuple(params.get("patch_sizes", (8, 64)))
+    patch_sizes = tuple(params["patch_sizes"])
     for size in patch_sizes:
         if size > cfg.task.seq_len:
             raise ValueError("every patch size must not exceed seq_len")
@@ -40,21 +40,18 @@ def build_model(cfg, params):
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
         patch_sizes=patch_sizes,
-        embed_dim=params.get("embed_dim", 32),
-        output_features=params.get("output_features", 1024),
-        dropout=params.get("dropout", 0.5),
-        blend_ratio=params.get("blend_ratio", 0.1),
+        embed_dim=params["embed_dim"],
+        output_features=params["output_features"],
+        dropout=params["dropout"],
+        blend_ratio=params["blend_ratio"],
     )
 
 
 SPEC = ModelSpec(
     name="CANet",
-    module="tsflab.models.canet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CANet.toml",
-    model_card="src/tsflab/models/canet/README.md",
     smoke_config="configs/runs/smoke_canet.toml",
     capabilities=frozenset({"time-series"}),
     components=("adain_style_norm", "positional_encoding"),

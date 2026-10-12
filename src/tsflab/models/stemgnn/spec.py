@@ -34,15 +34,10 @@ def build_model(cfg, params):
 
 
 SPEC = ModelSpec(
-    name='StemGNN',
-    module='tsflab.models.stemgnn',
+    name="StemGNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/StemGNN.toml',
-    model_card='src/tsflab/models/stemgnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=(),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

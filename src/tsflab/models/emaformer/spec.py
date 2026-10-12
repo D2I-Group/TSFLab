@@ -40,12 +40,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="EMAformer",
-    module="tsflab.models.emaformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/EMAformer.toml",
-    model_card="src/tsflab/models/emaformer/README.md",
     smoke_config="configs/runs/smoke_emaformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "self_attention_family", "transformer_encdec"),

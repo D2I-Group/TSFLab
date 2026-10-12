@@ -52,12 +52,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Dozerformer",
-    module="tsflab.models.dozerformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Dozerformer.toml",
-    model_card="src/tsflab/models/dozerformer/README.md",
     smoke_config="configs/runs/smoke_dozerformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin", "series_decomposition"),

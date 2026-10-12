@@ -27,21 +27,27 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct STNorm from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), channels=params.get('channels', 16), kernel_size=params.get('kernel_size', 2), blocks=params.get('blocks', 2), layers=params.get('layers', 2), tnorm_bool=params.get('tnorm_bool', True), snorm_bool=params.get('snorm_bool', True))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        channels=params["channels"],
+        kernel_size=params["kernel_size"],
+        blocks=params["blocks"],
+        layers=params["layers"],
+        tnorm_bool=params["tnorm_bool"],
+        snorm_bool=params["snorm_bool"],
     )
 
 
 SPEC = ModelSpec(
-    name='STNorm',
-    module='tsflab.models.stnorm',
+    name="STNorm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/STNorm.toml',
-    model_card='src/tsflab/models/stnorm/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('marks',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("marks",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

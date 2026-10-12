@@ -38,14 +38,10 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="SBULSTM",
-    module="tsflab.models.sbulstm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SBULSTM.toml",
-    model_card="src/tsflab/models/sbulstm/README.md",
     smoke_config="configs/runs/smoke_sbulstm.toml",
     capabilities=frozenset({"time-series", "spatiotemporal", "missing-values"}),
-    components=(),
     contract_task={"seq_len": 12, "pred_len": 3, "label_len": 0},
 )

@@ -22,23 +22,18 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        downsample=params.get("downsample", 4),
-        segments=params.get("segments", 4),
-        hidden_rank=params.get("hidden_rank", 2),
-        spectral_rank=params.get("spectral_rank", 2),
+        downsample=params["downsample"],
+        segments=params["segments"],
+        hidden_rank=params["hidden_rank"],
+        spectral_rank=params["spectral_rank"],
     )
 
 
 SPEC = ModelSpec(
-    name='MixLinear',
-    module='tsflab.models.mixlinear',
+    name="MixLinear",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/MixLinear.toml',
-    model_card='src/tsflab/models/mixlinear/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

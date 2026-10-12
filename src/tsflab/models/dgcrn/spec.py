@@ -27,21 +27,27 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DGCRN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), gcn_depth=params.get('gcn_depth', 1), rnn_size=params.get('rnn_size', 16), node_dim=params.get('node_dim', 8), hyper_gnn_dim=params.get('hyper_gnn_dim', 8), middle_dim=params.get('middle_dim', 2), tanhalpha=params.get('tanhalpha', 3.0), dropout=params.get('dropout', 0.3))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        gcn_depth=params["gcn_depth"],
+        rnn_size=params["rnn_size"],
+        node_dim=params["node_dim"],
+        hyper_gnn_dim=params["hyper_gnn_dim"],
+        middle_dim=params["middle_dim"],
+        tanhalpha=params["tanhalpha"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='DGCRN',
-    module='tsflab.models.dgcrn',
+    name="DGCRN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DGCRN.toml',
-    model_card='src/tsflab/models/dgcrn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('graph_conv_gru', 'marks'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("graph_conv_gru", "marks"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

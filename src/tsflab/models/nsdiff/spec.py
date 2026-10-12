@@ -63,21 +63,24 @@ def training_objective(model, batch: TrainingBatch, criterion):
     is the target (the runner selects the ``MS`` target channel at evaluation). No
     forecast is produced by the same pass.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.training_loss(batch.x, batch.x_mark, batch.y_mark, future)
 
 
 SPEC = ModelSpec(
     name="NsDiff",
-    module="tsflab.models.nsdiff",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/NsDiff.toml",
-    model_card="src/tsflab/models/nsdiff/README.md",
     smoke_config="configs/runs/smoke_nsdiff.toml",
     capabilities=frozenset({"quantile-output", "time-series"}),
-    components=("embed", "empirical_quantiles", "masking", "self_attention_family", "transformer_encdec"),
+    components=(
+        "embed",
+        "empirical_quantiles",
+        "masking",
+        "self_attention_family",
+        "transformer_encdec",
+    ),
     contract_task={"seq_len": 168, "label_len": 84, "pred_len": 24},
     training_objective=training_objective,
 )

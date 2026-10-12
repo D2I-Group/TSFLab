@@ -19,21 +19,23 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct GCLSTM from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], adj_mx=params.get('adj_mx'), cov_dim=params.get('cov_dim', 2), Ks=params.get('Ks', 2), hidden_dim=params.get('hidden_dim', 64))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        adj_mx=params.get("adj_mx"),
+        cov_dim=params["cov_dim"],
+        Ks=params["Ks"],
+        hidden_dim=params["hidden_dim"],
     )
 
 
 SPEC = ModelSpec(
-    name='GCLSTM',
-    module='tsflab.models.gclstm',
+    name="GCLSTM",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/GCLSTM.toml',
-    model_card='src/tsflab/models/gclstm/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal', 'covariate']),
-    components=('channel_alignment', 'graph_spectral', 'marks'),
-    contract_task={'seq_len': 24, 'pred_len': 24, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal", "covariate"]),
+    components=("channel_alignment", "graph_spectral", "marks"),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
 )

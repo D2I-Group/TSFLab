@@ -40,7 +40,11 @@ class ModelParameterConfig(BaseModel):
 
     @model_validator(mode="after")
     def _contract(self) -> "ModelParameterConfig":
-        if self.d_model % self.n_heads or self.h_channel % self.n_heads or self.h_token % self.n_heads:
+        if (
+            self.d_model % self.n_heads
+            or self.h_channel % self.n_heads
+            or self.h_token % self.n_heads
+        ):
             raise ValueError("d_model, h_channel, and h_token must be divisible by n_heads")
         if self.context_len is not None and self.patch_len > self.context_len:
             raise ValueError("patch_len must not exceed context_len")
@@ -54,12 +58,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GCformer",
-    module="tsflab.models.gcformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GCformer.toml",
-    model_card="src/tsflab/models/gcformer/README.md",
     smoke_config="configs/runs/smoke_gcformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "positional_encoding", "revin", "self_attention_family"),

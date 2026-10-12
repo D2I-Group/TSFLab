@@ -21,22 +21,18 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 32),
-        dropout=params.get("dropout", 0.0),
-        use_revin=bool(params.get("use_revin", True)),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        use_revin=bool(params["use_revin"]),
     )
 
 
 SPEC = ModelSpec(
-    name='OLinear',
-    module='tsflab.models.olinear',
+    name="OLinear",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/OLinear.toml',
-    model_card='src/tsflab/models/olinear/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -16,21 +16,21 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DLinear from a validated run configuration."""
-    return (
-    Model(c_in=params['enc_in'], seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, kernel_size=params.get('kernel_size', 25), individual=params.get('individual', False))
+    return Model(
+        c_in=params["enc_in"],
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        kernel_size=params["kernel_size"],
+        individual=params["individual"],
     )
 
 
 SPEC = ModelSpec(
-    name='DLinear',
-    module='tsflab.models.dlinear',
+    name="DLinear",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DLinear.toml',
-    model_card='src/tsflab/models/dlinear/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('dlinear',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("dlinear",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

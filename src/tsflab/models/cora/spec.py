@@ -1,4 +1,5 @@
 """Model specification for CoRA."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.cora.model import Model
 from pydantic import BaseModel, Field
@@ -13,12 +14,23 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params['enc_in'],
-                 params.get('d_model', 64), params.get('rank', 4),
-                 params.get('polynomial_order', 2), bool(params.get('use_revin', True)))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["d_model"],
+        params["rank"],
+        params["polynomial_order"],
+        bool(params["use_revin"]),
+    )
 
 
-SPEC = ModelSpec(name='CoRA', module='tsflab.models.cora', model_class=Model,
-                 factory=build_model, params_schema=ModelParameterConfig,
-                 config_path='configs/models/CoRA.toml', model_card='src/tsflab/models/cora/README.md',
-                 smoke_config=None, capabilities=frozenset(['time-series']),                  components=('revin',), contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0})
+SPEC = ModelSpec(
+    name="CoRA",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

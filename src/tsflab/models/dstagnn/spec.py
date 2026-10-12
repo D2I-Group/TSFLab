@@ -20,21 +20,24 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct DSTAGNN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], adj_mx=params.get('adj_mx'), d_model=params.get('d_model', 64), d_k=params.get('d_k', 8), d_v=params.get('d_v', 8), n_heads=params.get('n_heads', 4))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        adj_mx=params.get("adj_mx"),
+        d_model=params["d_model"],
+        d_k=params["d_k"],
+        d_v=params["d_v"],
+        n_heads=params["n_heads"],
     )
 
 
 SPEC = ModelSpec(
-    name='DSTAGNN',
-    module='tsflab.models.dstagnn',
+    name="DSTAGNN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/DSTAGNN.toml',
-    model_card='src/tsflab/models/dstagnn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('graph_spectral',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("graph_spectral",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

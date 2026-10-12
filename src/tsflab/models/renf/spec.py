@@ -56,12 +56,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="ReNF",
-    module="tsflab.models.renf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ReNF.toml",
-    model_card="src/tsflab/models/renf/README.md",
     smoke_config="configs/runs/smoke_renf.toml",
     capabilities=frozenset({"time-series"}),
     components=("positional_encoding", "revin"),

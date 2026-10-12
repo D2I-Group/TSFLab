@@ -20,22 +20,21 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     """Construct MGSFformer from a validated run configuration."""
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        enc_in=params["enc_in"], IE_dim=params.get("IE_dim", 32),
-        dropout=params.get("dropout", 0.3), num_head=params.get("num_head", 2),
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        IE_dim=params["IE_dim"],
+        dropout=params["dropout"],
+        num_head=params["num_head"],
     )
 
 
 SPEC = ModelSpec(
-    name='MGSFformer',
-    module='tsflab.models.mgsfformer',
+    name="MGSFformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/MGSFformer.toml',
-    model_card='src/tsflab/models/mgsfformer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('revin',),
-    contract_task={'seq_len': 24, 'pred_len': 24, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("revin",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
 )

@@ -51,8 +51,10 @@ _FIELDS = tuple(ModelParameterConfig.model_fields)
 def build_model(cfg, params):
     values = {name: params[name] for name in _FIELDS if name in params}
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        adj_mx=params.get("adj_mx"), **values,
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        adj_mx=params.get("adj_mx"),
+        **values,
     )
 
 
@@ -68,7 +70,7 @@ def training_series(dataset, num_nodes: int) -> torch.Tensor | None:
     if idx is not None and len(idx):
         ends = np.asarray(idx).reshape(-1)
         start = max(int(ends.min()) - int(getattr(dataset, "seq_len", 1)) + 1, 0)
-        values = values[start: int(ends.max()) + 1]
+        values = values[start : int(ends.max()) + 1]
     if values.ndim != 2 or values.shape[1] != num_nodes or values.shape[0] < 2:
         return None
     return values
@@ -82,10 +84,14 @@ def training_setup(model, train_loader, *, pred_len, features):
         # Fallback: rebuild an ordered history from the newest step of every window.
         steps = [batch[0][:, -1, :] for batch in train_loader]
         series = torch.cat(steps).double() if steps else None
-        warnings.warn("PDFormer: no ordered training series; fitting on window end points", stacklevel=2)
+        warnings.warn(
+            "PDFormer: no ordered training series; fitting on window end points", stacklevel=2
+        )
     if series is None or series.shape[0] < model.s_attn_size:
-        warnings.warn("PDFormer: too little training data; semantic mask and patterns stay unfitted",
-                      stacklevel=2)
+        warnings.warn(
+            "PDFormer: too little training data; semantic mask and patterns stay unfitted",
+            stacklevel=2,
+        )
         return
     model.fit_from_series(series)
 
@@ -102,13 +108,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="PDFormer",
-    module="tsflab.models.pdformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PDFormer.toml",
-    model_card="src/tsflab/models/pdformer/README.md",
-    smoke_config=None,
     capabilities=frozenset({"spatiotemporal"}),
     components=("adj_norm", "embed", "marks"),
     contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},

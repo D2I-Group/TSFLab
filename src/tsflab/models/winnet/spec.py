@@ -22,12 +22,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="WinNet",
-    module="tsflab.models.winnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/WinNet.toml",
-    model_card="src/tsflab/models/winnet/README.md",
     smoke_config="configs/runs/smoke_winnet.toml",
     capabilities=frozenset({"time-series"}),
     components=("last_value_center",),

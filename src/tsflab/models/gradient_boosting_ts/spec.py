@@ -20,25 +20,25 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct GradientBoostingTS from a validated run configuration."""
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-                 enc_in=params['enc_in'], num_estimators=params.get('num_estimators', 12),
-                 tree_depth=params.get('tree_depth', 3),
-                 learning_rate=params.get('learning_rate', 0.1),
-                 temperature=params.get('temperature', 1.0),
-                 use_revin=bool(params.get('use_revin', True)),
-                 max_dense_parameters=params.get('max_dense_parameters', MAX_DENSE_PARAMETERS))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        num_estimators=params["num_estimators"],
+        tree_depth=params["tree_depth"],
+        learning_rate=params["learning_rate"],
+        temperature=params["temperature"],
+        use_revin=bool(params["use_revin"]),
+        max_dense_parameters=params["max_dense_parameters"],
+    )
 
 
 SPEC = ModelSpec(
-    name='GradientBoostingTS',
-    module='tsflab.models.gradient_boosting_ts',
+    name="GradientBoostingTS",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/GradientBoostingTS.toml',
-    model_card='src/tsflab/models/gradient_boosting_ts/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin', 'soft_tree'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin", "soft_tree"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

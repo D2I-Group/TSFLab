@@ -1,4 +1,5 @@
 """Runtime specification for AirCade."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.aircade.model import Model
 from pydantic import BaseModel, Field, model_validator
@@ -28,8 +29,12 @@ def build_model(cfg, params):
     return Model(cfg.task.seq_len, cfg.task.pred_len, **params)
 
 
-SPEC = ModelSpec(name="AirCade", module="tsflab.models.aircade", model_class=Model,
-    factory=build_model, params_schema=ModelParameterConfig,
-    config_path="configs/models/AirCade.toml", model_card="src/tsflab/models/aircade/README.md",
-    capabilities=frozenset(["covariate"]), components=("marks",),
-    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0})
+SPEC = ModelSpec(
+    name="AirCade",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["covariate"]),
+    components=("marks",),
+    contract_task={"seq_len": 24, "pred_len": 24, "label_len": 0},
+)

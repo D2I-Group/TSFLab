@@ -64,12 +64,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="MoGU",
-    module="tsflab.models.mogu",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MoGU.toml",
-    model_card="src/tsflab/models/mogu/README.md",
     smoke_config="configs/runs/smoke_mogu.toml",
     capabilities=frozenset({"distribution-output", "time-series"}),
     components=("embed", "self_attention_family", "transformer_encdec"),

@@ -31,21 +31,30 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct STGCN from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), Kt=params.get('Kt', 3), Ks=params.get('Ks', 3), hidden_dim=params.get('hidden_dim', 64), bottleneck_dim=params.get('bottleneck_dim', 16), out_hidden_dim=params.get('out_hidden_dim', 128), act_func=params.get('act_func', 'glu'), graph_conv_type=params.get('graph_conv_type', 'cheb_graph_conv'), bias=params.get('bias', True), droprate=params.get('droprate', 0.5))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        Kt=params["Kt"],
+        Ks=params["Ks"],
+        hidden_dim=params["hidden_dim"],
+        bottleneck_dim=params["bottleneck_dim"],
+        out_hidden_dim=params["out_hidden_dim"],
+        act_func=params["act_func"],
+        graph_conv_type=params["graph_conv_type"],
+        bias=params["bias"],
+        droprate=params["droprate"],
     )
 
 
 SPEC = ModelSpec(
-    name='STGCN',
-    module='tsflab.models.stgcn',
+    name="STGCN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/STGCN.toml',
-    model_card='src/tsflab/models/stgcn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('graph_spectral', 'marks'),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("graph_spectral", "marks"),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

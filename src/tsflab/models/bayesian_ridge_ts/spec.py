@@ -11,7 +11,16 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params.get("initial_weight_precision", 1e-3))
+    return Model(
+        cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params["initial_weight_precision"]
+    )
 
 
-SPEC = ModelSpec(name="BayesianRidgeTS", module="tsflab.models.bayesian_ridge_ts", model_class=Model, factory=build_model, params_schema=ModelParameterConfig, config_path="configs/models/BayesianRidgeTS.toml", model_card="src/tsflab/models/bayesian_ridge_ts/README.md", capabilities=frozenset(["time-series"]), components=(), contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0})
+SPEC = ModelSpec(
+    name="BayesianRidgeTS",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

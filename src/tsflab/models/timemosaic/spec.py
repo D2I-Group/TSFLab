@@ -1,4 +1,5 @@
 """Model specification for TimeMosaic."""
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timemosaic.model import Model
 from pydantic import BaseModel, Field
@@ -17,14 +18,27 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params['enc_in'],
-                 params.get('d_model', 64), tuple(params.get('patch_sizes', (4, 8, 16))),
-                 params.get('num_segments', 4), params.get('num_heads', 4),
-                 params.get('dropout', 0.1), bool(params.get('use_revin', True)),
-                 float(params.get('selection_tau', 0.5)), float(params.get('budget_weight', 0.001)))
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        params["d_model"],
+        tuple(params["patch_sizes"]),
+        params["num_segments"],
+        params["num_heads"],
+        params["dropout"],
+        bool(params["use_revin"]),
+        float(params["selection_tau"]),
+        float(params["budget_weight"]),
+    )
 
 
-SPEC = ModelSpec(name='TimeMosaic', module='tsflab.models.timemosaic', model_class=Model,
-                 factory=build_model, params_schema=ModelParameterConfig,
-                 config_path='configs/models/TimeMosaic.toml', model_card='src/tsflab/models/timemosaic/README.md',
-                 smoke_config=None, capabilities=frozenset(['time-series']),                  components=('revin',), contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0})
+SPEC = ModelSpec(
+    name="TimeMosaic",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

@@ -32,12 +32,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="WFTNet",
-    module="tsflab.models.wftnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/WFTNet.toml",
-    model_card="src/tsflab/models/wftnet/README.md",
     smoke_config="configs/runs/smoke_wftnet.toml",
     capabilities=frozenset({"time-series"}),
     components=("dominant_periods", "embed", "inception_block", "marks", "revin"),

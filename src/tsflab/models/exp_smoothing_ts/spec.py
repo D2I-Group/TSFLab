@@ -15,19 +15,15 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        initial_alpha=params.get("initial_alpha", 0.5),
+        initial_alpha=params["initial_alpha"],
     )
 
 
 SPEC = ModelSpec(
     name="ExpSmoothingTS",
-    module="tsflab.models.exp_smoothing_ts",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ExpSmoothingTS.toml",
-    model_card="src/tsflab/models/exp_smoothing_ts/README.md",
     capabilities=frozenset(["time-series"]),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

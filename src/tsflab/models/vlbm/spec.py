@@ -42,10 +42,10 @@ def training_objective(model, batch: TrainingBatch, criterion):
     The future-aware posterior embeds the whole future window of every variable
     and the calendar slot of its last step.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     if future.shape[-1] != model.enc_in:
         raise ValueError("VLBM's posterior needs the future of every variable")
-    future_marks = None if batch.y_mark is None else batch.y_mark[:, -batch.pred_len:]
+    future_marks = None if batch.y_mark is None else batch.y_mark[:, -batch.pred_len :]
     out = model.variational_forward(batch.x, batch.x_mark, future, future_marks)
     loss = criterion(batch.align(out.forecast), batch.target) + model.kl_weight * out.kl()
     return out.forecast, loss
@@ -53,12 +53,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="VLBM",
-    module="tsflab.models.vlbm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/VLBM.toml",
-    model_card="src/tsflab/models/vlbm/README.md",
     smoke_config="configs/runs/smoke_vlbm.toml",
     capabilities=frozenset({"time-series", "spatiotemporal"}),
     components=("marks", "revin"),

@@ -22,23 +22,19 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        support_size=params.get("support_size", 31),
-        support_bound=params.get("support_bound", 4.0),
-        ema_decay=params.get("ema_decay", 0.8),
-        use_revin=bool(params.get("use_revin", True)),
+        support_size=params["support_size"],
+        support_bound=params["support_bound"],
+        ema_decay=params["ema_decay"],
+        use_revin=bool(params["use_revin"]),
     )
 
 
 SPEC = ModelSpec(
-    name='InterPDN',
-    module='tsflab.models.interpdn',
+    name="InterPDN",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/InterPDN.toml',
-    model_card='src/tsflab/models/interpdn/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-        components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

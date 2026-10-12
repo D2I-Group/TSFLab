@@ -63,12 +63,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="MambaTS",
-    module="tsflab.models.mambats",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MambaTS.toml",
-    model_card="src/tsflab/models/mambats/README.md",
     smoke_config="configs/runs/smoke_mambats.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "mamba", "revin"),

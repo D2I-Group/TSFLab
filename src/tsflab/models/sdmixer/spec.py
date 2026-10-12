@@ -34,22 +34,19 @@ def build_model(cfg, params):
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
         c_out=params["c_out"],
-        spectral_top_k=params.get("spectral_top_k", 5),
-        channel_sparse_ratio=params.get("channel_sparse_ratio", 0.25),
-        attn_sparse_ratio=params.get("attn_sparse_ratio", 0.5),
-        d_ff=params.get("d_ff", 128),
-        dropout=params.get("dropout", 0.1),
+        spectral_top_k=params["spectral_top_k"],
+        channel_sparse_ratio=params["channel_sparse_ratio"],
+        attn_sparse_ratio=params["attn_sparse_ratio"],
+        d_ff=params["d_ff"],
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
     name="SDMixer",
-    module="tsflab.models.sdmixer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SDMixer.toml",
-    model_card="src/tsflab/models/sdmixer/README.md",
     smoke_config="configs/runs/smoke_sdmixer.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin",),

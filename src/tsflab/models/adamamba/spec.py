@@ -35,12 +35,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="AdaMamba",
-    module="tsflab.models.adamamba",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/AdaMamba.toml",
-    model_card="src/tsflab/models/adamamba/README.md",
     smoke_config="configs/runs/smoke_adamamba.toml",
     capabilities=frozenset({"time-series"}),
     components=("flatten_forecast_head", "revin"),

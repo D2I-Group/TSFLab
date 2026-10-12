@@ -52,18 +52,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     the paper trains the one-step-ahead model on observed lags, and validation and
     test still score ``forward`` (mean-feedback decoding) with the configured loss.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.training_loss(batch.x, batch.x_mark, future, batch.y_mark)
 
 
 SPEC = ModelSpec(
     name="LogTrans",
-    module="tsflab.models.logtrans",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/LogTrans.toml",
-    model_card="src/tsflab/models/logtrans/README.md",
     smoke_config="configs/runs/smoke_logtrans.toml",
     capabilities=frozenset({"distribution-output", "time-series"}),
     components=("gaussian_parameter_head", "logsparse_conv_attention", "marks"),

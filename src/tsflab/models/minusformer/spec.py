@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="Minusformer",
-    module="tsflab.models.minusformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Minusformer.toml",
-    model_card="src/tsflab/models/minusformer/README.md",
     smoke_config="configs/runs/smoke_minusformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "self_attention_family"),

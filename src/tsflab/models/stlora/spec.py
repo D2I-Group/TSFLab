@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="STLoRA",
-    module="tsflab.models.stlora",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STLoRA.toml",
-    model_card="src/tsflab/models/stlora/README.md",
     smoke_config="configs/runs/smoke_stlora.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("marks",),

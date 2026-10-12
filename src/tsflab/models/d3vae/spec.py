@@ -59,12 +59,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="D3VAE",
-    module="tsflab.models.d3vae",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/D3VAE.toml",
-    model_card="src/tsflab/models/d3vae/README.md",
     smoke_config="configs/runs/smoke_d3vae.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks"),

@@ -28,12 +28,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="DPANet",
-    module="tsflab.models.dpanet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DPANet.toml",
-    model_card="src/tsflab/models/dpanet/README.md",
     smoke_config="configs/runs/smoke_dpanet.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin",),

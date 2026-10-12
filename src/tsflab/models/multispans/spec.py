@@ -43,10 +43,17 @@ class ModelParameterConfig(BaseModel):
     @model_validator(mode="after")
     def _contract(self) -> "ModelParameterConfig":
         _check_kernels(self.conv_kernels)
-        if self.embed_dim % (len(self.conv_kernels) * (self.gconv_hops + 1)) or self.embed_dim % self.num_heads:
-            raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
+        if (
+            self.embed_dim % (len(self.conv_kernels) * (self.gconv_hops + 1))
+            or self.embed_dim % self.num_heads
+        ):
+            raise ValueError(
+                "embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads"
+            )
         if self.spatial_masks and self.max_tree_height >= self.num_heads:
-            raise ValueError("num_heads must exceed the masked heads (max_tree_height - 1 levels + adjacency)")
+            raise ValueError(
+                "num_heads must exceed the masked heads (max_tree_height - 1 levels + adjacency)"
+            )
         return self
 
 
@@ -67,12 +74,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="MultiSPANS",
-    module="tsflab.models.multispans",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/MultiSPANS.toml",
-    model_card="src/tsflab/models/multispans/README.md",
     smoke_config="configs/runs/smoke_multispans.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("marks", "positional_encoding"),

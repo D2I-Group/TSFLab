@@ -45,10 +45,12 @@ class ModelArtifact:
 @dataclass(frozen=True)
 class ModelSpec:
     name: str
-    module: str
     model_class: type
     factory: Callable
     params_schema: Type[BaseModel]
+    #: Derived from the package of ``model_class`` when left empty: ``tsflab.models.<package>``,
+    #: ``configs/models/<name>.toml``, and ``src/tsflab/models/<package>/README.md``.
+    module: str = ""
     config_path: str = ""
     model_card: str = ""
     smoke_config: str | None = None
@@ -68,6 +70,12 @@ class ModelSpec:
     training_setup: Callable | None = None
 
     def __post_init__(self) -> None:
+        if not self.module:
+            object.__setattr__(self, "module", self.model_class.__module__.rpartition(".")[0])
+        if not self.config_path:
+            object.__setattr__(self, "config_path", f"configs/models/{self.name}.toml")
+        if not self.model_card:
+            object.__setattr__(self, "model_card", f"src/{self.module.replace('.', '/')}/README.md")
         output_capabilities = self.capabilities & {
             "quantile-output", "distribution-output"
         }

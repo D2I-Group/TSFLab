@@ -28,29 +28,26 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TQNet from a validated run configuration."""
-    if cfg.task.seq_len % params.get("channel_aggre_heads", 4):
+    if cfg.task.seq_len % params["channel_aggre_heads"]:
         raise ValueError("seq_len must be divisible by channel_aggre_heads")
     return Model(
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        cycle=params.get("cycle", 24),
-        d_model=params.get("d_model", 64),
-        dropout=params.get("dropout", 0.1),
-        attn_dropout=params.get("attn_dropout", 0.5),
-        channel_aggre_heads=params.get("channel_aggre_heads", 4),
-        use_revin=bool(params.get("use_revin", True)),
+        cycle=params["cycle"],
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        attn_dropout=params["attn_dropout"],
+        channel_aggre_heads=params["channel_aggre_heads"],
+        use_revin=bool(params["use_revin"]),
     )
 
 
 SPEC = ModelSpec(
     name="TQNet",
-    module="tsflab.models.tqnet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TQNet.toml",
-    model_card="src/tsflab/models/tqnet/README.md",
     smoke_config="configs/runs/smoke_tqnet.toml",
     capabilities=frozenset({"time-series"}),
     components=("periodic_query_bank", "revin"),

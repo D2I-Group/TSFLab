@@ -39,12 +39,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="OCETS",
-    module="tsflab.models.ocets",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/OCETS.toml",
-    model_card="src/tsflab/models/ocets/README.md",
     smoke_config="configs/runs/smoke_ocets.toml",
     capabilities=frozenset({"time-series"}),
     components=("dlinear",),

@@ -47,7 +47,9 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     options = dict(params)
     levels = options.pop("quantile_levels") or list(cfg.evaluation.quantile_levels)
-    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options)
+    return Model(
+        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options
+    )
 
 
 def training_objective(model, batch: TrainingBatch, criterion):
@@ -57,18 +59,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     multivariate over every input channel, so the full future is used (the runner
     selects the ``MS`` target channel at evaluation). No forecast is produced.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     return None, model.policy_loss(batch.x, future)
 
 
 SPEC = ModelSpec(
     name="DynGDiff",
-    module="tsflab.models.dyngdiff",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DynGDiff.toml",
-    model_card="src/tsflab/models/dyngdiff/README.md",
     smoke_config="configs/runs/smoke_dyngdiff.toml",
     capabilities=frozenset({"quantile-output", "time-series", "pretraining-stage"}),
     components=("empirical_quantiles",),

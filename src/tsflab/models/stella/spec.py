@@ -43,21 +43,18 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 32),
-        num_layers=params.get("num_layers", 2),
-        dropout=params.get("dropout", 0.2),
+        d_model=params["d_model"],
+        num_layers=params["num_layers"],
+        dropout=params["dropout"],
         coordinates=load_coordinates(params.get("coords_path")),
     )
 
 
 SPEC = ModelSpec(
     name="STELLA",
-    module="tsflab.models.stella",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STELLA.toml",
-    model_card="src/tsflab/models/stella/README.md",
     smoke_config="configs/runs/smoke_stella.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("marks",),

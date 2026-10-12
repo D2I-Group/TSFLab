@@ -35,12 +35,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="EvoMSN",
-    module="tsflab.models.evomsn",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/EvoMSN.toml",
-    model_card="src/tsflab/models/evomsn/README.md",
     smoke_config="configs/runs/smoke_evomsn.toml",
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("dlinear",),

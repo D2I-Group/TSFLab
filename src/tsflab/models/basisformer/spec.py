@@ -52,12 +52,9 @@ def training_objective(model: Model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="Basisformer",
-    module="tsflab.models.basisformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Basisformer.toml",
-    model_card="src/tsflab/models/basisformer/README.md",
     smoke_config="configs/runs/smoke_basisformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("marks",),

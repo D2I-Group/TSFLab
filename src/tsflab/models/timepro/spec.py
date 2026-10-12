@@ -33,10 +33,10 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimePro from a validated run configuration."""
-    patch_len = params.get("patch_len", 16)
-    stride = params.get("stride", 8)
-    d_model = params.get("d_model", 16)
-    expand = params.get("expand", 1.0)
+    patch_len = params["patch_len"]
+    stride = params["stride"]
+    d_model = params["d_model"]
+    expand = params["expand"]
     if patch_len > cfg.task.seq_len:
         raise ValueError("patch_len must not exceed seq_len")
     patch_num = (cfg.task.seq_len + stride - patch_len) // stride + 1
@@ -50,23 +50,20 @@ def build_model(cfg, params):
         patch_len=patch_len,
         stride=stride,
         d_model=d_model,
-        e_layers=params.get("e_layers", 2),
-        d_state=params.get("d_state", 1),
-        d_conv=params.get("d_conv", 5),
+        e_layers=params["e_layers"],
+        d_state=params["d_state"],
+        d_conv=params["d_conv"],
         expand=expand,
-        dropout=params.get("dropout", 0.1),
-        use_norm=bool(params.get("use_norm", True)),
+        dropout=params["dropout"],
+        use_norm=bool(params["use_norm"]),
     )
 
 
 SPEC = ModelSpec(
     name="TimePro",
-    module="tsflab.models.timepro",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TimePro.toml",
-    model_card="src/tsflab/models/timepro/README.md",
     smoke_config="configs/runs/smoke_timepro.toml",
     capabilities=frozenset({"time-series"}),
     components=("hyper_state_scan",),

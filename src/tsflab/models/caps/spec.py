@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="CAPS",
-    module="tsflab.models.caps",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CAPS.toml",
-    model_card="src/tsflab/models/caps/README.md",
     smoke_config="configs/runs/smoke_caps.toml",
     capabilities=frozenset({"time-series"}),
     components=("last_value_center", "mamba"),

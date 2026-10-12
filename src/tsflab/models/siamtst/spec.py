@@ -58,12 +58,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="SiamTST",
-    module="tsflab.models.siamtst",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SiamTST.toml",
-    model_card="src/tsflab/models/siamtst/README.md",
     smoke_config="configs/runs/smoke_siamtst.toml",
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("revin",),

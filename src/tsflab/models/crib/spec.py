@@ -32,9 +32,11 @@ def build_model(cfg, params):
 
 
 SPEC = ModelSpec(
-    name="CRIB", module="tsflab.models.crib", model_class=Model, factory=build_model,
-    params_schema=ModelParameterConfig, config_path="configs/models/CRIB.toml",
-    model_card="src/tsflab/models/crib/README.md", smoke_config="configs/runs/smoke_crib.toml",
-    capabilities=frozenset(["time-series", "missing-values"]), components=(),
+    name="CRIB",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    smoke_config="configs/runs/smoke_crib.toml",
+    capabilities=frozenset(["time-series", "missing-values"]),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

@@ -15,19 +15,15 @@ def build_model(cfg, params):
         cfg.task.seq_len,
         cfg.task.pred_len,
         params["enc_in"],
-        l2_penalty=params.get("l2_penalty", 1e-4),
+        l2_penalty=params["l2_penalty"],
     )
 
 
 SPEC = ModelSpec(
     name="RidgeRegressionTS",
-    module="tsflab.models.ridge_regression_ts",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/RidgeRegressionTS.toml",
-    model_card="src/tsflab/models/ridge_regression_ts/README.md",
     capabilities=frozenset(["time-series"]),
-    components=(),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

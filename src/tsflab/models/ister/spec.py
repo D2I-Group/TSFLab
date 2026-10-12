@@ -59,15 +59,18 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="Ister",
-    module="tsflab.models.ister",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/Ister.toml",
-    model_card="src/tsflab/models/ister/README.md",
     smoke_config="configs/runs/smoke_ister.toml",
     capabilities=frozenset({"time-series"}),
-    components=("marks", "revin", "self_attention_family", "series_decomposition", "transformer_encdec"),
+    components=(
+        "marks",
+        "revin",
+        "self_attention_family",
+        "series_decomposition",
+        "transformer_encdec",
+    ),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     training_objective=training_objective,
 )

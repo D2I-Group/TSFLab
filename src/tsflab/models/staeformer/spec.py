@@ -34,21 +34,32 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct STAEformer from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, num_nodes=params.get('num_nodes', params['enc_in']), adj_mx=params.get('adj_mx'), input_dim=params.get('input_dim', 3), steps_per_day=params.get('steps_per_day', 24), input_embedding_dim=params.get('input_embedding_dim', 24), tod_embedding_dim=params.get('tod_embedding_dim', 24), dow_embedding_dim=params.get('dow_embedding_dim', 24), spatial_embedding_dim=params.get('spatial_embedding_dim', 0), adaptive_embedding_dim=params.get('adaptive_embedding_dim', 80), feed_forward_dim=params.get('feed_forward_dim', 256), num_heads=params.get('num_heads', 4), num_layers=params.get('num_layers', 3), dropout=params.get('dropout', 0.1), use_mixed_proj=params.get('use_mixed_proj', True))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        num_nodes=params.get("num_nodes", params["enc_in"]),
+        adj_mx=params.get("adj_mx"),
+        input_dim=params["input_dim"],
+        steps_per_day=params["steps_per_day"],
+        input_embedding_dim=params["input_embedding_dim"],
+        tod_embedding_dim=params["tod_embedding_dim"],
+        dow_embedding_dim=params["dow_embedding_dim"],
+        spatial_embedding_dim=params["spatial_embedding_dim"],
+        adaptive_embedding_dim=params["adaptive_embedding_dim"],
+        feed_forward_dim=params["feed_forward_dim"],
+        num_heads=params["num_heads"],
+        num_layers=params["num_layers"],
+        dropout=params["dropout"],
+        use_mixed_proj=params["use_mixed_proj"],
     )
 
 
 SPEC = ModelSpec(
-    name='STAEformer',
-    module='tsflab.models.staeformer',
+    name="STAEformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/STAEformer.toml',
-    model_card='src/tsflab/models/staeformer/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=('marks',),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    components=("marks",),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

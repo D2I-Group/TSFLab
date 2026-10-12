@@ -38,12 +38,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="TwinFormer",
-    module="tsflab.models.twinformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TwinFormer.toml",
-    model_card="src/tsflab/models/twinformer/README.md",
     smoke_config="configs/runs/smoke_twinformer.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed",),

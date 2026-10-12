@@ -51,12 +51,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="GAMMANet",
-    module="tsflab.models.gammanet",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GAMMANet.toml",
-    model_card="src/tsflab/models/gammanet/README.md",
     smoke_config="configs/runs/smoke_gammanet.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("mamba", "marks"),

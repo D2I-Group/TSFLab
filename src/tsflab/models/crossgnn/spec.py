@@ -33,10 +33,12 @@ def build_model(cfg, params):
 
 
 SPEC = ModelSpec(
-    name="CrossGNN", module="tsflab.models.crossgnn", model_class=Model, factory=build_model,
-    params_schema=ModelParameterConfig, config_path="configs/models/CrossGNN.toml",
-    model_card="src/tsflab/models/crossgnn/README.md", smoke_config=None,
-    capabilities=frozenset(["time-series"]), components=("last_value_center",),
+    name="CrossGNN",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("last_value_center",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
     contract_seeds=(0, 18, 24),
 )

@@ -33,11 +33,11 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        kernel_size=params.get("kernel_size", 25),
-        individual=params.get("individual", False),
-        weighting=params.get("weighting", "fixed"),
-        dir_lambda=params.get("dir_lambda", 0.5),
-        eps=params.get("eps", 1e-8),
+        kernel_size=params["kernel_size"],
+        individual=params["individual"],
+        weighting=params["weighting"],
+        dir_lambda=params["dir_lambda"],
+        eps=params["eps"],
     )
 
 
@@ -53,12 +53,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="CosDir",
-    module="tsflab.models.cosdir",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CosDir.toml",
-    model_card="src/tsflab/models/cosdir/README.md",
     smoke_config="configs/runs/smoke_cosdir.toml",
     capabilities=frozenset({"time-series"}),
     components=("dlinear",),

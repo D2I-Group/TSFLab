@@ -21,23 +21,19 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        d_model=params.get("d_model", 64),
-        dropout=params.get("dropout", 0.1),
-        cycle_length=params.get("cycle_length", 168),
-        local_period=params.get("local_period", 24),
-        use_revin=bool(params.get("use_revin", True)),
+        d_model=params["d_model"],
+        dropout=params["dropout"],
+        cycle_length=params["cycle_length"],
+        local_period=params["local_period"],
+        use_revin=bool(params["use_revin"]),
     )
 
 
 SPEC = ModelSpec(
     name="GTR",
-    module="tsflab.models.gtr",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GTR.toml",
-    model_card="src/tsflab/models/gtr/README.md",
-    smoke_config=None,
     capabilities=frozenset(["time-series"]),
     components=("marks", "revin"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},

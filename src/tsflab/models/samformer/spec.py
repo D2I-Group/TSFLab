@@ -24,9 +24,9 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        hid_dim=params.get("hid_dim", 16),
-        rho=params.get("rho", 0.5),
-        use_revin=params.get("use_revin", True),
+        hid_dim=params["hid_dim"],
+        rho=params["rho"],
+        use_revin=params["use_revin"],
     )
 
 
@@ -37,15 +37,12 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="SAMformer",
-    module="tsflab.models.samformer",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SAMformer.toml",
-    model_card="src/tsflab/models/samformer/README.md",
     smoke_config="configs/runs/smoke_samformer.toml",
-    capabilities=frozenset({'time-series'}),
-    components=('channel_wise_linear', 'revin', 'sharpness_aware'),
+    capabilities=frozenset({"time-series"}),
+    components=("channel_wise_linear", "revin", "sharpness_aware"),
     training_objective=training_objective,
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

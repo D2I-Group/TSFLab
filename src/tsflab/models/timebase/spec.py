@@ -19,21 +19,23 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimeBase from a validated run configuration."""
-    return (
-        Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], period_len=params.get('period_len', 24), basis_num=params.get('basis_num', 6), individual=bool(params.get('individual', False)), orthogonal_weight=float(params.get('orthogonal_weight', 0.08)), use_period_norm=bool(params.get('use_period_norm', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        period_len=params["period_len"],
+        basis_num=params["basis_num"],
+        individual=bool(params["individual"]),
+        orthogonal_weight=float(params["orthogonal_weight"]),
+        use_period_norm=bool(params["use_period_norm"]),
     )
 
 
 SPEC = ModelSpec(
-    name='TimeBase',
-    module='tsflab.models.timebase',
+    name="TimeBase",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TimeBase.toml',
-    model_card='src/tsflab/models/timebase/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=(),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

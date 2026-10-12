@@ -28,8 +28,10 @@ _FIELDS = tuple(ModelParameterConfig.model_fields)
 def build_model(cfg, params):
     values = {name: params[name] for name in _FIELDS if name in params}
     return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len,
-        adj_mx=params.get("adj_mx"), **values,
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        adj_mx=params.get("adj_mx"),
+        **values,
     )
 
 
@@ -45,13 +47,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="ASTGNN",
-    module="tsflab.models.astgnn",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/ASTGNN.toml",
-    model_card="src/tsflab/models/astgnn/README.md",
-    smoke_config=None,
     capabilities=frozenset({"spatiotemporal"}),
     components=("adj_norm", "embed"),
     contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},

@@ -29,7 +29,9 @@ class ModelParameterConfig(BaseModel):
     @classmethod
     def _even_scales(cls, scales: list[int]) -> list[int]:
         if any(scale < 2 or scale % 2 for scale in scales):
-            raise ValueError("scales must be positive even lengths (moving-average kernels scale + 1)")
+            raise ValueError(
+                "scales must be positive even lengths (moving-average kernels scale + 1)"
+            )
         return scales
 
 
@@ -52,12 +54,9 @@ def training_objective(model: Model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="SSCLForecaster",
-    module="tsflab.models.ssclforecaster",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/SSCLForecaster.toml",
-    model_card="src/tsflab/models/ssclforecaster/README.md",
     smoke_config="configs/runs/smoke_ssclforecaster.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "marks", "series_decomposition"),

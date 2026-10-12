@@ -71,13 +71,9 @@ def build_pretrained_model(cfg, params, paths):
 
 SPEC = ModelSpec(
     name="LLM4TS",
-    module="tsflab.models.llm4ts",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/LLM4TS.toml",
-    model_card="src/tsflab/models/llm4ts/README.md",
-    smoke_config=None,
     capabilities=frozenset({"time-series", "pretraining-stage"}),
     components=("embed", "gpt2_backbone", "marks", "revin"),
     contract_task={"seq_len": 336, "pred_len": 96, "label_len": 0},

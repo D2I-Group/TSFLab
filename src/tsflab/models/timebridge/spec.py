@@ -29,21 +29,32 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimeBridge from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'], period=params.get('period', 24), num_p=params.get('num_p'), ia_layers=params.get('ia_layers', 2), pd_layers=params.get('pd_layers', 1), ca_layers=params.get('ca_layers', 2), stable_len=params.get('stable_len', 3), d_model=params.get('d_model', 16), n_heads=params.get('n_heads', 4), d_ff=params.get('d_ff', 128), attn_dropout=params.get('attn_dropout', 0.15), dropout=params.get('dropout', 0.0), activation=params.get('activation', 'gelu'), revin=bool(params.get('revin', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        period=params["period"],
+        num_p=params.get("num_p"),
+        ia_layers=params["ia_layers"],
+        pd_layers=params["pd_layers"],
+        ca_layers=params["ca_layers"],
+        stable_len=params["stable_len"],
+        d_model=params["d_model"],
+        n_heads=params["n_heads"],
+        d_ff=params["d_ff"],
+        attn_dropout=params["attn_dropout"],
+        dropout=params["dropout"],
+        activation=params["activation"],
+        revin=bool(params["revin"]),
     )
 
 
 SPEC = ModelSpec(
-    name='TimeBridge',
-    module='tsflab.models.timebridge',
+    name="TimeBridge",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TimeBridge.toml',
-    model_card='src/tsflab/models/timebridge/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

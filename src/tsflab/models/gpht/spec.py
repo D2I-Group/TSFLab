@@ -37,14 +37,14 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        token_len=params.get("token_len", 48),
-        pooling_rates=tuple(params.get("pooling_rates", (8, 4, 2, 1))),
-        d_model=params.get("d_model", 512),
-        d_ff=params.get("d_ff", 2048),
-        n_heads=params.get("n_heads", 8),
-        e_layers=params.get("e_layers", 3),
-        dropout=params.get("dropout", 0.1),
-        activation=params.get("activation", "gelu"),
+        token_len=params["token_len"],
+        pooling_rates=tuple(params["pooling_rates"]),
+        d_model=params["d_model"],
+        d_ff=params["d_ff"],
+        n_heads=params["n_heads"],
+        e_layers=params["e_layers"],
+        dropout=params["dropout"],
+        activation=params["activation"],
     )
 
 
@@ -55,12 +55,9 @@ def training_objective(model, batch, criterion):
 
 SPEC = ModelSpec(
     name="GPHT",
-    module="tsflab.models.gpht",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/GPHT.toml",
-    model_card="src/tsflab/models/gpht/README.md",
     smoke_config="configs/runs/smoke_gpht.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "revin", "self_attention_family", "transformer_encdec"),

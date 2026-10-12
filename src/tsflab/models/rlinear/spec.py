@@ -22,23 +22,19 @@ def build_model(cfg, params):
         c_in=params["enc_in"],
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
-        individual=bool(params.get("individual", False)),
-        affine=bool(params.get("affine", False)),
-        subtract_last=bool(params.get("subtract_last", False)),
-        dropout=params.get("dropout", 0.0),
+        individual=bool(params["individual"]),
+        affine=bool(params["affine"]),
+        subtract_last=bool(params["subtract_last"]),
+        dropout=params["dropout"],
     )
 
 
 SPEC = ModelSpec(
-    name='RLinear',
-    module='tsflab.models.rlinear',
+    name="RLinear",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/RLinear.toml',
-    model_card='src/tsflab/models/rlinear/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('channel_wise_linear', 'revin'),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("channel_wise_linear", "revin"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

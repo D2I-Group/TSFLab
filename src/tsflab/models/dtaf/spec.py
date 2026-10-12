@@ -1,7 +1,9 @@
 """Runtime specification for DTAF."""
+
 from pydantic import BaseModel, Field, model_validator
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dtaf.model import Model
+
 
 class ModelParameterConfig(BaseModel):
     enc_in: int = Field(gt=0)
@@ -14,16 +16,23 @@ class ModelParameterConfig(BaseModel):
     expert_num: int = Field(default=2, gt=0)
     expert_hidden: int = Field(default=8, gt=0)
     top_k: int = Field(default=1, gt=0)
+
     @model_validator(mode="after")
     def architecture(self):
-        if self.d_model % self.heads: raise ValueError("d_model must be divisible by heads")
+        if self.d_model % self.heads:
+            raise ValueError("d_model must be divisible by heads")
         return self
+
 
 def build_model(cfg, params):
     return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, **params)
 
-SPEC = ModelSpec(name="DTAF", module="tsflab.models.dtaf", model_class=Model, factory=build_model,
-    params_schema=ModelParameterConfig, config_path="configs/models/DTAF.toml",
-    model_card="src/tsflab/models/dtaf/README.md", smoke_config=None,
-    capabilities=frozenset(["time-series"]), components=(),
-    contract_task={"seq_len":96,"pred_len":96,"label_len":0})
+
+SPEC = ModelSpec(
+    name="DTAF",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

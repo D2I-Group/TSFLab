@@ -50,12 +50,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="DMSC",
-    module="tsflab.models.dmsc",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DMSC.toml",
-    model_card="src/tsflab/models/dmsc/README.md",
     smoke_config="configs/runs/smoke_dmsc.toml",
     capabilities=frozenset({"time-series"}),
     components=("revin", "topk_expert_router"),

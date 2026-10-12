@@ -23,21 +23,30 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TimePerceiver from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, label_len=cfg.task.label_len, features=cfg.task.features, enc_in=params['enc_in'], d_model=params.get('d_model', 32), n_heads=params.get('n_heads', 2), patch_len=params.get('patch_len', 16), dropout=params.get('dropout', 0.1), num_latents=params.get('num_latents', 8), latent_dim=params.get('latent_dim', 128), latent_d_ff=params.get('latent_d_ff', 256), num_latent_blocks=params.get('num_latent_blocks', 1), query_share=bool(params.get('query_share', True)))
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        label_len=cfg.task.label_len,
+        features=cfg.task.features,
+        enc_in=params["enc_in"],
+        d_model=params["d_model"],
+        n_heads=params["n_heads"],
+        patch_len=params["patch_len"],
+        dropout=params["dropout"],
+        num_latents=params["num_latents"],
+        latent_dim=params["latent_dim"],
+        latent_d_ff=params["latent_d_ff"],
+        num_latent_blocks=params["num_latent_blocks"],
+        query_share=bool(params["query_share"]),
     )
 
 
 SPEC = ModelSpec(
-    name='TimePerceiver',
-    module='tsflab.models.timeperceiver',
+    name="TimePerceiver",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/TimePerceiver.toml',
-    model_card='src/tsflab/models/timeperceiver/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['time-series']),
-    components=('revin',),
-    contract_task={'seq_len': 96, 'pred_len': 96, 'label_len': 0},
+    capabilities=frozenset(["time-series"]),
+    components=("revin",),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

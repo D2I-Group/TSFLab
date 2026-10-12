@@ -42,19 +42,16 @@ def training_objective(model, batch: TrainingBatch, criterion):
     The full-channel future comes from ``batch.y``; the loss reads the configured target
     channels. No sampled forecast is produced in this pass.
     """
-    future = batch.y[:, -batch.pred_len:, :]
+    future = batch.y[:, -batch.pred_len :, :]
     prediction = model.teacher_forced_forecast(batch.x, future)
     return None, criterion(batch.align(prediction), batch.target)
 
 
 SPEC = ModelSpec(
     name="CDPM",
-    module="tsflab.models.cdpm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/CDPM.toml",
-    model_card="src/tsflab/models/cdpm/README.md",
     smoke_config="configs/runs/smoke_cdpm.toml",
     capabilities=frozenset({"time-series"}),
     components=("series_decomposition",),

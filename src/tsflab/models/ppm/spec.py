@@ -39,18 +39,15 @@ def training_objective(model, batch: TrainingBatch, criterion):
     del criterion
     samples = model.sample(batch.x)  # [B, K, H, C]
     start = -1 if batch.features == "MS" else 0
-    aligned = samples[:, :, -batch.pred_len:, start:]
+    aligned = samples[:, :, -batch.pred_len :, start:]
     return None, model.training_loss(aligned, batch.target)
 
 
 SPEC = ModelSpec(
     name="PPM",
-    module="tsflab.models.ppm",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/PPM.toml",
-    model_card="src/tsflab/models/ppm/README.md",
     smoke_config="configs/runs/smoke_ppm.toml",
     capabilities=frozenset({"quantile-output", "time-series"}),
     components=("empirical_quantiles",),

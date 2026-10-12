@@ -48,7 +48,9 @@ def training_setup(model, train_loader, *, pred_len, features):
         raise ValueError("DRAGON needs the training split series (train_loader.dataset.data)")
     series = np.asarray(data, dtype=np.float64)
     if series.ndim != 2 or series.shape[1] != model.enc_in:
-        raise ValueError(f"DRAGON expects a [T, {model.enc_in}] training series, got {series.shape}")
+        raise ValueError(
+            f"DRAGON expects a [T, {model.enc_in}] training series, got {series.shape}"
+        )
     model.fit_graphs(series)
 
 
@@ -60,12 +62,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="DRAGON",
-    module="tsflab.models.dragon",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/DRAGON.toml",
-    model_card="src/tsflab/models/dragon/README.md",
     smoke_config="configs/runs/smoke_dragon.toml",
     capabilities=frozenset({"time-series"}),
     components=("dominant_periods", "embed", "inception_block", "marks", "revin"),

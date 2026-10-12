@@ -35,13 +35,13 @@ def build_model(cfg, params):
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,
         enc_in=params["enc_in"],
-        kernel_size=params.get("kernel_size", 25),
-        individual=params.get("individual", False),
-        ri_weight=params.get("ri_weight", 10.0),
-        temperature=params.get("temperature", 1.0),
-        bandwidth=params.get("bandwidth", 1.0),
-        noise_low=params.get("noise_low", 0.0),
-        noise_high=params.get("noise_high", 1.0),
+        kernel_size=params["kernel_size"],
+        individual=params["individual"],
+        ri_weight=params["ri_weight"],
+        temperature=params["temperature"],
+        bandwidth=params["bandwidth"],
+        noise_low=params["noise_low"],
+        noise_high=params["noise_high"],
     )
 
 
@@ -59,12 +59,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="RILoss",
-    module="tsflab.models.riloss",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/RILoss.toml",
-    model_card="src/tsflab/models/riloss/README.md",
     smoke_config="configs/runs/smoke_riloss.toml",
     capabilities=frozenset({"time-series"}),
     components=("dlinear",),

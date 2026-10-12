@@ -73,12 +73,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="APTF",
-    module="tsflab.models.aptf",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/APTF.toml",
-    model_card="src/tsflab/models/aptf/README.md",
     smoke_config="configs/runs/smoke_aptf.toml",
     capabilities=frozenset({"time-series"}),
     components=("patchtst",),

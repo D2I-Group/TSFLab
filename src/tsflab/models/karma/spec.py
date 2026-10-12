@@ -55,12 +55,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="KARMA",
-    module="tsflab.models.karma",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/KARMA.toml",
-    model_card="src/tsflab/models/karma/README.md",
     smoke_config="configs/runs/smoke_karma.toml",
     capabilities=frozenset({"time-series"}),
     components=("embed", "mamba", "marks", "orthogonal_dwt", "revin", "series_decomposition"),

@@ -59,7 +59,7 @@ def build_pretrained_model(cfg, params, paths):
 
 def training_objective(model, batch: TrainingBatch, criterion):
     """Next-segment supervision of every context position plus ``alpha * L_MoE`` (Eq. 14)."""
-    x, future = batch.x, batch.y[:, -batch.pred_len:]
+    x, future = batch.x, batch.y[:, -batch.pred_len :]
     if batch.features == "MS":
         x, future = x[..., -1:], future[..., -1:]
     return None, model.training_loss(x, future, criterion)
@@ -67,13 +67,9 @@ def training_objective(model, batch: TrainingBatch, criterion):
 
 SPEC = ModelSpec(
     name="TALON",
-    module="tsflab.models.talon",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/TALON.toml",
-    model_card="src/tsflab/models/talon/README.md",
-    smoke_config=None,
     capabilities=frozenset({"time-series"}),
     components=("gpt2_backbone", "revin", "segment_mlp"),
     contract_task={"seq_len": 192, "pred_len": 96, "label_len": 0},

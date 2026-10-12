@@ -16,21 +16,14 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct HL from a validated run configuration."""
-    return (
-    Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params['enc_in'])
-    )
+    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, enc_in=params["enc_in"])
 
 
 SPEC = ModelSpec(
-    name='HL',
-    module='tsflab.models.hl',
+    name="HL",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path='configs/models/HL.toml',
-    model_card='src/tsflab/models/hl/README.md',
-    smoke_config=None,
-    capabilities=frozenset(['spatiotemporal']),
-    components=(),
-    contract_task={'seq_len': 12, 'pred_len': 12, 'label_len': 0},
+    capabilities=frozenset(["spatiotemporal"]),
+    contract_task={"seq_len": 12, "pred_len": 12, "label_len": 0},
 )

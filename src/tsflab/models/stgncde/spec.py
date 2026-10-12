@@ -43,12 +43,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="STGNCDE",
-    module="tsflab.models.stgncde",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/STGNCDE.toml",
-    model_card="src/tsflab/models/stgncde/README.md",
     smoke_config="configs/runs/smoke_stgncde.toml",
     capabilities=frozenset({"spatiotemporal"}),
     components=("marks", "natural_cubic_spline", "node_adaptive_graph_conv"),
