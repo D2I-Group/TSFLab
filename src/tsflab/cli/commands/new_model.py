@@ -185,10 +185,10 @@ def _model(name: str, params: list[tuple[str, str, str | None]], graph: bool) ->
         extras.append(f"        {field}: {kind}{suffix},")
     extra_text = "\n".join(extras)
     graph_imports = "import numpy as np\n\nfrom tsflab.models._components.marks import to_spatiotemporal\n" if graph else ""
+    inputs = "square_adjacency" if graph else "check_window"
     graph_args = '        adj_mx: "np.ndarray | None" = None,\n        cov_dim: int = 2,\n' if graph else ""
     setup = (
-        "        if adj_mx is None:\n"
-        "            adj_mx = np.eye(enc_in, dtype=np.float32)\n"
+        "        adj_mx = np.eye(enc_in, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, enc_in)\n"
         "        self.register_buffer(\"adj_mx\", torch.as_tensor(adj_mx, dtype=torch.float32))\n"
         "        self.cov_dim = cov_dim\n"
         if graph else ""
@@ -199,6 +199,7 @@ def _model(name: str, params: list[tuple[str, str, str | None]], graph: bool) ->
         "        values = to_spatiotemporal(x_enc, x_mark_enc)[..., 0]\n"
         "        return self.placeholder(values.transpose(1, 2)).transpose(1, 2)\n"
         if graph else
+        "        check_window(x_enc, self.seq_len, self.enc_in)\n"
         "        return self.placeholder(x_enc.transpose(1, 2)).transpose(1, 2)\n"
     )
     return f'''"""SCAFFOLD for the local {name} implementation; replace before admission."""
@@ -207,6 +208,10 @@ from __future__ import annotations
 
 {graph_imports}import torch
 import torch.nn as nn
+
+# Parameters arrive validated by the params schema in spec.py; check only tensor shapes here.
+# Reuse shared units for standard blocks (`tsf catalog search <block>`, e.g. instance_norm).
+from tsflab.models._inputs import {inputs}
 
 
 class Model(nn.Module):
