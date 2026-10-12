@@ -7,10 +7,11 @@ Two limits keep the codebase from growing more complex as methods are added:
 * every method package (``src/tsflab/models/<method>/``) has at most
   ``MAX_METHOD_LINES`` lines of Python.
 
-The limits sit just above the most complex code merged by 2026-10-06 (functions up
-to 20, method packages up to 640 lines), so the existing methods pass and a change
-that adds a more complex function or a larger method is asked to split it or to
-reuse shared components. Shared components (``_components``) and other private
+The limits sit just above the code after the 2026-10 refactor (functions up to 9,
+method packages up to 586 lines), so the existing methods pass and a change that adds
+a more complex function or a larger method is asked to split it, to reuse shared
+components, or to move parameter checks into the params schema. Shared components
+(``_components``) and other private
 packages follow the function limit only.
 """
 
@@ -21,8 +22,8 @@ from pathlib import Path
 
 from tsflab.core.paths import repository_root
 
-MAX_FUNCTION_COMPLEXITY = 20
-MAX_METHOD_LINES = 800
+MAX_FUNCTION_COMPLEXITY = 10
+MAX_METHOD_LINES = 600
 
 _BRANCHES = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.ExceptHandler, ast.IfExp,
              ast.With, ast.AsyncWith, ast.Assert, ast.comprehension, ast.match_case)
