@@ -66,10 +66,6 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if enc_in < 2:
-            raise ValueError("PCATransformer needs at least one covariate plus the target (enc_in >= 2)")
-        if not 1 <= n_components <= enc_in - 1:
-            raise ValueError(f"n_components must be in [1, enc_in - 1 = {enc_in - 1}]")
         if min(seq_len, pred_len) < 1 or label_len < 0 or label_len > seq_len:
             raise ValueError("require seq_len, pred_len >= 1 and 0 <= label_len <= seq_len")
         self.seq_len = seq_len

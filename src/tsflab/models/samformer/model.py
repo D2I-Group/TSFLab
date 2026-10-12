@@ -55,10 +55,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, hid_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("SAMformer dimensions must be positive")
-        if rho < 0:
-            raise ValueError("rho must be non-negative")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

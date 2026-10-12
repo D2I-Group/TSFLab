@@ -29,10 +29,10 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, patch_len, stride, d_model, n_heads) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("all dimensions must be positive")
-        if patch_len > seq_len or d_model % n_heads:
-            raise ValueError("patch_len must not exceed seq_len and d_model must divide n_heads")
+        if patch_len > seq_len:
+            raise ValueError("patch_len must not exceed seq_len")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.features = features

@@ -18,8 +18,6 @@ import torch.nn.functional as F
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.revin import RevIN
 
-GATES = ("identity_centered", "sigmoid")
-
 
 def patch_layout(seq_len: int, patch_len: int, stride: int) -> tuple[int, int]:
     """Right zero-padding and patch count for unfolding ``seq_len`` steps."""
@@ -57,10 +55,6 @@ class SpectralGate(nn.Module):
 
     def __init__(self, d_model: int, kind: str, amplitude: float) -> None:
         super().__init__()
-        if kind not in GATES:
-            raise ValueError(f"gate must be one of {GATES}, got {kind!r}")
-        if not 0.0 < amplitude <= 1.0:
-            raise ValueError("gate_amplitude must lie in (0, 1]")
         self.kind, self.amplitude = kind, amplitude
         hidden = max(d_model // 4, 8) if kind == "identity_centered" else max(d_model // 4, 1)
         self.fc1 = nn.Linear(3, hidden)
@@ -149,12 +143,8 @@ class Model(nn.Module):
         revin_affine: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_state, d_conv, expand) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and widths must be positive")
-        if not patch_sizes or min(patch_sizes) < 1:
-            raise ValueError("patch_sizes must be a non-empty list of positive lengths")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must lie in [0, 1)")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_sizes = tuple(patch_sizes)
         self.revin = RevIN(enc_in, eps=1e-5, affine=revin_affine)

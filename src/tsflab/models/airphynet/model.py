@@ -80,10 +80,8 @@ class Model(nn.Module):
         ode_method: Literal["euler", "rk4"] = "rk4",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, latent_dim, rnn_units) <= 0:
-            raise ValueError("AirPhyNet dimensions must be positive")
-        if ode_method not in {"euler", "rk4"}:
-            raise ValueError("ode_method must be 'euler' or 'rk4'")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("AirPhyNet seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -121,10 +121,8 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, input_embedding_dim, num_layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("Extralonger dimensions must be positive")
-        if spatial_embedding_dim < 1:
-            raise ValueError("Extralonger requires spatial_embedding_dim >= 1")
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -139,7 +137,7 @@ class Model(nn.Module):
 
         # temporal/mixed model width: value + tod + dow embeddings (no node embedding).
         self.model_dim = input_embedding_dim + tod_embedding_dim + dow_embedding_dim
-        self._check_widths(num_heads)
+        self._check_widths()
 
         if tod_embedding_dim > 0:
             self.tod_embedding = nn.Embedding(steps_per_day, tod_embedding_dim)
@@ -171,9 +169,7 @@ class Model(nn.Module):
             TransposeAxes(1, 2),
         )
 
-    def _check_widths(self, num_heads: int) -> None:
-        if self.model_dim % num_heads:
-            raise ValueError("Extralonger model_dim must be divisible by num_heads")
+    def _check_widths(self) -> None:
         if self.seq_len % self._MIX_SPATIAL_HEADS:
             raise ValueError("Extralonger seq_len must be divisible by the mixed route's fixed head count (2)")
 

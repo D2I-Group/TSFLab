@@ -65,8 +65,6 @@ class FactorizedMixerBlock(nn.Module):
         normalize: bool,
     ) -> None:
         super().__init__()
-        if factorized_channel and channel_hidden >= channels:
-            raise ValueError("factorized channel rank must be smaller than enc_in")
         self.pre_time = nn.LayerNorm(channels) if normalize else nn.Identity()
         self.pre_channel = nn.LayerNorm(channels) if normalize else nn.Identity()
         self.temporal = TemporalSubsequenceMixer(
@@ -101,7 +99,7 @@ class Model(nn.Module):
         rev: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_ff, e_layers, sampling) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("all dimensions, layers, and sampling must be positive")
         if features not in {"M", "MS", "S"}:
             raise ValueError("features must be one of M, MS, or S")

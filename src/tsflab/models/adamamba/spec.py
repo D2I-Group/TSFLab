@@ -1,5 +1,7 @@
 """Runtime specification for AdaMamba."""
 
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from tsflab.catalog.registry.models import ModelSpec
@@ -15,7 +17,7 @@ class ModelParameterConfig(BaseModel):
     d_model: int = Field(default=32, ge=4)
     d_freq: int = Field(default=32, ge=1)
     e_layers: int = Field(default=2, ge=1)
-    patch_lens: list[int] = Field(default_factory=lambda: [96, 18, 9], min_length=1)
+    patch_lens: list[Annotated[int, Field(ge=1)]] = Field(default_factory=lambda: [96, 18, 9], min_length=1)
     stride: int = Field(default=16, ge=1)
     conv_kernel: int = Field(default=3, ge=1)
     beta: float = 1.0

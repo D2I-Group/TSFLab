@@ -30,7 +30,7 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("sequence, horizon, channels, and model width must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.frequency_pool = max(pred_len, frequency_pool or 2 * pred_len)

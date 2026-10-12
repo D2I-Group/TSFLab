@@ -43,10 +43,8 @@ class Model(nn.Module):
         output_dim: int = 1,
     ) -> None:
         super().__init__()
-        del adj_mx
-        if output_dim != 1:
-            raise ValueError("TSFLab AGCRN exposes one value per node")
-        if min(seq_len, pred_len, num_nodes, input_dim, rnn_units, embed_dim, num_layers, cheb_k) < 1:
+        del adj_mx, output_dim
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("AGCRN dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim

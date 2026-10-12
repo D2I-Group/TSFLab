@@ -2,16 +2,24 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.tsrag.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    top_k: int = 4
-    memory_size: int = 8
-    num_heads: int = 4
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=64, ge=1)
+    top_k: int = Field(default=4, ge=1)
+    memory_size: int = Field(default=8, ge=1)
+    num_heads: int = Field(default=4, ge=1)
     dropout: float = 0.1
+
+    @model_validator(mode="after")
+    def _architecture_contract(self):
+        if self.top_k > self.memory_size:
+            raise ValueError("top_k cannot exceed memory_size")
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

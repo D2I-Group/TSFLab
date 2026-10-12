@@ -391,13 +391,6 @@ class TransposedConvDecoder(nn.Module):
         return y.reshape(b, n, -1, y.shape[-1])
 
 
-def _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routing) -> None:
-    if embed_dim % (len(conv_kernels) * (gconv_hops + 1)) or embed_dim % num_heads:
-        raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
-    if position_routing not in ("official", "matched"):
-        raise ValueError("position_routing must be 'official' or 'matched'")
-
-
 class Model(nn.Module):
     """MultiSPANS forecaster: ``[B, T, N]`` history -> ``[B, H, N]`` forecast."""
 
@@ -423,7 +416,6 @@ class Model(nn.Module):
         position_routing: str = "official",
     ) -> None:
         super().__init__()
-        _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routing)
         adjacency = np.eye(num_nodes) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
         if adjacency.shape != (num_nodes, num_nodes):
             raise ValueError("adj_mx shape must match num_nodes")

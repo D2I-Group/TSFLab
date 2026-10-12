@@ -33,6 +33,8 @@ class ModelParameterConfig(BaseModel):
     def _architecture_contract(self) -> "ModelParameterConfig":
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
+        if self.sparse_ffn and round((1.0 - self.sparsity) * self.d_model * self.d_ff) < 1:
+            raise ValueError("sparsity leaves no connection")
         return self
 
 

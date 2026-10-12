@@ -133,7 +133,7 @@ class Model(nn.Module):
         n_heads: int = 4,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_k, d_v, n_heads) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, nodes, and attention dimensions must be positive")
         adjacency = np.eye(enc_in, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (enc_in, enc_in):

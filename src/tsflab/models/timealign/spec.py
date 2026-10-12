@@ -1,6 +1,6 @@
 """Runtime specification for TimeAlign."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timealign.model import Model
 
@@ -20,6 +20,12 @@ class ModelParameterConfig(BaseModel):
     global_margin: float = Field(default=0.0, ge=0)
     w_recon: float = Field(default=1.0, ge=0)
     w_align: float = Field(default=0.1, ge=0)
+
+    @model_validator(mode="after")
+    def _one_alignment_mode(self):
+        if not (self.loc or self.glo):
+            raise ValueError("at least one alignment mode must be enabled")
+        return self
 
 
 def build_model(cfg, params):

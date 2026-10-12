@@ -56,8 +56,6 @@ class Model(nn.Module):
         adjacency = np.asarray(adj_mx, dtype=np.float64)
         if adjacency.shape != (enc_in, enc_in):
             raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
-        if hidden_dim % 2 or hidden_dim % n_heads:
-            raise ValueError("hidden_dim must be even and divisible by n_heads")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.hidden_dim = hidden_dim
         # Eq. 5: keep relations only where A~ = A + I is positive.

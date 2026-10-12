@@ -49,7 +49,7 @@ class Model(nn.Module):
         feature_encode_dim: int,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, d_model, e_layers, d_layers, d_ff, decoder_output_dim, time_feat_dim, feature_encode_dim) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("all TiDE dimensions and layer counts must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

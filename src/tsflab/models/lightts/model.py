@@ -44,14 +44,10 @@ class Model(nn.Module):
         chunk_size: int = 24,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, chunk_size) < 1:
-            raise ValueError("lengths, channels, and chunk_size must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         if seq_len % chunk_size:
             raise ValueError("seq_len must be divisible by chunk_size")
-        if hid_dim < 16:
-            raise ValueError("hid_dim must be at least 16")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

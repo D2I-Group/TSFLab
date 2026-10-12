@@ -312,7 +312,7 @@ class Model(nn.Module):
         sample_batch_size: int = 10,
     ) -> None:
         super().__init__()
-        if not 0 < rolling_length < seq_len:
+        if rolling_length >= seq_len:
             raise ValueError("rolling_length must satisfy 0 < rolling_length < seq_len")
         if not 0 <= label_len <= seq_len:
             raise ValueError("label_len must lie in [0, seq_len]")

@@ -54,12 +54,8 @@ class Model(nn.Module):
         kl_weight: float = 0.01,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) <= 0:
-            raise ValueError("sequence, horizon, channel, and width sizes must be positive")
-        if not 0.0 <= mask_ratio < 1.0:
-            raise ValueError("mask_ratio must be in [0, 1)")
-        if align_loss_type not in {"cos_align", "contrastive"}:
-            raise ValueError("align_loss_type must be 'cos_align' or 'contrastive'")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("sequence and horizon sizes must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.mask_ratio = float(mask_ratio)

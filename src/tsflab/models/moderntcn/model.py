@@ -70,13 +70,6 @@ def _head_width(seq_len, dims, patch_size, patch_stride, downsample_ratio, use_m
     return sum(patch_counts) if use_multi_scale else patch_counts[-1]
 
 
-def _stage_arrays(num_blocks, large_size, small_size, dims):
-    arrays = [list(value) for value in (num_blocks, large_size, small_size, dims)]
-    if len({len(value) for value in arrays}) != 1 or not arrays[0]:
-        raise ValueError("stage parameter lists must have the same non-zero length")
-    return arrays
-
-
 class ModernTCNBackbone(nn.Module):
     def __init__(self, seq_len, pred_len, variables, ffn_ratio, num_blocks,
                  large_size, small_size, dims, patch_size, patch_stride,
@@ -135,9 +128,7 @@ class Model(nn.Module):
                  affine=True, subtract_last=False,
                  decomposition=False, kernel_size=25):
         super().__init__()
-        arrays = _stage_arrays(num_blocks, large_size, small_size, dims)
-        if any(kernel % 2 == 0 for kernel in arrays[1] + arrays[2]):
-            raise ValueError("ModernTCN temporal kernels must be odd")
+        arrays = [list(value) for value in (num_blocks, large_size, small_size, dims)]
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.decomposition = decomposition
         kwargs = dict(seq_len=seq_len, pred_len=pred_len, variables=enc_in,
@@ -148,8 +139,6 @@ class Model(nn.Module):
                       use_multi_scale=use_multi_scale, revin=revin, affine=affine,
                       subtract_last=subtract_last)
         if decomposition:
-            if kernel_size % 2 == 0:
-                raise ValueError("decomposition kernel_size must be odd")
             self.decompose = SeriesDecomposition(kernel_size)
             self.seasonal = ModernTCNBackbone(**kwargs)
             self.trend = ModernTCNBackbone(**kwargs)

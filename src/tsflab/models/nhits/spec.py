@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.nhits.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ModelParameterConfig(BaseModel):
     enc_in: int
-    stack_types: list[str] = ["identity", "identity", "identity"]
+    # Local N-HiTS supports the paper identity interpolation basis only.
+    stack_types: list[Literal["identity"]] = ["identity", "identity", "identity"]
     n_blocks: list[int] = [1, 1, 1]
     mlp_units: list = [[256, 256]]
     n_pool_kernel_size: list[int] = [2, 2, 1]
@@ -20,6 +23,14 @@ class ModelParameterConfig(BaseModel):
     dropout: float = 0.0
     activation: str = "ReLU"
     use_norm: bool = True
+
+    @model_validator(mode="after")
+    def _stack_lengths(self):
+        count = len(self.stack_types)
+        if not all(len(items) == count for items in
+                   (self.n_blocks, self.n_pool_kernel_size, self.n_freq_downsample)):
+            raise ValueError("N-HiTS stack configuration lengths must match")
+        return self
 
 
 def build_model(cfg, params):

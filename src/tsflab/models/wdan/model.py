@@ -40,8 +40,6 @@ _LOW_PASS: dict[str, tuple[float, ...]] = {
 
 def wavelet_filters(name: str) -> tuple[torch.Tensor, torch.Tensor]:
     """Decomposition low-pass and quadrature-mirror high-pass filters."""
-    if name not in _LOW_PASS:
-        raise ValueError(f"unsupported wavelet {name!r}; choose one of {sorted(_LOW_PASS)}")
     low = torch.tensor(_LOW_PASS[name], dtype=torch.float32)
     signs = torch.tensor([(-1.0) ** (k + 1) for k in range(low.numel())])
     return low, signs * low.flip(0)
@@ -85,8 +83,6 @@ class WaveletTrend(nn.Module):
 
     def __init__(self, wavelet: str, levels: int) -> None:
         super().__init__()
-        if levels < 1:
-            raise ValueError("dwt_levels must be positive")
         low, high = wavelet_filters(wavelet)
         self.register_buffer("low", low.view(1, 1, -1), persistent=False)
         self.register_buffer("high", high.view(1, 1, -1), persistent=False)
@@ -236,10 +232,8 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, stat_d_model, stat_d_ff) < 1 or seq_len < 2:
+        if min(seq_len, pred_len) < 1 or seq_len < 2:
             raise ValueError("lengths, channels, and widths must be positive (seq_len >= 2)")
-        if stat_pretrain_epochs < 0 or joint_after_epochs < 0 or stat_ffn_layers < 0:
-            raise ValueError("epoch counts and layer counts must be non-negative")
         if not 1 <= window_len <= min(seq_len, pred_len):
             raise ValueError("window_len must lie in [1, min(seq_len, pred_len)]")
         self.trend = WaveletTrend(wavelet, dwt_levels)

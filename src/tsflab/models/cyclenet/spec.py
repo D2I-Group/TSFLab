@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.cyclenet.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    cycle: int = 24
-    model_type: str = "linear"
-    d_model: int = 512
+    enc_in: int = Field(gt=0)
+    cycle: int = Field(default=24, gt=0)
+    model_type: Literal["linear", "mlp"] = "linear"
+    d_model: int = Field(default=512, gt=0)
     use_revin: bool = True
 
 

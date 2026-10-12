@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.embed import DataEmbedding_inverted
-from tsflab.models._components.marks import encoder_timef_marks, tslib_time_feature_dimension
+from tsflab.models._components.marks import encoder_timef_marks
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 
 
@@ -121,10 +121,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("Minusformer sizes must be positive")
-        if attn and d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         d_block = pred_len if d_block is None else d_block
         if d_block < 1:
             raise ValueError("d_block must be positive")
@@ -133,8 +131,6 @@ class Model(nn.Module):
         self.enc_in = enc_in
         self.use_marks = use_marks
         self.freq = freq
-        if use_marks:
-            tslib_time_feature_dimension(freq)  # validates the calendar layout early
         # Algorithm 1 line 3: one linear map of each whole (scaled) series; no dropout.
         self.embedding = DataEmbedding_inverted(seq_len, d_model, dropout=0.0)
         self.blocks = nn.ModuleList(

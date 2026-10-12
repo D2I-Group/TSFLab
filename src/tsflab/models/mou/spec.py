@@ -5,7 +5,7 @@ from tsflab.models.mou.model import Model
 
 """Validated parameters for MoU."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,17 +13,17 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    patch_len: int = 16
-    stride: int = 8
-    d_model: int = 128
-    n_heads: int = 16
-    d_ff: int = 256
-    e_layers: int = 1
-    num_experts: int = 4
-    top_k: int = 2
-    d_state: int = 21
-    ffn_expand: int = 2
+    enc_in: int = Field(gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
+    d_model: int = Field(default=128, gt=0)
+    n_heads: int = Field(default=16, gt=0)
+    d_ff: int = Field(default=256, gt=0)
+    e_layers: int = Field(default=1, gt=0)
+    num_experts: int = Field(default=4, gt=0)
+    top_k: int = Field(default=2, gt=0)
+    d_state: int = Field(default=21, gt=0)
+    ffn_expand: int = Field(default=2, gt=0)
     dropout: float = 0.1
     mamba_dropout: float = 0.1
     ffn_dropout: float = 0.2
@@ -33,6 +33,14 @@ class ModelParameterConfig(BaseModel):
     tf_dropout: float = 0.2
     head_dropout: float = 0.0
     use_revin: bool = True
+
+    @model_validator(mode="after")
+    def _architecture_contract(self) -> "ModelParameterConfig":
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        if self.top_k > self.num_experts:
+            raise ValueError("top_k must lie in [1, num_experts]")
+        return self
 
 
 def build_model(cfg, params):

@@ -108,10 +108,8 @@ class Model(nn.Module):
         use_act: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_ff, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("SAMBA dimensions must be positive")
-        if e_layers < 0 or d_layers < 0 or e_layers + d_layers == 0:
-            raise ValueError("at least one of e_layers and d_layers must be positive")
         if patch_len > seq_len + stride:
             raise ValueError("patch_len exceeds the padded history")
         self.seq_len = seq_len

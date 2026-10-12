@@ -167,8 +167,6 @@ class Model(nn.Module):
             raise ValueError("short_len must lie in (0, seq_len]")
         if m_patch_len > seq_len or patch_len > short_len:
             raise ValueError("patch lengths must not exceed their range lengths")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.short_len = short_len

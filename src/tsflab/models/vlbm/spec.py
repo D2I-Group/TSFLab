@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -22,6 +22,12 @@ class ModelParameterConfig(BaseModel):
     interval: float = Field(default=5.0, gt=0.0, le=1440.0)
     use_norm: bool = True
     kl_weight: float = Field(default=0.1, ge=0.0)
+
+    @model_validator(mode="after")
+    def _top_k_within_variables(self):
+        if self.top_k > self.enc_in:
+            raise ValueError("top_k cannot exceed the number of variables")
+        return self
 
 
 def build_model(cfg, params):

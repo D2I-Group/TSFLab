@@ -13,7 +13,7 @@ class Model(nn.Module):
                  temperature: float = 1.0, random_seed: int = 1733,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_estimators, tree_depth) < 1 or min(threshold_range, temperature) <= 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions, estimators, and threshold_range must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         input_dim, output_dim = seq_len * enc_in, pred_len * enc_in

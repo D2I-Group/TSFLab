@@ -2,12 +2,12 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.ridge_regression_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    l2_penalty: float = 1e-4
+    enc_in: int = Field(gt=0)
+    l2_penalty: float = Field(default=1e-4, ge=0)
 
 
 def build_model(cfg, params):

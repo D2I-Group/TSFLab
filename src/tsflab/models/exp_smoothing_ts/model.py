@@ -15,8 +15,8 @@ class Model(nn.Module):
         self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or not 0.0 < initial_alpha < 1.0:
-            raise ValueError("dimensions must be positive and initial_alpha must be in (0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         initial_logit = math.log(initial_alpha / (1.0 - initial_alpha))
         self.alpha_logit = nn.Parameter(torch.full((enc_in,), initial_logit))

@@ -5,13 +5,20 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dlinear.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    kernel_size: int = 25
+    enc_in: int = Field(gt=0)
+    kernel_size: int = Field(default=25, gt=0)
     individual: bool = False
+
+    @field_validator("kernel_size")
+    @classmethod
+    def _odd_kernel(cls, value: int) -> int:
+        if value % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer")
+        return value
 
 
 def build_model(cfg, params):

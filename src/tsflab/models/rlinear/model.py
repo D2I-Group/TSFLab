@@ -22,10 +22,8 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(c_in, seq_len, pred_len) <= 0:
-            raise ValueError("channels and sequence lengths must be positive")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("sequence lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = c_in

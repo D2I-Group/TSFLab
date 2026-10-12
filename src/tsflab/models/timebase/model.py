@@ -15,10 +15,10 @@ def cal_orthogonal_loss(matrix: torch.Tensor) -> torch.Tensor:
     return loss.mean()
 
 
-def _check_lengths(seq_len: int, pred_len: int, enc_in: int, period_len: int) -> None:
-    if seq_len < 1 or pred_len < 1 or enc_in < 1:
+def _check_lengths(seq_len: int, pred_len: int, period_len: int) -> None:
+    if seq_len < 1 or pred_len < 1:
         raise ValueError("seq_len, pred_len, and enc_in must be positive")
-    if period_len < 1 or period_len > seq_len:
+    if period_len > seq_len:
         raise ValueError("period_len must be in [1, seq_len]")
 
 
@@ -35,11 +35,7 @@ class TimeBaseModel(nn.Module):
         use_period_norm: bool,
     ) -> None:
         super().__init__()
-        _check_lengths(seq_len, pred_len, enc_in, period_len)
-        if basis_num < 1:
-            raise ValueError("basis_num must be positive")
-        if orthogonal_weight < 0:
-            raise ValueError("orthogonal_weight must be non-negative")
+        _check_lengths(seq_len, pred_len, period_len)
         self.use_period_norm = use_period_norm
         self.orthogonal_weight = orthogonal_weight
         self.aux_loss: torch.Tensor | None = None

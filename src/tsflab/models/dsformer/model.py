@@ -42,7 +42,7 @@ class Model(nn.Module):
     def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M", num_layer=1,
                  muti_head=2, num_samp=2, dropout=0.15, if_node=True):
         super().__init__()
-        if num_samp < 1 or seq_len % num_samp:
+        if seq_len % num_samp:
             raise ValueError("seq_len must be divisible by num_samp")
         width = seq_len // num_samp
         if width % muti_head or seq_len % muti_head:

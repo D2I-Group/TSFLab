@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class StructuredMatrixBasis(nn.Module):
     """Low-rank, row-stochastic basis matrices with convex dynamic mixing."""
@@ -90,10 +92,8 @@ class Model(nn.Module):
                  depth: int = 2, diffusion_steps: int = 2, mix: float = 0.1,
                  dropout: float = 0.1) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, basis_count, basis_rank, depth, diffusion_steps) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("Sumba dimensions must be positive")
-        if not temporal_kernels or min(temporal_kernels) < 1 or not 0.0 <= mix <= 1.0:
-            raise ValueError("temporal kernels and mix are invalid")
         self.seq_len, self.pred_len = seq_len, pred_len
         self.input_projection = nn.Linear(1, d_model)
         self.blocks = nn.ModuleList(SumbaBlock(enc_in, d_model, basis_count, basis_rank, temporal_kernels, diffusion_steps, mix, dropout) for _ in range(depth))
@@ -108,10 +108,9 @@ class Model(nn.Module):
     ):
         if x_enc.ndim != 3 or x_enc.size(1) != self.seq_len:
             raise ValueError(f"Sumba expects [B, {self.seq_len}, C]")
-        mean = x_enc.mean(1, keepdim=True).detach()
-        scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        hidden = self.input_projection(((x_enc - mean) / scale).unsqueeze(-1))
+        normalized, mean, scale = standardize(x_enc, detach_std=True)
+        hidden = self.input_projection(normalized.unsqueeze(-1))
         for block in self.blocks:
             hidden, _ = block(hidden)
         forecast = self.temporal_head(hidden.permute(0, 2, 1, 3).flatten(-2)).transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

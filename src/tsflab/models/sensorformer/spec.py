@@ -5,7 +5,7 @@ from tsflab.models.sensorformer.model import Model
 
 """Validated parameters for Sensorformer."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,13 +13,13 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 64
-    n_heads: int = 4
-    d_ff: int = 128
-    layers: int = 2
-    patch_len: int = 16
-    stride: int = 8
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=64, ge=1)
+    n_heads: int = Field(default=4, ge=1)
+    d_ff: int = Field(default=128, ge=1)
+    layers: int = Field(default=2, ge=1)
+    patch_len: int = Field(default=16, ge=1)
+    stride: int = Field(default=8, ge=1)
     dropout: float = 0.1
 
 

@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.embed import DataEmbedding_inverted
-from tsflab.models._components.marks import encoder_timef_marks, tslib_time_feature_dimension
+from tsflab.models._components.marks import encoder_timef_marks
 from tsflab.models._components.revin import RevIN
 
 _SQRT3 = math.sqrt(3.0)
@@ -99,8 +99,6 @@ class DB2Block(nn.Module):
 
     def __init__(self, d_model: int, d_ff: int, levels: int, n_heads: int) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.heads = nn.ModuleList(MultiLevelDB2(self.head_dim, levels) for _ in range(n_heads))
@@ -134,18 +132,14 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, e_layers, levels, n_heads, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("DB2TransF sizes must be positive")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must lie in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.use_norm = use_norm
         self.use_marks = use_marks
         self.freq = freq
-        if use_marks:
-            tslib_time_feature_dimension(freq)  # validates the calendar layout early
         self.normalizer = RevIN(enc_in, eps=1e-5, affine=False, enabled=use_norm)
         self.embedding = DataEmbedding_inverted(seq_len, d_model, dropout=dropout)
         self.blocks = nn.ModuleList(DB2Block(d_model, d_ff, levels, n_heads) for _ in range(e_layers))

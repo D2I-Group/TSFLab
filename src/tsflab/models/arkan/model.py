@@ -19,9 +19,6 @@ import torch.nn.functional as F
 
 from tsflab.models._components.bspline_basis import bspline_basis
 
-AR_ESTIMATORS = ("least_squares", "yule_walker")
-
-
 class BSplineKANLayer(nn.Module):
     """KAN layer ``y_j = sum_i phi_ij(x_i) + b_j`` with ``phi = w_b silu + w_s sum_k c_k B_k``.
 
@@ -31,8 +28,6 @@ class BSplineKANLayer(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int, grid: int = 3, order: int = 3, bound: float = 1.0):
         super().__init__()
-        if min(in_dim, out_dim, grid) < 1 or order < 0 or bound <= 0:
-            raise ValueError("invalid KAN layer configuration")
         self.in_dim, self.out_dim, self.order = in_dim, out_dim, order
         step = 2.0 * bound / grid
         knots = torch.arange(-order, grid + order + 1, dtype=torch.float32) * step - bound
@@ -115,10 +110,8 @@ class Model(nn.Module):
         ar_estimator: str = "least_squares",
     ) -> None:
         super().__init__()
-        if not 1 <= lag <= seq_len:
+        if lag > seq_len:
             raise ValueError("lag must be between 1 and seq_len")
-        if ar_estimator not in AR_ESTIMATORS:
-            raise ValueError(f"ar_estimator must be one of {AR_ESTIMATORS}")
         self.seq_len, self.pred_len, self.enc_in, self.lag = seq_len, pred_len, enc_in, lag
         self.ar_estimator = ar_estimator
         # AR memory (Eq. 8): one coefficient per lag and channel, fitted before training.

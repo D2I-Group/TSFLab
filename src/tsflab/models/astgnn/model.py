@@ -78,8 +78,6 @@ class TrendAwareAttention(nn.Module):
         query_causal: bool, key_causal: bool,
     ) -> None:
         super().__init__()
-        if width % heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.heads = heads
         self.head_width = width // heads
         self.kernel_size = kernel_size
@@ -169,16 +167,6 @@ class SpatialEmbedding(nn.Module):
         return embedding  # [N, d]
 
 
-def _check_arguments(
-    seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, num_layers: int,
-    kernel_size: int, dropout: float, smooth_layer_num: int,
-) -> None:
-    if min(seq_len, pred_len, enc_in, d_model, n_heads, num_layers, kernel_size) < 1:
-        raise ValueError("lengths, nodes, widths, heads, layers and kernel must be positive")
-    if smooth_layer_num < 0 or not 0.0 <= dropout < 1.0:
-        raise ValueError("smooth_layer_num must be >= 0 and dropout in [0, 1)")
-
-
 def _normalized_adjacency(adj_mx: np.ndarray | None, enc_in: int) -> torch.Tensor:
     if adj_mx is None:
         raise ValueError(
@@ -212,10 +200,8 @@ class Model(nn.Module):
         teacher_forcing: bool = True,
     ) -> None:
         super().__init__()
-        _check_arguments(
-            seq_len, pred_len, enc_in, d_model, n_heads, num_layers, kernel_size, dropout,
-            smooth_layer_num,
-        )
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.register_buffer("adjacency", _normalized_adjacency(adj_mx, enc_in))
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -224,8 +210,6 @@ class Model(nn.Module):
 
         self.source_projection = nn.Linear(1, d_model)
         self.target_projection = nn.Linear(1, d_model)
-        if d_model % 2:
-            raise ValueError("d_model must be even for the sinusoidal position table")
         # Transformer sinusoid sin/cos(pos / 10000^(2k/d)), fixed (not trained).
         self.source_position = PositionalEmbedding(d_model, max_len=seq_len)
         self.target_position = PositionalEmbedding(d_model, max_len=pred_len)

@@ -17,10 +17,8 @@ class Model(nn.Module):
                  model_type: str = "linear", d_model: int = 512,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cycle, d_model) < 1:
-            raise ValueError("lengths, channels, cycle, and d_model must be positive")
-        if model_type not in {"linear", "mlp"}:
-            raise ValueError("model_type must be 'linear' or 'mlp'")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cycle = seq_len, pred_len, enc_in, cycle
         self.cycle_pattern = nn.Parameter(torch.zeros(cycle, enc_in))
         self.normalization = RevIN(enc_in, affine=False, enabled=use_revin)

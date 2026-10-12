@@ -5,20 +5,27 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.wpmixer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 128
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=128, gt=0)
     dropout: float = 0.1
     tfactor: int = 5
     dfactor: int = 5
     wavelet: str = "db2"
     level: int = 1
-    patch_len: int = 16
-    stride: int = 8
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
     no_decomposition: bool = False
+
+    @model_validator(mode="after")
+    def _wavelet_filters(self) -> "ModelParameterConfig":
+        # The wavelet is only built when the decomposition is on.
+        if not self.no_decomposition and (self.wavelet not in ("haar", "db1", "db2") or self.level < 1):
+            raise ValueError("wavelet must be haar/db1/db2 and level positive")
+        return self
 
 
 def build_model(cfg, params):

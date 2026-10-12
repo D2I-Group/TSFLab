@@ -75,7 +75,7 @@ class Model(nn.Module):
                  n_heads=8, e_layers=2, d_ff=256, patch_len=16, dropout=0.1,
                  activation="gelu", use_norm=True):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, e_layers) < 1 or d_model % n_heads:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid TimeXer dimensions")
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.endogenous_count = enc_in if features == "M" else 1

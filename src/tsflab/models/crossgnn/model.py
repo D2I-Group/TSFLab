@@ -147,14 +147,10 @@ class Model(nn.Module):
         hidden: int = 16,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, e_layers, tk, scale_number, hidden) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("CrossGNN dimensions must be positive")
-        if tk < 2 or enc_in < 2 * tk:
-            raise ValueError("tk must be at least 2 and enc_in must be at least 2 * tk")
         if scale_number > seq_len // 2:
             raise ValueError("scale_number exceeds available non-DC frequencies")
-        if not use_tgcn and not use_ngcn:
-            raise ValueError("at least one graph path must be enabled")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

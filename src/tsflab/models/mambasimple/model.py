@@ -6,6 +6,7 @@ import math
 
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaResidualBlock, RMSNorm
 
 
@@ -27,26 +28,8 @@ class Model(nn.Module):
         dropout=0.1,
     ):
         super().__init__()
-        c_out = enc_in if c_out is None else c_out
-        if (
-            min(
-                seq_len,
-                pred_len,
-                enc_in,
-                c_out,
-                d_model,
-                d_state,
-                e_layers,
-                expand,
-                d_conv,
-            )
-            < 1
-        ):
-            raise ValueError(
-                "sequence lengths, dimensions, and counts must be positive"
-            )
-        if c_out != enc_in:
-            raise ValueError("MambaSimple normalization requires c_out == enc_in")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("sequence lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         inner, rank = d_model * expand, math.ceil(d_model / 16)
         self.input_projection = nn.Linear(enc_in, d_model)
@@ -72,11 +55,10 @@ class Model(nn.Module):
             raise ValueError(
                 f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
             )
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        scale = x_enc.var(dim=1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        hidden = self.input_dropout(self.input_projection((x_enc - mean) / scale))
+        normalized, mean, scale = standardize(x_enc, detach_std=True)
+        hidden = self.input_dropout(self.input_projection(normalized))
         for layer in self.layers:
             hidden = layer(hidden)
         history = self.channel_projection(self.final_norm(hidden))
         forecast = self.horizon_projection(history.transpose(1, 2)).transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

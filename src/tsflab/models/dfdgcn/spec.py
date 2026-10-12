@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dfdgcn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -28,8 +28,14 @@ class ModelParameterConfig(BaseModel):
     fft_emb: int = 10
     identity_emb: int = 10
     hidden_emb: int = 30
-    subgraph: int = 20
-    steps_per_day: int = 288
+    subgraph: int = Field(default=20, ge=1)
+    steps_per_day: int = Field(default=288, ge=1)
+
+    @model_validator(mode="after")
+    def _equal_widths(self):
+        if self.residual_channels != self.dilation_channels:
+            raise ValueError("local DFDGCN requires equal residual and dilation widths")
+        return self
 
 
 def build_model(cfg, params):

@@ -88,11 +88,7 @@ class FrequencyGraph(nn.Module):
         return torch.softmax(scores * mask, dim=-1)
 
 
-def _checked_adjacency(adj_mx, num_nodes, residual_channels, dilation_channels, subgraph, steps_per_day) -> np.ndarray:
-    if residual_channels != dilation_channels:
-        raise ValueError("local DFDGCN requires equal residual and dilation widths")
-    if min(subgraph, steps_per_day) < 1:
-        raise ValueError("subgraph and steps_per_day must be positive")
+def _checked_adjacency(adj_mx, num_nodes) -> np.ndarray:
     if adj_mx is None:
         raise ValueError(
             "DFDGCN needs the dataset adjacency adj_mx [N, N] for its predefined graphs; "
@@ -109,7 +105,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2, a: float = 1.0, fft_emb: int = 10, identity_emb: int = 10, hidden_emb: int = 30, subgraph: int = 20, steps_per_day: int = 288) -> None:
         super().__init__()
-        adjacency = _checked_adjacency(adj_mx, num_nodes, residual_channels, dilation_channels, subgraph, steps_per_day)
+        adjacency = _checked_adjacency(adj_mx, num_nodes)
         static = adj_to_supports(adjacency)
         self.register_buffer("forward_support", static[0])
         self.register_buffer("reverse_support", static[1])

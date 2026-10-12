@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mgsfformer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -14,7 +14,13 @@ class ModelParameterConfig(BaseModel):
     enc_in: int
     IE_dim: int = 32
     dropout: float = 0.3
-    num_head: int = 2
+    num_head: int = Field(default=2, gt=0)
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self):
+        if self.IE_dim % self.num_head:
+            raise ValueError("MGSFformer IE_dim must be divisible by num_head")
+        return self
 
 
 def build_model(cfg, params):

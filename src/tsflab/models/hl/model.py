@@ -10,7 +10,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("sequence length, horizon, and channel count must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

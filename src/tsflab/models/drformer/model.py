@@ -70,8 +70,6 @@ class DynamicSparseLinear(nn.Module):
 
     def __init__(self, patch_len: int, d_model: int, groups: int, active_ratio: float) -> None:
         super().__init__()
-        if d_model % groups or patch_len % groups:
-            raise ValueError("d_model and patch_len must both be divisible by groups")
         self.patch_len = patch_len
         self.d_model = d_model
         self.groups = groups
@@ -167,8 +165,6 @@ class GroupAwareRoPEAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, group_lengths: list[int], dropout: float) -> None:
         super().__init__()
-        if d_model % n_heads or (d_model // n_heads) % 2:
-            raise ValueError("d_model / n_heads must be an even integer")
         self.n_heads = n_heads
         head_dim = d_model // n_heads
         self.query_projection = nn.Linear(d_model, d_model)

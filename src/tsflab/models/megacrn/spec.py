@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.megacrn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,12 +16,12 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int  # number of spatial nodes N (required)
-    input_dim: int = 3
-    rnn_units: int = 32
-    num_layers: int = 1
-    cheb_k: int = 3
-    mem_num: int = 8
-    mem_dim: int = 16
+    input_dim: int = Field(default=3, gt=0)
+    rnn_units: int = Field(default=32, gt=0)
+    num_layers: int = Field(default=1, gt=0)
+    cheb_k: int = Field(default=3, gt=0)
+    mem_num: int = Field(default=8, gt=0)
+    mem_dim: int = Field(default=16, gt=0)
 
 
 def build_model(cfg, params):

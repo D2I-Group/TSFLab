@@ -80,12 +80,8 @@ class Model(nn.Module):
         value_range: ValueRange = "signed",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or num_bins < 2:
-            raise ValueError("lengths and channels must be positive and num_bins at least 2")
-        if not sigma > 0:
-            raise ValueError("sigma must be positive")
-        if value_range not in ("signed", "unit"):
-            raise ValueError("value_range must be 'signed' or 'unit'")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

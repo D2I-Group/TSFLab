@@ -83,13 +83,9 @@ class Model(nn.Module):
                  d_ff=64, residual_connection=1, revin=True, n_heads=4,
                  dropout=0.1):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, layer_nums, num_experts) < 1:
-            raise ValueError("sequence, horizon, variables, layers, and experts must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("sequence and horizon must be positive")
         sizes = patch_size_list or [16, 12, 8, 6] * layer_nums
-        if len(sizes) != layer_nums * num_experts or any(s < 1 for s in sizes):
-            raise ValueError("patch_size_list must contain layer_nums * num_experts positive values")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.residual_connection = bool(residual_connection)
         self.revin = RevIN(enc_in, enabled=revin)

@@ -74,12 +74,10 @@ class SVTimeModel(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if c_in < 1 or seq_len < 1 or pred_len < 1:
-            raise ValueError("c_in, seq_len, and pred_len must be positive")
-        if period < 1 or period > seq_len:
+        if seq_len < 1 or pred_len < 1:
+            raise ValueError("seq_len and pred_len must be positive")
+        if period > seq_len:
             raise ValueError("period must be in [1, seq_len]")
-        if patch_size < 1 or patch_size > period:
-            raise ValueError("patch_size must be in [1, period]")
         self.c_in = c_in
         self.period = period
         self.seq_len = seq_len

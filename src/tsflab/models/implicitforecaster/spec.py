@@ -5,12 +5,12 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.implicitforecaster.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
     frequency_pool: int | None = None
     dropout: float = 0.0
     use_revin: bool = True

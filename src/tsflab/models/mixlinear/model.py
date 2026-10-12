@@ -64,7 +64,7 @@ class Model(nn.Module):
         spectral_rank: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, downsample, segments, hidden_rank, spectral_rank) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("all dimensions and factors must be positive")
         if seq_len % downsample:
             raise ValueError("seq_len must be divisible by downsample")

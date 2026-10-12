@@ -2,7 +2,7 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sempo.model import Model
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,6 +13,12 @@ class ModelParameterConfig(BaseModel):
     num_heads: int = Field(default=4, gt=0)
     dropout: float = Field(default=0.1, ge=0, lt=1)
     use_revin: bool = True
+
+    @model_validator(mode="after")
+    def _check_heads(self):
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

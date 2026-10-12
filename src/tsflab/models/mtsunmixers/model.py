@@ -97,11 +97,8 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_state, d_conv, expand, e_layers, patch_len,
-               time_bases, channel_bases) < 1:
-            raise ValueError("MTSUNMixers lengths, widths and counts must be positive")
-        if recon_weight < 0:
-            raise ValueError("recon_weight must be non-negative")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("MTSUNMixers lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.num_patches = math.ceil(seq_len / patch_len)

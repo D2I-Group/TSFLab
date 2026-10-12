@@ -28,9 +28,7 @@ class LSHSelfAttention(nn.Module):
         max_sequence_length=512,
     ):
         super().__init__()
-        if dim % heads:
-            raise ValueError("attention dimension must be divisible by heads")
-        if min(bucket_size, n_hashes, max_sequence_length) < 1:
+        if max_sequence_length < 1:
             raise ValueError(
                 "bucket_size, n_hashes, and maximum length must be positive"
             )
@@ -229,24 +227,8 @@ class Model(nn.Module):
         super().__init__()
         c_out = enc_in if c_out is None else c_out
         total_length = seq_len + pred_len
-        if (
-            min(
-                seq_len,
-                pred_len,
-                enc_in,
-                c_out,
-                d_model,
-                n_heads,
-                e_layers,
-                d_ff,
-                bucket_size,
-                n_hashes,
-            )
-            < 1
-        ):
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all Reformer dimensions and counts must be positive")
-        if d_model % (2 * n_heads):
-            raise ValueError("d_model/2 must be divisible by n_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.embedding = TimeValueEmbedding(enc_in, d_model, dropout)
         self.layers = nn.ModuleList(

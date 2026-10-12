@@ -13,20 +13,6 @@ import torch.nn as nn
 from tsflab.models._components.gaussian_parameter_head import GaussianParameterHead
 
 
-def _check_sizes(seq_len: int, pred_len: int, enc_in: int, hidden_size: int, num_layers: int) -> None:
-    if seq_len < 1 or pred_len < 1 or enc_in < 1:
-        raise ValueError("seq_len, pred_len, and enc_in must be positive")
-    if hidden_size < 1 or num_layers < 1:
-        raise ValueError("hidden_size and num_layers must be positive")
-
-
-def _check_scalars(dropout: float, eps: float) -> None:
-    if not 0.0 <= dropout < 1.0:
-        raise ValueError("dropout must be in [0, 1)")
-    if eps <= 0:
-        raise ValueError("eps must be positive")
-
-
 class Model(nn.Module):
     def __init__(
         self,
@@ -40,8 +26,8 @@ class Model(nn.Module):
         eps: float = 1e-6,
     ) -> None:
         super().__init__()
-        _check_sizes(seq_len, pred_len, enc_in, hidden_size, num_layers)
-        _check_scalars(dropout, eps)
+        if seq_len < 1 or pred_len < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

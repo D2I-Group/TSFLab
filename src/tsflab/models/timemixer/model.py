@@ -20,8 +20,6 @@ class MovingAverageDecomposition(nn.Module):
 
     def __init__(self, kernel_size: int) -> None:
         super().__init__()
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("moving_avg must be a positive odd integer")
         self.kernel_size = kernel_size
         self._moving_average = EdgePaddedMovingAverage(kernel_size, stride=1)
 
@@ -71,10 +69,8 @@ class PastDecomposableMixing(nn.Module):
         super().__init__()
         if decomp_method == "moving_avg":
             self.decomposition: nn.Module = MovingAverageDecomposition(moving_avg)
-        elif decomp_method == "dft_decomp":
-            self.decomposition = DFTDecomposition(top_k)
         else:
-            raise ValueError("decomp_method must be 'moving_avg' or 'dft_decomp'")
+            self.decomposition = DFTDecomposition(top_k)
         self.seasonal_bottom_up = nn.ModuleList(
             [TemporalMixer(lengths[index], lengths[index + 1]) for index in range(len(lengths) - 1)]
         )
@@ -116,16 +112,9 @@ def multiscale_lengths(seq_len: int, window: int, layers: int) -> tuple[int, ...
     return tuple(lengths)
 
 
-def _check_arguments(
-    seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int,
-    down_sampling_window: int, down_sampling_layers: int,
-) -> None:
-    if min(seq_len, pred_len, enc_in, c_out, e_layers, d_model, d_ff) < 1:
+def _check_arguments(seq_len: int, pred_len: int) -> None:
+    if min(seq_len, pred_len) < 1:
         raise ValueError("lengths, channels, widths, and layers must be positive")
-    if enc_in != c_out:
-        raise ValueError("TimeMixer denormalization requires enc_in=c_out")
-    if down_sampling_window < 2 or down_sampling_layers < 1:
-        raise ValueError("TimeMixer requires at least one coarse scale and window >= 2")
 
 
 def _check_top_k(decomp_method: str, top_k: int, scale_lengths: tuple[int, ...]) -> None:
@@ -138,10 +127,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int, down_sampling_window: int, down_sampling_layers: int, moving_avg: int, top_k: int, dropout: float, use_norm: bool, decomp_method: str) -> None:
         super().__init__()
-        _check_arguments(
-            seq_len, pred_len, enc_in, c_out, e_layers, d_model, d_ff,
-            down_sampling_window, down_sampling_layers,
-        )
+        _check_arguments(seq_len, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

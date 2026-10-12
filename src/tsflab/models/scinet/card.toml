@@ -23,7 +23,7 @@ enc_in = { from = "channels", rule = "equal to the dataset channel count" }
 num_levels = { from = "seq_len", rule = "seq_len >= 2**num_levels" }
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:sci-tree-downsample-convolve-interact"
 channel = "local:channel-mixing-convolutions"

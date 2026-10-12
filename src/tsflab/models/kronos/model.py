@@ -20,8 +20,6 @@ class CausalBlock(nn.Module):
 
     def __init__(self, dimension: int, num_heads: int, dropout: float) -> None:
         super().__init__()
-        if dimension % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.num_heads = num_heads
         self.head_dim = dimension // num_heads
         self.query = nn.Linear(dimension, dimension)
@@ -111,12 +109,8 @@ class Model(nn.Module):
         num_heads: int = 4,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_layers, num_heads) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all dimensions and layer settings must be positive")
-        if code_bits < 2 or code_bits % 2:
-            raise ValueError("code_bits must be a positive even integer")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

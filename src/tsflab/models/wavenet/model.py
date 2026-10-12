@@ -56,13 +56,8 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len
-        if min(
-            seq_len, pred_len, enc_in, residual_channels, dilation_channels,
-            skip_channels, end_channels, kernel_size, blocks, layers,
-        ) < 1:
-            raise ValueError(
-                "lengths, widths, kernel, blocks, and layers must be positive"
-            )
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         if features not in {"M", "S", "MS"}:
             raise ValueError("features must be M, S, or MS")
         self.seq_len = seq_len

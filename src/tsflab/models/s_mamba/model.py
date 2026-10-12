@@ -6,6 +6,7 @@ import math
 
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaBlock
 
 
@@ -68,23 +69,8 @@ class Model(nn.Module):
         use_norm=True,
     ):
         super().__init__()
-        if (
-            min(
-                seq_len,
-                pred_len,
-                enc_in,
-                d_model,
-                d_state,
-                d_ff,
-                e_layers,
-                d_conv,
-                expand,
-            )
-            < 1
-        ):
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all S-Mamba dimensions and counts must be positive")
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_norm = use_norm
         self.tokenization = InvertedTokenization(seq_len, d_model, dropout)
@@ -108,13 +94,11 @@ class Model(nn.Module):
                 f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
             )
         if self.use_norm:
-            mean = x_enc.mean(1, keepdim=True).detach()
-            scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-            values = (x_enc - mean) / scale
+            values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         else:
             values = x_enc
         tokens = self.tokenization(values)
         for layer in self.layers:
             tokens = layer(tokens)
         forecast = self.output_projection(tokens).transpose(1, 2)
-        return forecast * scale + mean if self.use_norm else forecast
+        return destandardize(forecast, mean, scale) if self.use_norm else forecast

@@ -31,8 +31,6 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct Gateformer from a validated run configuration."""
-    if params["patch_len"] > cfg.task.seq_len:
-        raise ValueError("patch_len must not exceed seq_len")
     return Model(
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,

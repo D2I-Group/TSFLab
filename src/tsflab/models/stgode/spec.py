@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stgode.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,9 +16,9 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    hidden_dim: int = 32
-    ode_steps: int = 2
+    input_dim: int = Field(default=3, gt=0)
+    hidden_dim: int = Field(default=32, gt=0)
+    ode_steps: int = Field(default=2, gt=0)
 
 
 def build_model(cfg, params):

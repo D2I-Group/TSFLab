@@ -5,13 +5,13 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sonnet.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 16
-    num_wavelets: int = 4
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=16, gt=0)
+    num_wavelets: int = Field(default=4, gt=0)
     dropout: float = 0.0
 
 

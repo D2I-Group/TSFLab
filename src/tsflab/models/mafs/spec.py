@@ -6,17 +6,25 @@ from tsflab.experiments.runner.objective import TrainingBatch
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mafs.model import Model
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
     dropout: float = 0.1
-    num_agents: int = 4
-    num_layers: int = 2
-    num_heads: int = 4
-    topology: str = "star"
+    num_agents: int = Field(default=4, gt=0)
+    num_layers: int = Field(default=2, gt=0)
+    num_heads: int = Field(default=4, gt=0)
+    topology: Literal["star", "ring", "chain", "fully-connected"] = "star"
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self) -> "ModelParameterConfig":
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

@@ -118,8 +118,8 @@ class AxisMamba(nn.Module):
         expand: int,
     ) -> None:
         super().__init__()
-        if axis not in ("time", "node") or layout not in ("axis", "official"):
-            raise ValueError("axis must be 'time' or 'node' and layout 'axis' or 'official'")
+        if axis not in ("time", "node"):
+            raise ValueError("axis must be 'time' or 'node'")
         self.axis, self.layout = axis, layout
         # The scan runs over every (step, node) token; storing its
         # [tokens, d_inner, d_state] tensors needs about 7.6 GB per layer on
@@ -171,10 +171,8 @@ class Model(nn.Module):
         scan_layout: Literal["axis", "official"] = "axis",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, steps_per_day, input_embedding_dim, num_heads, num_layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("lengths, nodes, widths, heads and layers must be positive")
-        if min(tod_embedding_dim, dow_embedding_dim, adaptive_embedding_dim) < 0:
-            raise ValueError("embedding widths must be non-negative")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.steps_per_day = steps_per_day
         self.gat = gat

@@ -2,12 +2,12 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.bayesian_ridge_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    initial_weight_precision: float = 1e-3
+    enc_in: int = Field(gt=0)
+    initial_weight_precision: float = Field(default=1e-3, gt=0)
 
 
 def build_model(cfg, params):

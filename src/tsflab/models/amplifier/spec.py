@@ -1,6 +1,6 @@
 """Runtime specification for Amplifier."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.amplifier.model import Model
@@ -11,6 +11,12 @@ class ModelParameterConfig(BaseModel):
     hidden_size: int = Field(default=128, gt=0)
     sci: bool = True
     moving_average: int = Field(default=25, gt=0)
+
+    @model_validator(mode="after")
+    def _odd_moving_average(self) -> "ModelParameterConfig":
+        if self.moving_average % 2 == 0:
+            raise ValueError("moving_average must be a positive odd integer")
+        return self
 
 
 def build_model(cfg, params):

@@ -46,8 +46,8 @@ class Model(nn.Module):
                  adj_mx: np.ndarray | None = None, cov_dim: int | None = None,
                  d_model: int = 64, dropout: float = 0.1) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) <= 0:
-            raise ValueError("PCDCNet dimensions must be positive")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("PCDCNet seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cov_dim = TIME_FEATURES if cov_dim is None else cov_dim
         if adj_mx is None:

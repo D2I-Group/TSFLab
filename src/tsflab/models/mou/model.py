@@ -145,14 +145,10 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, stride, d_model, d_ff, e_layers, d_state, ffn_expand) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("MoU dimensions must be positive")
         if seq_len < patch_len:
             raise ValueError("seq_len must be at least patch_len")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if not 1 <= top_k <= num_experts:
-            raise ValueError("top_k must lie in [1, num_experts]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         patch_num = (seq_len - patch_len) // stride + 2  # one extra patch from end padding

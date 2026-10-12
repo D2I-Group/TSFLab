@@ -207,22 +207,6 @@ class CrossFusion(nn.Module):
         return self.project_out(mixed)
 
 
-def _check_shapes(
-    seq_len: int, context_len: int, patch_len: int, n_heads: int, widths: tuple[int, ...]
-) -> None:
-    if context_len > seq_len or patch_len > context_len:
-        raise ValueError("require patch_len <= context_len <= seq_len")
-    if any(width % n_heads for width in widths):
-        raise ValueError("d_model, h_channel, and h_token must be divisible by n_heads")
-
-
-def _check_choices(decoder_attention: str, norm_type: str) -> None:
-    if decoder_attention not in {"full", "prob"}:
-        raise ValueError("decoder_attention must be 'full' or 'prob'")
-    if norm_type not in {"revin", "seq_last"}:
-        raise ValueError("norm_type must be 'revin' or 'seq_last'")
-
-
 class Model(nn.Module):
     """GCformer with the Gconv_msk global branch and the PatchTST local branch."""
 
@@ -255,11 +239,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         context_len = seq_len if context_len is None else context_len
-        if min(seq_len, pred_len, enc_in, context_len, patch_len, stride, d_model, n_heads, d_ff,
-               e_layers, kernel_dim, h_channel, h_token) < 1:
-            raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-        _check_shapes(seq_len, context_len, patch_len, n_heads, (d_model, h_channel, h_token))
-        _check_choices(decoder_attention, norm_type)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
+        if context_len > seq_len or patch_len > context_len:
+            raise ValueError("require patch_len <= context_len <= seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.context_len, self.norm_type, self.tc_bias = context_len, norm_type, float(tc_bias)
         self.revin = RevIN(enc_in, affine=True)

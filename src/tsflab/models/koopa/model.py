@@ -15,8 +15,6 @@ class FourierDynamicsSplit(nn.Module):
     """Separate dominant spectral modes from remaining local variation."""
     def __init__(self, alpha: float = 0.2) -> None:
         super().__init__()
-        if not 0.0 < alpha <= 1.0:
-            raise ValueError("alpha must be in (0, 1]")
         self.alpha = float(alpha)
 
     def forward(self, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -120,7 +118,7 @@ class Model(nn.Module):
                  hidden_dim: int = 64, hidden_layers: int = 2, num_blocks: int = 3,
                  multistep: bool = False, alpha: float = 0.2) -> None:
         super().__init__()
-        if seq_len < 2 or pred_len < 1 or dynamic_dim < 1 or num_blocks < 1:
+        if seq_len < 2 or pred_len < 1:
             raise ValueError("Koopa requires seq_len >= 2 and positive dimensions")
         segment = pred_len if seg_len is None else seg_len
         if segment < 2:

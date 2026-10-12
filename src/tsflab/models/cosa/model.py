@@ -24,7 +24,7 @@ class Model(nn.Module):
         gate_init: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, context_len) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("COSA dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

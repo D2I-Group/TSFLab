@@ -13,12 +13,10 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, period: int = 24,
                  d_model: int = 64, model_type: str = "linear") -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, period, d_model) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, period, and d_model must be positive")
         if period > seq_len:
             raise ValueError("period must not exceed seq_len")
-        if model_type not in {"linear", "mlp"}:
-            raise ValueError("model_type must be 'linear' or 'mlp'")
         self.seq_len, self.pred_len, self.enc_in, self.period = seq_len, pred_len, enc_in, period
         self.history_periods = seq_len // period
         self.future_periods = math.ceil(pred_len / period)

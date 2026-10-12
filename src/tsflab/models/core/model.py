@@ -38,10 +38,8 @@ class Model(nn.Module):
         gate_bias_init: float = -1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, context_len) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("CoRe dimensions must be positive")
-        if scr_rank < 0:
-            raise ValueError("scr_rank must be non-negative (0 selects rank C)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

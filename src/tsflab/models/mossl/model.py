@@ -280,17 +280,11 @@ class Model(nn.Module):
         self_supervised: bool = True,
     ) -> None:
         super().__init__()
-        if enc_in % num_modalities:
-            raise ValueError(
-                f"enc_in={enc_in} must equal num_modalities * num_nodes (num_modalities={num_modalities})"
-            )
         if seq_len != receptive_length(layers, kernel_size):
             raise ValueError(
                 "MoSSL consumes exactly 1 + (kernel_size - 1) * (2**layers - 1) = "
                 f"{receptive_length(layers, kernel_size)} steps; got seq_len={seq_len}"
             )
-        if hidden_channels < 2:
-            raise ValueError("hidden_channels must be at least 2")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

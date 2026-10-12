@@ -42,7 +42,7 @@ class Model(nn.Module):
                  use_hour_index=True, use_day_index=False, scale=0.02,
                  hour_length=24, day_length=7):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid non-positive TimeEmb dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_hour_index, self.use_day_index = use_hour_index, use_day_index

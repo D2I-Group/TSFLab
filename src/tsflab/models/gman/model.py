@@ -194,10 +194,8 @@ class Model(nn.Module):
         node2vec_seed: int = 0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_blocks, num_heads, head_dim, steps_per_day, se_dim) < 1:
-            raise ValueError("lengths, nodes, blocks, heads, widths and steps_per_day must be positive")
-        if not 0.0 <= output_dropout < 1.0:
-            raise ValueError("output_dropout must be in [0, 1)")
+        if min(seq_len, pred_len, enc_in) < 1:
+            raise ValueError("lengths and nodes must be positive")
         if adj_mx is None:
             raise ValueError(
                 "GMAN needs the road-network adjacency adj_mx [enc_in, enc_in] for its node2vec "

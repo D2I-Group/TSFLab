@@ -82,10 +82,8 @@ class Model(nn.Module):
         down_sampling_layers: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid DPWMixer dimension")
-        if down_sampling_layers < 0:
-            raise ValueError("down_sampling_layers must be non-negative")
 
         self.seq_len = seq_len
         self.pred_len = pred_len

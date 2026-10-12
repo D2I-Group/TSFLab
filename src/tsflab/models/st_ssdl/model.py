@@ -54,8 +54,6 @@ class ChebGraphConv(nn.Module):
 
     def __init__(self, dim_in: int, dim_out: int, cheb_k: int, num_supports: int) -> None:
         super().__init__()
-        if cheb_k < 1:
-            raise ValueError("cheb_k must be positive")
         self.cheb_k = cheb_k
         self.weight = nn.Parameter(torch.empty(num_supports * cheb_k * dim_in, dim_out))
         self.bias = nn.Parameter(torch.zeros(dim_out))
@@ -106,15 +104,6 @@ class ChebGRUCell(nn.Module):
         )
 
 
-def _check_arguments(output_dim: int, input_dim: int, sizes: tuple[int, ...]) -> None:
-    if output_dim != 1:
-        raise ValueError("TSFLab ST-SSDL exposes one value per node")
-    if min(sizes) < 1:
-        raise ValueError("ST-SSDL dimensions must be positive")
-    if input_dim < 1:
-        raise ValueError("input_dim must include at least the value channel")
-
-
 class Model(nn.Module):
     """ST-SSDL: prototype-memory-augmented graph-conv GRU encoder-decoder."""
 
@@ -133,10 +122,8 @@ class Model(nn.Module):
         output_dim: int = 1,
     ) -> None:
         super().__init__()
-        _check_arguments(
-            output_dim, input_dim,
-            (seq_len, pred_len, num_nodes, input_dim, rnn_units, rnn_layers, cheb_k, prototype_num, prototype_dim),
-        )
+        if min(seq_len, pred_len, num_nodes) < 1:
+            raise ValueError("ST-SSDL dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
         self.rnn_units = rnn_units

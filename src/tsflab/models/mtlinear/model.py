@@ -67,14 +67,8 @@ class Model(nn.Module):
         use_variates_penalty: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, max_clusters) < 1:
-            raise ValueError("lengths, channels, and max_clusters must be positive")
-        if layer_type not in LAYER_TYPES:
-            raise ValueError(f"layer_type must be one of {LAYER_TYPES}")
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be a positive odd integer")
-        if cluster_dist < 0 or penalty_param < 0:
-            raise ValueError("cluster_dist and penalty_param must be non-negative")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cluster_dist = float(cluster_dist)
         self.num_groups = min(max_clusters, enc_in)

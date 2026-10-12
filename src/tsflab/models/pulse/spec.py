@@ -2,17 +2,23 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pulse.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 32
-    phase_period: int = 24
-    phase_resolution: int = 8
-    router_heads: int = 4
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=32, gt=0)
+    phase_period: int = Field(default=24, gt=0)
+    phase_resolution: int = Field(default=8, gt=0)
+    router_heads: int = Field(default=4, gt=0)
     dropout: float = 0.1
     eps: float = 1e-5
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self):
+        if self.d_model % self.router_heads:
+            raise ValueError("d_model must be divisible by router_heads")
+        return self
 
 
 def build_model(cfg, params):

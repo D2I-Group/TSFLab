@@ -72,10 +72,8 @@ class Model(nn.Module):
         eps: float = 1e-5,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, phase_period, phase_resolution) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and dimensions must be positive")
-        if d_model % router_heads:
-            raise ValueError("d_model must be divisible by router_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

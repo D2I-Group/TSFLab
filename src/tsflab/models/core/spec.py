@@ -5,7 +5,7 @@ from tsflab.models.core.model import Model
 
 """Validated parameters for CoRe."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,10 +13,10 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    context_len: int = 5
+    enc_in: int = Field(gt=0)
+    context_len: int = Field(default=5, gt=0)
     var_wise_gating: bool = True
-    scr_rank: int = 0
+    scr_rank: int = Field(default=0, ge=0)  # 0 selects rank C
     gate_init: float = 0.0
     gate_bias_init: float = -1.0
 

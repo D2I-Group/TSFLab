@@ -63,9 +63,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, Kt: int = 3, Ks: int = 3, hidden_dim: int = 64, bottleneck_dim: int = 16, out_hidden_dim: int = 128, act_func: str = "glu", graph_conv_type: str = "cheb_graph_conv", bias: bool = True, droprate: float = 0.5) -> None:
         super().__init__()
-        if act_func != "glu" or graph_conv_type != "cheb_graph_conv":
-            raise ValueError("local STGCN supports the paper GLU/Chebyshev path")
-        if min(seq_len, pred_len, num_nodes, input_dim, Kt, Ks) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("STGCN dimensions must be positive")
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (num_nodes, num_nodes):

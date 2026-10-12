@@ -87,10 +87,8 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_state, d_ff, e_layers, expand) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("SORMamba lengths, widths and counts must be positive")
-        if reg_lambda < 0:
-            raise ValueError("reg_lambda must be non-negative")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.reg_lambda = reg_lambda
         self.use_norm = use_norm

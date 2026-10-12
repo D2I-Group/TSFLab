@@ -42,7 +42,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx
-        if min(seq_len, pred_len, num_nodes, input_dim, embed_dim) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("STID dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

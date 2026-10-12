@@ -128,10 +128,8 @@ class Model(nn.Module):
         nb_time_filter: int = 64,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, nb_block, K, nb_chev_filter, nb_time_filter) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, nodes, blocks, graph order, and widths must be positive")
-        if cov_dim < 0:
-            raise ValueError("cov_dim must be non-negative")
         if adj_mx is None:
             raise ValueError(
                 "ASTGCN needs the road-network adjacency adj_mx [enc_in, enc_in] for its Chebyshev "

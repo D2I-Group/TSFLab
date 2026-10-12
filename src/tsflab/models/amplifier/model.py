@@ -64,10 +64,8 @@ class Model(nn.Module):
         moving_average: int = 25,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, hidden_size) < 1:
-            raise ValueError("lengths, channels, and hidden_size must be positive")
-        if moving_average < 1 or moving_average % 2 == 0:
-            raise ValueError("moving_average must be a positive odd integer")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

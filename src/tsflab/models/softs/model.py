@@ -4,6 +4,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class SeriesCoreFusion(nn.Module):
     """STAR: aggregate all series into one core, then redistribute it."""
@@ -52,10 +54,8 @@ class Model(nn.Module):
                  d_model: int = 128, d_core: int = 64, d_ff: int = 256, e_layers: int = 2,
                  dropout: float = 0.1, activation: str = "gelu", use_norm: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_core, d_ff, e_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("SOFTS dimensions must be positive")
-        if activation.lower() not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
         self.seq_len, self.pred_len, self.use_norm = seq_len, pred_len, use_norm
         self.history_embedding = nn.Linear(seq_len, d_model)
         self.blocks = nn.ModuleList(SOFTSBlock(d_model, d_core, d_ff, dropout, activation) for _ in range(e_layers))
@@ -72,13 +72,11 @@ class Model(nn.Module):
         if x_enc.ndim != 3 or x_enc.size(1) != self.seq_len:
             raise ValueError(f"SOFTS expects [B, {self.seq_len}, C]")
         if self.use_norm:
-            mean = x_enc.mean(1, keepdim=True).detach()
-            scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-            values = (x_enc - mean) / scale
+            values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         else:
             mean, scale, values = 0.0, 1.0, x_enc
         tokens = self.history_embedding(values.transpose(1, 2))
         for block in self.blocks:
             tokens = block(tokens)
         forecast = self.forecast_head(self.final_norm(tokens)).transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

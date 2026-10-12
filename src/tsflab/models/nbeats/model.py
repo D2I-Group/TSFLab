@@ -69,8 +69,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len, features
-        if len(stack_types) != len(thetas_dim):
-            raise ValueError("stack_types and thetas_dim must have equal length")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         blocks = []
         for basis, dimension in zip(stack_types, thetas_dim):

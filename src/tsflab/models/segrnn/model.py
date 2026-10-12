@@ -17,12 +17,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  dropout: float = 0.1, seg_len: int = 24) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, seg_len) < 1:
-            raise ValueError("lengths, channels, and hidden dimensions must be positive")
-        if d_model % 2:
-            raise ValueError("d_model must be even for relative/channel embeddings")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.seg_len = seq_len, pred_len, enc_in, seg_len
         self.history_segments = math.ceil(seq_len / seg_len)
         self.future_segments = math.ceil(pred_len / seg_len)

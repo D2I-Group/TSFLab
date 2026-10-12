@@ -19,7 +19,7 @@ license = "LicenseRef-NXAI-Community"
 reference_sources = ["https://github.com/NX-AI/tirex/blob/2226da4c9fa298ff34ad5af05369851674d622e5/src/tirex/models/tirex.py", "https://github.com/NX-AI/tirex/blob/2226da4c9fa298ff34ad5af05369851674d622e5/src/tirex/models/slstm/block.py"]
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:scalar-lstm-memory-blocks"
 channel = "local:channel-independent-shared-weights"

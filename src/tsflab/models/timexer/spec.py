@@ -5,19 +5,25 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timexer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
+    enc_in: int = Field(ge=1)
     d_model: int = 128
-    n_heads: int = 8
-    e_layers: int = 2
+    n_heads: int = Field(default=8, ge=1)
+    e_layers: int = Field(default=2, ge=1)
     d_ff: int = 256
-    patch_len: int = 16
+    patch_len: int = Field(default=16, ge=1)
     dropout: float = 0.1
     activation: str = "gelu"
     use_norm: bool = True
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("invalid TimeXer dimensions")
+        return self
 
 
 def build_model(cfg, params):

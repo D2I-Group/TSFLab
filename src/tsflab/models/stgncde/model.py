@@ -119,12 +119,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx  # the graph is learned from node embeddings
-        if min(pred_len, num_nodes, input_dim, hidden_dim, hidden_hidden_dim, num_layers, embed_dim, cheb_k) < 1:
+        if min(pred_len, num_nodes) < 1:
             raise ValueError("STGNCDE dimensions must be positive")
         if seq_len < 2:
             raise ValueError("STGNCDE needs at least two input steps for the spline path")
-        if solver not in SOLVERS:
-            raise ValueError(f"solver must be one of {SOLVERS}")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim, self.solver, self.adjoint = input_dim, solver, adjoint
         channels = input_dim + 1  # time channel + data channels

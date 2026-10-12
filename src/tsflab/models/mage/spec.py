@@ -5,17 +5,23 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mage.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
     """Validated MAGE parameters supplied via ``model.params``."""
 
-    enc_in: int
-    model_dim: int = 64
-    recur_num: int = 8
-    topk: int = 2
-    node_dim: int = 16
+    enc_in: int = Field(gt=0)
+    model_dim: int = Field(default=64, gt=0)
+    recur_num: int = Field(default=8, gt=0)
+    topk: int = Field(default=2, gt=0)
+    node_dim: int = Field(default=16, gt=0)
+
+    @model_validator(mode="after")
+    def _topk_within_experts(self):
+        if self.topk > self.recur_num:
+            raise ValueError("MAGE topk must be in [1, recur_num]")
+        return self
 
 
 def build_model(cfg, params):

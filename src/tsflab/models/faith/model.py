@@ -139,10 +139,6 @@ class Model(nn.Module):
         super().__init__()
         if seq_len < 2:
             raise ValueError("seq_len must be at least 2")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if not kernel_sizes:
-            raise ValueError("kernel_sizes must not be empty")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

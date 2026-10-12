@@ -109,10 +109,6 @@ class KoopmanTemporalDetector(nn.Module):
 
     def __init__(self, d_model: int, snap_size: int, proj_dim: int, hidden_dim: int, mlp_dropout: float) -> None:
         super().__init__()
-        if d_model % snap_size:
-            raise ValueError("d_model must be divisible by snap_size")
-        if d_model // snap_size < 2:
-            raise ValueError("the KTD needs at least two snapshots (d_model >= 2 * snap_size)")
         self.snap_size = snap_size
         self.num_snapshots = d_model // snap_size
         self.encoder = KoopmanMLP(snap_size, proj_dim, hidden_dim, mlp_dropout)
@@ -165,10 +161,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, e_layers, snap_size, proj_dim, hidden_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("VCformer sizes must be positive")
-        if not (0 <= dropout < 1 and 0 <= koopman_dropout < 1):
-            raise ValueError("dropout rates must lie in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

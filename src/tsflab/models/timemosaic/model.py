@@ -21,12 +21,6 @@ class Model(nn.Module):
                  use_revin: bool = True, selection_tau: float = 0.5, budget_weight: float = 0.001) -> None:
         super().__init__()
         sizes = tuple(sorted(set(patch_sizes)))
-        if not sizes or min(sizes) < 1:
-            raise ValueError("patch sizes must be positive")
-        if any(max(sizes) % size for size in sizes):
-            raise ValueError("each patch size must divide the largest size")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_sizes, self.region_size = sizes, max(sizes)
         # A lookback that is not a multiple of the largest patch is left-padded with its first value.

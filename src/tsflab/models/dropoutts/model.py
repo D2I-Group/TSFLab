@@ -141,10 +141,8 @@ class Model(nn.Module):
         init_sensitivity: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("seq_len, pred_len and enc_in must be positive")
-        if not 0.0 <= p_min < p_max < 1.0:
-            raise ValueError("dropout bounds must satisfy 0 <= p_min < p_max < 1")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

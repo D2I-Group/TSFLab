@@ -13,10 +13,8 @@ class Model(nn.Module):
                  temperature: float = 1.0, random_seed: int = 1729,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_estimators, tree_depth) < 1 or temperature <= 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions and num_estimators must be positive")
-        if not 0 < feature_fraction <= 1:
-            raise ValueError("feature_fraction must be in (0, 1]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         input_dim, output_dim = seq_len * enc_in, pred_len * enc_in
         generator = torch.Generator().manual_seed(random_seed)

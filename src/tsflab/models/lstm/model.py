@@ -31,12 +31,8 @@ class Model(nn.Module):
         cov_dim: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, init_dim, hid_dim, end_dim, layer) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, and layer count must be positive")
-        if cov_dim < 0:
-            raise ValueError("cov_dim must be non-negative")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

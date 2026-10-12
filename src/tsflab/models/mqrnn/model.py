@@ -17,13 +17,6 @@ from tsflab.models._components.quantile_head import QuantileHead
 _DEFAULT_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 
-def _check_sizes(seq_len: int, pred_len: int, enc_in: int, smallest_hidden: int) -> None:
-    if seq_len < 1 or pred_len < 1 or enc_in < 1:
-        raise ValueError("seq_len, pred_len, and enc_in must be positive")
-    if smallest_hidden < 1:
-        raise ValueError("all hidden dimensions and num_layers must be positive")
-
-
 def check_quantile_levels(levels: list[float]) -> None:
     """Raise unless ``levels`` is a non-empty, strictly ascending list inside (0, 1)."""
     if not levels or any(not 0.0 < level < 1.0 for level in levels):
@@ -48,11 +41,8 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        _check_sizes(seq_len, pred_len, enc_in, min(hidden_size, num_layers, context_size, decoder_hidden))
-        if future_covariate_size < 0:
-            raise ValueError("future_covariate_size must be non-negative")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if seq_len < 1 or pred_len < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

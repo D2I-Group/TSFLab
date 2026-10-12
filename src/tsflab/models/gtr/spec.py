@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gtr.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=64, ge=1)
     dropout: float = 0.1
-    cycle_length: int = 168
-    local_period: int = 24
+    cycle_length: int = Field(default=168, ge=1)
+    local_period: int = Field(default=24, ge=1)
     use_revin: bool = True
 
 

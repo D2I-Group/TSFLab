@@ -7,7 +7,7 @@ from tsflab.models.pws.model import Model
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -26,6 +26,12 @@ class ModelParameterConfig(BaseModel):
         if any(value < 1 for value in values):
             raise ValueError("analysis_hidden entries must be positive")
         return values
+
+    @model_validator(mode="after")
+    def _patch_within_period(self):
+        if self.patch_size > self.period:
+            raise ValueError("patch_size must be in [1, period]")
+        return self
 
 
 def build_model(cfg, params):

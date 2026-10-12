@@ -16,11 +16,9 @@ import torch.nn.functional as F
 
 from tsflab.models._components.embed import DataEmbedding_inverted
 from tsflab.models._components.instance_norm import destandardize, standardize
-from tsflab.models._components.marks import adapt_tslib_marks, tslib_time_feature_dimension
+from tsflab.models._components.marks import adapt_tslib_marks
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder
-
-INTERPOLATIONS = ("none", "two_aver", "four_aver")
 
 
 def interpolated_length(seq_len: int, method: str) -> int:
@@ -29,9 +27,7 @@ def interpolated_length(seq_len: int, method: str) -> int:
         return 2 * seq_len - 1
     if method == "four_aver":
         return 3 * seq_len // 2 - 1
-    if method == "none":
-        return seq_len
-    raise ValueError(f"interpolation must be one of {INTERPOLATIONS}, got {method!r}")
+    return seq_len
 
 
 def two_aver(values: torch.Tensor) -> torch.Tensor:
@@ -67,9 +63,7 @@ def interpolate(values: torch.Tensor, method: str) -> torch.Tensor:
         return two_aver(values)
     if method == "four_aver":
         return four_aver(values)
-    if method == "none":
-        return values
-    raise ValueError(f"interpolation must be one of {INTERPOLATIONS}, got {method!r}")
+    return values
 
 
 def interpolate_marks(marks: torch.Tensor, method: str) -> torch.Tensor:
@@ -97,12 +91,8 @@ class SparseLinear(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, sparsity: float) -> None:
         super().__init__()
-        if not 0.0 <= sparsity < 1.0:
-            raise ValueError("sparsity must lie in [0, 1)")
         total = in_features * out_features
         kept = round((1.0 - sparsity) * total)
-        if kept < 1:
-            raise ValueError("sparsity leaves no connection")
         self.in_features, self.out_features, self.sparsity = in_features, out_features, sparsity
         mask = torch.zeros(total)
         mask[torch.randperm(total)[:kept]] = 1.0
@@ -156,17 +146,6 @@ class SparseEncoderLayer(nn.Module):
         return self.norm2(x + self.feed_forward(x)), attention
 
 
-def _check_layers(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff, dropout, activation) -> None:
-    if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
-        raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-    if d_model % n_heads:
-        raise ValueError("d_model must be divisible by n_heads")
-    if activation not in {"gelu", "relu"}:
-        raise ValueError("activation must be 'gelu' or 'relu'")
-    if not 0.0 <= dropout < 1.0:
-        raise ValueError("dropout must lie in [0, 1)")
-
-
 def _check_interpolation(interpolation: str, seq_len: int) -> None:
     if interpolation == "four_aver" and (seq_len % 2 or seq_len < 4):
         raise ValueError("four_aver interpolation needs an even seq_len of at least 4")
@@ -196,14 +175,13 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        _check_layers(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff, dropout, activation)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         _check_interpolation(interpolation, seq_len)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.interpolation = interpolation
         self.token_length = interpolated_length(seq_len, interpolation)
         self.use_norm, self.use_marks, self.freq = use_norm, use_marks, freq
-        if use_marks:
-            tslib_time_feature_dimension(freq)  # validates the calendar layout early
         self.embedding = DataEmbedding_inverted(self.token_length, d_model, dropout=dropout)
         self.encoder = Encoder(
             [

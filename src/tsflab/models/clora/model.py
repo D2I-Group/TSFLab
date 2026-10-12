@@ -21,8 +21,6 @@ from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
 
-BACKBONES = ("itransformer", "rmlp")
-
 
 class ChannelLowRankAdapter(nn.Module):
     """Eq. (5)-(6): per-channel low-rank adapters conditioned on the channel token.
@@ -66,16 +64,8 @@ class Model(nn.Module):
         adaptation_dim: int = 32,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff, rank) < 1:
-            raise ValueError("lengths, channels, widths, heads, layers and rank must be positive")
-        if backbone not in BACKBONES:
-            raise ValueError(f"backbone must be one of {BACKBONES}")
-        if not 0 < adaptation_dim < d_model:
-            raise ValueError("adaptation_dim must lie in (0, d_model)")
-        if backbone == "itransformer" and d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if activation not in ("gelu", "relu"):
-            raise ValueError("activation must be 'gelu' or 'relu'")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -148,16 +148,10 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if focal_parts < 1:
-            raise ValueError("focal_parts must be at least 1")
         if seq_len % 2 ** (focal_parts - 1) != 0:
             raise ValueError(
                 f"seq_len={seq_len} must be divisible by 2**(focal_parts - 1)={2 ** (focal_parts - 1)}"
             )
-        if num_layers < max(focal_parts - 1, 1):
-            raise ValueError("num_layers must be at least max(focal_parts - 1, 1)")
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be a positive odd integer")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

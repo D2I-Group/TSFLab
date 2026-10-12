@@ -53,10 +53,8 @@ class Model(nn.Module):
         not_independent: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 2 or enc_in < 1:
-            raise ValueError("seq_len and pred_len must each be >= 2, and enc_in must be >= 1")
-        if conv_kernel < 1 or conv_kernel % 2 == 0:
-            raise ValueError("conv_kernel must be a positive odd integer")
+        if min(seq_len, pred_len) < 2:
+            raise ValueError("seq_len and pred_len must each be >= 2")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.not_independent = not_independent
         self.use_convdropout = use_convdropout

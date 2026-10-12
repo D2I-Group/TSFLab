@@ -67,16 +67,8 @@ class Model(nn.Module):
         eps: float = 1e-8,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("CosDir dimensions must be positive")
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be a positive odd integer")
-        if weighting not in ("fixed", "uw"):
-            raise ValueError("weighting must be 'fixed' or 'uw'")
-        if dir_lambda < 0:
-            raise ValueError("dir_lambda must be non-negative")
-        if eps <= 0:
-            raise ValueError("eps must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

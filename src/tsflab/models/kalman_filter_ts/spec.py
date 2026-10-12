@@ -2,13 +2,14 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.kalman_filter_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    initial_alpha: float = 0.5
-    initial_beta: float = 0.25
+    enc_in: int = Field(gt=0)
+    # Initial gains lie strictly between zero and one.
+    initial_alpha: float = Field(default=0.5, gt=0, lt=1)
+    initial_beta: float = Field(default=0.25, gt=0, lt=1)
 
 
 def build_model(cfg, params):

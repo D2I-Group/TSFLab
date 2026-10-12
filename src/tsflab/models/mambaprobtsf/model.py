@@ -146,14 +146,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_state, d_ff, e_layers, d_conv, expand, sigma_hidden) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("Mamba-ProbTSF sizes must be positive")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must lie in [0, 1)")
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
-        if sigma_network not in {"mlp", "s_mamba"}:
-            raise ValueError("sigma_network must be 'mlp' or 's_mamba'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

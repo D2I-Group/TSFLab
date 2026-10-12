@@ -2,13 +2,13 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.knn_forecaster_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    num_prototypes: int = 32
-    kernel_gamma: float = 0.08
+    enc_in: int = Field(gt=0)
+    num_prototypes: int = Field(default=32, gt=0)
+    kernel_gamma: float = Field(default=0.08, gt=0)
 
 
 def build_model(cfg, params):

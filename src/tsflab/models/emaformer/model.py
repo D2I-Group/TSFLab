@@ -58,14 +58,8 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cycle, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, cycle, widths, heads, and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
-        if not (0.0 <= dropout < 1.0 and 0.0 <= output_proj_dropout < 1.0):
-            raise ValueError("dropout rates must be in [0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cycle, self.d_model, self.use_norm = cycle, d_model, use_norm
 

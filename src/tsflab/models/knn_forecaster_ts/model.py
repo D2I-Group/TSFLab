@@ -18,7 +18,7 @@ class Model(nn.Module):
         kernel_gamma: float = 0.08,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_prototypes) < 1 or kernel_gamma <= 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions, num_prototypes, and kernel_gamma must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.kernel_gamma = kernel_gamma

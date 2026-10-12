@@ -26,12 +26,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("DistDF dimensions must be positive")
-        if not 0 <= gamma <= 1:
-            raise ValueError("gamma must lie in [0, 1]")
-        if covariance_eps <= 0:
-            raise ValueError("covariance_eps must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

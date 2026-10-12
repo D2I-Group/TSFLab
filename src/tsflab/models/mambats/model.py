@@ -153,15 +153,10 @@ class Model(nn.Module):
         atsp_seed: int = 0,
     ) -> None:
         super().__init__()
-        positive = (seq_len, pred_len, enc_in, d_model, e_layers, d_state, d_conv)
-        if min(positive) < 1 or min(expand, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, widths, and layer counts must be positive")
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
-        if vpt_mode not in (0, 1):
-            raise ValueError("vpt_mode must be 0 (fixed order) or 1 (VAST)")
-        if atsp_solver not in ("SA", "GD"):
-            raise ValueError("atsp_solver must be 'SA' or 'GD'")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.vpt_mode, self.atsp_solver = vpt_mode, atsp_solver

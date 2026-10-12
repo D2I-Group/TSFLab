@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -28,11 +28,16 @@ class ModelParameterConfig(BaseModel):
     clip_denoised: bool = True
     eval_seed: int | None = Field(default=0, ge=0)
 
+    @field_validator("moving_avg")
+    @classmethod
+    def _odd_moving_avg(cls, value: int) -> int:
+        if value % 2 == 0:
+            raise ValueError("moving_avg must be odd")
+        return value
+
 
 def build_model(cfg, params):
     options = ModelParameterConfig(**params).model_dump()
-    if options["moving_avg"] % 2 == 0:
-        raise ValueError("moving_avg must be odd")
     return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, **options)
 
 

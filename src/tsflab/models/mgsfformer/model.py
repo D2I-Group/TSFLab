@@ -59,8 +59,6 @@ class Model(nn.Module):
         super().__init__()
         if seq_len < 24 or seq_len % 24:
             raise ValueError("MGSFformer requires seq_len to be a multiple of 24")
-        if IE_dim % num_head:
-            raise ValueError("MGSFformer IE_dim must be divisible by num_head")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in)
         self.embed = nn.Linear(1, IE_dim)

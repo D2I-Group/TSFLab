@@ -52,8 +52,8 @@ class Model(nn.Module):
                  features="M", d_model=64, e_layers=2, patch_len=16,
                  stride=8, dropout=0.1):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, e_layers, patch_len, stride) < 1:
-            raise ValueError("invalid U-Mixer dimension")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("invalid U-Mixer length")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.patch_count = max(1, math.ceil(max(0, seq_len-patch_len)/stride)+1)

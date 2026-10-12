@@ -114,10 +114,8 @@ class Model(nn.Module):
         dropout: float = 0.3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, gcn_depth, rnn_size, node_dim, hyper_gnn_dim, middle_dim) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("lengths, nodes, graph depth, and hidden dimensions must be positive")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must be in [0, 1)")
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (num_nodes, num_nodes):
             raise ValueError(f"adj_mx must have shape {(num_nodes, num_nodes)}")

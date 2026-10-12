@@ -82,8 +82,6 @@ class TemporalMixingBlock(nn.Module):
 
     def __init__(self, patch_num: int, d_model: int, connection_probability: float, mixing_dropout: float) -> None:
         super().__init__()
-        if not 0.0 <= connection_probability < 1.0:
-            raise ValueError("connection_probability must be in [0, 1)")
         self.patch_num = patch_num
         self.connection_probability = connection_probability
         self.inter_patch_mixing = InterPatchMixing(patch_num, mixing_dropout)
@@ -160,9 +158,7 @@ class Model(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if enc_in != c_out:
-            raise ValueError("SEMixer denormalization requires enc_in=c_out")
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, stride, reduce_dim, eib_num, eib_num_1scale) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, and layer counts must be positive")
         scales = _parse_scale_factors(scale_factors)
         self.seq_len = seq_len

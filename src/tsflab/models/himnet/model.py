@@ -27,8 +27,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, output_dim: int = 1, hidden_dim: int = 32, num_layers: int = 1, cheb_k: int = 2, node_embedding_dim: int = 8, st_embedding_dim: int = 8, tod_embedding_dim: int = 8, dow_embedding_dim: int = 8, steps_per_day: int = 288, use_teacher_forcing: bool = True) -> None:
         super().__init__()
         del adj_mx, use_teacher_forcing
-        if output_dim != 1:
-            raise ValueError("TSFLab HimNet exposes one value per node")
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
         self.steps_per_day = steps_per_day
         self.node_embedding = nn.Parameter(torch.empty(num_nodes, node_embedding_dim))

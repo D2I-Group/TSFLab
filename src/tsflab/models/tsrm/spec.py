@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.tsrm.model import Model
@@ -24,6 +24,25 @@ class ModelParameterConfig(BaseModel):
     attention: Literal["softmax", "entmax15"] = "entmax15"
     dropout: float = Field(default=0.25, ge=0.0, lt=1.0)
     inter_feature: bool = False
+
+    @model_validator(mode="after")
+    def _heads(self) -> "ModelParameterConfig":
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
+
+    @model_validator(mode="after")
+    def _convolutions(self) -> "ModelParameterConfig":
+        for kernel, dilation, groups in self.conv_layers:
+            if kernel < 1 or dilation < 1:
+                raise ValueError("every convolution must fit the input window")
+            if not _valid_groups(groups, self.d_model):
+                raise ValueError("convolution groups must be -1 (depthwise) or divide d_model")
+        return self
+
+
+def _valid_groups(groups: int, d_model: int) -> bool:
+    return groups == -1 or (groups >= 1 and d_model % groups == 0)
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

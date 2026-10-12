@@ -136,10 +136,8 @@ class Model(nn.Module):
         coordinates: np.ndarray | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_layers) < 1:
-            raise ValueError("lengths, stations, width and layer count must be positive")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

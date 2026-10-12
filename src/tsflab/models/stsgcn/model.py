@@ -97,7 +97,7 @@ class Model(nn.Module):
         huber_delta: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_layers, output_hidden) < 1:
+        if min(seq_len, pred_len, enc_in) < 1:
             raise ValueError("lengths, nodes, layers and widths must be positive")
         if seq_len - 2 * num_layers < 1:
             raise ValueError(f"seq_len ({seq_len}) must exceed 2 * num_layers ({2 * num_layers})")

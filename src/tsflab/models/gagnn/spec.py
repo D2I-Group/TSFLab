@@ -5,18 +5,18 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gagnn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
     """Validated GAGNN parameters supplied via ``model.params``."""
 
-    enc_in: int
+    enc_in: int = Field(ge=1)
     cov_dim: int = 2
-    d_model: int = 64
-    num_layers: int = 3
+    d_model: int = Field(default=64, ge=1)
+    num_layers: int = Field(default=3, ge=1)
     dropout: float = 0.1
-    group_num: int = 4
+    group_num: int = Field(default=4, ge=1)
 
 
 def build_model(cfg, params):

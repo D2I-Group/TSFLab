@@ -5,14 +5,20 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.segrnn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    dropout: float = 0.1
-    seg_len: int = 24
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
+    dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
+    seg_len: int = Field(default=24, gt=0)
+
+    @model_validator(mode="after")
+    def check_even_width(self):
+        if self.d_model % 2:
+            raise ValueError("d_model must be even for relative/channel embeddings")
+        return self
 
 
 def build_model(cfg, params):

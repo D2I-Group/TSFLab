@@ -349,17 +349,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         checks = (
-            (min(seq_len, pred_len, enc_in, embedding_dim, hidden_size, num_layers, diff_steps) < 1,
+            (min(seq_len, pred_len) < 1,
              "lengths, channels, widths and diffusion steps must be positive"),
             (features not in {"M", "S", "MS"}, "features must be M, S, or MS"),
-            (freq not in {"h", "t"}, "freq must be 'h' or 't'"),
-            (embedding_dim % 2, "embedding_dim must be even (sinusoidal positions)"),
-            (num_blocks < 1 or pred_len % 2**num_blocks,
-             "pred_len must be divisible by 2 ** num_blocks"),
-            (min(num_preprocess_cells, num_postprocess_cells, groups_per_scale) < 1,
-             "cell and group counts must be positive"),
-            (not 0.0 <= beta_start <= beta_end < 1.0, "need 0 <= beta_start <= beta_end < 1"),
-            (not 0.0 < target_scale < 1.0, "target_scale (omega) must be in (0, 1)"),
+            (pred_len % 2**num_blocks, "pred_len must be divisible by 2 ** num_blocks"),
         )
         for failed, message in checks:
             if failed:

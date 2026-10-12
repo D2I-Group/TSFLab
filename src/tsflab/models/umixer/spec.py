@@ -5,15 +5,15 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.umixer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    e_layers: int = 2
-    patch_len: int = 16
-    stride: int = 8
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=64, ge=1)
+    e_layers: int = Field(default=2, ge=1)
+    patch_len: int = Field(default=16, ge=1)
+    stride: int = Field(default=8, ge=1)
     dropout: float = 0.1
 
 

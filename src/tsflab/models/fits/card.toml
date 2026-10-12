@@ -19,7 +19,7 @@ license = "Apache-2.0"
 reference_sources = []
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:complex-frequency-interpolation"
 channel = "local:channel-independent-shared-weights"

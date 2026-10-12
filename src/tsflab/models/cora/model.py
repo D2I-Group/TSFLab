@@ -35,7 +35,7 @@ class Model(nn.Module):
                  rank: int = 4, polynomial_order: int = 2,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, rank) < 1 or polynomial_order < 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid CoRA dimensions")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.rank, self.polynomial_order, self.use_revin = min(rank, enc_in), polynomial_order, use_revin

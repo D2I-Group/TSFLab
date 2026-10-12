@@ -97,7 +97,7 @@ class Model(nn.Module):
         use_short_branch: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, period, d_model) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("sizes must be positive")
         if seq_len % period or pred_len % period:
             raise ValueError("seq_len and pred_len must be multiples of period")

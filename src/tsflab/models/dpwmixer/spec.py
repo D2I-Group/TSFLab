@@ -5,7 +5,7 @@ from tsflab.models.dpwmixer.model import Model
 
 """Validated parameters for DPWMixer."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,12 +13,12 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=128, gt=0)
     dropout: float = 0.1
-    patch_len: int = 16
-    stride: int = 8
-    down_sampling_layers: int = 2
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
+    down_sampling_layers: int = Field(default=2, ge=0)
 
 
 def build_model(cfg, params):

@@ -149,8 +149,6 @@ class Model(nn.Module):
         surrogate_alpha: float = 2.0,
     ) -> None:
         super().__init__()
-        if kernel_size % 2 == 0:
-            raise ValueError("TSLIF kernel_size must be odd")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

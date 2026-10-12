@@ -14,10 +14,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 128,
                  dropout: float = 0.1, num_layers: int = 1, use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_layers) < 1:
-            raise ValueError("lengths, channel count, hidden size, and layers must be positive")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)
         layers: list[nn.Module] = [nn.Linear(seq_len, d_model), nn.GELU(), nn.Dropout(dropout)]

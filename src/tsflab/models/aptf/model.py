@@ -24,8 +24,6 @@ from tsflab.models._components.patchtst import PatchTSTBackbone
 
 def bucket_weights(num_buckets: int) -> list[float]:
     """First-stage weights: 1 decreasing by ``1 / (K - 1)``; the last is half the previous."""
-    if num_buckets < 2:
-        raise ValueError("num_buckets must be at least 2")
     step = 1.0 / (num_buckets - 1)
     weights = [1.0 - index * step for index in range(num_buckets)]
     weights[-1] = weights[-2] / 2.0
@@ -85,8 +83,6 @@ class Model(nn.Module):
         revin: bool = True,
     ) -> None:
         super().__init__()
-        if stage_epochs < 1:
-            raise ValueError("stage_epochs must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_buckets = num_buckets
         self.stage_epochs = stage_epochs

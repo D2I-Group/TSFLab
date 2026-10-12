@@ -5,7 +5,7 @@ from tsflab.models.adamshyper.model import Model
 
 """Validated parameters for AdaMSHyper."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,16 +13,22 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
+    enc_in: int = Field(gt=0)
     window_size: list[int] = [4, 4]
     hyper_num: list[int] = [50, 20, 10]
-    d_embed: int = 16
-    eta: int = 3
-    beta: float = 0.5
-    gamma: float = 4.2
-    lambda_balance: float = 0.5
-    const_weight: float = 1.0
+    d_embed: int = Field(default=16, gt=0)
+    eta: int = Field(default=3, gt=0)
+    beta: float = Field(default=0.5, ge=0.0, lt=1.0)
+    gamma: float = Field(default=4.2, gt=0)
+    lambda_balance: float = Field(default=0.5, ge=0.0, le=1.0)
+    const_weight: float = Field(default=1.0, ge=0)
     dropout: float = 0.1
+
+    @model_validator(mode="after")
+    def _scales(self) -> "ModelParameterConfig":
+        if len(self.hyper_num) != len(self.window_size) + 1 or min(self.hyper_num + self.window_size, default=1) < 1:
+            raise ValueError("hyper_num needs one entry per scale (len(window_size) + 1)")
+        return self
 
 
 def build_model(cfg, params):

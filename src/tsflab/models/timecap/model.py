@@ -33,10 +33,8 @@ class Model(nn.Module):
         fusion_midpoint: float | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, group_size, group_stride) < 1:
-            raise ValueError("lengths, channels, and dimensions must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

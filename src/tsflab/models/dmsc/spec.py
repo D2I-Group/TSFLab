@@ -1,6 +1,6 @@
 """Runtime specification for DMSC."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -25,6 +25,14 @@ class ModelParameterConfig(BaseModel):
     balance_coeff: float = Field(default=0.2, ge=0.0)
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
     use_norm: bool = True
+
+    @model_validator(mode="after")
+    def _patch_and_expert_bounds(self) -> "ModelParameterConfig":
+        if self.patch_min > self.patch_max:
+            raise ValueError("DMSC needs 1 <= patch_min <= patch_max <= seq_len")
+        if self.top_k > self.num_local:
+            raise ValueError("DMSC needs patch_decay >= 1 and top_k <= num_local")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

@@ -5,7 +5,7 @@ from tsflab.models.samformer.model import Model
 
 """Validated parameters for SAMformer."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,9 +13,9 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    hid_dim: int = 16
-    rho: float = 0.5
+    enc_in: int = Field(gt=0)
+    hid_dim: int = Field(default=16, gt=0)
+    rho: float = Field(default=0.5, ge=0)
     use_revin: bool = True
 
 

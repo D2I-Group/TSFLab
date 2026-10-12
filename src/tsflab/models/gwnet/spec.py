@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gwnet.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,15 +16,21 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
+    input_dim: int = Field(default=3, gt=0)
     dropout: float = 0.3
     residual_channels: int = 16
     dilation_channels: int = 16
     skip_channels: int = 64
     end_channels: int = 128
     kernel_size: int = 2
-    blocks: int = 2
-    layers: int = 2
+    blocks: int = Field(default=2, gt=0)
+    layers: int = Field(default=2, gt=0)
+
+    @model_validator(mode="after")
+    def _residual_matches_dilation(self) -> "ModelParameterConfig":
+        if self.residual_channels != self.dilation_channels:
+            raise ValueError("local GWNet requires residual_channels == dilation_channels")
+        return self
 
 
 def build_model(cfg, params):

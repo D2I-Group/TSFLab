@@ -5,7 +5,7 @@ from tsflab.models.refocus.model import Model
 
 """Validated parameters for ReFocus."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,14 +13,22 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
-    d_pick: int = 32
-    layers: int = 2
+    enc_in: int = Field(ge=1)
+    # FLinear's irfft needs at least two output samples.
+    d_model: int = Field(default=128, ge=2)
+    d_pick: int = Field(default=32, ge=2)
+    layers: int = Field(default=2, ge=1)
     dropout: float = 0.1
     beta: float = 0.5
-    kernel_size: int = 25
+    kernel_size: int = Field(default=25, ge=1)
     initial: bool = True
+
+    @field_validator("kernel_size")
+    @classmethod
+    def _odd_kernel(cls, value: int) -> int:
+        if value % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer")
+        return value
 
 
 def build_model(cfg, params):

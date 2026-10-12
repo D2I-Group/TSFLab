@@ -1,6 +1,6 @@
 """Runtime specification for GMRL."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gmrl.model import Model
@@ -25,6 +25,15 @@ class ModelParameterConfig(BaseModel):
     memory_size: int = Field(default=8, gt=0)
     use_memory: bool = True
     cluster_weight: float = Field(default=1.0, ge=0.0)
+
+    @model_validator(mode="after")
+    def _sources_divide_channels(self) -> "ModelParameterConfig":
+        if self.enc_in % self.num_sources:
+            raise ValueError(
+                f"enc_in={self.enc_in} must equal num_sources * num_locations "
+                f"(num_sources={self.num_sources})"
+            )
+        return self
 
 
 def build_model(cfg, params):

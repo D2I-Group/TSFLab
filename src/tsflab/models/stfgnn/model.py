@@ -188,19 +188,11 @@ class STFGNL(nn.Module):
         return output
 
 
-def _check_layers(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day,
-                  filters, first_layer_embedding, gated_conv) -> None:
-    if min(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day) < 1:
+def _check_layers(seq_len, pred_len, enc_in, num_layers) -> None:
+    if min(seq_len, pred_len, enc_in) < 1:
         raise ValueError("lengths, nodes, layers, widths and steps_per_day must be positive")
     if seq_len - (_WINDOW - 1) * num_layers < 1:
         raise ValueError(f"seq_len ({seq_len}) must exceed 3 * num_layers ({3 * num_layers})")
-    if gated_conv and filters[-1] != first_layer_embedding:
-        raise ValueError("the gated-conv residual needs filters[-1] == first_layer_embedding")
-
-
-def _check_dtw(dtw_order: int, dtw_band: int, dtw_sparsity: float) -> None:
-    if dtw_order not in (1, 2) or dtw_band < 0 or not 0.0 <= dtw_sparsity <= 1.0:
-        raise ValueError("dtw_order must be 1 or 2, dtw_band >= 0 and dtw_sparsity in [0, 1]")
 
 
 def _checked_adjacency(adj_mx, enc_in: int) -> np.ndarray:
@@ -240,9 +232,7 @@ class Model(nn.Module):
         dtw_sparsity: float = 0.01,
     ) -> None:
         super().__init__()
-        _check_layers(seq_len, pred_len, enc_in, num_layers, output_hidden, steps_per_day,
-                      filters, first_layer_embedding, gated_conv)
-        _check_dtw(dtw_order, dtw_band, dtw_sparsity)
+        _check_layers(seq_len, pred_len, enc_in, num_layers)
         spatial = _checked_adjacency(adj_mx, enc_in)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.huber_delta, self.steps_per_day = huber_delta, steps_per_day

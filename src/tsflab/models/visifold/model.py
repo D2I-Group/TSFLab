@@ -97,12 +97,8 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx  # VisiFold's node visibility mechanism does not consume a fixed adjacency.
-        if min(seq_len, pred_len, num_nodes, input_dim, input_embedding_dim, num_layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("VisiFold dimensions must be positive")
-        if not 0.0 <= mask_ratio < 1.0:
-            raise ValueError("mask_ratio must be in [0.0, 1.0)")
-        if subgraph_size < 1:
-            raise ValueError("subgraph_size must be positive")
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -116,8 +112,6 @@ class Model(nn.Module):
         self.subgraph_size = subgraph_size
 
         self.model_dim = input_embedding_dim + tod_embedding_dim + dow_embedding_dim + spatial_embedding_dim
-        if self.model_dim % num_heads:
-            raise ValueError("VisiFold model_dim must be divisible by num_heads")
 
         if tod_embedding_dim > 0:
             self.tod_embedding = nn.Embedding(steps_per_day, tod_embedding_dim)

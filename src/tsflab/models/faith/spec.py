@@ -1,6 +1,6 @@
 """Runtime specification for FAITH."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.faith.model import Model
@@ -20,6 +20,12 @@ class ModelParameterConfig(BaseModel):
     head_dropout: float = Field(default=0.05, ge=0.0, lt=1.0)
     modes: int = Field(default=64, ge=1)
     kernel_sizes: list[int] = Field(default_factory=lambda: [17, 49], min_length=1)
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self) -> "ModelParameterConfig":
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

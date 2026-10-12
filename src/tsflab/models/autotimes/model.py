@@ -16,7 +16,7 @@ import torch.nn as nn
 
 from tsflab.models._components.gpt2_backbone import GPT2Backbone, GPT2Config
 from tsflab.models._components.revin import RevIN
-from tsflab.models._components.segment_mlp import ACTIVATIONS as _ACTIVATIONS, SegmentMLP
+from tsflab.models._components.segment_mlp import SegmentMLP
 
 
 class Model(nn.Module):
@@ -35,12 +35,10 @@ class Model(nn.Module):
         llm_layers: int = 12,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, token_len, mlp_hidden_dim, llm_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("AutoTimes sizes must be positive")
         if seq_len % token_len:
             raise ValueError("seq_len must be a multiple of token_len (context = N segments)")
-        if mlp_activation not in _ACTIVATIONS:
-            raise ValueError(f"mlp_activation must be one of {sorted(_ACTIVATIONS)}")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.token_len = token_len
         self.token_num = seq_len // token_len

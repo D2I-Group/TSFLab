@@ -17,10 +17,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5, initial_beta: float = 0.25) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions must be positive")
-        if not 0 < initial_alpha < 1 or not 0 < initial_beta < 1:
-            raise ValueError("initial gains must lie strictly between zero and one")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.alpha_logits = nn.Parameter(torch.full((enc_in,), _logit(initial_alpha)))
         self.beta_logits = nn.Parameter(torch.full((enc_in,), _logit(initial_beta)))

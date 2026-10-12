@@ -11,8 +11,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, tree_depth: int = 4,
                  temperature: float = 1.0, use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, affine=use_revin, enabled=use_revin)
         self.tree = SoftDecisionTree(seq_len * enc_in, pred_len * enc_in,

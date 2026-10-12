@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.dominant_periods import dominant_periods
+from tsflab.models._components.instance_norm import destandardize, standardize
 
 
 class AdaptiveMixHopGraph(nn.Module):
@@ -97,8 +98,8 @@ class Model(nn.Module):
                  embed="timeF", freq="h"):
         super().__init__()
         c_out = enc_in if c_out is None else c_out
-        if c_out != enc_in or d_model % n_heads:
-            raise ValueError("MSGNet requires c_out == enc_in and d_model divisible by n_heads")
+        if c_out != enc_in:
+            raise ValueError("MSGNet requires c_out == enc_in")
         if top_k > seq_len // 2:
             raise ValueError("top_k exceeds available non-DC FFT bins")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -118,10 +119,8 @@ class Model(nn.Module):
     ):
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
-        mean = x_enc.mean(1, keepdim=True).detach()
-        scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        hidden = (x_enc - mean) / scale
+        hidden, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         for block in self.blocks:
             hidden = block(hidden)
         forecast = self.head(hidden.transpose(1, 2)).transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

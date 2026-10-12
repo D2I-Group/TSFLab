@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import torch
 import torch.nn.functional as F
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -43,6 +43,14 @@ class ModelParameterConfig(BaseModel):
     random_flip: bool = True
     huber_delta: float = Field(default=2.0, gt=0.0)
     curriculum_step: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def _embedding_widths(self) -> "ModelParameterConfig":
+        if self.embed_dim % 2:
+            raise ValueError("embed_dim must be even for the sinusoidal position table")
+        if self.embed_dim % (self.geo_num_heads + self.sem_num_heads + self.t_num_heads):
+            raise ValueError("embed_dim must be divisible by the total number of heads")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

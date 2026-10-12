@@ -45,8 +45,6 @@ class LowRankLinear(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, rank: int, bias: bool = True) -> None:
         super().__init__()
-        if rank < 1:
-            raise ValueError("rank must be positive")
         self.in_features, self.out_features, self.rank = in_features, out_features, rank
         # Official initialization: Kaiming-uniform on both factors as stored
         # ([in, rank] and [rank, out]) and a U(0, 1) bias.
@@ -59,11 +57,9 @@ class LowRankLinear(nn.Module):
         return out if self.B is None else out + self.B
 
 
-def _check_config(seq_len: int, enable_haar: bool, regularization_rate: float) -> None:
+def _check_config(seq_len: int, enable_haar: bool) -> None:
     if seq_len < 2 and enable_haar:
         raise ValueError("the Haar step needs seq_len >= 2")
-    if regularization_rate < 0:
-        raise ValueError("regularization_rate must be non-negative")
 
 
 class Model(nn.Module):
@@ -83,7 +79,7 @@ class Model(nn.Module):
         regularization_rate: float = 0.1,
     ) -> None:
         super().__init__()
-        _check_config(seq_len, enable_haar, regularization_rate)
+        _check_config(seq_len, enable_haar)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.individual = bool(individual)
         self.enable_haar, self.enable_dct = bool(enable_haar), bool(enable_dct)

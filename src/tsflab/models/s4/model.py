@@ -8,6 +8,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 def zoh_discretize_diagonal(a: torch.Tensor, b: torch.Tensor, dt: torch.Tensor):
     """Zero-order hold: A_bar=exp(dt A), B_bar=(exp(dt A)-1) A^-1 B."""
@@ -100,12 +102,8 @@ class Model(nn.Module):
     ):
         super().__init__()
         c_out = enc_in if c_out is None else c_out
-        if min(seq_len, pred_len, enc_in, c_out, d_model, d_state, e_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all S4 dimensions and counts must be positive")
-        if d_state % 2:
-            raise ValueError("d_state must be even for conjugate diagonal modes")
-        if use_norm and c_out != enc_in:
-            raise ValueError("normalized S4 requires c_out == enc_in")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_norm = use_norm
         self.input_projection = nn.Linear(enc_in, d_model)
@@ -128,9 +126,7 @@ class Model(nn.Module):
                 f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
             )
         if self.use_norm:
-            mean = x_enc.mean(1, keepdim=True).detach()
-            scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-            values = (x_enc - mean) / scale
+            values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         else:
             values = x_enc
         hidden = self.input_projection(values)
@@ -140,4 +136,4 @@ class Model(nn.Module):
             self.final_norm(hidden).transpose(1, 2)
         ).transpose(1, 2)
         forecast = self.output_projection(hidden)
-        return forecast * scale + mean if self.use_norm else forecast
+        return destandardize(forecast, mean, scale) if self.use_norm else forecast

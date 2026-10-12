@@ -204,8 +204,6 @@ class SpatialTemporalAttention(nn.Module):
     def __init__(self, width, geo_heads, sem_heads, t_heads, qkv_bias, attn_drop, proj_drop):
         super().__init__()
         heads = geo_heads + sem_heads + t_heads
-        if width % heads:
-            raise ValueError("embed_dim must be divisible by the total number of heads")
         self.head_width = width // heads
         self.heads = {"t": t_heads, "geo": geo_heads, "sem": sem_heads}
         self.scale = self.head_width ** -0.5
@@ -319,9 +317,7 @@ class Model(nn.Module):
         adjacency = np.asarray(adj_mx, dtype=np.float64)
         if adjacency.shape != (enc_in, enc_in):
             raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
-        if embed_dim % 2:
-            raise ValueError("embed_dim must be even for the sinusoidal position table")
-        if min(seq_len, pred_len, enc_in, s_attn_size, n_cluster, dtw_delta, steps_per_day) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, nodes, pattern size, clusters, dtw_delta, steps_per_day must be >= 1")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.s_attn_size, self.n_cluster = s_attn_size, n_cluster

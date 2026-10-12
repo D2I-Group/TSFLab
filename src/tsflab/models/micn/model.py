@@ -112,21 +112,12 @@ def _checked_c_out(enc_in, c_out):
     return c_out
 
 
-def _checked_scales(conv_kernel):
-    scales = tuple(int(kernel) for kernel in conv_kernel)
-    if not scales or min(scales) < 2:
-        raise ValueError("conv_kernel must contain scales >= 2")
-    return scales
-
-
 class Model(nn.Module):
     def __init__(self, seq_len, pred_len, enc_in, c_out=None, d_model=64, d_layers=1,
                  dropout=0.05, conv_kernel=(12, 16), mode="regre"):
         super().__init__()
         c_out = _checked_c_out(enc_in, c_out)
-        scales = _checked_scales(conv_kernel)
-        if mode not in ("regre", "mean"):
-            raise ValueError("mode must be 'regre' or 'mean'")
+        scales = tuple(int(kernel) for kernel in conv_kernel)
         self.seq_len, self.pred_len, self.enc_in, self.mode = seq_len, pred_len, enc_in, mode
         length = seq_len + pred_len
         self.decomposition = MultiScaleDecomposition(tuple(odd_kernel(s) for s in scales))

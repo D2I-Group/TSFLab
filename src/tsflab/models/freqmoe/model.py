@@ -82,8 +82,8 @@ class Model(nn.Module):
         dropout_freq: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, expert_num, freq_num_blocks) < 1:
-            raise ValueError("lengths, channels, experts, and blocks must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.moe = FrequencyBandMixtureOfExperts(expert_num, seq_len)
         self.blocks = nn.ModuleList(

@@ -61,10 +61,8 @@ class Model(nn.Module):
         hidden_dim: int = 64,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, Ks, hidden_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, nodes, graph order, and hidden size must be positive")
-        if cov_dim < 0:
-            raise ValueError("cov_dim must be non-negative")
         adjacency = np.ones((enc_in, enc_in), dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (enc_in, enc_in):
             raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")

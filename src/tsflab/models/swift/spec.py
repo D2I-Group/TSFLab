@@ -5,7 +5,7 @@ from tsflab.models.swift.model import Model
 
 """Validated parameters for SWIFT."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,12 +13,18 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
+    enc_in: int = Field(ge=1)
     hidden_size: int = 0
-    conv_kernel: int = 3
+    conv_kernel: int = Field(default=3, ge=1)
     use_convdropout: bool = False
     conv_dropout: float = 0.1
     not_independent: bool = False
+
+    @model_validator(mode="after")
+    def check_odd_kernel(self):
+        if self.conv_kernel % 2 == 0:
+            raise ValueError("conv_kernel must be a positive odd integer")
+        return self
 
 
 def build_model(cfg, params):

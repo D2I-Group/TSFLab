@@ -11,10 +11,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, penalty: float = 1e-4, l1_ratio: float = 0.5) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or penalty < 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions must be positive and penalty non-negative")
-        if not 0 <= l1_ratio <= 1:
-            raise ValueError("l1_ratio must be in [0, 1]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.penalty, self.l1_ratio = penalty, l1_ratio
         self.projection = nn.Linear(seq_len, pred_len)

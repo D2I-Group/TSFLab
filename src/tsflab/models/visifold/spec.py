@@ -7,7 +7,7 @@ from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.visifold.model import Model
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,18 +21,28 @@ class ModelParameterConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enc_in: int
-    input_dim: int = 3
+    input_dim: int = Field(default=3, gt=0)
     steps_per_day: int = 24
-    input_embedding_dim: int = 8
+    input_embedding_dim: int = Field(default=8, gt=0)
     tod_embedding_dim: int = 4
     dow_embedding_dim: int = 4
     spatial_embedding_dim: int = 8
     feed_forward_dim: int = 16
-    num_heads: int = 2
-    num_layers: int = 1
-    mask_ratio: float = 0.2
-    subgraph_size: int = 4
+    num_heads: int = Field(default=2, gt=0)
+    num_layers: int = Field(default=1, gt=0)
+    mask_ratio: float = Field(default=0.2, ge=0.0, lt=1.0)
+    subgraph_size: int = Field(default=4, gt=0)
     dropout: float = 0.0
+
+    @model_validator(mode="after")
+    def _check_heads(self):
+        model_dim = (
+            self.input_embedding_dim + self.tod_embedding_dim
+            + self.dow_embedding_dim + self.spatial_embedding_dim
+        )
+        if model_dim % self.num_heads:
+            raise ValueError("VisiFold model_dim must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

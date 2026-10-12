@@ -114,8 +114,6 @@ class PeriodModulatedAttention(nn.Module):
 
     def __init__(self, width: int, period: int, heads: int) -> None:
         super().__init__()
-        if width % heads:
-            raise ValueError("d_model must be divisible by head")
         self.heads = heads
         self.head_width = width // heads
         self.qkv = nn.Linear(width, 3 * width)
@@ -152,8 +150,6 @@ class Model(nn.Module):
                  d_model: int = 64, periodic: int = 24, head: int = 4,
                  d_layers: int = 1, bias: int = 1, cias: int = 1) -> None:
         super().__init__()
-        if periodic < 2:
-            raise ValueError("periodic must be >= 2")
         if seq_len < periodic:
             raise ValueError(
                 f"MoFo needs seq_len >= periodic ({seq_len} < {periodic}): Eq. (1) pads "

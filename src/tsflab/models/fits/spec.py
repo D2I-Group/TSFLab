@@ -5,13 +5,13 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.fits.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
+    enc_in: int = Field(gt=0)
     individual: bool = False
-    cut_freq: int = 24
+    cut_freq: int = Field(default=24, gt=0)
 
 
 def build_model(cfg, params):
@@ -31,5 +31,6 @@ SPEC = ModelSpec(
     factory=build_model,
     params_schema=ModelParameterConfig,
     capabilities=frozenset(["time-series"]),
+    components=("instance_norm",),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

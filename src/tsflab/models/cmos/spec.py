@@ -1,6 +1,6 @@
 """Runtime specification for CMoS."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.cmos.model import Model
@@ -12,6 +12,12 @@ class ModelParameterConfig(BaseModel):
     num_map: int = Field(default=3, gt=0)
     kernel_size: int = Field(default=4, gt=0)
     period: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _period_matches_segments(self):
+        if self.period is not None and (self.period < self.seg_size or self.period % self.seg_size):
+            raise ValueError("period must be a multiple of seg_size")
+        return self
 
 
 def build_model(cfg, params):

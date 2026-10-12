@@ -7,7 +7,7 @@ from tsflab.models.patchtsmixer.model import Model
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -15,12 +15,12 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 16
-    patch_len: int = 16
-    stride: int = 8
-    num_layers: int = 3
-    expansion_factor: int = 2
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=16, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
+    num_layers: int = Field(default=3, gt=0)
+    expansion_factor: int = Field(default=2, gt=0)
     dropout: float = 0.1
     head_dropout: float = 0.1
     mode: Literal["common_channel", "mix_channel"] = "common_channel"

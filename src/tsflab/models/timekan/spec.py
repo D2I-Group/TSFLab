@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timekan.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,6 +21,12 @@ class ModelParameterConfig(BaseModel):
     embed: str = "timeF"
     freq: str = "h"
     use_norm: int = 1
+
+    @model_validator(mode="after")
+    def check_head(self):
+        if self.c_out not in (None, self.enc_in):
+            raise ValueError("TimeKAN's variate-independent head requires c_out == enc_in")
+        return self
 
 
 def build_model(cfg, params):

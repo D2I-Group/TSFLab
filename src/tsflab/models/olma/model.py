@@ -33,11 +33,8 @@ class Model(nn.Module):
         weight_wavelet: float = 0.33,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("seq_len, pred_len and enc_in must be positive")
-        weights = (loss_weight, weight_channel, weight_temporal, weight_wavelet)
-        if min(weights) < 0 or loss_weight == 0:
-            raise ValueError("OLMA weights must be non-negative and loss_weight positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

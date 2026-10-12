@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.agcrn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,12 +20,12 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    rnn_units: int = 32
-    embed_dim: int = 8
-    num_layers: int = 1
-    cheb_k: int = 2
-    output_dim: int = 1
+    input_dim: int = Field(default=3, gt=0)
+    rnn_units: int = Field(default=32, gt=0)
+    embed_dim: int = Field(default=8, gt=0)
+    num_layers: int = Field(default=1, gt=0)
+    cheb_k: int = Field(default=2, gt=0)
+    output_dim: Literal[1] = 1  # TSFLab AGCRN exposes one value per node
 
 
 def build_model(cfg, params):

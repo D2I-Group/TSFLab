@@ -135,29 +135,23 @@ class WaveNetGraphBlock(nn.Module):
         return self.norm(mixed), skip
 
 
-def _check_sizes(dims: tuple[int, ...], smallest_wavenet: int) -> None:
-    seq_len, _, _, history_len, patch_size, embed_dim, num_heads = dims
-    if min(dims) < 1 or smallest_wavenet < 1:
+def _check_sizes(seq_len: int, pred_len: int, num_nodes: int, history_len: int, patch_size: int) -> None:
+    if min(seq_len, pred_len, num_nodes) < 1:
         raise ValueError("STDMAE dimensions must be positive")
     if seq_len % patch_size:
         raise ValueError("seq_len must be a multiple of patch_size")
     if history_len > seq_len:
         raise ValueError("history_len must not exceed seq_len")
-    if embed_dim % num_heads:
-        raise ValueError("embed_dim must be divisible by num_heads")
 
 
-def _receptive_field(blocks: int, layers: int, kernel_size: int, history_len: int) -> int:
+def receptive_field(blocks: int, layers: int, kernel_size: int) -> int:
+    """Receptive field of the Graph WaveNet backend (``blocks`` x ``layers`` dilated convolutions)."""
     receptive = 1
     for _ in range(blocks):
         step = kernel_size - 1
         for _ in range(layers):
             receptive += step
             step *= 2
-    if history_len + 1 > receptive:
-        raise ValueError(
-            f"history_len + 1 must not exceed the receptive field {receptive}"
-        )
     return receptive
 
 
@@ -199,11 +193,8 @@ class Model(nn.Module):
         freeze_encoders: bool = False,
     ) -> None:
         super().__init__()
-        dims = (seq_len, pred_len, num_nodes, history_len, patch_size, embed_dim, num_heads)
-        _check_sizes(dims, min(in_dim, blocks, layers, kernel_size))
-        if not 1 <= in_dim <= 3:
-            raise ValueError("in_dim must select 1 to 3 of value, time-of-day, day-of-week")
-        receptive = _receptive_field(blocks, layers, kernel_size, history_len)
+        _check_sizes(seq_len, pred_len, num_nodes, history_len, patch_size)
+        receptive = receptive_field(blocks, layers, kernel_size)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.history_len, self.in_dim, self.receptive_field = history_len, in_dim, receptive
         self.freeze_encoders = freeze_encoders

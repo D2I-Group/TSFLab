@@ -18,8 +18,6 @@ def selected_modes(length: int, count: int, method: str) -> torch.Tensor:
     count = min(count, available)
     if method == "low":
         return torch.arange(count)
-    if method != "random":
-        raise ValueError("mode_select must be 'low' or 'random'")
     generator = torch.Generator().manual_seed(104729 + 37 * length + count)
     return torch.randperm(available, generator=generator)[:count].sort().values
 
@@ -29,8 +27,6 @@ class FrequencyEnhancedBlock(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, length: int, modes: int, mode_select: str) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         indices = selected_modes(length, modes, mode_select)
@@ -69,8 +65,6 @@ class FrequencyEnhancedAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, query_length: int, key_length: int, modes: int, mode_select: str) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.register_buffer(
@@ -132,13 +126,11 @@ class FEDformerDecoderLayer(DecompositionDecoderLayer):
         )
 
 
-def _check_sizes(seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int) -> None:
-    if min(seq_len, pred_len, enc_in, dec_in, c_out) < 1:
+def _check_sizes(seq_len: int, label_len: int, pred_len: int) -> None:
+    if min(seq_len, pred_len) < 1:
         raise ValueError("lengths and channel counts must be positive")
     if label_len < 0 or label_len > seq_len:
         raise ValueError("label_len must be between zero and seq_len")
-    if not (enc_in == dec_in == c_out):
-        raise ValueError("clean-room FEDformer requires enc_in=dec_in=c_out")
 
 
 class Model(nn.Module):
@@ -146,7 +138,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int, d_model: int, n_heads: int, e_layers: int, d_layers: int, d_ff: int, moving_avg: int, dropout: float, activation: str = "gelu", mode_select: str = "random", modes: int = 32) -> None:
         super().__init__()
-        _check_sizes(seq_len, label_len, pred_len, enc_in, dec_in, c_out)
+        _check_sizes(seq_len, label_len, pred_len)
         self.seq_len = seq_len
         self.label_len = label_len
         self.pred_len = pred_len

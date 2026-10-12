@@ -5,14 +5,16 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sparsetsf.model import Model
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    period: int = 24
-    d_model: int = 64
-    model_type: str = "linear"
+    enc_in: int = Field(gt=0)
+    period: int = Field(default=24, gt=0)
+    d_model: int = Field(default=64, gt=0)
+    model_type: Literal["linear", "mlp"] = "linear"
 
 
 def build_model(cfg, params):

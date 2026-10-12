@@ -21,8 +21,6 @@ class Model(nn.Module):
         super().__init__()
         if seq_len % patch_len:
             raise ValueError("seq_len must be divisible by patch_len")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.num_patches, self.use_revin = patch_len, seq_len // patch_len, use_revin
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)

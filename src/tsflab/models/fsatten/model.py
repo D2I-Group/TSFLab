@@ -59,8 +59,6 @@ class FrequencySpectrumAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, channels: int, n_freq: int, dropout: float) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.channels = channels
         self.n_freq = n_freq
@@ -114,12 +112,8 @@ class Model(nn.Module):
         fft_norm: FFTNorm = "backward",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if fft_norm not in ("backward", "ortho", "forward"):
-            raise ValueError("fft_norm must be 'backward', 'ortho', or 'forward'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

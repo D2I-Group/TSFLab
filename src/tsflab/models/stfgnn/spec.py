@@ -1,7 +1,7 @@
 """Runtime specification for STFGNN."""
 
 import torch.nn.functional as F
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -32,6 +32,12 @@ class ModelParameterConfig(BaseModel):
     dtw_band: int = Field(default=12, ge=0)
     dtw_order: int = Field(default=1, ge=1, le=2)
     dtw_sparsity: float = Field(default=0.01, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _gated_residual_width(self) -> "ModelParameterConfig":
+        if self.gated_conv and self.filters[-1] != self.first_layer_embedding:
+            raise ValueError("the gated-conv residual needs filters[-1] == first_layer_embedding")
+        return self
 
 
 _FIELDS = tuple(name for name in ModelParameterConfig.model_fields if name != "enc_in")

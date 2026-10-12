@@ -116,12 +116,10 @@ class Model(nn.Module):
         dropout: float = 0.2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_scales, d_model, n_heads, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("DPANet sizes must be positive")
         if seq_len // 2 ** (num_scales - 1) < 1:
             raise ValueError("seq_len is too short for num_scales temporal pyramid levels")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

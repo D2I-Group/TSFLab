@@ -65,11 +65,6 @@ class Model(nn.Module):
         super().__init__()
         del label_len, features
         count = len(stack_types)
-        if not all(len(items) == count for items in
-                   (n_blocks, n_pool_kernel_size, n_freq_downsample)):
-            raise ValueError("N-HiTS stack configuration lengths must match")
-        if any(kind != "identity" for kind in stack_types):
-            raise ValueError("local N-HiTS supports the paper identity interpolation basis")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.normalization = RevIN(enc_in, affine=False, enabled=use_norm)
         blocks = []

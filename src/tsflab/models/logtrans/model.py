@@ -73,7 +73,7 @@ class Model(nn.Module):
         history_likelihood: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, e_layers, embed_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, layers and embed_dim must be positive")
         if features not in {"M", "S", "MS"}:
             raise ValueError("features must be M, S, or MS")

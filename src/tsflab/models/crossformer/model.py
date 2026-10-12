@@ -54,10 +54,8 @@ class Model(nn.Module):
     def __init__(self, seq_len, pred_len, enc_in, features="M", d_model=64, n_heads=4,
                  e_layers=2, d_ff=128, seg_len=12, win_size=2, factor=10, dropout=0.1):
         super().__init__()
-        if not 1 <= seg_len <= seq_len or win_size < 1 or factor < 1 or e_layers < 1:
+        if seg_len > seq_len:
             raise ValueError("invalid segment hierarchy")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len, self.pred_len, self.enc_in, self.seg_len = seq_len, pred_len, enc_in, seg_len
         count = math.ceil(seq_len / seg_len)
         self.segment_projection = nn.Linear(seg_len, d_model)

@@ -5,17 +5,17 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.fets.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 32
-    patch_len: int = 16
-    stride: int = 8
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=32, ge=1)
+    patch_len: int = Field(default=16, ge=1)
+    stride: int = Field(default=8, ge=1)
     fourier_order: int = 2
     polynomial_order: int = 2
-    kernel_size: int = 3
+    kernel_size: int = Field(default=3, ge=1)
     dropout: float = 0.0
     use_revin: bool = True
 

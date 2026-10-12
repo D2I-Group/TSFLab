@@ -37,15 +37,13 @@ class Model(nn.Module):
         w_lin: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, heads, layers, and d_ff must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         if seq_len % n_heads:
             raise ValueError(
                 "Client uses the lookback length as the token width, so seq_len must be "
                 f"divisible by n_heads (got seq_len={seq_len}, n_heads={n_heads})"
             )
-        if activation not in {"gelu", "relu"}:
-            raise ValueError("activation must be 'gelu' or 'relu'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

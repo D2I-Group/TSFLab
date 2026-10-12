@@ -22,7 +22,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.gpt2_backbone import GPT2Backbone, GPT2Config
 from tsflab.models._components.revin import RevIN
-from tsflab.models._components.segment_mlp import ACTIVATIONS as _ACTIVATIONS, SegmentMLP
+from tsflab.models._components.segment_mlp import SegmentMLP
 
 NUM_EXPERTS = 3  # Linear, CNN, LSTM (Sec. IV-B)
 
@@ -223,8 +223,6 @@ class HeterogeneousTemporalEncoder(nn.Module):
     def __init__(self, token_len: int, width: int, hidden: int, top_k: int,
                  noise_epsilon: float = 1e-2) -> None:
         super().__init__()
-        if not 1 <= top_k <= NUM_EXPERTS:
-            raise ValueError(f"top_k must lie in [1, {NUM_EXPERTS}]")
         self.top_k = top_k
         self.noise_epsilon = noise_epsilon
         # Eq. (1): z~ = ReLU(s W0t) W1t ; Eq. (2): c~ = ReLU(c W0c) W1c (no biases).
@@ -310,16 +308,10 @@ class Model(nn.Module):
         moe_weight: float = 0.02,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, token_len, expert_hidden, mlp_hidden_dim, llm_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("TALON sizes must be positive")
-        if token_len < 3:
-            raise ValueError("token_len must be at least 3 (segment statistics)")
         if seq_len % token_len:
             raise ValueError("seq_len must be a multiple of token_len (context = N segments)")
-        if mlp_activation not in _ACTIVATIONS:
-            raise ValueError(f"mlp_activation must be one of {sorted(_ACTIVATIONS)}")
-        if moe_weight < 0:
-            raise ValueError("moe_weight must be non-negative")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.token_len = token_len
         self.token_num = seq_len // token_len

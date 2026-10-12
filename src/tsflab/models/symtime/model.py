@@ -33,12 +33,8 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, num_layers, num_heads) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and dimensions must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
-        if trend_kernel < 1 or trend_kernel % 2 == 0:
-            raise ValueError("trend_kernel must be a positive odd integer")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

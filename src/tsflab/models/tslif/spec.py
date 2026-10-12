@@ -1,6 +1,6 @@
 """Runtime specification for TSLIF."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.tslif.model import Model
@@ -17,6 +17,13 @@ class ModelParameterConfig(BaseModel):
     kernel_size: int = Field(default=3, gt=0)
     v_threshold: float = Field(default=1.0, gt=0.0)
     surrogate_alpha: float = Field(default=2.0, gt=0.0)
+
+    @field_validator("kernel_size")
+    @classmethod
+    def _odd_kernel(cls, value: int) -> int:
+        if value % 2 == 0:
+            raise ValueError("TSLIF kernel_size must be odd")
+        return value
 
 
 def build_model(cfg, params):

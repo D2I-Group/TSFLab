@@ -30,7 +30,7 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  d_time: int = 8, num_patches: int = 8) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_time, num_patches) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_patches = num_patches

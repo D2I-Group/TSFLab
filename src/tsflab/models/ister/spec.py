@@ -38,8 +38,6 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     options = ModelParameterConfig(**params).model_dump()
-    if options["recon_len"] > cfg.task.seq_len:
-        raise ValueError("recon_len must not exceed seq_len")
     return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, **options)
 
 

@@ -69,10 +69,8 @@ class Model(nn.Module):
                  head_dropout: float = 0.1, alpha: float = 2.0, pos: bool = True,
                  head_mode: str = "linear", affine: bool = True, subtract_last: bool = False) -> None:
         super().__init__()
-        if patch_len > seq_len or min(seq_len, pred_len, enc_in, d_model, patch_len, stride, hidden_size) < 1:
+        if patch_len > seq_len or min(seq_len, pred_len) < 1:
             raise ValueError("SRSNet requires positive dimensions and patch_len <= seq_len")
-        if head_mode != "linear":
-            raise ValueError("clean-room SRSNet supports the paper's linear head")
         self.seq_len, self.pred_len = seq_len, pred_len
         self.patch_len, self.stride = patch_len, stride
         patch_count = math.floor((seq_len - patch_len) / stride) + 1

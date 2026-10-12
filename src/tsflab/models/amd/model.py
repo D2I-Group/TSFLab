@@ -182,14 +182,10 @@ class Model(nn.Module):
         batchnorm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, n_block, patch, ff_dim, num_experts) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("AMD dimensions must be positive")
-        if mix_layer_num < 0 or mix_layer_scale < 2 and mix_layer_num > 0:
-            raise ValueError("mix_layer_num must be >= 0 and mix_layer_scale >= 2")
         if seq_len % patch or seq_len % (mix_layer_scale**mix_layer_num):
             raise ValueError("seq_len must be divisible by patch and by mix_layer_scale**mix_layer_num")
-        if not 1 <= top_k <= num_experts:
-            raise ValueError("top_k must lie in [1, num_experts]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.aux_loss: torch.Tensor | None = None
         self.revin = RevIN(enc_in, affine=True, enabled=use_revin)

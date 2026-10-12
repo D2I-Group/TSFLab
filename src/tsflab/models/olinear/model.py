@@ -38,8 +38,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) < 1:
-            raise ValueError("sequence, horizon, channels, and model width must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("sequence and horizon must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

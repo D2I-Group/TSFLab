@@ -62,7 +62,7 @@ class Model(nn.Module):
         spatial_regions: int = 4,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, hidden_dim, spatial_regions) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("DeepAir dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

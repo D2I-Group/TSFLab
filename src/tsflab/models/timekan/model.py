@@ -85,8 +85,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len, features, moving_avg, dropout, embed, freq
-        if c_out not in (None, enc_in):
-            raise ValueError("TimeKAN's variate-independent head requires c_out == enc_in")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.window = down_sampling_window

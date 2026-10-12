@@ -71,10 +71,8 @@ class Model(nn.Module):
         beta: float,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, d_model, d_ff) <= 0:
-            raise ValueError("lengths, channels, and hidden dimensions must be positive")
-        if not 0.0 <= alpha <= 1.0 or not 0.0 <= beta <= 1.0:
-            raise ValueError("alpha and beta initial values must be in [0, 1]")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

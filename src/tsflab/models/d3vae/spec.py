@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -37,6 +37,12 @@ class ModelParameterConfig(BaseModel):
     psi: float = Field(default=0.5, ge=0.0)
     lambda_dsm: float = Field(default=1.0, ge=0.0)
     gamma: float = Field(default=0.01, ge=0.0)
+
+    @model_validator(mode="after")
+    def _beta_schedule_is_ordered(self) -> "ModelParameterConfig":
+        if self.beta_start > self.beta_end:
+            raise ValueError("need 0 <= beta_start <= beta_end < 1")
+        return self
 
 
 def build_model(cfg, params):

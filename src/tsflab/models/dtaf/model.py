@@ -9,6 +9,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 def patchify(values: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
     """Repeat-pad and return ``(batch*channels, patches, patch_len)``."""
@@ -87,8 +89,8 @@ class Model(nn.Module):
                  d_model=32, e_layers=1, patch_len=16, stride=8, heads=2,
                  dropout=0.1, expert_num=2, expert_hidden=8, top_k=1):
         super().__init__()
-        if patch_len > seq_len + stride or d_model % heads:
-            raise ValueError("invalid patch length or attention head width")
+        if patch_len > seq_len + stride:
+            raise ValueError("invalid patch length")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.patch_count = 1 + (seq_len + stride - patch_len) // stride
@@ -109,10 +111,9 @@ class Model(nn.Module):
     ):
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
-        mean = x_enc.mean(1, keepdim=True).detach()
-        scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        tokens = self.embedding(patchify((x_enc - mean) / scale, self.patch_len, self.stride))
+        normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
+        tokens = self.embedding(patchify(normalized, self.patch_len, self.stride))
         for block in self.blocks:
             tokens = block(tokens)
         forecast = self.head(tokens).reshape(x_enc.shape[0], self.enc_in, self.pred_len).transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pattn.model import Model
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -14,6 +14,12 @@ class ModelParameterConfig(BaseModel):
     patch_len: int = Field(default=16, gt=0)
     stride: int = Field(default=8, gt=0)
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def _heads(self) -> "ModelParameterConfig":
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

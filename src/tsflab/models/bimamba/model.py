@@ -8,6 +8,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaBlock
 
 
@@ -111,30 +112,10 @@ class Model(nn.Module):
         sra_threshold=0.5,
     ):
         super().__init__()
-        c_out = enc_in if c_out is None else c_out
-        if (
-            min(
-                seq_len,
-                pred_len,
-                enc_in,
-                c_out,
-                d_model,
-                d_state,
-                e_layers,
-                expand,
-                d_conv,
-                patch_len,
-                stride,
-            )
-            < 1
-        ):
-            raise ValueError("all BiMamba dimensions and counts must be positive")
-        if patch_len > seq_len or c_out != enc_in:
-            raise ValueError(
-                "patch_len must not exceed seq_len and c_out must equal enc_in"
-            )
-        if not 0 <= sra_threshold <= 1:
-            raise ValueError("sra_threshold must be in [0, 1]")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
+        if patch_len > seq_len:
+            raise ValueError("patch_len must not exceed seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.patch_count = math.ceil(max(seq_len - patch_len, 0) / stride) + 1
@@ -169,9 +150,7 @@ class Model(nn.Module):
             raise ValueError(
                 f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
             )
-        mean = x_enc.mean(1, keepdim=True).detach()
-        scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        values = (x_enc - mean) / scale
+        values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         patches = patchify(values, self.patch_len, self.stride)
         batch, channels, count, width = patches.shape
 
@@ -198,4 +177,4 @@ class Model(nn.Module):
 
         gate = self.decider(values)
         forecast = (1.0 - gate) * independent + gate * mixing
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

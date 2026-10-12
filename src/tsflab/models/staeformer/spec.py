@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.staeformer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,18 +18,28 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
+    input_dim: int = Field(default=3, gt=0)
     steps_per_day: int = 24
-    input_embedding_dim: int = 24
+    input_embedding_dim: int = Field(default=24, gt=0)
     tod_embedding_dim: int = 24
     dow_embedding_dim: int = 24
     spatial_embedding_dim: int = 0
     adaptive_embedding_dim: int = 80
     feed_forward_dim: int = 256
-    num_heads: int = 4
-    num_layers: int = 3
+    num_heads: int = Field(default=4, gt=0)
+    num_layers: int = Field(default=3, gt=0)
     dropout: float = 0.1
     use_mixed_proj: bool = True
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self):
+        width = (
+            self.input_embedding_dim + self.tod_embedding_dim + self.dow_embedding_dim
+            + self.spatial_embedding_dim + self.adaptive_embedding_dim
+        )
+        if width % self.num_heads:
+            raise ValueError("STAEformer embedding width must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

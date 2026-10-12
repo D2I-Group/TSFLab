@@ -147,17 +147,8 @@ class BetaBlock(nn.Module):
         return self.head(rep), rep
 
 
-def _check_variant(variant: str, block_norm: str, body_layers: int) -> None:
-    if variant not in {"alpha", "beta"}:
-        raise ValueError("variant must be 'alpha' or 'beta'")
-    if block_norm not in {"layer", "instance"}:
-        raise ValueError("block_norm must be 'layer' or 'instance'")
-    if variant == "alpha" and (block_norm != "layer" or body_layers != 1):
-        raise ValueError("ReNF-alpha uses LayerNorm blocks with one transform layer")
-
-
 def _check_blocks(num_blocks: int, pred_len: int) -> None:
-    if num_blocks < 1 or pred_len % num_blocks != 0:
+    if pred_len % num_blocks != 0:
         raise ValueError(f"num_blocks={num_blocks} must divide pred_len={pred_len}")
 
 
@@ -185,7 +176,6 @@ class Model(nn.Module):
         alpha_freq: float = 0.2,
     ) -> None:
         super().__init__()
-        _check_variant(variant, block_norm, body_layers)
         _check_blocks(num_blocks, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len

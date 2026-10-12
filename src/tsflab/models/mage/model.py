@@ -55,10 +55,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, model_dim: int = 64,
                  recur_num: int = 8, topk: int = 2, node_dim: int = 16) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, model_dim, recur_num, node_dim) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("MAGE dimensions must be positive")
-        if topk <= 0 or topk > recur_num:
-            raise ValueError("MAGE topk must be in [1, recur_num]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.history = nn.Linear(seq_len * 3, model_dim)
         self.calendar = nn.Sequential(nn.Linear(2, model_dim), nn.SiLU())

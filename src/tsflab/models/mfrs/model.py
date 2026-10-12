@@ -153,22 +153,6 @@ class ReferenceCrossAttentionLayer(nn.Module):
         return self.norm2(hidden + update)
 
 
-def _check_sizes(smallest: int, d_model: int, n_heads: int) -> None:
-    if smallest < 1:
-        raise ValueError("MFRS lengths, widths and counts must be positive")
-    if d_model % n_heads:
-        raise ValueError("d_model must be divisible by n_heads")
-
-
-def _check_choices(waveform: str, activation: str, periods) -> None:
-    if waveform not in WAVEFORMS:
-        raise ValueError(f"waveform must be one of {WAVEFORMS}")
-    if activation not in {"gelu", "relu"}:
-        raise ValueError("activation must be 'gelu' or 'relu'")
-    if any(int(period) < 2 for period in periods):
-        raise ValueError("manual periods must be integers of at least 2")
-
-
 class Model(nn.Module):
     def __init__(
         self,
@@ -189,8 +173,8 @@ class Model(nn.Module):
         share_embedding: bool = True,
     ) -> None:
         super().__init__()
-        _check_sizes(min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff), d_model, n_heads)
-        _check_choices(waveform, activation, periods)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("MFRS seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.waveform = waveform
         self.periods = tuple(int(period) for period in periods)

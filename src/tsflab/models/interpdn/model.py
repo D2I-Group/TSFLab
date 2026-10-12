@@ -52,10 +52,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or support_size < 3:
-            raise ValueError("dimensions must be positive and support_size must be at least three")
-        if support_bound <= 0 or not 0 < ema_decay < 1:
-            raise ValueError("support_bound must be positive and ema_decay must be in (0, 1)")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

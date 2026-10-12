@@ -88,14 +88,10 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, rollout_steps, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, widths, heads, layers, and rollout_steps must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         if pred_len % rollout_steps:
             raise ValueError("pred_len must be divisible by rollout_steps")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if not 0.0 < gamma < 1.0 or not 0.0 <= beta < 0.5:
-            raise ValueError("gamma must lie in (0, 1) and beta in [0, 0.5)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

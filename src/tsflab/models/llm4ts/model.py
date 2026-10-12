@@ -30,8 +30,6 @@ class LoRALinear(nn.Module):
 
     def __init__(self, base: nn.Linear, r: int, alpha: float, dropout: float) -> None:
         super().__init__()
-        if r < 1:
-            raise ValueError("LoRA rank must be positive")
         self.base = base
         self.scaling = alpha / r
         self.lora_A = nn.Linear(base.in_features, r, bias=False)
@@ -57,12 +55,8 @@ class PatchEncoding(nn.Module):
         if token_embed_type == "conv":
             # 1-D convolution (kernel 3, circular) across neighbouring patches.
             self.token = TokenEmbedding(patch_len, d_model)
-        elif token_embed_type == "linear":
+        else:  # linear
             self.token = nn.Linear(patch_len, d_model, bias=False)
-        else:
-            raise ValueError("token_embed_type must be 'conv' or 'linear'")
-        if temporal_embed_type not in {"learned", "fixed", "none"}:
-            raise ValueError("temporal_embed_type must be 'learned', 'fixed', or 'none'")
         self.temporal = (
             None if temporal_embed_type == "none"
             else TemporalEmbedding(d_model, embed_type=temporal_embed_type, freq=freq)
@@ -95,16 +89,11 @@ class PatchEncoding(nn.Module):
         return self.dropout(tokens)
 
 
-def _check_config(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers, freq,
-                  align_epochs, probe_epochs, align_lr, probe_lr) -> None:
-    if min(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers) < 1:
+def _check_config(seq_len, pred_len, patch_len, stride) -> None:
+    if min(seq_len, pred_len) < 1:
         raise ValueError("LLM4TS sizes must be positive")
     if patch_len > seq_len + stride:
         raise ValueError("patch_len must not exceed seq_len + stride")
-    if freq not in {"h", "t"}:
-        raise ValueError("freq must be 'h' or 't'")
-    if min(align_epochs, probe_epochs) < 0 or min(align_lr, probe_lr) <= 0:
-        raise ValueError("stage epochs must be >= 0 and learning rates positive")
 
 
 def _batch_to(batch, device):
@@ -138,8 +127,7 @@ class Model(nn.Module):
         probe_weight_decay: float = 0.0014555863788252605,
     ) -> None:
         super().__init__()
-        _check_config(seq_len, pred_len, enc_in, patch_len, stride, first_k_layers, freq,
-                      align_epochs, probe_epochs, align_lr, probe_lr)
+        _check_config(seq_len, pred_len, patch_len, stride)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         self.num_patches = (seq_len + stride - patch_len) // stride + 1

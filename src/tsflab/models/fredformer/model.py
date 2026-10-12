@@ -61,8 +61,6 @@ class Model(nn.Module):
                  feedforward=128, dropout=0.2, revin=True, affine=True,
                  subtract_last=False, head_dropout=0.0):
         super().__init__()
-        if band_width < 1 or model_width % heads:
-            raise ValueError("band width must be positive and model_width divisible by heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.band_width = band_width
         self.revin = RevIN(enc_in, affine=affine, subtract_last=subtract_last, enabled=revin)

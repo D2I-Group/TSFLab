@@ -5,14 +5,14 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.interpdn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    support_size: int = 31
-    support_bound: float = 4.0
-    ema_decay: float = 0.8
+    enc_in: int = Field(ge=1)
+    support_size: int = Field(default=31, ge=3)
+    support_bound: float = Field(default=4.0, gt=0)
+    ema_decay: float = Field(default=0.8, gt=0, lt=1)
     use_revin: bool = True
 
 

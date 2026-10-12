@@ -107,12 +107,8 @@ class Model(nn.Module):
         ode_method: Literal["euler", "rk4"] = "euler",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, phy_latent_dim, unk_latent_dim, gcn_hidden_dim, n_heads) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("Air-DualODE dimensions must be positive")
-        if unk_latent_dim % n_heads:
-            raise ValueError("unk_latent_dim must be divisible by n_heads")
-        if ode_method not in {"euler", "rk4"}:
-            raise ValueError("ode_method must be 'euler' or 'rk4'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

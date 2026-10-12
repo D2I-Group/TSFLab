@@ -108,12 +108,10 @@ class Model(nn.Module):
         gelu_scores: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_ff, layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths and layers must be positive")
-        if d_model < 2:
-            raise ValueError("d_model must be at least 2 (the trend MLP hidden width is d_model // 2)")
-        if recon_len < 0 or recon_len > seq_len:
-            raise ValueError("recon_len must lie in [0, seq_len]")
+        if recon_len > seq_len:
+            raise ValueError("recon_len must not exceed seq_len")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

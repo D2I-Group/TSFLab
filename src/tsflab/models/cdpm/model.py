@@ -31,9 +31,7 @@ def beta_schedule(kind: str, steps: int) -> torch.Tensor:
         return torch.linspace(1e-4, 0.02, steps)
     if kind == "exponential":
         return 1e-4 * (0.02 / 1e-4) ** torch.linspace(0, 1, steps)
-    if kind == "inverse_sqrt":
-        return (1e-4 / torch.arange(1, steps + 1).float().sqrt()).clamp(0, 0.999)
-    raise ValueError(f"unknown beta schedule {kind!r}")
+    return (1e-4 / torch.arange(1, steps + 1).float().sqrt()).clamp(0, 0.999)  # inverse_sqrt
 
 
 def signed_sqrt(x: torch.Tensor) -> torch.Tensor:
@@ -46,8 +44,6 @@ class StepEmbedding(nn.Module):
 
     def __init__(self, dim: int) -> None:
         super().__init__()
-        if dim < 4 or dim % 2:
-            raise ValueError("emb_dim must be an even integer >= 4")
         half = dim // 2
         self.register_buffer(
             "freqs", torch.exp(-math.log(10000) / (half - 1) * torch.arange(half).float()), persistent=False

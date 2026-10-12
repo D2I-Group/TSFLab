@@ -80,10 +80,6 @@ class DozerAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, dropout: float, score_mode: ScoreMode = "zero") -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("embed_dim * patch_size must be divisible by n_heads")
-        if score_mode not in ("zero", "masked"):
-            raise ValueError("score_mode must be 'zero' or 'masked'")
         self.n_heads = n_heads
         self.score_mode = score_mode
         self.query_projection = nn.Linear(d_model, d_model)
@@ -202,8 +198,6 @@ class Model(nn.Module):
         normalize_decoder_input: bool = False,
     ) -> None:
         super().__init__()
-        if not 0 <= label_len <= seq_len:
-            raise ValueError("label_len must lie in [0, seq_len]")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.label_len = label_len

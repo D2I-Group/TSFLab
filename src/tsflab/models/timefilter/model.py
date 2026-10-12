@@ -71,10 +71,8 @@ class Model(nn.Module):
                  d_model=64, d_ff=128, e_layers=2, patch_len=16,
                  dropout=0.1, top_p=0.5, pos=True, num_experts=4):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, e_layers, num_experts) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid non-positive TimeFilter dimension")
-        if not 0 < top_p <= 1:
-            raise ValueError("top_p must be in (0,1]")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.patch_count = math.ceil(seq_len / patch_len)

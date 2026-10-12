@@ -90,14 +90,12 @@ class Model(nn.Module):
         period: int | None = None,
     ) -> None:
         super().__init__()
-        if min(c_in, seq_len, pred_len, seg_size, num_map, kernel_size) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("CMoS dimensions must be positive")
         if seq_len % seg_size or pred_len % seg_size:
             raise ValueError("seg_size must divide both seq_len and pred_len")
         if kernel_size > seq_len:
             raise ValueError("kernel_size cannot exceed seq_len")
-        if period is not None and (period < seg_size or period % seg_size):
-            raise ValueError("period must be a multiple of seg_size")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = c_in

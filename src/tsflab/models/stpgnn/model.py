@@ -78,7 +78,7 @@ class Model(nn.Module):
                  topk=4, residual_channels=16, end_channels=64,
                  kernel_size=2, blocks=2, layers=2, dims=16):
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, residual_channels, blocks, layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("invalid non-positive STPGNN dimension")
         if adj_mx is None:
             graph = torch.eye(num_nodes)

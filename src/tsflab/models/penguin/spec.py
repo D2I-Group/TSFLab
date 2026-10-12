@@ -7,7 +7,7 @@ from tsflab.models.penguin.model import Model
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -15,19 +15,31 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
-    d_ff: int = 256
-    n_heads: int = 8
-    e_layers: int = 2
-    patch_len: int = 16
-    stride: int = 8
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=128, gt=0)
+    d_ff: int = Field(default=256, gt=0)
+    n_heads: int = Field(default=8, gt=0)
+    e_layers: int = Field(default=2, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
     dropout: float = 0.1
     periods: list[int] = [24]
     activation: Literal["relu", "gelu"] = "relu"
     use_rmsnorm: bool = False
     alibi: bool = True
     causal: bool = True
+
+    @model_validator(mode="after")
+    def validate_periods(self):
+        if any(p < self.stride or p % self.stride for p in self.periods):
+            raise ValueError("every period must be a positive multiple of stride")
+        return self
+
+    @model_validator(mode="after")
+    def validate_heads(self):
+        if self.d_model % self.n_heads or self.n_heads % (len(self.periods) or 1):
+            raise ValueError("n_heads must divide d_model and be a multiple of the number of periods")
+        return self
 
 
 def build_model(cfg, params):

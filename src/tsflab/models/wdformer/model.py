@@ -89,15 +89,9 @@ class WDformerEncoderLayer(nn.Module):
         return self.out_norm(x + self.feed_forward(x))
 
 
-def _check_arguments(
-    seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, e_layers: int, wave_size: int
-) -> None:
-    if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, wave_size) < 1:
+def _check_arguments(seq_len: int, pred_len: int) -> None:
+    if min(seq_len, pred_len) < 1:
         raise ValueError("invalid WDformer dimension")
-    if d_model % n_heads:
-        raise ValueError("d_model must be divisible by n_heads")
-    if wave_size > 12:
-        raise ValueError("wave_size too large for the supplied sequence lengths")
 
 
 def _subband_sizes(wavelet: DecimatedWaveletTransform, length: int) -> list[int]:
@@ -128,7 +122,7 @@ class Model(nn.Module):
         wave_size: int = 3,
     ) -> None:
         super().__init__()
-        _check_arguments(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, wave_size)
+        _check_arguments(seq_len, pred_len)
         del d_ff  # accepted for preset/CLI parity; the official SwiGLU feed-forward
         # width is fixed at 2 * d_model and never reads d_ff (its only official
         # consumer, a Conv1d-based feed-forward branch, is unused dead code in

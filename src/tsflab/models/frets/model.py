@@ -74,10 +74,8 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del features
-        if min(seq_len, pred_len, enc_in, embed_size, hidden_size) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("FreTS dimensions must be positive")
-        if sparsity_threshold < 0:
-            raise ValueError("sparsity_threshold cannot be negative")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

@@ -112,7 +112,7 @@ class Model(nn.Module):
         individual: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, top_k, stat_hidden) < 1 or stat_pretrain_epochs < 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, top_k, and widths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

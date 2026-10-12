@@ -43,8 +43,6 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, time_slice_size: int = 60, K: int = 4, d: int = 8, L: int = 1, order: int = 2, reference: int = 4, out_channels: int = 1) -> None:
         super().__init__()
-        if out_channels != 1:
-            raise ValueError("TSFLab STDN exposes one value per node")
         width = K * d
         slots = 1440 // time_slice_size
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)

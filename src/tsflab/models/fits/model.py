@@ -7,6 +7,8 @@ import math
 import torch
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class ComplexFrequencyInterpolation(nn.Module):
     """Learn a complex affine interpolation between retained frequency bands."""
@@ -40,8 +42,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int,
                  individual: bool = False, cut_freq: int = 24) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cut_freq) < 1:
-            raise ValueError("lengths, channels, and cut_freq must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.total_len = seq_len + pred_len
         self.input_bins = min(cut_freq, seq_len // 2 + 1)
@@ -61,9 +63,7 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError("x_enc does not match configured time/channel dimensions")
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        scale = x_enc.var(dim=1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        normalized = (x_enc - mean) / scale
+        normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         spectrum = torch.fft.rfft(normalized.transpose(1, 2), dim=-1)[..., : self.input_bins]
         interpolated = self.interpolation(spectrum)
         padded = torch.zeros(
@@ -74,4 +74,4 @@ class Model(nn.Module):
         reconstructed = torch.fft.irfft(padded, n=self.total_len, dim=-1)
         reconstructed = reconstructed * (self.total_len / self.seq_len)
         forecast = reconstructed[..., -self.pred_len :].transpose(1, 2)
-        return forecast * scale + mean
+        return destandardize(forecast, mean, scale)

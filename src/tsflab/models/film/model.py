@@ -140,14 +140,8 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len, features
-        if min(seq_len, pred_len, enc_in, order, rank) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("FiLM dimensions must be positive")
-        if not 0.0 < ratio <= 1.0:
-            raise ValueError("ratio must be in (0, 1]")
-        if rank > order:
-            raise ValueError("rank cannot exceed order")
-        if not multiscale or any(scale < 1 for scale in multiscale):
-            raise ValueError("multiscale must contain positive integers")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

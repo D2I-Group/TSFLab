@@ -23,8 +23,6 @@ def patchify(
     channel_first = values.transpose(1, 2)
     if padding_patch == "end":
         channel_first = F.pad(channel_first, (0, stride), mode="replicate")
-    elif padding_patch != "none":
-        raise ValueError("padding_patch must be 'end' or 'none'")
     if channel_first.shape[-1] < patch_len:
         raise ValueError("patch_len exceeds the padded context window")
     return channel_first.unfold(-1, patch_len, stride)
@@ -33,8 +31,6 @@ def patchify(
 def _position_encoding(length: int, width: int, kind: str) -> torch.Tensor:
     if kind == "zeros":
         return torch.zeros(1, length, width)
-    if kind != "sincos":
-        raise ValueError("pe must be 'zeros' or 'sincos'")
     position = torch.arange(length, dtype=torch.float32).unsqueeze(1)
     divisor = torch.exp(
         torch.arange(0, width, 2, dtype=torch.float32)
@@ -65,11 +61,9 @@ class PatchEncoderLayer(nn.Module):
         if norm == "LayerNorm":
             self.norm_one: nn.Module = nn.LayerNorm(d_model)
             self.norm_two: nn.Module = nn.LayerNorm(d_model)
-        elif norm == "BatchNorm":
+        else:
             self.norm_one = nn.BatchNorm1d(d_model)
             self.norm_two = nn.BatchNorm1d(d_model)
-        else:
-            raise ValueError("norm must be 'LayerNorm' or 'BatchNorm'")
         self.residual_dropout = nn.Dropout(res_dropout)
 
     @staticmethod
@@ -124,13 +118,8 @@ class Model(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if min(c_in, context_window, target_window, patch_len, stride) < 1:
-            raise ValueError("channel, window, patch, and stride values must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        head_width = d_model // n_heads
-        if d_k not in {None, head_width} or d_v not in {None, head_width}:
-            raise ValueError("d_k and d_v must be omitted or equal d_model / n_heads")
+        if min(context_window, target_window) < 1:
+            raise ValueError("window values must be positive")
         probe = torch.zeros(1, context_window, c_in)
         patch_count = patchify(probe, patch_len, stride, padding_patch).shape[2]
         self.channels = c_in

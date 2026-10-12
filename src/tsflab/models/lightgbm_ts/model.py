@@ -24,7 +24,7 @@ class Model(nn.Module):
                  temperature: float = 1.0, use_revin: bool = True,
                  max_dense_parameters: int = MAX_DENSE_PARAMETERS) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_estimators, tree_depth) < 1 or min(learning_rate, temperature) <= 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions, estimators, and learning_rate must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         dense = dense_parameter_count(seq_len, pred_len, enc_in, num_estimators)

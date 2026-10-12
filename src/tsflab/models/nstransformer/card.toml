@@ -19,7 +19,7 @@ license = "MIT"
 reference_sources = []
 
 [composition]
-normalization = "local:series-stationarization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:de-stationary-attention-encoder-decoder"
 channel = "local:channel-mixing-value-embedding"

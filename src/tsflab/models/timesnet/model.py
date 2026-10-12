@@ -54,10 +54,8 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, c_out: int, d_model: int, e_layers: int, d_ff: int, dropout: float, top_k: int = 3, num_kernels: int = 3) -> None:
         super().__init__()
         del label_len
-        if min(seq_len, pred_len, enc_in, c_out, d_model, e_layers, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, and layer counts must be positive")
-        if enc_in != c_out:
-            raise ValueError("TimesNet normalization requires enc_in=c_out")
         total_length = seq_len + pred_len
         if top_k > total_length // 2:
             raise ValueError("top_k exceeds the available non-DC Fourier frequencies")

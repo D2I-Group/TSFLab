@@ -31,10 +31,8 @@ class Model(nn.Module):
                  num_latents=8, latent_dim=128, latent_d_ff=256,
                  num_latent_blocks=1, query_share=True):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, num_latents, latent_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid non-positive TimePerceiver dimension")
-        if latent_dim % n_heads:
-            raise ValueError("latent_dim must be divisible by n_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.patch_count = math.ceil(seq_len / patch_len)

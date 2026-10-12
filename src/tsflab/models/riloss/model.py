@@ -68,10 +68,8 @@ class Model(nn.Module):
         noise_high: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("seq_len, pred_len and enc_in must be positive")
-        if ri_weight < 0 or temperature < 0 or bandwidth <= 0 or noise_high <= noise_low:
-            raise ValueError("require ri_weight, temperature >= 0, bandwidth > 0, noise_high > noise_low")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

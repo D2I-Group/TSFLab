@@ -12,7 +12,7 @@ class ModelParameterConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enc_in: int = Field(ge=1)
-    d_model: int = Field(default=32, ge=2)
+    d_model: int = Field(default=32, ge=2, multiple_of=2)  # even for the sinusoidal position embedding
     patch_size: int = Field(default=6, ge=2)
     num_stages: int = Field(default=3, ge=1)
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)

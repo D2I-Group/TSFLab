@@ -5,14 +5,14 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pcdcnet.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
     """Validated PCDCNet parameters supplied via ``model.params``."""
 
-    enc_in: int
-    d_model: int = 64
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
     dropout: float = 0.1
     cov_dim: int | None = None
 

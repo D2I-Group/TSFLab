@@ -46,8 +46,8 @@ class Model(nn.Module):
         loss_alpha: float = 0.5,
     ) -> None:
         super().__init__()
-        if seq_len < 2 or pred_len < 1 or enc_in < 1 or embed_size < 1 or d_ff < 2:
-            raise ValueError("seq_len >= 2, d_ff >= 2 and positive pred_len, enc_in, embed_size required")
+        if seq_len < 2 or pred_len < 1:
+            raise ValueError("seq_len >= 2 and positive pred_len required")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.embed_size = embed_size
         # Training-objective settings read by spec.training_objective (official WeightedL1Loss).

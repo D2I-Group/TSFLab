@@ -1,6 +1,6 @@
 """Runtime specification for MoSSL."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mossl.model import Model
@@ -24,6 +24,14 @@ class ModelParameterConfig(BaseModel):
     kernel_size: int = Field(default=2, ge=2)
     mask_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     self_supervised: bool = True
+
+    @model_validator(mode="after")
+    def _modalities(self) -> "ModelParameterConfig":
+        if self.enc_in % self.num_modalities:
+            raise ValueError(
+                f"enc_in={self.enc_in} must equal num_modalities * num_nodes (num_modalities={self.num_modalities})"
+            )
+        return self
 
 
 def build_model(cfg, params):

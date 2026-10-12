@@ -9,19 +9,6 @@ from torch.utils.checkpoint import checkpoint
 from tsflab.models._components.gaussian_parameter_head import GaussianParameterHead
 
 
-def _check_options(smallest: int, cov_feat_size: int, dropout: float, features: str, checkpoint_steps: int) -> None:
-    if smallest < 1:
-        raise ValueError("lengths, channels, and recurrent widths must be positive")
-    if cov_feat_size < 0:
-        raise ValueError("cov_feat_size must be non-negative")
-    if not 0.0 <= dropout < 1.0:
-        raise ValueError("dropout must be in [0, 1)")
-    if features not in {"M", "S", "MS"}:
-        raise ValueError("features must be M, S, or MS")
-    if checkpoint_steps < 0:
-        raise ValueError("checkpoint_steps must be non-negative (0 disables checkpointing)")
-
-
 class Model(nn.Module):
     """Global autoregressive LSTM with an independent Gaussian likelihood."""
 
@@ -44,10 +31,10 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len
-        _check_options(
-            min(seq_len, pred_len, enc_in, embedding_size, hidden_size, num_layers),
-            cov_feat_size, dropout, features, checkpoint_steps,
-        )
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths, channels, and recurrent widths must be positive")
+        if features not in {"M", "S", "MS"}:
+            raise ValueError("features must be M, S, or MS")
         self.checkpoint_steps = checkpoint_steps
         self.seq_len = seq_len
         self.pred_len = pred_len

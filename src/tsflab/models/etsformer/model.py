@@ -46,8 +46,6 @@ class ExponentialSmoothing(nn.Module):
 
     def __init__(self, width: int, heads: int) -> None:
         super().__init__()
-        if width % heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.head_width = width // heads
         self.alpha_logit = nn.Parameter(torch.zeros(heads))
         self.initial = nn.Parameter(torch.zeros(width))
@@ -106,8 +104,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del seq_len
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.pred_len = pred_len
         self.embedding = nn.Conv1d(enc_in, d_model, kernel_size=3,
                                    padding=1, padding_mode="circular")

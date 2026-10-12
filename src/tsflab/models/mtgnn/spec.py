@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mtgnn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,16 +16,16 @@ class ModelParameterConfig(BaseModel):
     declared in the TOML.
     """
 
-    enc_in: int
-    input_dim: int = 3
-    gcn_depth: int = 2
+    enc_in: int = Field(gt=0)
+    input_dim: int = Field(default=3, gt=0)
+    gcn_depth: int = Field(default=2, ge=0)
     subgraph_size: int = 20
     node_dim: int = 40
     conv_channels: int = 16
     residual_channels: int = 16
     skip_channels: int = 32
     end_channels: int = 64
-    layers: int = 3
+    layers: int = Field(default=3, gt=0)
     dropout: float = 0.3
     propalpha: float = 0.05
     tanhalpha: float = 3.0

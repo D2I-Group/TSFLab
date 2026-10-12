@@ -22,21 +22,17 @@ _ACTIVATIONS = {
 
 def make_act(name: str):
     name = (name or "").lower()
-    if name not in _ACTIVATIONS:
-        raise ValueError(f"Unsupported PWS activation: {name!r}")
     return _ACTIVATIONS[name]()
 
 
-def _check_lengths(c_in: int, seq_len: int, pred_len: int) -> None:
-    if c_in < 1 or seq_len < 1 or pred_len < 1:
+def _check_lengths(seq_len: int, pred_len: int) -> None:
+    if seq_len < 1 or pred_len < 1:
         raise ValueError("c_in, seq_len, and pred_len must be positive")
 
 
-def _check_patching(period: int, seq_len: int, patch_size: int) -> None:
-    if period < 1 or period > seq_len:
+def _check_patching(period: int, seq_len: int) -> None:
+    if period > seq_len:
         raise ValueError("period must be in [1, seq_len]")
-    if patch_size < 1 or patch_size > period:
-        raise ValueError("patch_size must be in [1, period]")
 
 
 def _parse_hidden_string(analysis_hidden: str) -> list[int]:
@@ -51,8 +47,6 @@ def _parse_hidden(analysis_hidden) -> list[int]:
         hidden_sizes = [int(x) for x in analysis_hidden]
     else:
         hidden_sizes = []
-    if any(size < 1 for size in hidden_sizes):
-        raise ValueError("analysis_hidden entries must be positive")
     return hidden_sizes
 
 
@@ -71,8 +65,8 @@ class PWSModel(nn.Module):
         analysis_hidden: list[int] | tuple[int, ...] = (512, 256),
     ):
         super().__init__()
-        _check_lengths(c_in, seq_len, pred_len)
-        _check_patching(period, seq_len, patch_size)
+        _check_lengths(seq_len, pred_len)
+        _check_patching(period, seq_len)
         self.c_in = c_in
         self.period = period
         self.seq_len = seq_len

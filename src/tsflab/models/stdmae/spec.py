@@ -1,9 +1,9 @@
 """Runtime specification for STDMAE."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.stdmae.model import Model
+from tsflab.models.stdmae.model import Model, receptive_field
 
 
 class ModelParameterConfig(BaseModel):
@@ -32,6 +32,15 @@ class ModelParameterConfig(BaseModel):
     blocks: int = Field(default=4, gt=0)
     layers: int = Field(default=2, gt=0)
     freeze_encoders: bool = False
+
+    @model_validator(mode="after")
+    def _architecture_contract(self):
+        if self.embed_dim % self.num_heads:
+            raise ValueError("embed_dim must be divisible by num_heads")
+        receptive = receptive_field(self.blocks, self.layers, self.kernel_size)
+        if self.history_len + 1 > receptive:
+            raise ValueError(f"history_len + 1 must not exceed the receptive field {receptive}")
+        return self
 
 
 def build_model(cfg, params):

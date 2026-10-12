@@ -1,6 +1,6 @@
 """Runtime specification for GBT."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gbt.model import Model
@@ -26,6 +26,18 @@ class ModelParameterConfig(BaseModel):
     mix: bool = True
     ar_epochs: int = Field(default=1, ge=0)
     ar_lr: float = Field(default=1e-4, gt=0.0)
+
+    @model_validator(mode="after")
+    def validate_shapes(self):
+        if self.kernel % 2 == 0:
+            raise ValueError("GBT kernel must be odd")
+        if self.pyramid > self.ar_blocks:
+            raise ValueError("GBT needs 1 <= pyramid <= ar_blocks")
+        if self.fd_model % self.n_heads:
+            raise ValueError("Auto-Regression width must be divisible by n_heads")
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.st_ssdl.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,13 +18,13 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    rnn_units: int = 16
-    rnn_layers: int = 1
-    cheb_k: int = 2
-    prototype_num: int = 8
-    prototype_dim: int = 8
-    output_dim: int = 1
+    input_dim: int = Field(default=3, gt=0)
+    rnn_units: int = Field(default=16, gt=0)
+    rnn_layers: int = Field(default=1, gt=0)
+    cheb_k: int = Field(default=2, gt=0)
+    prototype_num: int = Field(default=8, gt=0)
+    prototype_dim: int = Field(default=8, gt=0)
+    output_dim: int = Field(default=1, ge=1, le=1)  # TSFLab ST-SSDL exposes one value per node
 
 
 def build_model(cfg, params):

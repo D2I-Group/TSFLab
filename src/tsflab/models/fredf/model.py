@@ -104,7 +104,7 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, e_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("FreDF dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

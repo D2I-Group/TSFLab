@@ -69,8 +69,8 @@ class Model(nn.Module):
         e_layers: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, random_dim, e_layers) <= 0:
-            raise ValueError("all dimensions and layer count must be positive")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

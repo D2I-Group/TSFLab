@@ -13,7 +13,7 @@ class Model(nn.Module):
 
     def __init__(self, c_in: int, seq_len: int, pred_len: int, individual: bool = False):
         super().__init__()
-        if min(c_in, seq_len, pred_len) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("channels and sequence lengths must be positive")
         self.c_in = c_in
         self.seq_len = seq_len

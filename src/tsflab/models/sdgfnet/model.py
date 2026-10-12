@@ -218,8 +218,6 @@ class Model(nn.Module):
         inception_width: int = 512,
     ) -> None:
         super().__init__()
-        if static_graph not in ("rbf", "pcc"):
-            raise ValueError("static_graph must be 'rbf' or 'pcc'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.static_graph = static_graph

@@ -132,10 +132,8 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, d_model, nhead, num_encoder_layers) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("AirFormer dimensions must be positive")
-        if d_model % nhead:
-            raise ValueError("d_model must be divisible by nhead")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

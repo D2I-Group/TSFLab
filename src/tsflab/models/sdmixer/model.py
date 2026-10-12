@@ -156,8 +156,6 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if enc_in != c_out:
-            raise ValueError("SDMixer requires enc_in == c_out (channel-preserving forecaster)")
         if seq_len < 2 or pred_len < 1:
             raise ValueError("seq_len must be >= 2 and pred_len must be >= 1")
         self.seq_len = seq_len

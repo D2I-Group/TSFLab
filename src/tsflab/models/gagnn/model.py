@@ -48,8 +48,8 @@ class Model(nn.Module):
                  d_model: int = 64, num_layers: int = 3,
                  dropout: float = 0.1, group_num: int = 4) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_layers, group_num) < 1:
-            raise ValueError("lengths, nodes, widths, layers and groups must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cov_dim = seq_len, pred_len, enc_in, cov_dim
         adj = np.eye(enc_in, dtype=np.float32) if adj_mx is None else adj_mx
         self.register_buffer("city_graph", _normalized_graph(adj, enc_in))

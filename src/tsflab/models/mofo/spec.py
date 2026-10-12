@@ -7,7 +7,7 @@ from typing import Literal
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mofo.model import Model
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -20,6 +20,12 @@ class ModelParameterConfig(BaseModel):
     d_layers: int = Field(default=1, gt=0)
     bias: Literal[0, 1] = 1
     cias: Literal[0, 1] = 1
+
+    @model_validator(mode="after")
+    def validate_heads(self):
+        if self.d_model % self.head:
+            raise ValueError("d_model must be divisible by head")
+        return self
 
 
 def build_model(cfg, params):

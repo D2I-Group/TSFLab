@@ -106,27 +106,8 @@ class AveragedLSTMLayer(nn.Module):
         return 0.5 * (forward + backward)
 
 
-def _check_options(smallest: int, layers: Sequence[str], value_range: str, imputation_weight: float) -> None:
-    if smallest < 1:
-        raise ValueError("seq_len, pred_len and enc_in must be positive")
-    _check_layers(layers)
-    if value_range not in ("unit", "unbounded"):
-        raise ValueError("value_range must be 'unit' or 'unbounded'")
-    if imputation_weight < 0.0:
-        raise ValueError("imputation_weight must be non-negative")
-
-
-def _check_layers(layers: Sequence[str]) -> None:
-    if not layers:
-        raise ValueError("layers must name at least one layer")
-    if any(kind not in ("bidirectional", "unidirectional") for kind in layers):
-        raise ValueError("layers entries must be 'bidirectional' or 'unidirectional'")
-
-
 def _layer_widths(enc_in: int, hidden_dim: int | None, count: int) -> list[int]:
     width = enc_in if hidden_dim is None else hidden_dim
-    if width < 1:
-        raise ValueError("hidden_dim must be positive")
     # Every layer but the last is `width` wide; the last is `enc_in` wide because
     # its final hidden state is the next sensor vector (Section 4.5.1).
     return [width] * (count - 1) + [enc_in]
@@ -147,7 +128,8 @@ class Model(nn.Module):
         value_range: ValueRange = "unit",
     ) -> None:
         super().__init__()
-        _check_options(min(seq_len, pred_len, enc_in), layers, value_range, imputation_weight)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         widths = _layer_widths(enc_in, hidden_dim, len(layers))
         self.seq_len = seq_len
         self.pred_len = pred_len

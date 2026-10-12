@@ -48,10 +48,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, period, num_routers, num_layers, num_heads) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all dimensions and counts must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

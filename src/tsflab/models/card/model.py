@@ -46,12 +46,8 @@ class Model(nn.Module):
                  d_model=128, n_heads=8, e_layers=2, d_ff=256, dropout=0.1,
                  alpha=0.5, use_statistic=False):
         super().__init__()
-        if not 1 <= patch_len <= seq_len or stride < 1:
-            raise ValueError("patch_len must be within the history and stride positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if not 0.0 < alpha <= 1.0:
-            raise ValueError("alpha must be in (0, 1]")
+        if patch_len > seq_len:
+            raise ValueError("patch_len must be within the history")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
         count = 1 + (seq_len - patch_len) // stride

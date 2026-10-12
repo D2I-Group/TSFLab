@@ -36,8 +36,6 @@ class PeriodicNestedGroupAttention(nn.Module):
         super().__init__()
         self.periods = tuple(periods) if periods else None
         self.groups = len(self.periods) if self.periods else 1
-        if d_model % n_heads or n_heads % self.groups:
-            raise ValueError("n_heads must divide d_model and be a multiple of the number of periods")
         self.n_heads, self.head_dim = n_heads, d_model // n_heads
         self.alibi, self.causal = alibi, causal
         self.query = nn.Linear(d_model, d_model)
@@ -89,8 +87,6 @@ class EncoderLayer(nn.Module):
 
 def _token_periods(periods: Sequence[int], stride: int) -> list[int] | None:
     periods = tuple(periods)
-    if any(p < stride or p % stride for p in periods):
-        raise ValueError("every period must be a positive multiple of stride")
     return [p // stride for p in periods] or None  # P_S = P / S (Sec. 4.2.2)
 
 
@@ -116,10 +112,8 @@ class Model(nn.Module):
         causal: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_ff, n_heads, e_layers, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid PENGUIN dimension")
-        if activation not in ("relu", "gelu"):
-            raise ValueError("activation must be 'relu' or 'gelu'")
         if seq_len < patch_len:
             raise ValueError("seq_len must be at least patch_len")
         token_periods = _token_periods(periods, stride)

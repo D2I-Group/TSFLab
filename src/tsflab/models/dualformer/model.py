@@ -66,8 +66,6 @@ class AutoCorrelationAttention(nn.Module):
 
     def __init__(self, factor: float, dropout: float) -> None:
         super().__init__()
-        if factor <= 0:
-            raise ValueError("factor must be positive")
         self.factor = factor
         self.dropout = nn.Dropout(dropout)
         self.last_delays: torch.Tensor | None = None
@@ -133,12 +131,8 @@ class Model(nn.Module):
         dc_bins: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, c_out, e_layers) < 1:
-            raise ValueError("lengths, channel counts, and depth must be positive")
-        if enc_in != c_out:
-            raise ValueError("Dualformer requires enc_in == c_out")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
 
         self.seq_len = seq_len
         self.pred_len = pred_len

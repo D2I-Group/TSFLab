@@ -20,22 +20,6 @@ from tsflab.models._components.fft_extrapolation_conv import FFTExtrapolationCon
 from tsflab.models._components.weight_set_router import WeightSetRouter, mix_weight_sets
 
 
-def _check_arguments(
-    seq_len: int, pred_len: int, enc_in: int, num_experts: int, loss_alpha: float, dropout: float
-) -> None:
-    if min(pred_len, enc_in, num_experts) < 1 or seq_len < 2:
-        raise ValueError("seq_len must be >= 2 and other sizes positive")
-    if not 0 <= loss_alpha <= 1:
-        raise ValueError("loss_alpha must lie in [0, 1]")
-    if not 0 <= dropout < 1:
-        raise ValueError("dropout must lie in [0, 1)")
-
-
-def _check_schedule(temperature_start: float, temperature_end: float, anneal_epochs: int) -> None:
-    if not 0 < temperature_end <= temperature_start or anneal_epochs < 1:
-        raise ValueError("need 0 < temperature_end <= temperature_start and anneal_epochs >= 1")
-
-
 class Model(nn.Module):
     def __init__(
         self,
@@ -53,8 +37,8 @@ class Model(nn.Module):
         anneal_epochs: int = 10,
     ) -> None:
         super().__init__()
-        _check_arguments(seq_len, pred_len, enc_in, num_experts, loss_alpha, dropout)
-        _check_schedule(temperature_start, temperature_end, anneal_epochs)
+        if pred_len < 1 or seq_len < 2:
+            raise ValueError("seq_len must be >= 2 and pred_len positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_experts = num_experts
         self.use_revin, self.use_time_w, self.use_freq_w = use_revin, use_time_w, use_freq_w

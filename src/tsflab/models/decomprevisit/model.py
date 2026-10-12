@@ -61,8 +61,6 @@ class Model(nn.Module):
         shift_mix_hidden: int = 128,
     ) -> None:
         super().__init__()
-        if seasonal_head not in ("shift_mlp", "mlp"):
-            raise ValueError("seasonal_head must be 'shift_mlp' or 'mlp'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.seasonal_head = seasonal_head

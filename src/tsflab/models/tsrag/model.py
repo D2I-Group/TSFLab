@@ -65,12 +65,8 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, top_k, memory_size) < 1:
-            raise ValueError("lengths, channels, and dimensions must be positive")
-        if top_k > memory_size:
-            raise ValueError("top_k cannot exceed memory_size")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

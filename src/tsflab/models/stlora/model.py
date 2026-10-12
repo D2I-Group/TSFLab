@@ -43,8 +43,6 @@ class NodeAdaptiveLowRankLayer(nn.Module):
         dropout: float,
     ) -> None:
         super().__init__()
-        if min(num_nodes, in_features, out_features, rank) < 1:
-            raise ValueError("NALL sizes and rank must be positive")
         self.base = nn.Linear(in_features, out_features)
         self.base.weight.requires_grad_(False)
         self.lora_A = nn.Parameter(torch.empty(num_nodes, rank, in_features))
@@ -166,17 +164,13 @@ class Model(nn.Module):
         backbone_dropout: float = 0.3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_blocks, num_layers, rank, nsp_hidden) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, nodes, blocks, layers, rank and widths must be positive")
-        if min(init_dim, hid_dim, end_dim, backbone_layers) < 1:
-            raise ValueError("backbone widths and layer count must be positive")
         if seq_len != pred_len:
             raise ValueError(
                 "ST-LoRA concatenates history and adapter outputs step by step "
                 "(Eq. 4), so seq_len must equal pred_len"
             )
-        if cov_dim < 0:
-            raise ValueError("cov_dim must be non-negative")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -19,8 +19,8 @@ class Model(nn.Module):
                  embedding_dim: int = 8, hyper_hidden: int = 32,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, embedding_dim, hyper_hidden) < 1:
-            raise ValueError("all dimensions must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.d_model, self.use_revin = d_model, use_revin
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)

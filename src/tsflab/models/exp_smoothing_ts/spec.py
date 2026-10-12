@@ -2,12 +2,12 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.exp_smoothing_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    initial_alpha: float = 0.5
+    enc_in: int = Field(ge=1)
+    initial_alpha: float = Field(default=0.5, gt=0.0, lt=1.0)
 
 
 def build_model(cfg, params):

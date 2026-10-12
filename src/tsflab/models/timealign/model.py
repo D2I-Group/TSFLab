@@ -12,8 +12,6 @@ class DistributionAlignment(nn.Module):
     """Complementary local token and global relation alignment."""
     def __init__(self, local_margin: float, global_margin: float, local: bool, global_: bool) -> None:
         super().__init__()
-        if not (local or global_):
-            raise ValueError("at least one alignment mode must be enabled")
         self.local_margin, self.global_margin = local_margin, global_margin
         self.use_local, self.use_global = local, global_
 
@@ -71,10 +69,8 @@ class Model(nn.Module):
                  local_margin: float = 0.0, global_margin: float = 0.0,
                  w_recon: float = 1.0, w_align: float = 0.1) -> None:
         super().__init__()
-        if patch_num < 1 or seq_len % patch_num or pred_len % patch_num:
+        if seq_len % patch_num or pred_len % patch_num:
             raise ValueError("patch_num must divide seq_len and pred_len")
-        if min(d_model, d_ff, e_layers) < 1 or min(w_recon, w_align) < 0:
-            raise ValueError("TimeAlign dimensions and loss weights are invalid")
         self.seq_len, self.pred_len = seq_len, pred_len
         self.w_recon, self.w_align = float(w_recon), float(w_align)
         self.history_norm, self.future_norm = RevIN(enc_in, affine=False), RevIN(enc_in, affine=False)

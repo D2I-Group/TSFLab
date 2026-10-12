@@ -84,10 +84,8 @@ class Model(nn.Module):
         heads: int = 4,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cov_dim, dim, cache_count, heads) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("CauAir dimensions must be positive")
-        if dim % heads:
-            raise ValueError("dim must be divisible by heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

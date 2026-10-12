@@ -17,8 +17,6 @@ import math
 import torch
 import torch.nn as nn
 
-DOMAINS = ("time", "frequency")
-
 
 class Model(nn.Module):
     """Mean-centred bias-free linear forecaster trained with root purging.
@@ -39,12 +37,8 @@ class Model(nn.Module):
         purge_order: int = 1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("seq_len, pred_len and enc_in must be positive")
-        if domain not in DOMAINS:
-            raise ValueError(f"domain must be one of {DOMAINS}")
-        if purge_lambda < 0 or purge_order < 1:
-            raise ValueError("purge_lambda must be >= 0 and purge_order >= 1")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.domain = domain
         self.individual = individual

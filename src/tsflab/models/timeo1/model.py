@@ -23,12 +23,8 @@ class Model(nn.Module):
         rank_ratio: float = 0.5,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and dimensions must be positive")
-        if not 0 <= alpha <= 1:
-            raise ValueError("alpha must be in [0, 1]")
-        if not 0 < rank_ratio <= 1:
-            raise ValueError("rank_ratio must be in (0, 1]")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

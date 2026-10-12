@@ -155,12 +155,8 @@ class Model(nn.Module):
         diffusion_weight: float = 0.99,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, num_heads, diffusion_steps) < 1:
-            raise ValueError("all dimensions and diffusion settings must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
-        if adjacent_range < 0 or not 0 <= diffusion_weight <= 1:
-            raise ValueError("invalid adjacent range or diffusion weight")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

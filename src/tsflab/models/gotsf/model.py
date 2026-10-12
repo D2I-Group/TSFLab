@@ -30,12 +30,8 @@ class Model(nn.Module):
         classification_weight: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_intervals) < 1:
-            raise ValueError("lengths, channels, dimensions, and intervals must be positive")
-        if interval_max <= interval_min:
-            raise ValueError("interval_max must be larger than interval_min")
-        if decay_rate < 0 or classification_weight < 0:
-            raise ValueError("loss weights must be non-negative")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

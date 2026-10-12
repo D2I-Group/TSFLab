@@ -221,8 +221,6 @@ class Model(nn.Module):
         mse_weight: float = 0.5,
     ) -> None:
         super().__init__()
-        if weight_norm not in {"official", "paper"}:
-            raise ValueError("weight_norm must be 'official' or 'paper'")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.fold_width = fold_width
         self.image_size = (image_height, image_width)

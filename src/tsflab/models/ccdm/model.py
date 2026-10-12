@@ -69,8 +69,6 @@ class DenseEncoder(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int, layers: int, dropout: float) -> None:
         super().__init__()
-        if layers < 1:
-            raise ValueError("a dense encoder needs at least one CiDM")
         widths = [in_dim] + [out_dim] * layers
         self.blocks = nn.Sequential(
             *(DenseResidual(a, b, dropout) for a, b in zip(widths[:-1], widths[1:]))
@@ -110,8 +108,6 @@ class ChannelAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, dropout: float) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.query = nn.Linear(d_model, d_model, bias=False)
         self.key = nn.Linear(d_model, d_model, bias=False)
@@ -238,13 +234,6 @@ def amplitude_scale(y0: torch.Tensor, count: int) -> torch.Tensor:
     return y0.unsqueeze(1) * factors
 
 
-def _check_contrast(contrast_form: str, contrast_weight: float, n_negatives: int, temperature: float) -> None:
-    if contrast_form not in {"regression", "similarity"}:
-        raise ValueError("contrast_form must be 'regression' or 'similarity'")
-    if contrast_weight < 0 or n_negatives < 0 or temperature <= 0:
-        raise ValueError("invalid contrastive settings")
-
-
 def _checked_levels(quantile_levels: list[float]) -> list[float]:
     levels = list(quantile_levels)
     if not levels or any(not 0.0 < q < 1.0 for q in levels) or levels != sorted(set(levels)):
@@ -289,12 +278,8 @@ class Model(nn.Module):
         sample_batch_size: int = 100,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, diffusion_steps, num_samples, sample_batch_size,
-               shuffle_patch_len) < 1:
-            raise ValueError("CCDM sizes must be positive")
-        if (cont_hidden_dim + pred_hidden_dim) % n_heads:
-            raise ValueError("cont_hidden_dim + pred_hidden_dim must be divisible by n_heads")
-        _check_contrast(contrast_form, contrast_weight, n_negatives, temperature)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("CCDM seq_len and pred_len must be positive")
         levels = _checked_levels(quantile_levels)
         self.output_type = "quantile"
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

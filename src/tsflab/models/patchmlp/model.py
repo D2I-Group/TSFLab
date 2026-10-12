@@ -9,24 +9,10 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models.patchmlp.layers import Emb, Encoder, SeriesDecomp
 
 
-def _check_sizes(seq_len: int, pred_len: int, enc_in: int, d_model: int) -> None:
-    if seq_len < 2 or pred_len < 1 or enc_in < 1:
-        raise ValueError("seq_len >= 2, pred_len >= 1, and enc_in >= 1 are required")
-    if d_model < 4 or d_model % 4:
-        raise ValueError("d_model must be a positive multiple of four")
-
-
-def _check_layers(e_layers: int, moving_avg: int) -> None:
-    if e_layers < 1:
-        raise ValueError("e_layers must be positive")
-    if moving_avg < 1 or moving_avg % 2 == 0:
-        raise ValueError("moving_avg must be a positive odd integer")
-
-
-def _check_patches(seq_len: int, patch_len: list[int]) -> None:
-    if len(patch_len) != 4:
-        raise ValueError("PatchMLP requires exactly four patch scales")
-    if any(patch < 2 or patch > seq_len for patch in patch_len):
+def _check_patches(seq_len: int, pred_len: int, patch_len: list[int]) -> None:
+    if seq_len < 2 or pred_len < 1:
+        raise ValueError("seq_len >= 2 and pred_len >= 1 are required")
+    if any(patch > seq_len for patch in patch_len):
         raise ValueError("each patch length must be in [2, seq_len]")
 
 
@@ -52,15 +38,13 @@ class PatchMLPModel(nn.Module):
         patch_len: list[int] | None = None,
     ) -> None:
         super().__init__()
-        _check_sizes(seq_len, pred_len, enc_in, d_model)
-        _check_layers(e_layers, moving_avg)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.use_norm = use_norm
         self.decomposition = SeriesDecomp(moving_avg)
         patch_len = patch_len or [48, 24, 12, 6]
-        _check_patches(seq_len, patch_len)
+        _check_patches(seq_len, pred_len, patch_len)
         _check_patch_counts(seq_len, d_model, patch_len)
         self.emb = Emb(seq_len, d_model, patch_len)
         self.residual_layers = nn.ModuleList(

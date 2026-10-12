@@ -70,10 +70,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, e_layers: int, d_ff: int, dropout: float, activation: str, output_attention: bool, use_norm: bool) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, widths, heads, and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

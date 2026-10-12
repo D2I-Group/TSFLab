@@ -20,8 +20,8 @@ class Model(nn.Module):
                  random_feature_dim: int = 16, dropout: float = 0.1,
                  use_residual: bool = True, use_bn: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, hid_dim, random_feature_dim) < 1:
-            raise ValueError("lengths, nodes and widths must be positive")
+        if min(seq_len, pred_len, num_nodes) < 1:
+            raise ValueError("lengths and nodes must be positive")
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
         self.tau, self.use_residual = float(tau), use_residual
         self.value_projection = nn.Linear(seq_len * input_dim, hid_dim)

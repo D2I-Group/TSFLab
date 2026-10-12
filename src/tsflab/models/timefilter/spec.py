@@ -7,19 +7,19 @@ from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timefilter.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
+    enc_in: int = Field(ge=1)
     d_model: int = 64
     d_ff: int = 128
-    e_layers: int = 2
-    patch_len: int = 16
+    e_layers: int = Field(default=2, ge=1)
+    patch_len: int = Field(default=16, ge=1)
     dropout: float = 0.1
-    top_p: float = 0.5
+    top_p: float = Field(default=0.5, gt=0, le=1)
     pos: bool = True
-    num_experts: int = 4
+    num_experts: int = Field(default=4, ge=1)
 
 
 def build_model(cfg, params):

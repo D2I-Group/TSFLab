@@ -16,10 +16,6 @@ class ExponentialDecomposition(nn.Module):
 
     def __init__(self, alpha: float = 0.3, beta: float = 0.3, kind: str = "ema") -> None:
         super().__init__()
-        if not 0.0 < alpha < 1.0 or not 0.0 < beta < 1.0:
-            raise ValueError("alpha and beta must lie strictly between zero and one")
-        if kind not in {"ema", "dema"}:
-            raise ValueError("kind must be 'ema' or 'dema'")
         self.alpha = float(alpha)
         self.beta = float(beta)
         self.kind = kind
@@ -106,10 +102,6 @@ class NonlinearPatchStream(nn.Module):
         padding_patch: str,
     ) -> None:
         super().__init__()
-        if patch_len < 1 or stride < 1:
-            raise ValueError("patch_len and stride must be positive")
-        if padding_patch not in {"end", "none"}:
-            raise ValueError("padding_patch must be 'end' or 'none'")
         if padding_patch == "none" and seq_len < patch_len:
             raise ValueError("patch_len cannot exceed seq_len without end padding")
         self.seq_len = seq_len

@@ -101,8 +101,6 @@ class Model(nn.Module):
                  e_layers=2, d_ff=2048, dropout=0.1, fc_dropout=0.1,
                  moving_avg=25, num_experts=4, k=2, hidden_size=256, noisy_gating=True):
         super().__init__()
-        if d_model % n_heads or not 1 <= k <= num_experts:
-            raise ValueError("invalid attention width or expert count")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in)
         self.k = k

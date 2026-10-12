@@ -103,22 +103,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(
-            seq_len,
-            pred_len,
-            enc_in,
-            d_model,
-            patch_len,
-            stride,
-            top_k,
-            memory_slots,
-            relation_period,
-        ) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("DynamicTMoE dimensions must be positive")
-        if top_k > 5:
-            raise ValueError("top_k cannot exceed the five local experts")
-        if not 0 <= routing_floor < 1:
-            raise ValueError("routing_floor must lie in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

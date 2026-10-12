@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stwave.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -19,9 +19,9 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    hidden_size: int = 16
-    layers: int = 1
-    log_samples: int = 1
+    hidden_size: int = Field(default=16, gt=0)
+    layers: int = Field(default=1, gt=0)
+    log_samples: int = Field(default=1, gt=0)
 
 
 def build_model(cfg, params):

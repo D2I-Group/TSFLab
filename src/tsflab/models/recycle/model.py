@@ -80,12 +80,10 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cycle_len, rhp_cycles, d_model, n_heads, e_layers, d_layers, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, heads and layers must be positive")
         if seq_len % cycle_len or pred_len % cycle_len:
             raise ValueError("seq_len and pred_len must be whole multiples of cycle_len")
-        if rhp_mode not in ("last", "causal"):
-            raise ValueError("rhp_mode must be 'last' or 'causal'")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

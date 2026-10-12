@@ -2,19 +2,25 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timecap.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 32
-    patch_len: int = 16
-    group_size: int = 4
-    group_stride: int = 2
-    num_heads: int = 4
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=32, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    group_size: int = Field(default=4, gt=0)
+    group_stride: int = Field(default=2, gt=0)
+    num_heads: int = Field(default=4, gt=0)
     dropout: float = 0.1
     fusion_alpha: float = 0.1
     fusion_midpoint: float | None = None
+
+    @model_validator(mode="after")
+    def check_heads(self):
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

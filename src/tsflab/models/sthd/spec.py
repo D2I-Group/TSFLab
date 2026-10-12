@@ -3,7 +3,7 @@
 from typing import Literal
 
 import torch
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -25,6 +25,12 @@ class ModelParameterConfig(BaseModel):
     d_ff: int = Field(default=384, ge=1)
     dropout: float = Field(default=0.2, ge=0.0, lt=1.0)
     activation: Literal["gelu", "relu"] = "gelu"
+
+    @model_validator(mode="after")
+    def check_heads(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

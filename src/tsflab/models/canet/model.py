@@ -184,8 +184,6 @@ class Model(nn.Module):
         blend_ratio: float = 0.1,
     ) -> None:
         super().__init__()
-        if not patch_sizes:
-            raise ValueError("patch_sizes must be non-empty")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.layers = nn.ModuleList(
             CANetLayer(seq_len, patch_size, embed_dim, dropout, blend_ratio) for patch_size in patch_sizes

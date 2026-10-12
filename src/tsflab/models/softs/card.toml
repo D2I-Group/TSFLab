@@ -19,7 +19,7 @@ license = "MIT"
 reference_sources = []
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:inverted-series-embedding"
 channel = "local:star-aggregate-redistribute"

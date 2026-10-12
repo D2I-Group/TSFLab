@@ -1,6 +1,6 @@
 """Runtime specification for DiPELinear."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dipelinear.model import Model
@@ -21,6 +21,12 @@ class ModelParameterConfig(BaseModel):
     temperature_start: float = Field(default=30.0, gt=0)
     temperature_end: float = Field(default=1.0, gt=0)
     anneal_epochs: int = Field(default=10, gt=0)
+
+    @model_validator(mode="after")
+    def _schedule(self) -> "ModelParameterConfig":
+        if self.temperature_end > self.temperature_start:
+            raise ValueError("need temperature_end <= temperature_start")
+        return self
 
 
 def build_model(cfg, params):

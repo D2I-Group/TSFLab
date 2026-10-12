@@ -136,12 +136,8 @@ class Model(nn.Module):
         prior_strength: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, rnn_units, num_rnn_layers, embedding_dim) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("lengths, nodes, channels, and hidden dimensions must be positive")
-        if max_diffusion_step < 1:
-            raise ValueError("max_diffusion_step must be positive")
-        if temp <= 0 or prior_strength < 0:
-            raise ValueError("temp must be positive and prior_strength non-negative")
         if adj_mx is None:
             prior = torch.zeros(num_nodes, num_nodes)
         else:

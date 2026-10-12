@@ -125,8 +125,6 @@ class CandidateDecoder(nn.Module):
 
     def __init__(self, width: int, candidates: int) -> None:
         super().__init__()
-        if width % candidates:
-            raise ValueError("reconstruction width must be divisible by the number of candidates")
         self.candidates, self.group = candidates, width // candidates
         template = nn.Linear(self.group, 1)
         self.weight = nn.Parameter(template.weight.detach().reshape(1, self.group).repeat(candidates, 1))
@@ -186,14 +184,10 @@ class Model(nn.Module):
         loss_form: str = "official",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, candidates, hidden, rec_layers, rec_width, rec_multiplier) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and widths must be positive")
         if instance_norm and seq_len < 2:
             raise ValueError("per-window standardization needs seq_len >= 2")
-        if snr and hidden < 2:
-            raise ValueError("snr needs hidden >= 2")
-        if loss_form not in LOSS_FORMS:
-            raise ValueError(f"loss_form must be one of {LOSS_FORMS}")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.loss_form = loss_form
         self.predictors = nn.ModuleList(

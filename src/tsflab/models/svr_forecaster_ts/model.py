@@ -11,10 +11,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, num_support: int = 16, kernel_gamma: float = 0.1, epsilon: float = 0.1, l2_penalty: float = 1e-4) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_support) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions and num_support must be positive")
-        if kernel_gamma <= 0 or epsilon < 0 or l2_penalty < 0:
-            raise ValueError("gamma must be positive; epsilon and penalty non-negative")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.kernel_gamma, self.epsilon, self.l2_penalty = kernel_gamma, epsilon, l2_penalty
         self.support_centres = nn.Parameter(torch.randn(num_support, seq_len) * 0.05)

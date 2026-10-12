@@ -50,8 +50,8 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, d_ff, layers, patch_len, stride) < 1:
-            raise ValueError("lengths, channels, and block sizes must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         if patch_len > seq_len + stride:
             raise ValueError("patch_len must not exceed seq_len + stride after padding")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

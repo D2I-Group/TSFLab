@@ -1,6 +1,6 @@
 """Runtime specification for ASTGNN."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -20,6 +20,14 @@ class ModelParameterConfig(BaseModel):
     dropout: float = Field(default=0.0, ge=0.0, lt=1.0)
     smooth_layer_num: int = Field(default=0, ge=0)
     teacher_forcing: bool = True
+
+    @model_validator(mode="after")
+    def _widths(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        if self.d_model % 2:
+            raise ValueError("d_model must be even for the sinusoidal position table")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

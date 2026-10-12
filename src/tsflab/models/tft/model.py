@@ -49,24 +49,8 @@ _KNOWN_COLUMNS = (1, 2, 3, 4, 5)
 _KNOWN_CARDINALITY = (13, 32, 7, 24, 60)
 
 
-def _check_arguments(
-    seq_len: int, pred_len: int, enc_in: int, d_model: int, num_heads: int, dropout: float
-) -> None:
-    if min(seq_len, pred_len, enc_in) < 1:
-        raise ValueError("seq_len, pred_len, and enc_in must be positive")
-    if min(d_model, num_heads) < 1 or d_model % num_heads:
-        raise ValueError("d_model must be a positive multiple of num_heads")
-    if not 0.0 <= dropout < 1.0:
-        raise ValueError("dropout must be in [0, 1)")
-
-
 def _quantile_levels(quantile_levels: list[float] | None) -> list[float]:
-    levels = list(quantile_levels) if quantile_levels else list(_DEFAULT_LEVELS)
-    if any(not 0.0 < level < 1.0 for level in levels):
-        raise ValueError("quantile_levels must lie in (0, 1)")
-    if any(left >= right for left, right in zip(levels, levels[1:])):
-        raise ValueError("quantile_levels must be strictly ascending")
-    return levels
+    return list(quantile_levels) if quantile_levels else list(_DEFAULT_LEVELS)
 
 
 def _check_marks(marks: torch.Tensor, length: int, batch: int) -> None:
@@ -103,7 +87,8 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        _check_arguments(seq_len, pred_len, enc_in, d_model, num_heads, dropout)
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len, pred_len, and enc_in must be positive")
         levels = _quantile_levels(quantile_levels)
         self.seq_len = seq_len
         self.pred_len = pred_len

@@ -5,7 +5,7 @@ from tsflab.models.amd.model import Model
 
 """Validated parameters for AMD."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,19 +13,27 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    n_block: int = 1
+    enc_in: int = Field(gt=0)
+    n_block: int = Field(default=1, gt=0)
     alpha: float = 0.0
-    mix_layer_num: int = 3
+    mix_layer_num: int = Field(default=3, ge=0)
     mix_layer_scale: int = 2
-    patch: int = 16
+    patch: int = Field(default=16, gt=0)
     dropout: float = 0.1
-    num_experts: int = 8
-    top_k: int = 2
-    ff_dim: int = 2048
+    num_experts: int = Field(default=8, gt=0)
+    top_k: int = Field(default=2, ge=1)
+    ff_dim: int = Field(default=2048, gt=0)
     moe_loss_coef: float = 1.0
     use_revin: bool = True
     batchnorm: bool = True
+
+    @model_validator(mode="after")
+    def _architecture(self) -> "ModelParameterConfig":
+        if self.mix_layer_scale < 2 and self.mix_layer_num > 0:
+            raise ValueError("mix_layer_num must be >= 0 and mix_layer_scale >= 2")
+        if self.top_k > self.num_experts:
+            raise ValueError("top_k must lie in [1, num_experts]")
+        return self
 
 
 def build_model(cfg, params):

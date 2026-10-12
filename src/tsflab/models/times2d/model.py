@@ -55,8 +55,6 @@ class ResidualAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, attn_dropout: float, proj_dropout: float) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.query = nn.Linear(d_model, d_model)
@@ -191,10 +189,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         periods, patch_lens = list(periods), list(patch_lens)
-        if not periods or len(periods) != len(patch_lens):
-            raise ValueError("periods and patch_lens must be non-empty and of equal length")
-        if min(periods) < 1 or min(patch_lens) < 1:
-            raise ValueError("periods and patch_lens must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

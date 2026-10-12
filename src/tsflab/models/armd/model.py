@@ -54,16 +54,12 @@ class Model(nn.Module):
         w_grad: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, sampling_steps) < 1:
-            raise ValueError("seq_len, pred_len, enc_in and sampling_steps must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         if seq_len < pred_len:
             raise ValueError("ARMD slides a window of pred_len steps, so seq_len >= pred_len")
         if sampling_steps > pred_len:
             raise ValueError("sampling_steps must not exceed the diffusion length pred_len")
-        if loss_type not in ("l1", "l2"):
-            raise ValueError("loss_type must be 'l1' or 'l2'")
-        if beta_schedule not in ("linear", "cosine"):
-            raise ValueError("beta_schedule must be 'linear' or 'cosine'")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.sampling_steps, self.loss_type = sampling_steps, loss_type
         steps = pred_len  # the maximum diffusion step equals the series length

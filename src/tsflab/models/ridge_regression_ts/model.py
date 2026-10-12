@@ -11,7 +11,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, l2_penalty: float = 1e-4) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or l2_penalty < 0:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions must be positive and l2_penalty non-negative")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.l2_penalty = l2_penalty

@@ -21,8 +21,6 @@ class OrthogonalWaveletAnalysis(nn.Module):
     }
     def __init__(self, wavelet, level):
         super().__init__()
-        if wavelet not in self._FILTERS or level < 1:
-            raise ValueError("wavelet must be haar/db1/db2 and level positive")
         low, high = self._FILTERS[wavelet]
         self.register_buffer("low", torch.tensor(low).reshape(1, 1, -1))
         self.register_buffer("high", torch.tensor(high).reshape(1, 1, -1))
@@ -76,7 +74,7 @@ class Model(nn.Module):
                  wavelet="db2", level=1, patch_len=16, stride=8,
                  no_decomposition=False):
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid WPMixer dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.no_decomposition = no_decomposition

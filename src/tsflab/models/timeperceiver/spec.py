@@ -5,20 +5,26 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timeperceiver.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
+    enc_in: int = Field(gt=0)
     d_model: int = 32
-    n_heads: int = 2
-    patch_len: int = 16
+    n_heads: int = Field(default=2, gt=0)
+    patch_len: int = Field(default=16, gt=0)
     dropout: float = 0.1
-    num_latents: int = 8
-    latent_dim: int = 128
+    num_latents: int = Field(default=8, gt=0)
+    latent_dim: int = Field(default=128, gt=0)
     latent_d_ff: int = 256
     num_latent_blocks: int = 1
     query_share: bool = True
+
+    @model_validator(mode="after")
+    def _heads_divide_latent(self) -> "ModelParameterConfig":
+        if self.latent_dim % self.n_heads:
+            raise ValueError("latent_dim must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

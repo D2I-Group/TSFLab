@@ -1,6 +1,6 @@
 """Runtime specification for FDNet."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.fdnet.model import Model
@@ -17,6 +17,14 @@ class ModelParameterConfig(BaseModel):
     num_layers: int = Field(default=5, ge=1)
     focal_parts: int = Field(default=5, ge=1)
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def _layers_and_kernel(self) -> "ModelParameterConfig":
+        if self.num_layers < max(self.focal_parts - 1, 1):
+            raise ValueError("num_layers must be at least max(focal_parts - 1, 1)")
+        if self.kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

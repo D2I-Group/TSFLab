@@ -30,8 +30,6 @@ def pyramid_sizes(length: int, branching: tuple[int, ...]) -> tuple[int, ...]:
     """Return exact scale sizes for a divisible C-ary temporal pyramid."""
     sizes = [length]
     for factor in branching:
-        if factor < 2:
-            raise ValueError("each pyramid branching factor must be at least 2")
         if sizes[-1] % factor:
             raise ValueError(
                 f"scale length {sizes[-1]} must be divisible by branching factor {factor}"
@@ -46,8 +44,6 @@ def pyramid_neighbour_table(
     neighbourhood_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Build Equation-2 PAM neighbourhoods as padded node-index tables."""
-    if neighbourhood_size < 1 or neighbourhood_size % 2 == 0:
-        raise ValueError("neighbourhood_size must be a positive odd integer")
     starts = [sum(sizes[:scale]) for scale in range(len(sizes))]
     radius = neighbourhood_size // 2
     rows: list[list[int]] = []
@@ -143,8 +139,6 @@ class PyramidalAttention(nn.Module):
         dropout: float,
     ) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.query = nn.Linear(d_model, d_model)
@@ -222,8 +216,8 @@ class Model(nn.Module):
         inner_size: int = 5,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1 or enc_in < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
+        if seq_len < 1 or pred_len < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         branching = tuple(window_size)
         sizes = pyramid_sizes(seq_len, branching)
         neighbours, neighbour_valid = pyramid_neighbour_table(

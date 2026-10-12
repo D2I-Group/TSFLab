@@ -2,7 +2,7 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timemosaic.model import Model
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -15,6 +15,16 @@ class ModelParameterConfig(BaseModel):
     use_revin: bool = True
     selection_tau: float = Field(default=0.5, gt=0)
     budget_weight: float = Field(default=0.001, ge=0)
+
+    @model_validator(mode="after")
+    def _architecture_contract(self):
+        if not self.patch_sizes or min(self.patch_sizes) < 1:
+            raise ValueError("patch sizes must be positive")
+        if any(max(self.patch_sizes) % size for size in self.patch_sizes):
+            raise ValueError("each patch size must divide the largest size")
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        return self
 
 
 def build_model(cfg, params):

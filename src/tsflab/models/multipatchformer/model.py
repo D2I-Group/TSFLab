@@ -40,8 +40,6 @@ class Model(nn.Module):
     def __init__(self, seq_len, pred_len, enc_in, features="M", label_len=0, d_model=64,
                  n_heads=4, e_layers=2, d_ff=128, dropout=0.1):
         super().__init__()
-        if d_model % 4 or d_model % n_heads or e_layers < 1:
-            raise ValueError("d_model must divide four scales and attention heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         scale_width = d_model // 4
         self.scales = nn.ModuleList([PatchScale(seq_len, p, s, scale_width) for p, s in ((8, 8), (16, 8), (24, 7), (32, 6))])

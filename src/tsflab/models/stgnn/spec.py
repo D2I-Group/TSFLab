@@ -1,6 +1,6 @@
 """Runtime specification for STGNN."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stgnn.model import Model
@@ -15,6 +15,12 @@ class ModelParameterConfig(BaseModel):
     hidden_dim: int = Field(default=64, ge=2)
     n_heads: int = Field(default=4, ge=1)
     dropout: float = Field(default=0.0, ge=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def _heads(self) -> "ModelParameterConfig":
+        if self.hidden_dim % 2 or self.hidden_dim % self.n_heads:
+            raise ValueError("hidden_dim must be even and divisible by n_heads")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

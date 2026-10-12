@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.scformer.model import Model
@@ -28,6 +28,12 @@ class ModelParameterConfig(BaseModel):
     struct_mode: Literal["triangular", "conv"] = "triangular"
     kernel_size: int = Field(default=32, ge=2)
     use_norm: bool = True
+
+    @model_validator(mode="after")
+    def _check_heads(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 _FIELDS = tuple(ModelParameterConfig.model_fields)

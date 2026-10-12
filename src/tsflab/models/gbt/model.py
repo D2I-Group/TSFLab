@@ -73,8 +73,6 @@ class ARSelfAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, dropout: float) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("Auto-Regression width must be divisible by n_heads")
         self.n_heads = n_heads
         self.query = weight_norm(nn.Conv1d(d_model, d_model, 1))
         self.key = weight_norm(nn.Conv1d(d_model, d_model, 1))
@@ -205,8 +203,6 @@ class AutoRegressionStage(nn.Module):
         fused_conv: bool,
     ) -> None:
         super().__init__()
-        if not 1 <= pyramid <= blocks:
-            raise ValueError("GBT needs 1 <= pyramid <= ar_blocks")
         if ar_len // 2 ** (pyramid - 1) < 1:
             raise ValueError("ar_len is too short for the pyramid depth")
         self.branches = nn.ModuleList(
@@ -230,8 +226,6 @@ class ESMSelfAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, dropout: float, mix: bool) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.mix = mix
         self.sigma = nn.Linear(d_model, n_heads)
@@ -310,8 +304,6 @@ class Model(nn.Module):
         ar_lr: float = 1e-4,
     ) -> None:
         super().__init__()
-        if kernel % 2 == 0:
-            raise ValueError("GBT kernel must be odd")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

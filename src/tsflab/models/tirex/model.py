@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.quantile_head import QuantileHead
 
 
@@ -92,7 +93,7 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, num_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, and dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -147,9 +148,7 @@ class Model(nn.Module):
             raise ValueError(
                 f"expected input (B, {self.seq_len}, {self.enc_in}), got {tuple(x_enc.shape)}"
             )
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        scale = torch.sqrt(x_enc.var(dim=1, keepdim=True, unbiased=False) + 1e-5).detach()
-        normalized = (x_enc - mean) / scale
+        normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         history = self._history_tokens(normalized)
         missing = normalized.new_zeros(
             history.shape[0], self.future_patches, 2 * self.patch_len
@@ -162,7 +161,7 @@ class Model(nn.Module):
             x_enc.shape[0], self.enc_in, self.future_patches * self.patch_len, -1
         )[:, :, : self.pred_len]
         quantiles = self.quantile_head(features.permute(0, 2, 1, 3))
-        quantiles = quantiles * scale.unsqueeze(-1) + mean.unsqueeze(-1)
+        quantiles = destandardize(quantiles, mean.unsqueeze(-1), scale.unsqueeze(-1))
         if self.features == "MS":
             quantiles = quantiles[:, :, -1:]
         return quantiles

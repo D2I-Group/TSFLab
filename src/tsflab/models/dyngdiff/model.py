@@ -119,8 +119,6 @@ class NPLRKernel(nn.Module):
     def __init__(self, features: int, state_size: int, channels: int,
                  dt_min: float = 1e-3, dt_max: float = 1e-1) -> None:
         super().__init__()
-        if state_size % 2:
-            raise ValueError("state_size must be even (conjugate pairs)")
         w, p, b, _ = hippo_legs_nplr(state_size)
         half = state_size // 2
         self.features, self.half = features, half

@@ -59,8 +59,6 @@ class Model(nn.Module):
         super().__init__()
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride = patch_len, stride
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.waverora.model import Model
@@ -29,6 +29,14 @@ class ModelParameterConfig(BaseModel):
     rotary: bool = True
     residual: bool = True
     gate: bool = True
+
+    @model_validator(mode="after")
+    def check_shapes(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        if self.kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be odd")
+        return self
 
 
 def build_model(cfg, params):

@@ -116,7 +116,7 @@ class Model(nn.Module):
                  hidden_size: int = 16, layers: int = 1,
                  log_samples: int = 1) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, hidden_size, layers, log_samples) <= 0:
+        if min(seq_len, pred_len, num_nodes) <= 0:
             raise ValueError("STWave dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         if adj_mx is None:

@@ -82,15 +82,10 @@ class Model(nn.Module):
         activation: str = "gelu",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, token_len, d_model, d_ff, n_heads, e_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("GPHT dimensions must be positive")
-        if not pooling_rates or seq_len % token_len or d_model % n_heads:
-            raise ValueError(
-                "seq_len must be a multiple of token_len, d_model of n_heads, "
-                "and pooling_rates must be non-empty"
-            )
-        if any(rate < 1 or token_len % rate for rate in pooling_rates):
-            raise ValueError("every pooling rate must divide token_len")
+        if seq_len % token_len:
+            raise ValueError("seq_len must be a multiple of token_len")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

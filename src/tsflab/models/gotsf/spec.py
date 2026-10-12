@@ -6,18 +6,24 @@ from tsflab.experiments.runner.objective import TrainingBatch
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gotsf.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
     dropout: float = 0.1
-    num_intervals: int = 4
+    num_intervals: int = Field(default=4, gt=0)
     interval_min: float = -2.0
     interval_max: float = 2.0
-    decay_rate: float = 50.0
-    classification_weight: float = 0.1
+    decay_rate: float = Field(default=50.0, ge=0)
+    classification_weight: float = Field(default=0.1, ge=0)
+
+    @model_validator(mode="after")
+    def validate_interval(self):
+        if self.interval_max <= self.interval_min:
+            raise ValueError("interval_max must be larger than interval_min")
+        return self
 
 
 def build_model(cfg, params):

@@ -90,8 +90,6 @@ class FrequencyGatedSSM(nn.Module):
 
     def __init__(self, d_model: int, d_freq: int) -> None:
         super().__init__()
-        if d_model < 4:
-            raise ValueError("d_model must be at least 4 (the frequency adapter uses d_model // 4 units)")
         self.d_model = d_model
         self.d_freq = d_freq
         # Eq. (6): omega_base = [2 pi k / S]_{k=0}^{S-1}; learnable in the official code.
@@ -184,8 +182,8 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         patch_lens = tuple(int(p) for p in patch_lens)
-        if not patch_lens or any(p < 1 or p > seq_len for p in patch_lens):
-            raise ValueError("patch_lens must be non-empty with every length in [1, seq_len]")
+        if any(p > seq_len for p in patch_lens):
+            raise ValueError("every patch length must be at most seq_len")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

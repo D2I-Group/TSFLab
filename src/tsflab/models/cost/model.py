@@ -105,13 +105,9 @@ def _amplitude_phase(z: torch.Tensor, eps: float = 1e-6):
     return amplitude, phase
 
 
-def _check_config(repr_dims: int, features: str, ridge_valid_fraction: float) -> None:
-    if repr_dims % 2:
-        raise ValueError("repr_dims must be even (trend and season halves)")
+def _check_features(features: str) -> None:
     if features not in {"M", "S", "MS"}:
         raise ValueError("features must be M, S, or MS")
-    if not 0.0 < ridge_valid_fraction < 1.0:
-        raise ValueError("ridge_valid_fraction must be in (0, 1)")
 
 
 def _freeze(parameters) -> None:
@@ -148,7 +144,7 @@ class Model(nn.Module):
         ridge_max_samples: int = 100000,
     ) -> None:
         super().__init__()
-        _check_config(repr_dims, features, ridge_valid_fraction)
+        _check_features(features)
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.channel_independent, self.use_marks = channel_independent, use_marks
         self.alpha, self.momentum, self.temperature = alpha, momentum, temperature

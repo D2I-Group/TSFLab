@@ -5,12 +5,12 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.olinear.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 32
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=32, ge=1)
     dropout: float = 0.0
     use_revin: bool = True
 

@@ -6,14 +6,14 @@ from tsflab.experiments.runner.objective import TrainingBatch
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timeo1.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    alpha: float = 0.8
-    rank_ratio: float = 0.5
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
+    alpha: float = Field(default=0.8, ge=0, le=1)
+    rank_ratio: float = Field(default=0.5, gt=0, le=1)
 
 
 def build_model(cfg, params):

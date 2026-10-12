@@ -13,10 +13,8 @@ class Model(nn.Module):
     def __init__(self, c_in: int, seq_len: int, pred_len: int,
                  kernel_size: int = 25, individual: bool = False) -> None:
         super().__init__()
-        if min(c_in, seq_len, pred_len) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("channels and sequence lengths must be positive")
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be a positive odd integer")
         self.c_in = c_in
         self.seq_len = seq_len
         self.backbone = DLinearBackbone(

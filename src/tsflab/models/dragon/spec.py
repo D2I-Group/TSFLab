@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -23,7 +25,7 @@ class ModelParameterConfig(BaseModel):
     num_kernels: int = Field(default=6, ge=1)
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
     k: int = Field(default=4, ge=2)
-    alphabet_sizes: list[int] = Field(default_factory=lambda: [20, 25, 30], min_length=1)
+    alphabet_sizes: list[Annotated[int, Field(ge=1)]] = Field(default_factory=lambda: [20, 25, 30], min_length=1)
     d_graph: int = Field(default=16, gt=0)
     graph_layers: int = Field(default=2, ge=2)
     node_feat_size: int = Field(default=4, ge=1)
@@ -32,6 +34,12 @@ class ModelParameterConfig(BaseModel):
     use_gdc: bool = True
     gdc_topk: int = Field(default=32, ge=1)
     ppr_alpha: float = Field(default=0.05, gt=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def _contract(self) -> "ModelParameterConfig":
+        if self.d_model % 2:
+            raise ValueError("d_model must be even (sinusoidal positions)")
+        return self
 
 
 def build_model(cfg, params):

@@ -136,8 +136,6 @@ class Model(nn.Module):
         eval_seed: int = 0,
     ) -> None:
         super().__init__()
-        if freq not in STEPS_PER_DAY:
-            raise ValueError(f"unsupported freq {freq!r}; expected one of {sorted(STEPS_PER_DAY)}")
         if seq_len // n_sub_windows < 2:
             raise ValueError("seq_len must give at least two steps per stationarity sub-window")
         self.seq_len = seq_len

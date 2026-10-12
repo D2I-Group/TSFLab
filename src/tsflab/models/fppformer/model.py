@@ -151,13 +151,7 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if num_stages < 1:
-            raise ValueError("num_stages must be at least 1")
         top_patch = patch_size * 2 ** (num_stages - 1)
-        if patch_size < 2:
-            raise ValueError("patch_size must be at least 2 for diagonal-masked element attention")
-        if d_model % 2 != 0:
-            raise ValueError("d_model must be even for the sinusoidal position embedding")
         if seq_len % top_patch != 0 or seq_len // top_patch < 2:
             raise ValueError(
                 f"seq_len={seq_len} must be a multiple of patch_size * 2**(num_stages - 1)={top_patch} "

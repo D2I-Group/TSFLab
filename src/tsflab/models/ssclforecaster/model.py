@@ -148,19 +148,6 @@ def global_autocon(features: torch.Tensor, positions: torch.Tensor, acf: torch.T
 # ---------------------------------------------------------------------------- model
 
 
-def _check_scales(scales) -> None:
-    if not scales or any(scale < 2 or scale % 2 for scale in scales):
-        raise ValueError("scales must be positive even lengths (moving-average kernels scale + 1)")
-
-
-def _check_config(seq_len: int, scales, window_norm: str) -> None:
-    if seq_len < 6 or seq_len % 2:
-        raise ValueError("seq_len must be even (smoothing kernel seq_len + 1) and at least 6")
-    _check_scales(scales)
-    if window_norm not in ("last", "mean", "revin", "decomp"):
-        raise ValueError("window_norm must be 'last', 'mean', 'revin', or 'decomp'")
-
-
 def _collect_windows(train_loader):
     """Window start times, first rows, and the latest window ``(time, x, y)`` of a loader."""
     starts, first_rows, last = [], [], None
@@ -197,7 +184,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        _check_config(seq_len, scales, window_norm)
+        if seq_len < 6 or seq_len % 2:
+            raise ValueError("seq_len must be even (smoothing kernel seq_len + 1) and at least 6")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

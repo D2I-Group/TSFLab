@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stdn.model import Model
 
@@ -23,7 +25,7 @@ class ModelParameterConfig(BaseModel):
     L: int = 1
     order: int = 2
     reference: int = 4
-    out_channels: int = 1
+    out_channels: Literal[1] = 1  # TSFLab STDN exposes one value per node
 
 
 def build_model(cfg, params):

@@ -3,7 +3,7 @@
 from typing import Literal
 
 import torch
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -26,6 +26,12 @@ class ModelParameterConfig(BaseModel):
     activation: Literal["gelu", "relu"] = "gelu"
     embed: Literal["timeF", "fixed", "learned"] = "timeF"
     freq: str = "h"
+
+    @model_validator(mode="after")
+    def _components_fit_covariates(self) -> "ModelParameterConfig":
+        if self.n_components > self.enc_in - 1:
+            raise ValueError(f"n_components must be in [1, enc_in - 1 = {self.enc_in - 1}]")
+        return self
 
 
 def build_model(cfg, params):

@@ -56,7 +56,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx
-        if min(seq_len, pred_len, num_nodes, input_dim, input_embedding_dim, num_layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("STAEformer dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
@@ -72,8 +72,6 @@ class Model(nn.Module):
             torch.empty(seq_len, num_nodes, adaptive_embedding_dim)
         )
         width = input_embedding_dim + tod_embedding_dim + dow_embedding_dim + spatial_embedding_dim + adaptive_embedding_dim
-        if width % num_heads:
-            raise ValueError("STAEformer embedding width must be divisible by num_heads")
         self.temporal_layers = nn.ModuleList(
             AxisAttentionBlock(width, num_heads, feed_forward_dim, dropout)
             for _ in range(num_layers)

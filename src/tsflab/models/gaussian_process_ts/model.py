@@ -14,10 +14,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, num_inducing: int = 16, length_scale: float = 1.0, noise: float = 1e-3) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_inducing) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions and num_inducing must be positive")
-        if length_scale <= 0 or noise <= 0:
-            raise ValueError("length_scale and noise must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.inducing_inputs = nn.Parameter(torch.randn(num_inducing, seq_len) * 0.05)
         self.inducing_targets = nn.Parameter(torch.randn(num_inducing, pred_len) * 0.05)

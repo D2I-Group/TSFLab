@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stid.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -17,8 +17,8 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    embed_dim: int = 32
+    input_dim: int = Field(default=3, gt=0)
+    embed_dim: int = Field(default=32, gt=0)
     num_layers: int = 1
     num_time_in_day: int = 24
     num_day_in_week: int = 7

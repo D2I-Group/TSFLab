@@ -78,10 +78,8 @@ class UncertaintyHead(nn.Module):
             self.net = nn.Sequential(
                 nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, pred_len)
             )
-        elif head_type == "linear":
-            self.net = nn.Linear(d_model, pred_len)
         else:
-            raise ValueError("head_type must be 'mlp' or 'linear'")
+            self.net = nn.Linear(d_model, pred_len)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         # tokens [B, C, d_model] -> variance [B, H, C]
@@ -153,14 +151,8 @@ class Model(nn.Module):
         nll_eps: float = 1e-6,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, num_experts, d_model, n_heads, e_layers, d_ff) < 1:
-            raise ValueError("lengths, channels, experts, widths, heads and layers must be positive")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if activation not in ("gelu", "relu"):
-            raise ValueError("activation must be 'gelu' or 'relu'")
-        if nll_eps <= 0:
-            raise ValueError("nll_eps must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

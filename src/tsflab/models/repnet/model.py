@@ -18,19 +18,6 @@ import torch.nn.functional as F
 from tsflab.models._components.marks import adapt_tslib_marks, tslib_time_feature_dimension
 from tsflab.models._components.revin import RevIN
 
-REPRESENTATIONS = (
-    "single_linear",
-    "linear",
-    "glu",
-    "simple_linear",
-    "double_linear",
-    "double_linear_glu",
-    "cnn_1",
-    "cnn_2",
-    "cnn_3",
-)
-TIME_EMBEDDINGS = ("posEmb", "timeF", "tempEmb")
-
 
 def patch_count(seq_len: int, cover: int, stride: int) -> int:
     """Number of sub-sequences of length ``cover`` taken every ``stride`` steps."""
@@ -58,8 +45,6 @@ class ValueEncoder(nn.Module):
 
     def __init__(self, kind: str, length: int, encoding: int, num_vars: int) -> None:
         super().__init__()
-        if kind not in REPRESENTATIONS:
-            raise ValueError(f"unknown representation {kind!r}")
         self.kind = kind
         self.encoding = encoding
         self.num_vars = num_vars
@@ -123,8 +108,6 @@ class TimeEncoding(nn.Module):
         self.kinds = tuple(kinds)
         self.freq = freq
         if "posEmb" in self.kinds:
-            if size % 2:
-                raise ValueError("posEmb needs an even time_embedding_size")
             position = torch.arange(seq_len, dtype=torch.float32).unsqueeze(1)
             div = torch.exp(torch.arange(0, size, 2, dtype=torch.float32) * (-math.log(10000.0) / size))
             table = torch.zeros(seq_len, size)
@@ -244,8 +227,6 @@ class PatchAttention(nn.Module):
 
     def __init__(self, encoding: int, heads: int, dropout: float) -> None:
         super().__init__()
-        if encoding % heads:
-            raise ValueError("encoding_size must be divisible by n_heads")
         self.heads = heads
         self.query = nn.Linear(encoding, encoding)
         self.key = nn.Linear(encoding, encoding)
@@ -364,11 +345,6 @@ class Model(nn.Module):
         revin: bool = True,
     ) -> None:
         super().__init__()
-        unknown = set(time_embedding) - set(TIME_EMBEDDINGS)
-        if unknown:
-            raise ValueError(f"unknown time embeddings: {sorted(unknown)}")
-        if time_embedding and encoding_size % 2:
-            raise ValueError("encoding_size must be even when a time embedding is used")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.revin = RevIN(enc_in, affine=True, subtract_last=False, enabled=revin)

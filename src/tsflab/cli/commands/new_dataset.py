@@ -242,7 +242,7 @@ def main() -> None:
         print(f"  1. Implement the loader in src/tsflab/data/datasets/{name}.py (_read_data).")
     print(f"  - Check the split: `tsf data splits {name} --seq-len <L>`; set split_ratio in the preset if")
     print("    the task states another split.")
-    print(f"  - Run experiments now: reference the preset from a run config via")
+    print("  - Run experiments now: reference the preset from a run config via")
     print(f"    `extends = [..., \"../datasets/{name}.toml\", ...]` or `[sweep.extend] datasets = [...]`;")
     print("    the stub card is enough for experiments.")
     print(f"  - Before contributing the dataset, fill every TODO in catalog/datasets/{name}/card.toml and")

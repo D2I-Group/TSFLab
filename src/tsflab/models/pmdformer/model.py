@@ -56,10 +56,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, num_heads) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all dimensions must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = min(patch_len, seq_len)
         self.num_patches = math.ceil(seq_len / self.patch_len)

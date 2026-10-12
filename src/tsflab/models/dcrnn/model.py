@@ -92,10 +92,8 @@ class Model(nn.Module):
         max_diffusion_step: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, rnn_units, num_rnn_layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("lengths, nodes, channels, and recurrent widths must be positive")
-        if max_diffusion_step < 0:
-            raise ValueError("max_diffusion_step must be non-negative")
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (num_nodes, num_nodes):
             raise ValueError(f"adj_mx must have shape {(num_nodes, num_nodes)}")

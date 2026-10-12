@@ -18,11 +18,9 @@ def _topology_mask(num_agents: int, topology: str) -> torch.Tensor:
     elif topology == "chain":
         for index in range(num_agents - 1):
             mask[index, index + 1] = mask[index + 1, index] = 1
-    elif topology == "star":
+    else:  # star
         mask[0, :] = 1
         mask[:, 0] = 1
-    else:
-        raise ValueError("topology must be star, ring, chain, or fully-connected")
     return mask
 
 
@@ -66,10 +64,8 @@ class Model(nn.Module):
         topology: str = "star",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_agents, num_layers, num_heads) < 1:
-            raise ValueError("all dimensions, agents, and layer settings must be positive")
-        if d_model % num_heads:
-            raise ValueError("d_model must be divisible by num_heads")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

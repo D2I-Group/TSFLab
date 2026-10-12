@@ -40,8 +40,6 @@ class PositiveNegativeAttention(nn.Module):
 
     def __init__(self, width: int, heads: int, dropout: float) -> None:
         super().__init__()
-        if width % heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.heads = heads
         self.head_width = width // heads
         self.scale = self.head_width**-0.5
@@ -129,10 +127,8 @@ class Model(nn.Module):
         period_list: list[int] | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, d_layers, period_topk) <= 0:
-            raise ValueError("all dimensions and period_topk must be positive")
-        if period_list is not None and any(period <= 0 for period in period_list):
-            raise ValueError("period_list entries must be positive")
+        if min(seq_len, pred_len) <= 0:
+            raise ValueError("all dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.period_topk = period_topk

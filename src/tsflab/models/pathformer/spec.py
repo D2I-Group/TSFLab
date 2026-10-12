@@ -5,14 +5,14 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pathformer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    layer_nums: int = 2
+    enc_in: int = Field(ge=1)
+    layer_nums: int = Field(default=2, ge=1)
     k: int = 2
-    num_experts: int = 4
+    num_experts: int = Field(default=4, ge=1)
     # Flat list of length layer_nums * num_experts, reshaped to per-layer
     # patch sizes. Each value must divide seq_len evenly.
     patch_size_list: list[int] = [16, 12, 8, 6, 16, 12, 8, 6]
@@ -20,8 +20,17 @@ class ModelParameterConfig(BaseModel):
     d_ff: int = 64
     residual_connection: int = 1
     revin: bool = True
-    n_heads: int = 4
+    n_heads: int = Field(default=4, ge=1)
     dropout: float = 0.1
+
+    @model_validator(mode="after")
+    def _architecture_contract(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        sizes = self.patch_size_list or [16, 12, 8, 6] * self.layer_nums
+        if len(sizes) != self.layer_nums * self.num_experts or any(s < 1 for s in sizes):
+            raise ValueError("patch_size_list must contain layer_nums * num_experts positive values")
+        return self
 
 
 def build_model(cfg, params):

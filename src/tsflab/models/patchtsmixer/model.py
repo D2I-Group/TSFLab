@@ -15,8 +15,6 @@ from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.softmax_gate import SoftmaxGate
 
-MODES = ("common_channel", "mix_channel")
-
 
 class MixerMLP(nn.Module):
     """Linear(dim -> dim * expansion), GELU, Dropout, Linear back, Dropout (Fig. 6a)."""
@@ -116,12 +114,10 @@ class Model(nn.Module):
         gated_attn: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, patch_len, stride, num_layers, expansion_factor) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid PatchTSMixer dimension")
         if seq_len <= patch_len:
             raise ValueError("seq_len must exceed patch_len")
-        if mode not in MODES:
-            raise ValueError(f"mode must be one of {MODES}")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len, self.stride, self.mode = patch_len, stride, mode
         self.num_patches = (seq_len - patch_len) // stride + 1

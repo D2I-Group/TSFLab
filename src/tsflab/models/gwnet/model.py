@@ -39,9 +39,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2) -> None:
         super().__init__()
-        if residual_channels != dilation_channels:
-            raise ValueError("local GWNet requires residual_channels == dilation_channels")
-        if min(seq_len, pred_len, num_nodes, input_dim, blocks, layers) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("GWNet dimensions must be positive")
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (num_nodes, num_nodes):

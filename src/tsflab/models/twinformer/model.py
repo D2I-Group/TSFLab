@@ -35,8 +35,6 @@ class TopKSparseAttention(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, top_k: int) -> None:
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.n_heads = n_heads
         self.top_k = top_k
         self.query = nn.Linear(d_model, d_model)

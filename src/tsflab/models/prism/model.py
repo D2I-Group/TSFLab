@@ -207,15 +207,6 @@ class BandHeads(nn.Module):
         return torch.stack(outputs, dim=2)
 
 
-def _check_options(num_components: int, tree_depth: int, overlap: int) -> None:
-    if num_components < 2:
-        raise ValueError("num_components must be at least 2")
-    if tree_depth < 1:
-        raise ValueError("tree_depth must be at least 1")
-    if overlap < 0:
-        raise ValueError("overlap must be non-negative")
-
-
 def _segment_lengths(seq_len: int, tree_depth: int, overlap: int) -> list[int]:
     """Length of the halves produced at each internal level (official ``calculate_level_sizes``)."""
     lengths = []
@@ -244,7 +235,6 @@ class Model(nn.Module):
         use_last_layer_only: bool = False,
     ) -> None:
         super().__init__()
-        _check_options(num_components, tree_depth, overlap)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.ragc.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,16 +18,16 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    spatial_dim: int = 16
-    embed_dim: int = 16
-    temp_dim_tid: int = 8
-    temp_dim_diw: int = 8
+    input_dim: int = Field(default=3, ge=1)
+    spatial_dim: int = Field(default=16, ge=1)
+    embed_dim: int = Field(default=16, ge=1)
+    temp_dim_tid: int = Field(default=8, ge=1)
+    temp_dim_diw: int = Field(default=8, ge=1)
     num_time_in_day: int = 24
     num_day_in_week: int = 7
-    num_layer: int = 2
-    order: int = 1
-    sse_p: float = 0.1
+    num_layer: int = Field(default=2, ge=1)
+    order: int = Field(default=1, ge=1)
+    sse_p: float = Field(default=0.1, ge=0.0, le=1.0)
     use_sse: bool = True
 
 

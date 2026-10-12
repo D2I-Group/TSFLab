@@ -74,9 +74,7 @@ class Model(nn.Module):
                  d_model: int = 64, mlp_expand: int = 4, num_layers: int = 3,
                  dropout: float = 0.1) -> None:
         super().__init__()
-        if d_model % 4:
-            raise ValueError("STTN d_model must be divisible by four attention heads")
-        if min(seq_len, pred_len, enc_in, mlp_expand, num_layers) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("STTN dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cov_dim = seq_len, pred_len, enc_in, cov_dim
         if adj_mx is None:

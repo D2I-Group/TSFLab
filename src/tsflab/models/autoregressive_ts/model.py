@@ -11,8 +11,8 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1 or enc_in < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
+        if seq_len < 1 or pred_len < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

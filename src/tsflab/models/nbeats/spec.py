@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.nbeats.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,6 +16,12 @@ class ModelParameterConfig(BaseModel):
     hidden_layer_units: int = 256
     share_weights_in_stack: bool = False
     nb_harmonics: int | None = None
+
+    @model_validator(mode="after")
+    def validate_stacks(self):
+        if len(self.stack_types) != len(self.thetas_dim):
+            raise ValueError("stack_types and thetas_dim must have equal length")
+        return self
 
 
 def build_model(cfg, params):

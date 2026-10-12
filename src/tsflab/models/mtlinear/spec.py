@@ -1,7 +1,7 @@
 """Runtime specification for MTLinear."""
 
 import torch
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.experiments.runner.objective import TrainingBatch
@@ -22,10 +22,22 @@ class ModelParameterConfig(BaseModel):
     use_horizon_penalty: bool = True
     use_variates_penalty: bool = True
 
+    @field_validator("layer_type")
+    @classmethod
+    def _known_layer(cls, value: str) -> str:
+        if value not in LAYER_TYPES:
+            raise ValueError(f"layer_type must be one of {LAYER_TYPES}")
+        return value
+
+    @field_validator("kernel_size")
+    @classmethod
+    def _odd_kernel(cls, value: int) -> int:
+        if value % 2 == 0:
+            raise ValueError("kernel_size must be a positive odd integer")
+        return value
+
 
 def build_model(cfg, params):
-    if params["layer_type"] not in LAYER_TYPES:
-        raise ValueError(f"layer_type must be one of {LAYER_TYPES}")
     return Model(
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,

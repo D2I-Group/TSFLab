@@ -38,6 +38,6 @@ SPEC = ModelSpec(
     factory=build_model,
     params_schema=ModelParameterConfig,
     capabilities=frozenset(["time-series"]),
-    components=("mamba",),
+    components=("instance_norm", "mamba"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

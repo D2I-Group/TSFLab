@@ -5,7 +5,7 @@ from tsflab.models.wdformer.model import Model
 
 """Validated parameters for WDformer."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,13 +13,19 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
-    n_heads: int = 8
-    e_layers: int = 2
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=128, gt=0)
+    n_heads: int = Field(default=8, gt=0)
+    e_layers: int = Field(default=2, gt=0)
     d_ff: int = 256
     dropout: float = 0.1
-    wave_size: int = 3
+    wave_size: int = Field(default=3, gt=0, le=12)
+
+    @model_validator(mode="after")
+    def _check_heads(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

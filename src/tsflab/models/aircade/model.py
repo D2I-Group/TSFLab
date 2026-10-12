@@ -93,13 +93,9 @@ class CausalLayer(nn.Module):
         return self.output_norm(value + self.feed_forward(value))
 
 
-def _check_dims(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments) -> None:
-    if min(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments) <= 0:
-        raise ValueError("AirCade dimensions and layer counts must be positive")
-    if d_model % num_heads:
-        raise ValueError("d_model must be divisible by num_heads")
-    if d_model <= 2 * prompt_dim:
-        raise ValueError("d_model must be larger than twice prompt_dim")
+def _check_dims(seq_len, pred_len) -> None:
+    if min(seq_len, pred_len) <= 0:
+        raise ValueError("seq_len and pred_len must be positive")
 
 
 class Model(nn.Module):
@@ -120,7 +116,7 @@ class Model(nn.Module):
         environments: int = 3,
     ) -> None:
         super().__init__()
-        _check_dims(seq_len, pred_len, enc_in, cov_dim, d_model, prompt_dim, adaptive_dim, num_heads, temporal_layers, spatial_layers, environments)
+        _check_dims(seq_len, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -11,7 +11,7 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, degree: int = 2) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1 or degree < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("dimensions and degree must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.degree = degree

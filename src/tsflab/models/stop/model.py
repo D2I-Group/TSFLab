@@ -21,8 +21,6 @@ class CentralizedInteraction(nn.Module):
     """Equations (8)--(9): node↔ConAU low-rank attention, never node↔node."""
     def __init__(self, width: int, units: int, heads: int) -> None:
         super().__init__()
-        if width % heads:
-            raise ValueError("STOP latent width must be divisible by head")
         self.heads, self.head_dim = heads, width // heads
         self.context = nn.Parameter(torch.randn(units, width) * 0.02)
         self.query = nn.Linear(width, width)
@@ -53,7 +51,7 @@ class Model(nn.Module):
                  tod_size: int = 24, kernel_size: int = 3, core: int = 4,
                  head: int = 4) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, model_dim, prompt_dim, core, head) <= 0:
+        if min(seq_len, pred_len) <= 0:
             raise ValueError("STOP dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.decomposition = SeriesDecomposition(kernel_size)
@@ -62,8 +60,6 @@ class Model(nn.Module):
         self.tod_prompt = nn.Embedding(tod_size, prompt_dim)
         self.dow_prompt = nn.Embedding(7, prompt_dim)
         width = model_dim + 2 * prompt_dim
-        if width % head:
-            raise ValueError("STOP model_dim + 2*prompt_dim must be divisible by head")
         self.temporal_mixer = ChannelMixer(width, num_layer)
         self.central = CentralizedInteraction(width, core, head)
         self.refine = nn.Sequential(nn.Linear(2 * width, hid_dim), nn.GELU(), nn.Linear(hid_dim, width))

@@ -2,15 +2,15 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.svr_forecaster_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    num_support: int = 16
-    kernel_gamma: float = 0.1
-    epsilon: float = 0.1
-    l2_penalty: float = 1e-4
+    enc_in: int = Field(gt=0)
+    num_support: int = Field(default=16, gt=0)
+    kernel_gamma: float = Field(default=0.1, gt=0)
+    epsilon: float = Field(default=0.1, ge=0)
+    l2_penalty: float = Field(default=1e-4, ge=0)
 
 
 def build_model(cfg, params):

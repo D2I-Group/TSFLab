@@ -319,8 +319,8 @@ class Model(nn.Module):
         huber_delta: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, hidden_dim, channels, layers, local_chunks) < 1:
-            raise ValueError("lengths, widths and counts must be positive")
+        if min(seq_len, pred_len, num_nodes) < 1:
+            raise ValueError("lengths and node counts must be positive")
         if seq_len % local_chunks:
             raise ValueError("seq_len must be a multiple of local_chunks")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes

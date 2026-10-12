@@ -98,12 +98,10 @@ class Model(nn.Module):
         initial_steepness: float = 10.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_scales) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, width and scale count must be positive")
         if seq_len // DOWN_SAMPLING_WINDOW ** (num_scales - 1) < 1:
             raise ValueError("seq_len is too short for the requested number of scales")
-        if not 0.0 <= dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

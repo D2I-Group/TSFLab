@@ -49,11 +49,6 @@ class ProMamba(nn.Module):
 
     def __init__(self, d_model: int, patch_num: int, d_state: int, d_conv: int, expand: float, dropout: float) -> None:
         super().__init__()
-        if d_state != 1:
-            raise ValueError(
-                "this local implementation supports only the paper's default scalar "
-                "hyper-state (d_state=1); general d_state>1 is not implemented"
-            )
         self.d_inner = int(expand * d_model)
         if self.d_inner % patch_num:
             raise ValueError("expand * d_model must be an integer multiple of patch_num")

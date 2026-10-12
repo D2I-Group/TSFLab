@@ -5,7 +5,7 @@ from tsflab.models.freqmoe.model import Model
 
 """Validated parameters for FreqMoE."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,9 +13,9 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    expert_num: int = 4
-    freq_num_blocks: int = 1
+    enc_in: int = Field(ge=1)
+    expert_num: int = Field(default=4, ge=1)
+    freq_num_blocks: int = Field(default=1, ge=1)
     dropout_freq: float = 0.1
 
 

@@ -104,26 +104,11 @@ class _EpsilonNetwork(nn.Module):
         return self.output(F.leaky_relu(self.skip(x), _LEAK))
 
 
-def _checked_lags(lags) -> list[int]:
-    lags = sorted(set(int(lag) for lag in lags))
-    if not lags or lags[0] < 1:
-        raise ValueError("lags must be positive integers")
-    return lags
-
-
 def _checked_context(context_length: int, seq_len: int, max_lag: int) -> int:
     context = context_length or seq_len - max_lag
     if context < 1 or context + max_lag > seq_len:
         raise ValueError("need 1 <= context_length and context_length + max(lags) <= seq_len")
     return context
-
-
-def _check_features(features: str, time_features) -> None:
-    if features not in {"M", "S", "MS"}:
-        raise ValueError("features must be M, S, or MS")
-    unknown = set(time_features) - set(_TIME_FEATURES)
-    if unknown:
-        raise ValueError(f"unsupported time features {sorted(unknown)}")
 
 
 def _check_marks(marks: torch.Tensor, batch: int, steps: int) -> None:
@@ -167,9 +152,10 @@ class Model(nn.Module):
         sample_batch_size: int = 100,
     ) -> None:
         super().__init__()
-        lags = _checked_lags(lags)
+        lags = sorted(set(int(lag) for lag in lags))
         context = _checked_context(context_length, seq_len, lags[-1])
-        _check_features(features, time_features)
+        if features not in {"M", "S", "MS"}:
+            raise ValueError("features must be M, S, or MS")
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.lags, self.context = lags, context
         self.time_features = list(time_features)

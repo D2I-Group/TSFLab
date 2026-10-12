@@ -442,13 +442,9 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         for failed, message in (
-            (min(seq_len, pred_len, enc_in, d_model, d_ff, e_layers, top_k, num_kernels, d_graph, node_feat_size) < 1,
-             "DRAGON sizes must be positive"),
-            (k < 2 or seq_len < k - 1, "k must be at least 2 and seq_len at least k - 1"),
-            (graph_layers < 2, "graph_layers must be at least 2 (input and output attention layers)"),
-            (not alphabet_sizes or min(alphabet_sizes) < 1, "alphabet_sizes needs at least one positive size"),
+            (min(seq_len, pred_len) < 1, "seq_len and pred_len must be positive"),
+            (seq_len < k - 1, "seq_len must be at least k - 1"),
             (top_k > (seq_len + pred_len) // 2, "top_k exceeds the non-DC frequencies of seq_len + pred_len"),
-            (d_model % 2, "d_model must be even (sinusoidal positions)"),
         ):
             if failed:
                 raise ValueError(message)

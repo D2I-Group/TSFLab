@@ -104,13 +104,11 @@ class Model(nn.Module):
         initial: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, d_model, d_pick) < 2 or min(enc_in, layers) < 1:
+        if min(seq_len, pred_len) < 2:
             raise ValueError(
-                "seq_len, pred_len, d_model, and d_pick must each be >= 2 (FLinear's "
-                "irfft needs at least two output samples); enc_in and layers must be positive"
+                "seq_len and pred_len must each be >= 2 (FLinear's "
+                "irfft needs at least two output samples)"
             )
-        if kernel_size < 1 or kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be a positive odd integer")
         if kernel_size > seq_len:
             raise ValueError("kernel_size must not exceed seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

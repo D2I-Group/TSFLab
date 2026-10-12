@@ -57,10 +57,8 @@ class Model(nn.Module):
         shared: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, n_heads, e_layers, patch_len, stride) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid TimeExpert dimension")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
 
         self.seq_len = seq_len
         self.pred_len = pred_len

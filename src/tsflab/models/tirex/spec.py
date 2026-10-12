@@ -2,14 +2,14 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.tirex.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    patch_len: int = 16
-    num_layers: int = 2
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    num_layers: int = Field(default=2, gt=0)
     dropout: float = 0.1
     quantile_levels: list[float] | None = None
 
@@ -34,6 +34,6 @@ SPEC = ModelSpec(
     factory=build_model,
     params_schema=ModelParameterConfig,
     capabilities=frozenset(["quantile-output", "time-series"]),
-    components=("quantile_head",),
+    components=("instance_norm", "quantile_head"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

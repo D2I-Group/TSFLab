@@ -50,10 +50,8 @@ class Model(nn.Module):
         residual: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, n1, n2, d_state, d_conv, expand) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, widths, and Mamba sizes must be positive")
-        if not 0 <= dropout < 1:
-            raise ValueError("dropout must be in [0, 1)")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.ch_ind, self.residual = bool(ch_ind), bool(residual)
         # revin=False keeps the same statistics but drops the learnable affine

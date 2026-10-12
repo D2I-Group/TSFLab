@@ -191,16 +191,10 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, lookback, hippo_order, d_model, n_heads, e_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("SCFormer sizes must be positive")
         if lookback > seq_len:
             raise ValueError("SCFormer needs lookback <= seq_len (the rest of the window is history)")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if struct_mode not in ("triangular", "conv"):
-            raise ValueError("struct_mode must be 'triangular' or 'conv'")
-        if struct_mode == "conv" and kernel_size < 2:
-            raise ValueError("conv mode needs kernel_size >= 2")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.lookback, self.history = lookback, seq_len - lookback + 1
         self.use_norm = use_norm

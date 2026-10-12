@@ -113,8 +113,6 @@ class SparseTemporalInteractionBlock(nn.Module):
         dropout: float,
     ) -> None:
         super().__init__()
-        if d_model % n_heads != 0:
-            raise ValueError("d_model must be divisible by n_heads")
         d_v = d_model // n_heads
         self.n_heads = n_heads
         self.d_v = d_v
@@ -166,10 +164,6 @@ class Model(nn.Module):
         super().__init__()
         if seq_len < 2 or pred_len < 1:
             raise ValueError("seq_len must be >= 2 and pred_len must be positive")
-        if enc_in != c_out:
-            raise ValueError("LSINet is channel-independent: enc_in must equal c_out")
-        if e_layers < 1:
-            raise ValueError("e_layers must be positive")
 
         self.seq_len = seq_len
         self.pred_len = pred_len

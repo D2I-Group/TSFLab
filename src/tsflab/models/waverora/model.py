@@ -25,8 +25,6 @@ import torch.nn.functional as F
 from tsflab.models._components.orthogonal_dwt import OrthogonalDWT, coefficient_lengths
 from tsflab.models._components.revin import RevIN
 
-#: Wavelets offered by the model (filters from the cataloged ``orthogonal_dwt``).
-WAVELETS = ("haar", "sym3", "coif3")
 ROPE_BASE = 10000
 
 
@@ -202,12 +200,6 @@ class Model(nn.Module):
         gate: bool = True,
     ) -> None:
         super().__init__()
-        if wavelet not in WAVELETS:
-            raise ValueError(f"wavelet must be one of {sorted(WAVELETS)}")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be odd")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

@@ -182,10 +182,6 @@ class Model(nn.Module):
         cluster_weight: float = 1.0,
     ) -> None:
         super().__init__()
-        if enc_in % num_sources:
-            raise ValueError(
-                f"enc_in={enc_in} must equal num_sources * num_locations (num_sources={num_sources})"
-            )
         if seq_len != receptive_length(layers, kernel_size):
             raise ValueError(
                 "GMRL consumes exactly 1 + (kernel_size - 1) * (2**layers - 1) = "

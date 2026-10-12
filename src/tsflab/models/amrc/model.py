@@ -28,10 +28,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, mask_samples) < 1:
-            raise ValueError("AMRC dimensions and mask_samples must be positive")
-        if lambda_aml < 0 or lambda_esp < 0:
-            raise ValueError("AMRC loss weights must be non-negative")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

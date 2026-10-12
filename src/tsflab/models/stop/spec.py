@@ -5,21 +5,27 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stop.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
     """Validated STOP parameters supplied via ``model.params``."""
 
-    enc_in: int
-    model_dim: int = 16
-    prompt_dim: int = 16
+    enc_in: int = Field(gt=0)
+    model_dim: int = Field(default=16, gt=0)
+    prompt_dim: int = Field(default=16, gt=0)
     num_layer: int = 2
     hid_dim: int = 64
     tod_size: int = 24
     kernel_size: int = 3
-    core: int = 4
-    head: int = 4
+    core: int = Field(default=4, gt=0)
+    head: int = Field(default=4, gt=0)
+
+    @model_validator(mode="after")
+    def _heads(self) -> "ModelParameterConfig":
+        if (self.model_dim + 2 * self.prompt_dim) % self.head:
+            raise ValueError("STOP model_dim + 2*prompt_dim must be divisible by head")
+        return self
 
 
 def build_model(cfg, params):

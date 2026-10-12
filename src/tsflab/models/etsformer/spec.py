@@ -5,18 +5,24 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.etsformer.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
     enc_in: int
     d_model: int = 128
-    n_heads: int = 8
+    n_heads: int = Field(default=8, gt=0)
     e_layers: int = 2
     d_ff: int = 256
     top_k: int = 3
     dropout: float = 0.1
     activation: str = "sigmoid"
+
+    @model_validator(mode="after")
+    def _heads_divide_width(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

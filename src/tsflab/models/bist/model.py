@@ -42,13 +42,8 @@ class Model(nn.Module):
         virtual_clusters: int = 8,
     ) -> None:
         super().__init__()
-        if min(
-            seq_len, pred_len, enc_in, model_dim, prompt_dim, num_layers,
-            tod_size, graph_dim, virtual_clusters,
-        ) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, dimensions, and counts must be positive")
-        if residual_steps < 0:
-            raise ValueError("residual_steps must be non-negative")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

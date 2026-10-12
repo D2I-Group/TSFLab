@@ -34,8 +34,8 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, cycle, d_model, channel_aggre_heads) < 1:
-            raise ValueError("lengths, channels, cycle, d_model, and heads must be positive")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("lengths must be positive")
         if seq_len % channel_aggre_heads:
             raise ValueError("seq_len must be divisible by channel_aggre_heads")
         self.seq_len, self.pred_len, self.enc_in, self.cycle = seq_len, pred_len, enc_in, cycle

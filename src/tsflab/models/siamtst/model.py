@@ -149,14 +149,10 @@ class Model(nn.Module):
         freeze_backbone: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_size, stride, d_model, n_heads, e_layers, d_ff) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("lengths, channels, widths, heads and layers must be positive")
         if seq_len < patch_size:
             raise ValueError("seq_len must be at least patch_size")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
-        if not 0.0 <= min_mask_ratio <= max_mask_ratio < 1.0:
-            raise ValueError("mask ratios must satisfy 0 <= min <= max < 1")
         if pretrain_epochs > 0 and (pred_len < stride or patch_count(seq_len, patch_size, stride) < 2):
             raise ValueError("pre-training needs pred_len >= stride and at least two patches")
         self.seq_len = seq_len

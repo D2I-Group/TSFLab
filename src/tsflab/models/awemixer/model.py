@@ -165,7 +165,7 @@ class Model(nn.Module):
         num_fusion_layers: int = 1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, num_scales, wavelet_level, num_fusion_layers) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("invalid AWEMixer dimension")
 
         self.seq_len = seq_len

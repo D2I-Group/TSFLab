@@ -66,10 +66,8 @@ class Model(nn.Module):
         use_sse: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, input_dim, spatial_dim, embed_dim, temp_dim_tid, temp_dim_diw, num_layer, order) < 1:
+        if min(seq_len, pred_len, num_nodes) < 1:
             raise ValueError("RAGC dimensions must be positive")
-        if not 0.0 <= sse_p <= 1.0:
-            raise ValueError("sse_p must be in [0, 1]")
 
         adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
         if adjacency.shape != (num_nodes, num_nodes):

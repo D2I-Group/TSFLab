@@ -2,17 +2,25 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.symtime.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    d_model: int = 64
-    patch_len: int = 16
-    num_layers: int = 2
-    num_heads: int = 4
-    trend_kernel: int = 25
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    num_layers: int = Field(default=2, gt=0)
+    num_heads: int = Field(default=4, gt=0)
+    trend_kernel: int = Field(default=25, gt=0)
     dropout: float = 0.1
+
+    @model_validator(mode="after")
+    def _architecture(self):
+        if self.d_model % self.num_heads:
+            raise ValueError("d_model must be divisible by num_heads")
+        if self.trend_kernel % 2 == 0:
+            raise ValueError("trend_kernel must be a positive odd integer")
+        return self
 
 
 def build_model(cfg, params):

@@ -5,18 +5,25 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sttn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelParameterConfig(BaseModel):
     """Validated STTN parameters supplied via ``model.params``."""
 
-    enc_in: int
+    enc_in: int = Field(gt=0)
     cov_dim: int = 2
     d_model: int = 64
-    mlp_expand: int = 4
-    num_layers: int = 3
+    mlp_expand: int = Field(default=4, gt=0)
+    num_layers: int = Field(default=3, gt=0)
     dropout: float = 0.1
+
+    @field_validator("d_model")
+    @classmethod
+    def _four_heads(cls, value: int) -> int:
+        if value % 4:
+            raise ValueError("STTN d_model must be divisible by four attention heads")
+        return value
 
 
 def build_model(cfg, params):

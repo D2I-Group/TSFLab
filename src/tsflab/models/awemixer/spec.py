@@ -5,7 +5,7 @@ from tsflab.models.awemixer.model import Model
 
 """Validated parameters for AWEMixer."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,13 +13,13 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
+    enc_in: int = Field(ge=1)
+    d_model: int = Field(default=128, ge=1)
     dropout: float = 0.2
-    num_scales: int = 3
-    wavelet_level: int = 3
+    num_scales: int = Field(default=3, ge=1)
+    wavelet_level: int = Field(default=3, ge=1)
     wavelet: str = "db4"
-    num_fusion_layers: int = 1
+    num_fusion_layers: int = Field(default=1, ge=1)
 
 
 def build_model(cfg, params):

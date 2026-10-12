@@ -187,13 +187,9 @@ class Model(nn.Module):
         kl_weight: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, hidden, num_blocks, top_k, num_basis) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("VLBM sizes must be positive")
-        if top_k > enc_in:
-            raise ValueError("top_k cannot exceed the number of variables")
         steps_per_day = int(1440 / interval)
-        if steps_per_day < 1:
-            raise ValueError("interval must be at most 1440 minutes")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

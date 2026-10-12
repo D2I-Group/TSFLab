@@ -2,13 +2,19 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.arima_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    ar_order: int = 2
-    ma_order: int = 1
+    enc_in: int = Field(ge=1)
+    ar_order: int = Field(default=2, ge=0)
+    ma_order: int = Field(default=1, ge=0)
+
+    @model_validator(mode="after")
+    def _one_coefficient(self):
+        if self.ar_order + self.ma_order < 1:
+            raise ValueError("at least one AR or MA coefficient is required")
+        return self
 
 
 def build_model(cfg, params):

@@ -48,8 +48,6 @@ class CAPSAttention(nn.Module):
 
     def __init__(self, width: int, n_heads: int, dropout: float, learn_rope_freq: bool) -> None:
         super().__init__()
-        if width % n_heads or (width // n_heads) % 2:
-            raise ValueError("width must split into heads of even size")
         self.n_heads = n_heads
         head = width // n_heads
         self.query = nn.Linear(width, width, bias=False)

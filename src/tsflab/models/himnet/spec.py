@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.himnet.model import Model
 
@@ -19,7 +21,7 @@ class ModelParameterConfig(BaseModel):
 
     enc_in: int
     input_dim: int = 3
-    output_dim: int = 1
+    output_dim: Literal[1] = 1  # TSFLab HimNet exposes one value per node
     hidden_dim: int = 32
     num_layers: int = 1
     cheb_k: int = 2

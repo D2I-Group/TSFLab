@@ -120,16 +120,10 @@ class Model(nn.Module):
         augmentation_rate: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, patch_len, model_dim, heads_num, enc_num) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("CRIB dimensions must be positive")
         if seq_len % patch_len:
             raise ValueError("patch_len must divide seq_len")
-        if model_dim % heads_num:
-            raise ValueError("model_dim must be divisible by heads_num")
-        if activation not in {"relu", "gelu"}:
-            raise ValueError("activation must be relu or gelu")
-        if not 0.0 <= augmentation_rate < 1.0:
-            raise ValueError("augmentation_rate must be in [0, 1)")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in

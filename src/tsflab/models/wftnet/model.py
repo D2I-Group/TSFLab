@@ -150,12 +150,8 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, d_model, d_ff, e_layers, top_k, num_kernels, pwc_power) < 1:
-            raise ValueError("lengths, channels, widths, layers, top_k, and kernels must be positive")
-        if d_model % 2:
-            raise ValueError("d_model must be even for the sinusoidal position embedding")
-        if not 0.0 <= period_coeff <= 1.0:
-            raise ValueError("period_coeff must lie in [0, 1]")
+        if min(seq_len, pred_len) < 1:
+            raise ValueError("seq_len and pred_len must be positive")
         if top_k > (seq_len + pred_len) // 2:
             raise ValueError("top_k exceeds the available non-DC frequencies of seq_len + pred_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

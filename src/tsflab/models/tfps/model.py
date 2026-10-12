@@ -116,8 +116,6 @@ class PatternIdentifier(nn.Module):
 
     def __init__(self, width: int, n_clusters: int, eta: float) -> None:
         super().__init__()
-        if width < n_clusters:
-            raise ValueError("enc_in * d_model must be at least the number of experts")
         self.n_clusters = n_clusters
         self.eta = eta
         self.d = width // n_clusters
@@ -158,8 +156,6 @@ class PatternExperts(nn.Module):
 
     def __init__(self, width: int, n_experts: int, top_k: int, dropout: float = 0.1) -> None:
         super().__init__()
-        if not 1 <= top_k <= n_experts:
-            raise ValueError("top_k must lie in [1, n_experts]")
         self.top_k = top_k
         self.experts = nn.ModuleList(
             nn.Sequential(nn.Linear(width, 4 * width), nn.ReLU(), nn.Linear(4 * width, width), nn.Dropout(dropout))
@@ -210,8 +206,6 @@ class Model(nn.Module):
         super().__init__()
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in

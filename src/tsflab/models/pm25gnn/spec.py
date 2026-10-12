@@ -5,15 +5,15 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pm25gnn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
     """Validated PM25_GNN parameters supplied via ``model.params``."""
 
-    enc_in: int
-    cov_dim: int = 2
-    hid_dim: int = 64
+    enc_in: int = Field(ge=1)
+    cov_dim: int = Field(default=2, ge=0)
+    hid_dim: int = Field(default=64, ge=1)
 
 
 def build_model(cfg, params):

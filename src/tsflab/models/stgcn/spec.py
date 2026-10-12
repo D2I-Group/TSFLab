@@ -5,7 +5,9 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stgcn.model import Model
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -17,14 +19,14 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int
-    input_dim: int = 3
-    Kt: int = 3
-    Ks: int = 3
+    input_dim: int = Field(default=3, gt=0)
+    Kt: int = Field(default=3, gt=0)
+    Ks: int = Field(default=3, gt=0)
     hidden_dim: int = 64
     bottleneck_dim: int = 16
     out_hidden_dim: int = 128
-    act_func: str = "glu"
-    graph_conv_type: str = "cheb_graph_conv"
+    act_func: Literal["glu"] = "glu"
+    graph_conv_type: Literal["cheb_graph_conv"] = "cheb_graph_conv"
     bias: bool = True
     droprate: float = 0.5
 

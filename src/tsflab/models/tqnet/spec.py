@@ -28,8 +28,6 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     """Construct TQNet from a validated run configuration."""
-    if cfg.task.seq_len % params["channel_aggre_heads"]:
-        raise ValueError("seq_len must be divisible by channel_aggre_heads")
     return Model(
         seq_len=cfg.task.seq_len,
         pred_len=cfg.task.pred_len,

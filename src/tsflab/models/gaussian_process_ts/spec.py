@@ -2,14 +2,14 @@
 
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.gaussian_process_ts.model import Model
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
-    enc_in: int
-    num_inducing: int = 16
-    length_scale: float = 1.0
-    noise: float = 1e-3
+    enc_in: int = Field(gt=0)
+    num_inducing: int = Field(default=16, gt=0)
+    length_scale: float = Field(default=1.0, gt=0)
+    noise: float = Field(default=1e-3, gt=0)
 
 
 def build_model(cfg, params):

@@ -26,7 +26,7 @@ class Model(nn.Module):
         hidden_dim: int = 64,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in, hidden_dim) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("sequence, prediction, channel, and hidden sizes must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

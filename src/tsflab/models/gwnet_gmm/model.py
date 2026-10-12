@@ -49,8 +49,6 @@ class GaussianMixtureHead(nn.Module):
         zero_init: bool = True,
     ) -> None:
         super().__init__()
-        if len(anchors) < 1:
-            raise ValueError("the GMM head needs at least one component")
         self.pred_len = pred_len
         self.num_components = len(anchors)
         # Reference values r and spacing s are fixed priors (Fig. 3, Eq. 9).
@@ -144,11 +142,8 @@ class Model(nn.Module):
         spacing: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes, in_dim, hidden_channels, skip_channels,
-               end_channels, blocks, layers, node_embedding_dim) < 1 or kernel_size < 2:
-            raise ValueError("GWNetGMM sizes must be positive and kernel_size at least 2")
-        if not 1 <= in_dim <= 3:
-            raise ValueError("in_dim selects value, time-in-day, day-in-week channels (1 to 3)")
+        if min(seq_len, pred_len, num_nodes) < 1:
+            raise ValueError("GWNetGMM lengths and num_nodes must be positive")
         receptive = 1
         dilations = []
         for _ in range(blocks):

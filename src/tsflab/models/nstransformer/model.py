@@ -3,6 +3,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class Projector(nn.Module):
     """Learn de-stationary factors from raw series and removed statistics."""
@@ -60,12 +62,8 @@ class Model(nn.Module):
                  n_heads=8, e_layers=2, d_layers=1, d_ff=256, dropout=0.1,
                  p_hidden_dims=None, p_hidden_layers=2):
         super().__init__()
-        if d_model % n_heads:
-            raise ValueError("d_model must be divisible by n_heads")
         self.seq_len, self.pred_len, self.enc_in, self.label_len = seq_len, pred_len, enc_in, label_len
         hidden = list(p_hidden_dims or [128, 128])[:p_hidden_layers]
-        if not hidden:
-            raise ValueError("p_hidden_layers must be positive")
         self.value_embedding = nn.Linear(enc_in, d_model)
         self.position = nn.Parameter(torch.randn(1, seq_len, d_model) * 0.02)
         self.future_queries = nn.Parameter(torch.randn(1, pred_len, d_model) * 0.02)
@@ -85,9 +83,7 @@ class Model(nn.Module):
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
         raw = x_enc
-        mean = raw.mean(1, keepdim=True).detach()
-        std = (raw.var(1, keepdim=True, unbiased=False) + 1e-5).sqrt().detach()
-        normalized = (raw - mean) / std
+        normalized, mean, std = standardize(raw, 1e-5, detach_mean=True, detach_std=True)
         tau = self.tau_learner(raw, std).clamp(-5, 5).exp().squeeze(-1)
         delta = self.delta_learner(raw, mean)
         encoded = self.value_embedding(normalized) + self.position
@@ -96,4 +92,4 @@ class Model(nn.Module):
         decoded = self.future_queries.expand(raw.shape[0], -1, -1)
         for layer in self.decoder:
             decoded = layer(decoded, encoded, tau, delta)
-        return self.projection(decoded) * std + mean
+        return destandardize(self.projection(decoded), mean, std)

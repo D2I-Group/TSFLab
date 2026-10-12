@@ -8,6 +8,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 def interleave(even: torch.Tensor, odd: torch.Tensor) -> torch.Tensor:
     """Inverse of odd/even splitting, including an unmatched final even item."""
@@ -115,21 +117,8 @@ class Model(nn.Module):
     ):
         super().__init__()
         hidden_size = max(1, enc_in * 4) if hidden_size is None else hidden_size
-        if (
-            min(
-                seq_len,
-                pred_len,
-                enc_in,
-                num_stacks,
-                num_levels,
-                hidden_size,
-                kernel_size,
-            )
-            < 1
-        ):
+        if min(seq_len, pred_len) < 1:
             raise ValueError("all SCINet dimensions and counts must be positive")
-        if num_stacks > 3:
-            raise ValueError("the paper studies at most three stacked SCINets")
         if seq_len < 2**num_levels:
             raise ValueError("seq_len must be at least 2**num_levels")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -168,9 +157,8 @@ class Model(nn.Module):
             raise ValueError(
                 f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
             )
-        mean = x_enc.mean(1, keepdim=True).detach()
-        scale = x_enc.var(1, keepdim=True, unbiased=False).add(1e-5).sqrt().detach()
-        history = (x_enc - mean) / scale + self.position_encoding
+        normalized, mean, scale = standardize(x_enc, detach_std=True)
+        history = normalized + self.position_encoding
         prediction = None
         for index, stack in enumerate(self.stacks):
             prediction = stack(history)
@@ -182,4 +170,4 @@ class Model(nn.Module):
                 )
                 combined = torch.cat((retained, prediction), dim=1)
                 history = combined[:, -self.seq_len :]
-        return prediction * scale + mean
+        return destandardize(prediction, mean, scale)

@@ -138,16 +138,7 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(
-            seq_len,
-            pred_len,
-            enc_in,
-            d_model,
-            num_layers,
-            patch_unit,
-            num_scales,
-            stride,
-        ) < 1:
+        if min(seq_len, pred_len) < 1:
             raise ValueError("FTP dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len

@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.bigst.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -16,14 +16,14 @@ class ModelParameterConfig(BaseModel):
     """
 
     enc_in: int  # number of nodes N (required)
-    input_dim: int = 3  # 1 value + calendar covariates [tod, dow]
-    hid_dim: int = 16
+    input_dim: int = Field(default=3, gt=0)  # 1 value + calendar covariates [tod, dow]
+    hid_dim: int = Field(default=16, gt=0)
     node_dim: int = 8
     time_dim: int = 8
     tod_size: int = 24
     dow_size: int = 7
     tau: float = 1.0
-    random_feature_dim: int = 16
+    random_feature_dim: int = Field(default=16, gt=0)
     dropout: float = 0.1
     use_residual: bool = True
     use_bn: bool = True

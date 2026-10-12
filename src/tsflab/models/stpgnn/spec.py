@@ -5,7 +5,7 @@ from __future__ import annotations
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stpgnn.model import Model
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -20,11 +20,11 @@ class ModelParameterConfig(BaseModel):
     enc_in: int
     dropout: float = 0.1
     topk: int = 4
-    residual_channels: int = 16
+    residual_channels: int = Field(default=16, gt=0)
     end_channels: int = 64
     kernel_size: int = 2
-    blocks: int = 2
-    layers: int = 2
+    blocks: int = Field(default=2, gt=0)
+    layers: int = Field(default=2, gt=0)
     dims: int = 16
 
 

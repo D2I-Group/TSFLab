@@ -5,7 +5,7 @@ from tsflab.models.timeexpert.model import Model
 
 """Validated parameters for TimeExpert."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -13,15 +13,21 @@ class ModelParameterConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enc_in: int
-    d_model: int = 128
-    n_heads: int = 8
-    e_layers: int = 2
-    patch_len: int = 16
-    stride: int = 8
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=128, gt=0)
+    n_heads: int = Field(default=8, gt=0)
+    e_layers: int = Field(default=2, gt=0)
+    patch_len: int = Field(default=16, gt=0)
+    stride: int = Field(default=8, gt=0)
     dropout: float = 0.1
     topk: int = 4
     shared: bool = False
+
+    @model_validator(mode="after")
+    def _check_heads(self):
+        if self.d_model % self.n_heads:
+            raise ValueError("d_model must be divisible by n_heads")
+        return self
 
 
 def build_model(cfg, params):

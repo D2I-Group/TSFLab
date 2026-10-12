@@ -50,12 +50,8 @@ class Model(nn.Module):
         lead_chunk_size: int = 32,
     ) -> None:
         super().__init__()
-        if min(pred_len, enc_in, leader_num, state_num) < 1 or seq_len < 4:
+        if pred_len < 1 or seq_len < 4:
             raise ValueError("seq_len must be at least 4 and other sizes positive")
-        if lead_chunk_size < 1:
-            raise ValueError("lead_chunk_size must be positive")
-        if temperature <= 0:
-            raise ValueError("temperature must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.leaders = min(leader_num, enc_in)
         self.states = state_num
