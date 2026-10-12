@@ -4,7 +4,8 @@
     tsf repo check --audit
     tsf repo check --contracts construct|forward|backward|strict [--models NAME...]
 
-``full`` runs every check. ``changed`` runs the same checks plus the targeted
+``full`` runs every check. ``changed`` runs the same checks plus, outside CI, the admission of the
+changed models (``tsf model verify --changed``) and the targeted
 smoke run for the models affected by the diff against ``--base`` (default:
 ``origin/$GITHUB_BASE_REF`` in CI, else the first of origin/dev, dev,
 origin/main, main that exists). The full ``tsf run --smoke --all`` sweep stays a
@@ -87,22 +88,35 @@ def affected_smoke_configs(changed: list[str], root: Path) -> list[str]:
     return sorted(configs)
 
 
-def select_steps(scope: str, changed: list[str], root: Path) -> list[Step]:
-    """Return the ordered steps for ``scope`` (pure; runs nothing)."""
+def changed_models(changed: list[str]) -> list[str]:
+    """Model packages whose files appear in ``changed`` (shared code is covered by the smoke run)."""
+    names = {path.split("/")[3] for path in changed
+             if path.startswith("src/tsflab/models/") and path.count("/") >= 4}
+    return sorted(name for name in names if not name.startswith(("_", ".")))
+
+
+def select_steps(scope: str, changed: list[str], root: Path, *, base: str | None = None,
+                 local: bool = False) -> list[Step]:
+    """Return the ordered steps for ``scope`` (pure; runs nothing).
+
+    ``repo-audit`` covers agent assets, component, dataset, and model cards, complexity,
+    the catalog, and documentation in one process. With ``local`` (an author's checkout,
+    not CI), ``changed`` also re-admits the changed models, which records ``[admission]``.
+    """
     steps = [
         Step("schema-export", [PY, "-m", "tsflab.core", "--check",
                                "--out-dir", "src/tsflab/core/schema"]),
-        Step("agent-assets", [PY, "-m", "tsflab.agent.assets"]),
         Step("agent-tasks", CLI + ["agent", "task", "validate"]),
         Step("model-cards", CLI + ["model", "audit", "--summary"], scopes=("full", "changed")),
         Step("model-release", CLI + ["model", "audit", "--summary", "--release"], scopes=("release",)),
-        Step("dataset-cards", CLI + ["data", "audit"]),
-        Step("component-cards", CLI + ["model", "audit", "--components"]),
         Step("web-submissions", [PY, "pipeline/validate.py"], cwd="apps/web"),
         Step("repo-audit", CLI + ["repo", "check", "--audit"]),
     ]
     steps = [step for step in steps if scope in step.scopes]
     if scope == "changed":
+        if local and changed_models(changed):
+            steps.append(Step("admission-changed", CLI + ["model", "verify", "--changed",
+                                                         *(["--base", base] if base else [])]))
         configs = affected_smoke_configs(changed, root)
         if configs:
             steps.append(Step(
@@ -188,7 +202,14 @@ def check_command(argv: list[str]) -> int:
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    steps = select_steps(args.scope, changed, root)
+    local = not os.environ.get("CI")
+    if local and not args.list:
+        # Derived indexes (.agents/README.md, the model docs index) follow the cards; refresh
+        # them first so a check never fails on a stale projection. CI only verifies them.
+        from tsflab.cli.commands.repository import regenerate_cards
+
+        regenerate_cards([])
+    steps = select_steps(args.scope, changed, root, base=args.base, local=local)
     if args.only:
         unknown = sorted(set(args.only) - {step.name for step in steps})
         if unknown:

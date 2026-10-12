@@ -53,9 +53,7 @@ retrieves and `tsf catalog match` ranks.
    the strict contract, writes `[admission]`, and rolls back on failure:
 
    ```bash
-   uv run tsf model add --name MyModel --verify
-   uv run tsf repo cards        # refresh generated pages
-   uv run tsf repo check --audit
+   uv run tsf model add --name MyModel --verify   # also refreshes generated pages and audits
    ```
 
 ## Chain

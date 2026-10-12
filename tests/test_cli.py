@@ -81,9 +81,7 @@ def names(scope: str, changed: list[str]) -> list[str]:
 class GateSelectionTests(unittest.TestCase):
     def test_full_scope_has_every_check_and_no_smoke(self) -> None:
         selected = names("full", [])
-        for required in ("schema-export", "agent-assets", "model-cards",
-                         "dataset-cards", "component-cards",
-                         "repo-audit", "web-submissions", "pytest"):
+        for required in ("schema-export", "model-cards", "repo-audit", "web-submissions", "pytest"):
             self.assertIn(required, selected)
         self.assertNotIn("smoke-affected", selected)
         self.assertEqual(selected[-1], "pytest")  # slowest step last

@@ -122,11 +122,9 @@ def main() -> int:
             _run("model", "verify", args.name)
         _run("model", "audit", args.name)
         # Cards and the model index are projections of the catalog, so they can
-        # only be regenerated once the entry exists; the strict contract check covers them after.
+        # only be regenerated once the entry exists.
         _run("repo", "cards")
-        if args.verify:
-            _run("repo", "check", "--contracts", "strict", "--models", args.name)
-        _run("model", "audit", "--components")
+        # `model verify` already ran the strict contract; the audit covers component cards.
         _run("repo", "check", "--audit")
     except (RuntimeError, ValueError) as exc:
         CATALOG.write_text(original, encoding="utf-8")

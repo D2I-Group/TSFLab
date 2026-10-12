@@ -31,7 +31,6 @@ semantics match. A released pretrained foundation model is not rewritten; use
 uv run tsf catalog show <Name>     # L1; --depth 2 for the full card, --depth 3 for paths
 uv run tsf model verify <Name>   # existing model; new entries use tsf model add --verify
 uv run tsf model audit <Name>
-uv run tsf model audit --components
 ```
 
 Success: `[admission]` passed, the card is truthful, no peer-model import, no

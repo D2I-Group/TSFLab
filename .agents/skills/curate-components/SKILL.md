@@ -43,10 +43,7 @@ implementation units, never model categories; read the components section of
    then re-admit every model that uses a touched component:
 
    ```bash
-   uv run tsf model verify --changed --base <ref>   # writes [admission] per consumer
-   uv run tsf model audit --components
-   uv run tsf repo cards
-   uv run tsf repo check --audit
+   uv run tsf repo check --scope changed --base <ref>   # re-admits every consumer, audits cards
    ```
 
 ## Chain

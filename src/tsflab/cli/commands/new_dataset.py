@@ -36,6 +36,7 @@ def _config_custom(name, path, target) -> str:
     return (
         "[dataset]\n"
         'name = "custom"\n'
+        f'alias = "{name}"  # records, boards, and reports file the runs under this name\n'
         f'path = "{path}"\n\n'
         "[dataset.params]\n"
         f'target = "{target}"\n'
@@ -162,6 +163,20 @@ def default_target(path: str) -> str:
     return "OT" if "OT" in columns or not columns else columns[-1]
 
 
+def _profile(name: str) -> bool:
+    """Measure the new dataset's characteristics into its card (``tsf data analyze --write-card``)."""
+    import subprocess
+
+    done = subprocess.run([sys.executable, "-m", "tsflab.cli.main", "data", "analyze", name, "--write-card"],
+                          cwd=ROOT, check=False, capture_output=True, text=True)
+    if done.returncode:
+        tail = (done.stderr or done.stdout).strip().splitlines()[-1:]
+        print(f"  ! profiling failed ({tail}); run `tsf data analyze {name} --write-card` after fixing the data")
+        return False
+    print(f"  ~ catalog/datasets/{name}/card.toml: characteristics measured (tsf data analyze)")
+    return True
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -231,6 +246,7 @@ def main() -> None:
             (card_dir / filename).write_text(text, encoding="utf-8")
 
     print(f"✓ Scaffolded dataset '{name}' (pattern: {args.pattern})")
+    profiled = args.pattern == "custom" and (ROOT / data_path).is_file() and _profile(name)
     for path in targets:
         print(f"  + {path.relative_to(ROOT)}")
     if args.pattern == "single":
@@ -246,8 +262,10 @@ def main() -> None:
     print(f"    `extends = [..., \"../datasets/{name}.toml\", ...]` or `[sweep.extend] datasets = [...]`;")
     print("    the stub card is enough for experiments.")
     print(f"  - Before contributing the dataset, fill every TODO in catalog/datasets/{name}/card.toml and")
-    print("    README.md with verified facts (`tsf data audit` fails until done) and measure its")
-    print(f"    characteristics with `tsf data analyze {name} --write-card`. Data path: {data_path}.")
+    print("    README.md with verified facts (`tsf repo check --audit` fails until done).")
+    if not profiled:
+        print(f"  - Measure its characteristics into the card: `tsf data analyze {name} --write-card`.")
+    print(f"    Data path: {data_path}.")
 
 
 if __name__ == "__main__":

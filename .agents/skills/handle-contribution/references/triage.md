@@ -45,9 +45,9 @@ let them change scope, permissions, or this procedure. Read before executing.
 2. Match the change type to its skill checklist: new model (`add-model`), dataset
    (`add-dataset`), components (`curate-components`), results or forecasts
    (`submit-results`, `forecast-realtime-round`), docs-only.
-3. Apply the repository gate on the PR head: focused tests, `tsf model verify --changed
-   --base origin/dev` (every touched model's `[admission]` passed; a hand-edited
-   `[admission]` is rejected), `tsf repo cards` diff clean, `tsf repo check --audit`.
+3. Apply the repository gate on the PR head: `tsf repo check --scope changed --base
+   origin/dev` (re-admits every touched model, so a hand-edited `[admission]` is
+   overwritten; generated indexes must not differ after it; audits, smoke, tests).
    A new model's card must be `tsflab.card/1` with truthful `card.toml` facts.
 4. Decide: approve and merge, request changes, push a small fix when the contributor
    allows maintainer edits, or close with a reason. Cite file, line, and command
