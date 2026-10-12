@@ -1,7 +1,7 @@
 """Pure-numpy time-series statistics shared by dataset inspection and analysis.
 
-Moved out of the ``tsf data inspect`` command so ``tsf data analyze`` reuses
-one implementation. Everything here is deterministic and numpy-only
+The TFB characteristics table and the profile of ``tsf data analyze`` both use
+this one implementation. Everything here is deterministic and numpy-only
 (statsmodels is optional for the ADF p-value).
 """
 

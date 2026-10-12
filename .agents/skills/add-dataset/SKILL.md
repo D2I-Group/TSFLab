@@ -42,8 +42,8 @@ strict parameter schema, a preset, and a card. The card and the profile from
    characteristics; re-run `tsf data analyze my_data --write-card` if the data changes), then:
 
    ```bash
-   uv run tsf data inspect --config configs/datasets/my_data.toml   # look at the series
-   uv run tsf repo check --audit                                    # card facts, no TODO
+   uv run tsf data analyze my_data --plot   # look at the series (profile, TFB table, samples)
+   uv run tsf repo check --audit            # card facts, no TODO
    ```
 
 ## Chain

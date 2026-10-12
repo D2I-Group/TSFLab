@@ -1,9 +1,8 @@
-"""Extract TFB-style dataset characteristics from a TOML config.
+"""TFB-style dataset characteristics and the partial dataset-config loader.
 
-Standalone analysis layer: loads a dataset split (the same way ``visual_data.py``
-does) and computes a handful of per-dataset (and optionally per-channel) time
-series characteristics, then prints a table and optionally writes a CSV. This
-tool never touches training and has zero runtime dependency for the benchmark.
+``tsf data analyze`` reports these characteristics for one split (they were the
+``tsf data inspect`` table) and builds loaders through ``_build_dataset``. This
+module never touches training and has zero runtime dependency for the benchmark.
 
 Characteristics (numpy/scipy only; no statsmodels required):
 
@@ -24,7 +23,6 @@ Characteristics (numpy/scipy only; no statsmodels required):
 
 from __future__ import annotations
 
-import argparse
 import csv
 import os
 import tomllib
@@ -32,9 +30,7 @@ from dataclasses import dataclass, replace
 from typing import Optional
 
 import numpy as np
-from pydantic import ValidationError
 
-from tsflab.experiments.config import load_config
 from tsflab.catalog.registry.datasets import DATASET_REGISTRY, register_dataset_by_name
 from tsflab.data.series_stats import (
     _HAS_STATSMODELS,
@@ -303,104 +299,13 @@ def _fmt(value) -> str:
     return str(value)
 
 
-def _print_table(rows: list[Characteristics]) -> None:
-    table = [[_fmt(getattr(r, col)) for col in _COLUMNS] for r in rows]
-    widths = [
-        max(len(col), *(len(row[i]) for row in table)) for i, col in enumerate(_COLUMNS)
-    ]
-    header = "  ".join(col.ljust(widths[i]) for i, col in enumerate(_COLUMNS))
-    print(header)
-    print("  ".join("-" * widths[i] for i in range(len(_COLUMNS))))
-    for row in table:
-        print("  ".join(row[i].ljust(widths[i]) for i in range(len(_COLUMNS))))
-
-
-def _write_csv(path: str, rows: list[Characteristics]) -> None:
+def write_rows_csv(path: str, rows: list[dict]) -> None:
+    """Write characteristics rows (dicts keyed by ``_COLUMNS``) as CSV."""
     out_dir = os.path.dirname(path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
     with open(path, "w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(_COLUMNS)
-        for r in rows:
-            writer.writerow([_fmt(getattr(r, col)) for col in _COLUMNS])
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Extract TFB-style dataset characteristics from a TOML config"
-    )
-    parser.add_argument(
-        "--config", required=True, type=str, help="Path to dataset or run config TOML"
-    )
-    parser.add_argument(
-        "--split",
-        type=str,
-        default="train",
-        choices=("train", "val", "test"),
-        help="Dataset split to analyse (default: train)",
-    )
-    parser.add_argument(
-        "--period",
-        type=int,
-        default=None,
-        help="Seasonal period; if unset, estimated from the dominant FFT frequency",
-    )
-    parser.add_argument(
-        "--per-channel",
-        action="store_true",
-        help="Also emit one row per channel (otherwise dataset-level only)",
-    )
-    parser.add_argument(
-        "--out",
-        type=str,
-        default=None,
-        help=(
-            "Output CSV path (default: "
-            "work_dirs/<dataset>/characteristics_<split>.csv)"
-        ),
-    )
-    args = parser.parse_args()
-
-    try:
-        configs = load_config(args.config)
-        if not configs:
-            raise RuntimeError("No configs loaded from the provided path")
-        if len(configs) > 1:
-            print(f"Loaded {len(configs)} configs from sweep; using the first one")
-        config = configs[0].config
-    except ValidationError:
-        print("Config is dataset-only; using task defaults for analysis")
-        config = _load_partial_config(args.config)
-
-    dataset, config = _build_dataset_for_inspect(config, args.split)
-    series = _extract_series(dataset)
-    if series.shape[0] < 4:
-        raise SystemExit(
-            f"Split '{args.split}' has only {series.shape[0]} time steps; "
-            "too short to analyse."
-        )
-
-    rows = compute_characteristics(series, args.period, args.per_channel)
-
-    name = config.dataset.alias or config.dataset.name
-    print(f"Dataset: {name} | split: {args.split}")
-    print(
-        f"Windows: {len(dataset)} (seq_len={config.task.seq_len}, "
-        f"pred_len={config.task.pred_len})"
-    )
-    if not _HAS_STATSMODELS:
-        print("statsmodels not installed; stationarity uses rolling-moment fallback")
-    _print_table(rows)
-
-    out_path = args.out
-    if out_path is None:
-        out_path = os.path.join(
-            "work_dirs", config.dataset.name, f"characteristics_{args.split}.csv"
-        )
-    _write_csv(out_path, rows)
-    print(f"Output: {out_path}")
-
-
-if __name__ == "__main__":
-    main()
+        for row in rows:
+            writer.writerow([_fmt(row[col]) for col in _COLUMNS])

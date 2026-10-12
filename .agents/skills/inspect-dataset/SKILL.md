@@ -17,16 +17,15 @@ context AutoResearch reads before it picks models.
 
 ```bash
 uv run tsf catalog show <name>
-uv run tsf data inspect --config configs/datasets/<name>.toml --split train --per-channel
-uv run tsf data analyze <name>        # structured profile for model selection
+uv run tsf data analyze <name> --per-channel --plot   # profile, TFB table, sample plot
 uv run tsf data analyze <name> --write-card   # only when asked: record characteristics
-uv run tsf data plot --config configs/datasets/<name>.toml --split train --num-samples 3
 ```
 
 Start from the card facts (`domain`, `characteristics`, `[shape]` frequency, length,
 channels, `[protocol]`) and its Protocol and pitfalls section, then confirm them
-against the files. `analyze` writes `work_dirs/profiles/<name>/profile.{json,md}` from
-train statistics plus labelled train/val/test shift; use it before choosing models.
+against the files. `analyze` writes `work_dirs/profiles/<name>/` (`profile.{json,md}` from
+train statistics plus labelled train/val/test shift, the TFB characteristics CSV of
+`--split`, and with `--plot` `samples_<split>.png`); use it before choosing models.
 Its fired rule ids are the card's data `characteristics`; `--write-card` records them
 with their basis, which `tsf catalog match <name>` then reads.
 

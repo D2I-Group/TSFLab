@@ -384,14 +384,13 @@ Use an existing CSV preset or create a loader-backed dataset:
 ```bash
 uv run tsf data add --name my_data --pattern custom \
   --path ./dataset/my_data/my_data.csv --target OT
-uv run tsf data inspect --config configs/datasets/my_data.toml
-uv run tsf data analyze my_data      # model-selection profile (JSON + markdown)
+uv run tsf data analyze my_data --plot   # profile (JSON + markdown), TFB table, sample plot
 uv run tsf data analyze my_data --write-card   # record its characteristics in the card
 uv run tsf catalog show my_data
 uv run tsf data audit
 ```
 
-`dataset analyze <preset>` (or `--path FILE`) profiles the training split (length,
+`tsf data analyze <preset>` (or `--path FILE`) profiles the training split (length,
 missingness, scale, periods, seasonality, trend, forecastability, cross-channel
 structure, outliers) plus train/validation shift, recommends lookback candidates, and
 maps findings to catalog components and models. The rules that fire are the
@@ -399,7 +398,10 @@ dataset's data characteristics; `--write-card` records them, with their basis, i
 the dataset card, where `tsf catalog match` reads them. Test-split shift is labelled
 diagnostic-only and never becomes a characteristic. Results go to `work_dirs/profiles/<name>/` (`--out` changes it,
 `--json` prints the profile). For a file that has no preset, pass `--path FILE`
-with `--split-ratio TRAIN VAL TEST` and optionally `--freq`.
+with `--split-ratio TRAIN VAL TEST` and optionally `--freq`. The same report includes the TFB-style
+characteristics table (trend, seasonality, stationarity, shifting, transition,
+correlation) of one split (`--split`, `--per-channel`), and `--plot` saves sample
+windows; `--config TOML` profiles the dataset of any preset or run config.
 
 `tsf data prepare [--from traffic|ultratraffic|gift-eval|tfb|dcrnn]` provides explicit
 conversion/download operations; inspect their `--help` before writing. `tfb` and

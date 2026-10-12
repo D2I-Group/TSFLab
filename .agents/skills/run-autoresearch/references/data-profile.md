@@ -5,13 +5,16 @@ uv run tsf data analyze <preset>                 # configs/datasets/<preset>.tom
 uv run tsf data analyze --path <file|store-dir> [--split-ratio 0.7 0.1 0.2] [--freq 10min]
 uv run tsf data analyze <preset> --json          # print JSON instead of markdown
 uv run tsf data analyze <preset> --write-card    # record fired data terms in the dataset card
+uv run tsf data analyze <preset> --plot --split val --per-channel   # sample windows, per-channel TFB
 ```
 
-Outputs `work_dirs/profiles/<name>/profile.json` and `profile.md` (`--out DIR` to move).
+Outputs `work_dirs/profiles/<name>/profile.json`, `profile.md`, and
+`characteristics_<split>.csv` (`--out DIR` to move); `--config TOML` profiles the dataset
+of any preset or run config.
 Profiles read the preset's own chronological split with unscaled values. Presets whose
 loader has no date column need `--freq` for period tags (for example `solar` is `10min`).
-`tsf data inspect` is the older per-split TFB characteristics table; use `analyze`
-for decisions.
+The TFB characteristics table (formerly `tsf data inspect`) describes one split
+(`--split`, default train); the decision-safe sections above it are what to select on.
 
 ## Sections and how to use them
 

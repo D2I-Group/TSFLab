@@ -121,7 +121,9 @@ def _split_facts(name: str) -> dict[str, str]:
 def data_command(args: list[str]) -> int:
     """Route dataset scaffolding, preparation, inspection, plotting, and publishing."""
     usage = (
-        "usage: tsf data {add,prepare,inspect,analyze,splits,plot,download,publish,audit} [args...]\n"
+        "usage: tsf data {add,prepare,analyze,splits,download,publish,audit} [args...]\n"
+        "       tsf data analyze <dataset> [--plot] [--split S] [--per-channel] [--json]   profile, TFB\n"
+        "                characteristics, and sample plot (replaces `data inspect` and `data plot`)\n"
         "       tsf data prepare [--from traffic|ultratraffic|gift-eval|tfb|dcrnn] [args...]\n"
         "       tsf data splits <dataset> [--seq-len N] [--path FILE] [--json]   official split borders\n"
         "Find and read datasets with `tsf catalog search|show --kind dataset`."
@@ -134,12 +136,12 @@ def data_command(args: list[str]) -> int:
         return dataset_read("audit", rest)
     if action == "splits":
         return splits_command(rest)
+    if action in RETIRED_DATA_ACTIONS:
+        return _forward_to_analyze(action, rest)
     scripts = {
         "add": "new_dataset.py",
         "prepare": "pre_process.py",
-        "inspect": "dataset_characteristics.py",
         "analyze": "dataset_analyze.py",
-        "plot": "visual_data.py",
     }
     if action in {"download", "publish"}:
         return _hub_dataset_command(action, rest)
@@ -170,6 +172,40 @@ def data_command(args: list[str]) -> int:
         print(usage, file=sys.stderr)
         return 2
     return passthrough(script, rest)
+
+
+#: Retired dataset actions that `tsf data analyze` now covers, and the flag that selects them.
+RETIRED_DATA_ACTIONS = {
+    "inspect": ("its TFB characteristics table", []),
+    "plot": ("--plot", ["--plot"]),
+}
+
+
+def _forward_to_analyze(action: str, rest: list[str]) -> int:
+    """Forward a retired `data inspect|plot` call to `data analyze` after a one-line note."""
+    part, extra = RETIRED_DATA_ACTIONS[action]
+    print(f"note: `tsf data {action}` is now part of `tsf data analyze` ({part}); forwarding",
+          file=sys.stderr)
+    if action == "inspect":
+        rest = _inspect_out_to_analyze(rest)
+    return passthrough("dataset_analyze.py", [*rest, *extra])
+
+
+def _inspect_out_to_analyze(rest: list[str]) -> list[str]:
+    """Inspect's ``--out`` was the CSV path; analyze writes it, and the profile beside it."""
+    args, csv, skip = [], None, False
+    for index, arg in enumerate(rest):
+        if skip:
+            skip = False
+        elif arg == "--out" and index + 1 < len(rest):
+            csv, skip = rest[index + 1], True
+        elif arg.startswith("--out="):
+            csv = arg.split("=", 1)[1]
+        else:
+            args.append(arg)
+    if csv is None:
+        return args
+    return [*args, "--characteristics-csv", csv, "--out", str(Path(csv).parent)]
 
 
 def splits_command(args: list[str]) -> int:

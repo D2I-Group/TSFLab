@@ -17,7 +17,7 @@
 | Span | 2013-03-01 00:00 to 2017-02-28 23:00 | source-reported |
 | Missing values | UCI original: 5,146 NA cells at this station (all columns); TFB file: none | source-reported |
 
-The repository neither ships nor pins this file (`dataset/` is local and the Hub has no published copy), so the numbers above are those of the standard public distribution and a different copy may differ. Run `tsf data inspect --config configs/datasets/aqwan.toml` on your copy before relying on them.
+The repository neither ships nor pins this file (`dataset/` is local and the Hub has no published copy), so the numbers above are those of the standard public distribution and a different copy may differ. Run `tsf data analyze aqwan` on your copy before relying on them.
 
 ## Related datasets
 

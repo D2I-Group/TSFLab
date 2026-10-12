@@ -207,6 +207,34 @@ def test_analyze_cli_on_csv_writes_json_and_markdown(tmp_path, capsys):
     assert (out / "profile.md").read_text().startswith("# Dataset profile")
     with pytest.raises(SystemExit):
         dataset_analyze.main([str(path), "--path", str(path)])
+    rows = report["tfb_characteristics"]["rows"]
+    assert report["tfb_characteristics"]["split"] == "train" and rows[0]["scope"] == "dataset"
+    assert (out / "characteristics_train.csv").read_text().startswith("scope,length")
+    with pytest.raises(SystemExit):  # sample windows need a loader
+        dataset_analyze.main(["--path", str(path), "--out", str(out), "--plot"])
+
+
+def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
+    from tsflab.cli import main as cli
+    from tsflab.core.paths import repository_root
+
+    if not (repository_root() / "dataset" / "ETT-small" / "ETTh1.csv").exists():
+        pytest.skip("ETTh1 data is not available")
+    out = tmp_path / "etth1"
+    assert dataset_analyze.main(["etth1", "--out", str(out), "--plot", "--per-channel",
+                                 "--num-samples", "1", "--json"]) == 0
+    report = json.loads((out / "profile.json").read_text())
+    assert [row["scope"] for row in report["tfb_characteristics"]["rows"]][:2] == ["dataset", "ch0"]
+    assert (out / "samples_train.png").stat().st_size > 0
+    # --config and the hidden --dataset spelling name the same preset
+    assert dataset_analyze.main(["--config", "configs/datasets/etth1.toml", "--out", str(out)]) == 0
+    assert dataset_analyze.main(["--dataset", "etth1", "--out", str(out)]) == 0
+    capfd.readouterr()
+    csv = tmp_path / "inspect.csv"
+    assert cli.main(["data", "inspect", "--config", "configs/datasets/etth1.toml",
+                     "--out", str(csv)]) == 0
+    assert "`tsf data inspect` is now part of `tsf data analyze`" in capfd.readouterr().err
+    assert csv.read_text().startswith("scope,length")
 
 
 # ---------------------------------------------------------------------------

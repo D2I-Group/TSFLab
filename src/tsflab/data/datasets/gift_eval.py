@@ -447,7 +447,7 @@ class Dataset_GiftEval(Dataset):
     def series_array(self) -> np.ndarray:
         """Return this split's observed values as one ``(T, C)`` array.
 
-        Analysis accessor (``tsf data inspect``), independent of the window
+        Analysis accessor (``tsf data analyze``), independent of the window
         count: series too short for ``seq_len + pred_len`` are still included.
         Each GIFT-EVAL series contributes its own channel(s). Series of unequal
         length are right-aligned (most recent rows) to a common length ``L``

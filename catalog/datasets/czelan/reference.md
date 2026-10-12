@@ -22,7 +22,7 @@
 | Exact zeros | 18.5% of the sap-flow channel, 97.4% of `precip`; 22.3% of all values | measured |
 | Negative values | none | measured |
 
-Measured from the local file `dataset/CzeLan/CzeLan.csv` (read-only; converted from the TFB archive, sha256 in `SOURCE.txt`). The repository neither ships nor publishes this file; run `tsf data inspect --config configs/datasets/czelan.toml` on your copy before relying on these numbers.
+Measured from the local file `dataset/CzeLan/CzeLan.csv` (read-only; converted from the TFB archive, sha256 in `SOURCE.txt`). The repository neither ships nor publishes this file; run `tsf data analyze czelan` on your copy before relying on these numbers.
 
 ## Related datasets
 

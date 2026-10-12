@@ -20,7 +20,7 @@
 | Negative values | 99 cells (65 in New_cases, 34 in New_deaths); cumulative channels are never negative | measured |
 | Target channel | Zimbabwe;Cumulative_deaths: 0 to 5,720, median 4,705 | measured |
 
-Measured from the local file `dataset/Covid-19/Covid-19.csv` (read-only; converted from the TFB archive, sha256 in `SOURCE.txt`). The repository neither ships nor publishes this file; run `tsf data inspect --config configs/datasets/covid19.toml` on your copy before relying on these numbers.
+Measured from the local file `dataset/Covid-19/Covid-19.csv` (read-only; converted from the TFB archive, sha256 in `SOURCE.txt`). The repository neither ships nor publishes this file; run `tsf data analyze covid19` on your copy before relying on these numbers.
 
 ## Related datasets
 

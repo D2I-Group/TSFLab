@@ -14,7 +14,7 @@
 | Span | LSTNet: 1990 to 2016; file dates 1990-01-01 to 2010-10-10 (7,588 consecutive days) | source-reported (conflicting; dates nominal) |
 | Missing values | none in the standard file | source-reported |
 
-The repository neither ships nor pins this file (`dataset/` is local and the Hub has no published copy), so the numbers above are those of the standard public distribution and a different copy may differ. Run `tsf data inspect --config configs/datasets/exchange.toml` on your copy before relying on them.
+The repository neither ships nor pins this file (`dataset/` is local and the Hub has no published copy), so the numbers above are those of the standard public distribution and a different copy may differ. Run `tsf data analyze exchange` on your copy before relying on them.
 
 ## Related datasets
 
