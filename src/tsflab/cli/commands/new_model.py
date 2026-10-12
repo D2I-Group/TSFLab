@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Create an unregistered model workspace from resolved paper/source facts.
+"""Create a model workspace from resolved paper/source facts.
 
 Use ``tsf model scaffold`` only after paper extraction and component matching.
-The placeholder is not added to the catalog. After implementing it and
-completing the card, run ``tsf model add --name NAME --verify``.
+The catalog is derived from the model packages, so the workspace is discoverable
+as soon as it is written; its SCAFFOLD markers keep ``tsf repo check --audit`` red
+and ``tsf model verify`` refuses it until the code and card are finished. Then run
+``tsf model add --name NAME --verify``. No registry file is edited.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ def _module_slug(name: str) -> str:
 
 
 def _package_init(name: str) -> str:
-    """Return the explicit package entrypoint for an unregistered workspace."""
+    """Return the explicit package entrypoint for a new model workspace."""
     return f'"""Local {name} model package."""\n\nfrom .model import Model\n\n__all__ = ["Model"]\n'
 
 
@@ -333,10 +335,12 @@ def main() -> None:
     for path, content in targets.items():
         path.write_text(content, encoding="utf-8")
 
-    print(f"Created unregistered model workspace {name!r} ({module})")
+    print(f"Created model workspace {name!r} ({module}); it is discovered from spec.py, "
+          "no registry edit needed")
     for path in targets:
         print(f"  + {path.relative_to(ROOT)}")
-    print("Next: replace SCAFFOLD code and card text (card.toml, README.md), then run")
+    print("Next: replace SCAFFOLD code and card text (card.toml, README.md); the audit stays red")
+    print("until no SCAFFOLD/PLACEHOLDER/TODO marker remains. Then run")
     print(f"  tsf model add --name {name} --verify")
 
 

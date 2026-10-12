@@ -90,6 +90,19 @@ def _commit(root: Path) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+#: Text ``tsf model scaffold`` leaves for the implementer; none may remain once a model
+#: is verified or added (a scaffold is discoverable as soon as its ``spec.py`` exists).
+SCAFFOLD_MARKERS = ("SCAFFOLD", "PLACEHOLDER", "TODO")
+
+
+def unfinished_files(package: Path) -> list[Path]:
+    """Model files that still carry scaffold markers (empty for a finished package)."""
+    return [
+        path for path in (package / "model.py", package / "README.md", package / "card.toml")
+        if path.is_file() and any(marker in path.read_text(encoding="utf-8") for marker in SCAFFOLD_MARKERS)
+    ]
+
+
 def card_path(root: Path, name: str) -> Path:
     from tsflab.catalog.registry.models import MODEL_CATALOG
 

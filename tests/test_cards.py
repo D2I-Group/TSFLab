@@ -279,9 +279,9 @@ def test_toml_writer_round_trips_and_keeps_inline_tables() -> None:
 # ---------------------------------------------------------------------------
 
 
-CODE_AGREEMENT = ("orphan", "card name", "registered", "does not import", "origin model",
-                  "catalog keywords", "architecture family", "admitted model", "needs card.toml",
-                  "composition", "ComponentSpec")
+CODE_AGREEMENT = ("orphan", "card name", "spec name", "does not import", "origin model",
+                  "architecture family", "admitted model", "needs card.toml",
+                  "composition", "its directory")
 
 
 def test_repository_cards_agree_with_code() -> None:

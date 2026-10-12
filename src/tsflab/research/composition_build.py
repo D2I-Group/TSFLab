@@ -2,8 +2,8 @@
 
 Used by ``tsf model compose --write-config`` and ``--register``. Nothing here
 runs training: ``write_config`` emits one TOML run config (extends base + dataset
-+ model preset) and ``register_model`` scaffolds an unregistered model workspace
-that ``tsf model add --name NAME`` then admits and verifies.
++ model preset) and ``register_model`` writes a model package, which the catalog
+discovers from its ``spec.py``; ``tsf model add --name NAME`` then gates it.
 """
 
 from __future__ import annotations

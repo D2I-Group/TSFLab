@@ -5,8 +5,8 @@ Read only the relevant section; `AGENTS.md` holds the always-on rules.
 Every model or method is a peer under `src/tsflab/models/<lowercase_module_slug>/`
 with no architecture categories. Each entry owns `model.py`, a card (`card.toml`,
 `README.md`, optional `reference.md`), and a `spec.py` limited to its factory, parameter
-schema, and runtime contract. Registration is the admission boundary;
-configs are presets, not registrations. A releasable entry imports, validates
+schema, and runtime contract. The catalog is derived from each `spec.py` (no registry);
+admission is the boundary; configs are presets. A releasable entry imports, validates
 parameters, constructs, returns finite correctly shaped output, and has a passed admission.
 Each check lives once: params schema, `TaskConfig`, or `tsflab.models._inputs` (tensor shapes).
 

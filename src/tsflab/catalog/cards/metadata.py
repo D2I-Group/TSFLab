@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 from pathlib import Path
 
 
@@ -35,6 +36,36 @@ def declared_model_fields(spec_file: Path) -> dict[str, object]:
                 continue
         return fields
     return {}
+
+
+_SPEC_ASSIGNMENT = re.compile(r"^SPEC\s*(?::[^=\n]*)?=", re.MULTILINE)
+
+
+def declared_model_name(spec_file: Path) -> str | None:
+    """Return the literal ``SPEC = ModelSpec(name=...)`` name, or ``None`` when absent.
+
+    Catalog discovery runs this for every package, so it parses only the source
+    from the top-level ``SPEC`` assignment onward and falls back to a full parse
+    (:func:`declared_model_fields`) when that tail is not valid on its own.
+    """
+    try:
+        text = spec_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    match = _SPEC_ASSIGNMENT.search(text)
+    if match is None:
+        return None
+    try:
+        statement = ast.parse(text[match.start():]).body[0]
+        value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else None
+        keywords = value.keywords if isinstance(value, ast.Call) else []
+        name = next((_literal(k.value) for k in keywords if k.arg == "name"), None)
+    except (SyntaxError, ValueError, TypeError, IndexError):
+        try:
+            name = declared_model_fields(spec_file).get("name")
+        except SyntaxError:
+            return None
+    return name if isinstance(name, str) and name else None
 
 
 def _scalar(value: str) -> object:
@@ -100,39 +131,29 @@ def read_model_card(path: Path) -> dict[str, object]:
 def model_records(
     root: Path, refs: dict[str, str] | None = None
 ) -> list[dict[str, object]]:
-    """Return records for the registered catalog only.
+    """Return one record per catalog model (spec runtime fields + card metadata).
 
-    A scaffold may already contain a valid-looking spec and card while it is
-    still being implemented. Registration, not filesystem presence, is the
-    admission boundary, so unregistered workspaces must never leak into CLI
-    discovery, generated docs, or verification.
+    The catalog is derived from the model packages (see
+    ``tsflab.catalog.registry.models``). A discovered package whose card is
+    missing, malformed, or names a different model is left out here rather than
+    breaking every listing; the registry and card audits report it, and
+    ``tsf model add`` refuses it, so it cannot pass ``tsf repo check --audit``.
     """
     if refs is None:
         from tsflab.catalog.registry.models import MODEL_CATALOG
 
         refs = MODEL_CATALOG.refs()
     records: list[dict[str, object]] = []
-    for registered_name, module_path in refs.items():
+    for name, module_path in refs.items():
         path = root / "src" / Path(*module_path.split(".")).with_suffix(".py")
-        if not path.is_file():
-            raise ValueError(
-                f"registered model {registered_name!r} is missing {path}"
-            )
-        runtime = declared_model_fields(path)
-        if not runtime:
-            raise ValueError(
-                f"registered model {registered_name!r} has no literal ModelSpec"
-            )
+        runtime = declared_model_fields(path) if path.is_file() else {}
         card_path = path.parent / "README.md"
-        metadata = read_model_card(card_path)
-        if (
-            runtime.get("name") != registered_name
-            or metadata.get("name") != registered_name
-        ):
-            raise ValueError(
-                f"registered model {registered_name!r} disagrees with "
-                f"{path.relative_to(root)} or its card"
-            )
+        try:
+            metadata = read_model_card(card_path)
+        except (OSError, ValueError, KeyError):
+            continue
+        if runtime.get("name") != name or metadata.get("name") != name:
+            continue
         fields = {**runtime, **metadata}
         fields["package"] = path.parent.name
         fields["spec_file"] = str(path.relative_to(root))

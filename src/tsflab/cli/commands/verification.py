@@ -18,7 +18,9 @@ from tsflab.core.paths import repository_root
 
 
 def verification_command(argv: list[str]) -> int:
-    from tsflab.catalog.admission import changed_models, run_contracts, write_admission
+    from tsflab.catalog.admission import (
+        card_path, changed_models, run_contracts, unfinished_files, write_admission,
+    )
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
     parser = argparse.ArgumentParser(prog="tsf model verify", description=__doc__.splitlines()[0])
@@ -47,6 +49,13 @@ def verification_command(argv: list[str]) -> int:
     unknown = sorted(set(names) - set(MODEL_CATALOG.names()))
     if unknown:
         parser.error(f"unknown model(s): {', '.join(unknown)}")
+    # A scaffold is discoverable as soon as its spec exists; it must not record a passed admission.
+    unfinished = sorted(name for name in names if unfinished_files(card_path(root, name).parent))
+    if unfinished and not (args.all or args.changed):
+        parser.error(f"unfinished scaffold (replace SCAFFOLD/PLACEHOLDER/TODO first): {', '.join(unfinished)}")
+    if unfinished:
+        print(f"skipping unfinished scaffold(s): {', '.join(unfinished)}", file=sys.stderr)
+        names = [name for name in names if name not in unfinished]
     def progress(name: str, failure: dict[str, str] | None) -> None:
         if not args.json:  # stream, so a long run shows where it is
             print(f"{'FAILED' if failure else 'PASSED':6} {name}", flush=True)

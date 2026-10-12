@@ -33,8 +33,10 @@ implementation units, never model categories; read the components section of
 4. Before editing, capture reference fixtures from the unmodified models under a
    fixed seed and input: `state_dict()` keys and values, eval-mode outputs, and
    gradients. Keep parameter attribute names so checkpoints still load.
-5. Define the smallest paper-neutral API; add its `ComponentSpec` and explicit
-   imports; write the card from the code, not from memory: `card.toml` (`role`,
+5. Define the smallest paper-neutral API (list it in `__all__`) and explicit imports;
+   the catalog entry is derived from the package and card, with no list to edit
+   (`role` is the contract, `tags` the search keywords). Write the card from the
+   code, not from memory: `card.toml` (`role`,
    `slot`, `fits`, `category`, `tags`, `input`, `output`, `origin`,
    `origin_models`) and `README.md` (What it does, When to use, Interface; detail
    in `reference.md`). Migrate consumers in reviewable groups without flags that

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Atomically admit a completed model workspace to the flat catalog.
+"""Gate a completed model workspace into the flat catalog.
 
-Admission is static: structure, components, cards, and audits. Executed
-verification (``--verify``) is recommended and is required before a final release.
+The catalog is derived from the model packages, so this command writes no
+registry entry: it checks that the package is discoverable and complete, then
+runs the gates (structure, components, cards, audits). Executed verification
+(``--verify``) is recommended and is required before a final release.
 """
 
 from __future__ import annotations
@@ -13,32 +15,36 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tsflab.catalog.admission import unfinished_files
+from tsflab.catalog.cards.metadata import declared_model_fields
 from tsflab.catalog.component_audit import components_used_by
 from tsflab.catalog.components import COMPONENT_CATALOG
-from tsflab.catalog.cards.metadata import declared_model_fields
-from tsflab.catalog.registry.models import ModelSpec
+from tsflab.catalog.registry.models import MODEL_CATALOG, ModelSpec
 from tsflab.core.paths import repository_root, require_checkout
 
 
 ROOT = repository_root()
-CATALOG = ROOT / "src" / "tsflab" / "catalog" / "registry" / "models.py"
 
 
 def _workspace(name: str) -> tuple[Path, dict[str, object]]:
-    matches = []
-    for spec_path in (ROOT / "src" / "tsflab" / "models").glob("*/spec.py"):
-        fields = declared_model_fields(spec_path)
-        if fields.get("name") == name:
-            matches.append((spec_path.parent, fields))
-    if len(matches) != 1:
-        raise ValueError(f"expected one model workspace named {name!r}, found {len(matches)}")
-    return matches[0]
+    """Return the discovered package of ``name`` and its literal spec fields."""
+    MODEL_CATALOG.refresh()
+    module_path = MODEL_CATALOG.refs().get(name)
+    if module_path is None:
+        skipped = MODEL_CATALOG.problems()
+        detail = f"; skipped packages: {'; '.join(skipped)}" if skipped else ""
+        raise ValueError(
+            f"no discoverable model package declares SPEC = ModelSpec(name={name!r}){detail}"
+        )
+    spec_path = ROOT / "src" / Path(*module_path.split(".")).with_suffix(".py")
+    return spec_path.parent, declared_model_fields(spec_path)
 
 
 def _preflight(name: str) -> tuple[Path, str]:
     package, fields = _workspace(name)
-    module = str(fields.get("module", ""))
     expected_module = f"tsflab.models.{package.name}"
+    # ``module`` is normally left to its derived default; an explicit one must agree.
+    module = str(fields.get("module", expected_module))
     if module != expected_module:
         raise ValueError(f"spec module must be {expected_module!r}, got {module!r}")
     required = [
@@ -48,17 +54,13 @@ def _preflight(name: str) -> tuple[Path, str]:
         package / "README.md",
         package / "card.toml",
     ]
-    config = ROOT / str(fields.get("config_path", ""))
+    config = ROOT / str(fields.get("config_path", f"configs/models/{name}.toml"))
     required.append(config)
     missing = [str(path.relative_to(ROOT)) for path in required if not path.is_file()]
     if missing:
         raise ValueError(f"missing model files: {', '.join(missing)}")
 
-    marker_hits = []
-    for path in (package / "model.py", package / "README.md", package / "card.toml"):
-        text = path.read_text(encoding="utf-8")
-        if any(marker in text for marker in ("SCAFFOLD", "PLACEHOLDER", "TODO")):
-            marker_hits.append(str(path.relative_to(ROOT)))
+    marker_hits = [str(path.relative_to(ROOT)) for path in unfinished_files(package)]
     if marker_hits:
         raise ValueError(f"unfinished scaffold markers remain in: {', '.join(marker_hits)}")
 
@@ -86,16 +88,6 @@ def _preflight(name: str) -> tuple[Path, str]:
     return package, module
 
 
-def _insert_catalog(name: str, module: str, original: str) -> str:
-    if f'"{name}":' in original or f"'{name}':" in original:
-        raise ValueError(f"model {name!r} is already in MODEL_CATALOG")
-    lines = original.splitlines()
-    start = next(index for index, line in enumerate(lines) if line.startswith("MODEL_CATALOG ="))
-    close = next(index for index in range(start, len(lines)) if lines[index].rstrip() == "})")
-    lines.insert(close, f'    "{name}": "{module}.spec",')
-    return "\n".join(lines) + "\n"
-
-
 def _run(*arguments: str) -> None:
     command = [sys.executable, "-m", "tsflab.cli.main", *arguments]
     completed = subprocess.run(command, cwd=ROOT, check=False)
@@ -115,27 +107,22 @@ def main() -> int:
     except (RuntimeError, ValueError) as exc:
         parser.error(str(exc))
 
-    original = CATALOG.read_text(encoding="utf-8")
     try:
-        CATALOG.write_text(_insert_catalog(args.name, module, original), encoding="utf-8")
         if args.verify:
             _run("model", "verify", args.name)
         _run("model", "audit", args.name)
-        # Cards and the model index are projections of the catalog, so they can
-        # only be regenerated once the entry exists.
+        # Regenerate the card projections (model index) now that the package is complete.
         _run("repo", "cards")
         # `model verify` already ran the strict contract; the audit covers component cards.
         _run("repo", "check", "--audit")
-    except (RuntimeError, ValueError) as exc:
-        CATALOG.write_text(original, encoding="utf-8")
-        subprocess.run([sys.executable, "-m", "tsflab.cli.main", "repo", "cards"],
-                       cwd=ROOT, check=False, capture_output=True)
-        print(f"Model admission rolled back: {exc}", file=sys.stderr)
+    except RuntimeError as exc:
+        # Nothing to roll back: the package itself is the catalog entry.
+        print(f"Model admission failed: {exc}; fix the package and rerun", file=sys.stderr)
         return 1
     if args.verify:
-        print(f"Added verified model {args.name!r} to the flat catalog")
+        print(f"Admitted verified model {args.name!r} (discovered from its package)")
     else:
-        print(f"Added model {args.name!r} to the flat catalog; verification pending "
+        print(f"Admitted model {args.name!r} (discovered from its package); verification pending "
               f"(`tsf model verify {args.name}`, required before a final release)")
     return 0
 

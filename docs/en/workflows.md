@@ -69,8 +69,10 @@ Inspect compatibility with `tsf catalog show <Name>` and `tsf catalog show <pres
 
 ## Add a model or method
 
-The admission path is deliberately two-phase so a placeholder cannot become a
-catalog entry.
+The catalog is derived from the model packages: a package under
+`src/tsflab/models/<slug>/` whose `spec.py` declares `SPEC = ModelSpec(name=...)` is
+an entry, so adding a model edits only its package, card, and presets. Admission is
+two-phase so a placeholder cannot be admitted.
 
 1. Deduplicate the paper against `tsf catalog list --kind model --json` and `tsf catalog search --kind model`.
 2. Read the paper and supplement. Locate official code when available, record its
@@ -86,7 +88,8 @@ catalog entry.
    uv run tsf catalog show <candidate>
    ```
 
-4. Create an unregistered workspace:
+4. Create the workspace (discoverable at once; its scaffold markers fail the
+   audit and block `tsf model verify` until replaced):
 
    ```bash
    uv run tsf model scaffold \
@@ -123,9 +126,10 @@ catalog entry.
    uv run tsf model add --name MyModel --verify
    ```
 
-   Admission registers the model, runs the model audit, the component audit, and
-   the repository audit, then runs the executable contract and records the result
-   in the card's `[admission]`. Registration is rolled back if any gate fails.
+   Admission checks the package is discoverable and complete, runs the model audit,
+   the component audit, and the repository audit, then runs the executable contract
+   and records the result in the card's `[admission]`. Nothing is written to a
+   registry, so a failed gate leaves nothing to roll back: fix and rerun.
    Without `--verify` the admission stays `pending`; `tsf repo check --scope release`
    requires every admission to be `passed` before a final release.
 
@@ -193,12 +197,14 @@ model card; the admission contract runs offline from verified local paths.
 ## Components
 
 Components live only in `src/tsflab/models/_components/<name>/`. Each directory has an
-implementation, a catalog contract, and a card ([Cards](#cards)): `card.toml` records
+implementation and a card ([Cards](#cards)); its catalog entry is derived from both (the
+card `role` is its contract, `tags` its search keywords, and `__all__`, or the public
+top-level names, its public symbols), so there is no list to edit. `card.toml` records
 the role, the composition slot it fills, the data characteristics it fits, its
 category, input and output shapes, and origin; the README covers What it does, When
 to use, and Interface (every public symbol with parameters, tensor shapes, and
 state). Consumers and the import line are derived from code, never stored.
-`tsf model audit --components` checks the cards against the catalog.
+`tsf model audit --components` checks the packages, cards, and consumer imports.
 Extract only mathematically and operationally equivalent behavior—matching names
 or tensor rank is insufficient. Validate axes, normalization, masking, residual
 order, initialization, state, outputs, gradients, and serialization.
@@ -579,7 +585,7 @@ optional research round.
    ```bash
    uv run tsf model compose spec.toml --register SeasonalRevLinear --dry-run   # lists the files
    uv run tsf model compose spec.toml --register SeasonalRevLinear
-   uv run tsf model add --name SeasonalRevLinear --verify   # audits, admission, catalog entry; rolls back on failure
+   uv run tsf model add --name SeasonalRevLinear --verify   # audits and admission; fix and rerun on failure
    ```
 
    `--register` writes `src/tsflab/models/<slug>/` (model, spec, a card with

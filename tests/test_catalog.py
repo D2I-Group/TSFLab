@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import tomllib
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -88,7 +89,7 @@ assert len(json.loads(output.getvalue())) == expected
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_catalog_metadata_uses_registration_as_admission_boundary(self) -> None:
+    def test_catalog_metadata_follows_the_given_refs(self) -> None:
         records = model_records(ROOT, refs={"Linear": "tsflab.models.linear.spec"})
         self.assertEqual([record["name"] for record in records], ["Linear"])
 
@@ -645,6 +646,103 @@ def test_component_catalog_matches_packages_and_consumers() -> None:
         "flatten_forecast_head", "patchtst", "positional_encoding", "revin", "tst_transformer"}
     with pytest.raises(KeyError):
         component_dependency_closure({"no_such_component"})
+
+
+def test_model_catalog_is_discovered_from_packages_and_reports_broken_ones(tmp_path: Path) -> None:
+    from tsflab.catalog.registry.models import ModelCatalog
+
+    def package(slug: str, spec: str | None, extra: str | None = None) -> None:
+        directory = tmp_path / slug
+        directory.mkdir()
+        if spec is not None:
+            (directory / "spec.py").write_text(spec, encoding="utf-8")
+        if extra is not None:
+            (directory / extra).write_text("", encoding="utf-8")
+
+    package("alpha", 'from x import ModelSpec\nSPEC = ModelSpec(\n    name="Alpha",\n    factory=f,\n)\nX = 1\n')
+    package("typed", 'SPEC: "ModelSpec" = ModelSpec(name="Typed")\n')
+    package("half", "SPEC = build_spec()\n")             # no literal name
+    package("broken", "SPEC = ModelSpec(name=\n")        # syntax error
+    package("dup_a", 'SPEC = ModelSpec(name="Dup")\n')
+    package("dup_b", 'SPEC = ModelSpec(name="Dup")\n')
+    package("nospec", None, "model.py")
+    package("stale", None)                                # e.g. only __pycache__ left
+    package("_private", 'SPEC = ModelSpec(name="Private")\n')
+
+    catalog = ModelCatalog(models_dir=tmp_path)
+    assert catalog.refs() == {"Alpha": "tsflab.models.alpha.spec", "Typed": "tsflab.models.typed.spec"}
+    problems = "\n".join(catalog.problems())
+    for fragment in ("half/spec.py", "broken/spec.py", "'Dup'", "nospec has Python files"):
+        assert fragment in problems, fragment
+    assert "stale" not in problems and "Private" not in problems
+    with pytest.raises(KeyError, match="skipped"):
+        catalog.get("Half")
+
+
+def test_model_catalog_equals_the_packages_on_disk() -> None:
+    from tsflab.catalog.cards.metadata import declared_model_fields
+
+    assert MODEL_CATALOG.problems() == []
+    expected = {
+        declared_model_fields(package / "spec.py")["name"]: f"tsflab.models.{package.name}.spec"
+        for package in MODEL_PACKAGES
+    }
+    assert MODEL_CATALOG.refs() == expected
+    card_names = {tomllib.loads((p / "card.toml").read_text(encoding="utf-8"))["name"] for p in MODEL_PACKAGES}
+    assert card_names == set(expected)
+
+
+def test_a_discovered_scaffold_is_flagged_until_its_markers_are_replaced(tmp_path: Path) -> None:
+    from tsflab.catalog.admission import unfinished_files
+    from tsflab.cli.commands.new_model import _model
+
+    package = tmp_path / "mymodel"
+    package.mkdir()
+    (package / "model.py").write_text(_model("MyModel", [], False), encoding="utf-8")
+    (package / "README.md").write_text("# MyModel\n", encoding="utf-8")
+    assert unfinished_files(package) == [package / "model.py"]
+    (package / "model.py").write_text("class Model: ...\n", encoding="utf-8")
+    assert unfinished_files(package) == []
+
+
+def test_component_specs_are_derived_from_package_and_card(tmp_path: Path) -> None:
+    from tsflab.catalog.components import ComponentCatalog
+
+    def component(name: str, init: str, card: str | None) -> None:
+        directory = tmp_path / name
+        directory.mkdir()
+        (directory / "__init__.py").write_text(init, encoding="utf-8")
+        if card is not None:
+            (directory / "card.toml").write_text(card, encoding="utf-8")
+
+    card = 'name = "{0}"\nrole = "Normalizes each window."\ntags = ["normalization", "instance", "reversible"]\n'
+    component("exported", 'import torch\n__all__ = ["B", "A"]\nclass A: ...\nclass B: ...\ndef helper(): ...\n',
+              card.format("exported"))
+    component("implicit", "import torch\nfrom x import y\nclass A: ...\ndef _hidden(): ...\nLEVELS = (1,)\n",
+              card.format("implicit"))
+    component("cardless", "class C: ...\n", None)
+    catalog = ComponentCatalog(directory=tmp_path)
+    exported = catalog.get("exported")
+    assert exported.module == "tsflab.models._components.exported"
+    assert exported.contract == "Normalizes each window."
+    assert exported.keywords == ("normalization", "instance", "reversible")
+    assert exported.public_symbols == ("B", "A")
+    assert catalog.get("implicit").public_symbols == ("A", "LEVELS")
+    assert catalog.get("cardless").contract == "" and catalog.get("cardless").keywords == ()
+    assert any("cardless/card.toml" in problem for problem in catalog.problems())
+    assert [match.spec.name for match in catalog.match("reversible normalization")][:2] == [
+        "exported", "implicit"]
+
+
+def test_component_catalog_public_symbols_exist_on_each_module() -> None:
+    import importlib
+
+    from tsflab.catalog.components import COMPONENT_CATALOG
+
+    for spec in COMPONENT_CATALOG.specs():
+        module = importlib.import_module(spec.module)
+        assert spec.public_symbols, spec.name
+        assert all(hasattr(module, symbol) for symbol in spec.public_symbols), spec.name
 
 
 def test_components_used_by_reads_imports_not_names(tmp_path: Path) -> None:

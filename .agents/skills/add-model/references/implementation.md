@@ -10,7 +10,9 @@ semantics match. A released pretrained foundation model is not rewritten; use
    official license does not block an independent rewrite; record it as missing.
 2. Reuse `src/tsflab/models/_components/` only after proving mathematical and runtime
    equivalence. Implement each `extract-new` operator as a component with its own
-   card, tests, and `ComponentSpec`; keep paper-specific glue local.
+   card and tests (the catalog entry is derived from the package: `role` is its
+   contract, `tags` its keywords, `__all__` its public symbols); keep paper-specific
+   glue local.
 3. Implement inside the flat `src/tsflab/models/<slug>/` package with the exact
    four-input `forward(x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None)`.
    Model-specific operations belong in named methods, not extra public inputs. Keep

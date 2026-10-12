@@ -13,8 +13,8 @@ without it, stop at the ranked queue.
    implementation) or `integrate-foundation-model` for a released pretrained runtime.
    Build the `reuse-existing` / `extract-new` / `model-local` map before code.
 4. Papers are independent: run them in parallel workers only on disjoint model
-   directories, and merge shared aggregate files (catalog registry, component
-   catalog) once at the end.
+   directories; the model and component catalogs are derived from the packages, so
+   there is no shared registry file to merge (regenerate pages once at the end).
 5. Each model is admitted with `tsf model add --name <Name> --verify` (`[admission]`
    passed) and passes the model audit, component audit, and repository audit.
    A declined paper goes into `catalog/declined.toml` with its reason and issues.

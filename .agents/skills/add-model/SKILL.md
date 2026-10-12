@@ -5,10 +5,10 @@ description: "Turn one forecasting paper into an admitted flat-catalog model, fr
 
 # Add a model
 
-Models module, step two: create one flat catalog entry and admit it atomically once
-it is implemented. Models and methods are peers; no family directories. Its card
-(description, fits, composition, data_params, Idea) is the model context AutoResearch
-retrieves and `tsf catalog match` ranks.
+Models module, step two: create one flat model package (the catalog discovers it from
+`spec.py`; no registry to edit) and admit it once it is implemented. Models and methods
+are peers; no family directories. Its card (description, fits, composition,
+data_params, Idea) is the model context AutoResearch retrieves and `tsf catalog match` ranks.
 
 ## Inputs
 
@@ -22,8 +22,8 @@ retrieves and `tsf catalog match` ranks.
    decision (`reuse-existing`, `extract-new`, `model-local`) per
    [references/paper-structure.md](references/paper-structure.md). Stop if an
    ambiguity would change the method.
-2. Scaffold an unregistered workspace from the resolved facts; pass `--task-mode`
-   explicitly when it is not ordinary `time_series`:
+2. Scaffold the workspace (its SCAFFOLD markers fail the audit until replaced); pass
+   `--task-mode` explicitly when it is not ordinary `time_series`:
 
    ```bash
    uv run tsf model scaffold --name MyModel --paper-title "..." --paper-url <url> \
@@ -49,8 +49,8 @@ retrieves and `tsf catalog match` ranks.
 6. Add a preset (and a smoke preset when training is cheap). Equation and reference
    checks are part of implementation review, not a test suite; record what was
    compared in Differences and the fidelity.
-7. Admit atomically; admission registers the model, runs the static audits, runs
-   the strict contract, writes `[admission]`, and rolls back on failure:
+7. Admit; admission checks the package, runs the static audits and the strict
+   contract, and writes `[admission]` (on failure, fix and rerun):
 
    ```bash
    uv run tsf model add --name MyModel --verify   # also refreshes generated pages and audits
@@ -71,7 +71,7 @@ retrieves and `tsf catalog match` ranks.
 
 ## Stop and hand off
 
-- Generated placeholder code is never a catalog entry; stop if admission fails
+- Generated placeholder code is never admitted; stop if admission fails
   (fix and rerun `tsf model verify MyModel`).
   A declined paper goes into `catalog/declined.toml` (reason plus issues found).
 - Released pretrained runtimes use `integrate-foundation-model`; cross-model

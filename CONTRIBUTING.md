@@ -99,12 +99,13 @@ See the [model workflow](docs/en/workflows.md#add-a-model-or-method). In short:
    Match the defining operations against existing components with
    `tsf catalog search --kind component` and `tsf catalog show`.
 2. Run `tsf model scaffold` with the paper/source facts and component decisions.
-   It creates an unregistered workspace whose card has placeholders.
+   It creates the package (discovered from `spec.py`; there is no registry list to
+   edit) with placeholders that keep the audit red until replaced.
 3. Implement locally and complete the card (see [Cards](#cards)): the facts in
    `card.toml` and the short `README.md`.
-4. Run `tsf model add --name <Name> --verify`. Admission registers the model, runs
-   the audits and the executable contract, records the result in the card's
-   `[admission]`, and rolls the registration back if any gate fails.
+4. Run `tsf model add --name <Name> --verify`. Admission checks the package is
+   discoverable and complete, runs the audits and the executable contract, and
+   records the result in the card's `[admission]`; on failure, fix and rerun.
 
 ## Adding a dataset
 

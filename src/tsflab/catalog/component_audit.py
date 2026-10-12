@@ -5,10 +5,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from tsflab.core.paths import repository_root
 import re
 
 from tsflab.catalog.components import COMPONENT_CATALOG
+from tsflab.core.paths import repository_root
 
 
 ROOT = repository_root()
@@ -63,11 +63,14 @@ def component_dependency_closure(names: set[str]) -> tuple[str, ...]:
 
 
 def audit_components() -> list[str]:
-    """Return catalog, filesystem, and consumer-import inconsistencies."""
-    errors: list[str] = []
+    """Return component-package and consumer-import inconsistencies.
+
+    The catalog is derived from the packages, so names and modules cannot drift;
+    what remains is what a package or card can get wrong.
+    """
+    errors: list[str] = list(COMPONENT_CATALOG.problems())
     catalog_names = set(COMPONENT_CATALOG.names())
     ignored = {"__init__"}
-    module_names = {path.parent.name for path in COMPONENTS.glob("*/__init__.py")}
 
     derived_source_claim = re.compile(r"\b(?:ported|copied)\s+from\b", re.IGNORECASE)
     for path in sorted(COMPONENTS.glob("*/__init__.py")):
@@ -78,19 +81,15 @@ def audit_components() -> list[str]:
                 "shared components must be independently implemented or carry audited provenance"
             )
 
-    for name in sorted(catalog_names - module_names):
-        errors.append(f"component catalog entry {name!r} has no module")
-    for name in sorted(module_names - catalog_names):
-        errors.append(f"models/_components/{name} has no ComponentSpec")
     for spec in COMPONENT_CATALOG.specs():
-        if spec.module != f"tsflab.models._components.{spec.name}":
-            errors.append(f"component {spec.name!r} has inconsistent module {spec.module!r}")
-        if not spec.contract.strip():
-            errors.append(f"component {spec.name!r} has no semantic contract")
+        if not spec.contract:
+            errors.append(f"component {spec.name!r} has no card role (its semantic contract)")
         if not spec.keywords:
-            errors.append(f"component {spec.name!r} has no retrieval keywords")
+            errors.append(f"component {spec.name!r} has no card tags (its retrieval keywords)")
         if len(set(spec.keywords)) != len(spec.keywords):
-            errors.append(f"component {spec.name!r} has duplicate retrieval keywords")
+            errors.append(f"component {spec.name!r} has duplicate card tags")
+        if not spec.public_symbols:
+            errors.append(f"component {spec.name!r} exports no public symbols")
 
     consumers = list((ROOT / "src" / "tsflab" / "models").rglob("*.py"))
     consumers += list(COMPONENTS.glob("*/__init__.py"))

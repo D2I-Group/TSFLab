@@ -60,4 +60,4 @@ uv run tsf model add --name <Name> --verify   # offline, CPU, small tensors: wri
 - Stop if the license, official loader, checkpoint identity, or input/output
   semantics cannot be established; an adapter alone is not a catalog model.
 - Admit the entry with `tsf model add --name <Name> --verify` exactly as `add-model`
-  step 7 does (static audits, admission contract, rollback on failure).
+  step 7 does (static audits, admission contract; fix and rerun on failure).

@@ -2,7 +2,7 @@
 
 * Format: schema, README front matter and fixed sections, L1/L2 budgets
   (``tsflab.catalog.cards.store.problems``).
-* Coverage: every registered model, every cataloged component, and every dataset
+* Coverage: every catalog model, every component package, and every dataset
   preset (or family) has exactly one card; no orphan cards.
 * Code agreement: a model card's composition names only components the model
   imports; a component card names existing origin models; declined papers are
@@ -34,7 +34,7 @@ def _model_problems(root: Path) -> list[str]:
         out += problems(card)
         where = str(directory.relative_to(root))
         if card.facts.get("name") != name:
-            out.append(f"{where}: card name {card.facts.get('name')!r} != registered {name!r}")
+            out.append(f"{where}: card name {card.facts.get('name')!r} != spec name {name!r}")
         tags = set(card.facts.get("tags") or [])
         if not tags & FAMILY_TAGS:
             out.append(f"{where}: tags must include an architecture family: {', '.join(sorted(FAMILY_TAGS))}")
@@ -47,7 +47,7 @@ def _model_problems(root: Path) -> list[str]:
             out.append(f"{where}: composition names component {component!r} that the model does not import")
     for directory in card_directories(root)["model"]:
         if directory.resolve() not in registered:
-            out.append(f"orphan model card (unregistered package): {directory.relative_to(root)}")
+            out.append(f"orphan model card (package without a discoverable spec): {directory.relative_to(root)}")
     return out
 
 
@@ -67,10 +67,7 @@ def _component_problems(root: Path) -> list[str]:
         out += problems(card)
         where = str(directory.relative_to(root))
         if card.facts.get("name") != spec.name:
-            out.append(f"{where}: card name differs from ComponentSpec {spec.name!r}")
-        missing = sorted(set(spec.keywords) - set(card.facts.get("tags") or []))
-        if missing:
-            out.append(f"{where}: tags must include catalog keywords {missing}")
+            out.append(f"{where}: card name differs from its directory {spec.name!r}")
         for slug in card.facts.get("origin_models") or []:
             if not (root / "src" / "tsflab" / "models" / str(slug) / "model.py").is_file():
                 out.append(f"{where}: origin model {slug!r} is not a model package")
