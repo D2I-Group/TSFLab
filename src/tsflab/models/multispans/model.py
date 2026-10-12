@@ -53,11 +53,15 @@ class EncodingTree:
             return [node]
         return [v for child in self.children[node] for v in self.vertices(child)]
 
+    def _path(self, node: int) -> list[int]:
+        """``node`` and its ancestors up to the root."""
+        path = [node]
+        while self.parent[path[-1]] != -1:
+            path.append(self.parent[path[-1]])
+        return path
+
     def depth(self, node: int) -> int:
-        d = 0
-        while self.parent[node] != -1:
-            node, d = self.parent[node], d + 1
-        return d
+        return len(self._path(node)) - 1
 
     def height(self, node: int | None = None) -> int:
         node = self.root if node is None else node
@@ -81,26 +85,19 @@ class EncodingTree:
         if self.is_leaf(a):
             raise ValueError("merge keeps a non-leaf node")
         self.children[self.parent[b]].remove(b)
-        if self.is_leaf(b):
-            self.parent[b] = a
-            self.children[a].append(b)
-            return a
-        for child in self.children.pop(b):
+        moved = [b] if self.is_leaf(b) else self.children.pop(b)
+        if not self.is_leaf(b):
+            del self.parent[b]
+        for child in moved:
             self.parent[child] = a
             self.children[a].append(child)
-        del self.parent[b]
         return a
 
     def level_groups(self, level: int) -> np.ndarray:
         """Group id per vertex at ``level`` (ancestor at that depth; shallower leaves are singletons)."""
-        groups = np.empty(self.n, dtype=np.int64)
-        for v in range(self.n):
-            path = [v]
-            while self.parent[path[-1]] != -1:
-                path.append(self.parent[path[-1]])
-            # path[-1] is the root (depth 0); the ancestor at depth `level` is path[-1 - level].
-            groups[v] = path[-1 - level] if level < len(path) - 1 else v
-        return groups
+        # path[-1] is the root (depth 0); the ancestor at depth `level` is path[-1 - level].
+        paths = [self._path(v) for v in range(self.n)]
+        return np.array([p[-1 - level] if level < len(p) - 1 else p[0] for p in paths], dtype=np.int64)
 
 
 def structural_entropy(adj: np.ndarray, tree: EncodingTree) -> float:
@@ -114,8 +111,7 @@ def structural_entropy(adj: np.ndarray, tree: EncodingTree) -> float:
     for node, parent in tree.parent.items():
         if parent == -1:
             continue
-        inside = np.zeros(tree.n, dtype=bool)
-        inside[tree.vertices(node)] = True
+        inside = np.isin(np.arange(tree.n), tree.vertices(node))
         v_node = degree[inside].sum()
         if v_node <= 0:
             continue
@@ -134,20 +130,12 @@ class _GreedyTreeSearch:
         self.degree = weights.sum(axis=1)
         self.volume = self.degree.sum()
         self.max_height = max_height
-        self.member: dict[int, np.ndarray] = {}
         self.cache: dict[int, tuple[float, str | None, int, int]] = {}
-
-    def remember(self, node: int) -> None:
-        mask = np.zeros(self.n)
-        mask[self.tree.vertices(node)] = 1.0
-        self.member[node] = mask
-
-    def init_statistics(self) -> None:
-        for node in list(self.tree.parent):
-            self.remember(node)
+        tree, indices = self.tree, np.arange(self.n)
+        self.member = {node: np.isin(indices, tree.vertices(node)).astype(np.float64) for node in tree.parent}
         self.vol = {node: float(self.degree @ m) for node, m in self.member.items()}
         self.cut = {node: self.vol[node] - float(m @ self.weights @ m) for node, m in self.member.items()}
-        self.height = {node: self.tree.height(node) for node in self.tree.parent}
+        self.height = {node: tree.height(node) for node in tree.parent}
 
     def _between(self, kids: list[int]) -> np.ndarray:
         """Sibling-to-sibling weights w(a, b) via a label vector over the parent's vertices: O(n^2)."""
@@ -162,21 +150,11 @@ class _GreedyTreeSearch:
         np.add.at(between.T, sub_label, by_row.T)
         return between
 
-    def _inner_cut(self, k: int) -> float:
-        children = self.tree.children
-        return sum(self.cut[c] for c in children[k]) if k in children else self.cut[k]
-
-    def _kid_statistics(self, kids: list[int]):
-        v = np.array([self.vol[k] for k in kids])
-        g = np.array([self.cut[k] for k in kids])
-        h = np.array([self.height[k] for k in kids])
-        # Sum of the children's cuts; a leaf behaves as a module whose only child is itself.
-        inner = np.array([self._inner_cut(k) for k in kids])
-        return v, g, h, inner
-
     def _deltas(self, parent: int, kids: list[int], between: np.ndarray):
-        volume = self.volume
-        v, g, h, inner = self._kid_statistics(kids)
+        volume, children, cut = self.volume, self.tree.children, self.cut
+        v, g, h = (np.array([stat[k] for k in kids]) for stat in (self.vol, self.cut, self.height))
+        # Sum of the children's cuts; a leaf behaves as a module whose only child is itself.
+        inner = np.array([sum(cut[c] for c in children.get(k, [k])) for k in kids])
         v_parent = self.vol[parent]
         v_pair = v[:, None] + v[None, :]
         off_diagonal = ~np.eye(len(kids), dtype=bool)
@@ -187,18 +165,18 @@ class _GreedyTreeSearch:
             g_new = g[:, None] + g[None, :] - 2.0 * between
             term = -g / volume * np.log2(v / v_parent)
             shift = (inner / volume)[:, None] * np.log2(v_pair / v[:, None])
-            merge = -g_new / volume * np.log2(v_pair / v_parent) - term[:, None] - term[None, :] + shift + shift.T
-            module = h > 0
-            usable = (module[:, None] | module[None, :]) & (v[:, None] > 0) & (v[None, :] > 0)
+            merge = (-g_new / volume * np.log2(v_pair / v_parent)
+                     - term[:, None] - term[None, :] + shift + shift.T)
+            usable = ((h[:, None] > 0) | (h[None, :] > 0)) & (v[:, None] > 0) & (v[None, :] > 0)
             merge = np.where(off_diagonal & usable, merge, np.inf)
         return combine, merge
 
     def best_under(self, parent: int) -> tuple[float, str | None, int, int]:
         kids = self.tree.children[parent]
-        if len(kids) < 2:
-            return (np.inf, None, -1, -1)
-        combine, merge = self._deltas(parent, kids, self._between(kids))
         best = (np.inf, None, -1, -1)
+        if len(kids) < 2:
+            return best
+        combine, merge = self._deltas(parent, kids, self._between(kids))
         for kind, delta in (("combine", combine), ("merge", merge)):
             flat = int(np.argmin(delta))
             if delta.flat[flat] < best[0]:
@@ -206,52 +184,34 @@ class _GreedyTreeSearch:
                 best = (float(delta.flat[flat]), kind, kids[a], kids[b])
         return best
 
-    def refresh_cache(self) -> None:
+    def next_operator(self) -> tuple[float, str | None, int, int]:
+        """Best operator over all parents (lowest parent id on ties), re-scoring only stale parents."""
+        cache = self.cache
         for parent in self.tree.children:
-            if parent not in self.cache:
-                self.cache[parent] = self.best_under(parent)
+            if parent not in cache:
+                cache[parent] = self.best_under(parent)
+        return cache[min(cache, key=lambda p: (cache[p][0], p))]
 
-    def _fused_cut(self, node: int) -> float:
-        return float(self.member[node] @ (self.degree - self.weights @ self.member[node]))
+    def _modules(self, node: int) -> list[int]:
+        """Non-leaf nodes of the subtree rooted at non-leaf ``node``."""
+        children = self.tree.children
+        return [node] + [m for c in children[node] if c in children for m in self._modules(c)]
 
-    def _combine(self, a: int, b: int, dirty: set[int]) -> None:
+    def apply(self, kind: str, a: int, b: int) -> None:
         tree = self.tree
-        node = tree.combine(a, b)
+        if kind == "combine":
+            node = tree.combine(a, b)
+            dirty = set(self._modules(node))  # subtrees below the new node moved one level down
+        else:
+            a, b = (b, a) if tree.is_leaf(a) else (a, b)
+            node = tree.merge(a, b)
+            dirty = {b}
         self.member[node] = self.member[a] + self.member[b]
         self.vol[node] = self.vol[a] + self.vol[b]
-        self.cut[node] = self._fused_cut(node)
-        self.height[node] = 1 + max(self.height[a], self.height[b])
-        # Subtrees below the new node moved one level down.
-        stack = [a, b]
-        while stack:
-            x = stack.pop()
-            if x in tree.children:
-                dirty.add(x)
-                stack.extend(tree.children[x])
-        dirty.add(node)
-
-    def _merge(self, a: int, b: int, dirty: set[int]) -> None:
-        if self.tree.is_leaf(a):
-            a, b = b, a
-        node = self.tree.merge(a, b)
-        self.member[node] = self.member[a] + self.member[b]
-        self.vol[node] += self.vol[b]
-        self.cut[node] = self._fused_cut(node)
-        self.height[node] = 1 + max(self.height[c] for c in self.tree.children[node])
-        self.cache.pop(b, None)
-        dirty.add(node)
-
-    def apply(self, parent: int, kind: str, a: int, b: int) -> None:
-        dirty = {parent}
-        if kind == "combine":
-            self._combine(a, b, dirty)
-        else:
-            self._merge(a, b, dirty)
-        x = parent
-        while x != -1:  # ancestors: heights (and so admissible combines) may change
-            self.height[x] = 1 + max(self.height[c] for c in self.tree.children[x])
+        self.cut[node] = float(self.member[node] @ (self.degree - self.weights @ self.member[node]))
+        for x in tree._path(node):  # node and ancestors: heights (and so admissible combines) may change
+            self.height[x] = 1 + max(self.height[c] for c in tree.children[x])
             dirty.add(x)
-            x = self.tree.parent[x]
         for x in dirty:
             self.cache.pop(x, None)
 
@@ -270,15 +230,11 @@ def build_encoding_tree(adj: np.ndarray, max_height: int, tol: float = 1e-12) ->
     search = _GreedyTreeSearch(_symmetric_weights(adj), max_height)
     if search.volume <= 0 or max_height < 2:
         return search.tree
-    search.init_statistics()
-    cache = search.cache
     while True:
-        search.refresh_cache()
-        parent = min(cache, key=lambda p: (cache[p][0], p))
-        value, kind, a, b = cache[parent]
+        value, kind, a, b = search.next_operator()
         if kind is None or value >= -tol:
             return search.tree
-        search.apply(parent, kind, a, b)
+        search.apply(kind, a, b)
 
 
 def multilevel_masks(adj: np.ndarray, num_heads: int, max_height: int) -> torch.Tensor:
@@ -289,10 +245,8 @@ def multilevel_masks(adj: np.ndarray, num_heads: int, max_height: int) -> torch.
     """
     tree = build_encoding_tree(adj, max_height)
     n = tree.n
-    masks = []
-    for level in range(1, tree.height()):
-        groups = tree.level_groups(level)
-        masks.append(groups[:, None] == groups[None, :])
+    levels = (tree.level_groups(level) for level in range(1, tree.height()))
+    masks = [groups[:, None] == groups[None, :] for groups in levels]
     raw = np.asarray(adj, dtype=np.float64)
     masks.append(np.isfinite(raw) & (raw > 0))
     if len(masks) >= num_heads:
@@ -333,7 +287,8 @@ class BatchNormChannels(nn.Module):
 class MultiFilterConv(nn.Module):
     """MFCL (Eqs. 4-5): replicate-padded temporal filters, then multi-hop ``D^-1 (A + I)`` propagation."""
 
-    def __init__(self, in_dim: int, embed_dim: int, kernels: tuple[int, ...], stride: int, hops: int, alpha: float) -> None:
+    def __init__(self, in_dim: int, embed_dim: int, kernels: tuple[int, ...], stride: int, hops: int,
+                 alpha: float) -> None:
         super().__init__()
         width = embed_dim // (len(kernels) * (hops + 1))
         self.pads = [(round((k - 1) / 2), (k - 1) - round((k - 1) / 2)) for k in kernels]
@@ -343,7 +298,8 @@ class MultiFilterConv(nn.Module):
     def forward(self, x: torch.Tensor, propagation: torch.Tensor) -> torch.Tensor:
         b, n, t, c = x.shape
         flat = x.reshape(b * n, t, c).transpose(1, 2)
-        parts = [conv(F.pad(flat, pad, mode="replicate")).transpose(1, 2) for pad, conv in zip(self.pads, self.convs)]
+        parts = [conv(F.pad(flat, pad, mode="replicate")).transpose(1, 2)
+                 for pad, conv in zip(self.pads, self.convs)]
         h0 = torch.cat(parts, dim=-1).reshape(b, n, -1, parts[0].shape[-1] * len(parts))
         hops, h = [h0], h0
         for _ in range(self.hops):
@@ -358,10 +314,7 @@ class STAttention(nn.Module):
     def __init__(self, kind: str, embed_dim: int, num_heads: int, dropout: float) -> None:
         super().__init__()
         self.kind, self.heads = kind, num_heads
-        self.q = nn.Linear(embed_dim, embed_dim)
-        self.k = nn.Linear(embed_dim, embed_dim)
-        self.v = nn.Linear(embed_dim, embed_dim)
-        self.out = nn.Linear(embed_dim, embed_dim)
+        self.q, self.k, self.v, self.out = (nn.Linear(embed_dim, embed_dim) for _ in range(4))
         self.dropout = nn.Dropout(dropout)
         self.scale = 1.0 / math.sqrt(embed_dim)  # official: model width, not head width
 
@@ -385,13 +338,15 @@ class STAttention(nn.Module):
 class STTransformer(nn.Module):
     """Post-norm Transformer layer; the attention residual adds the (position-encoded) query."""
 
-    def __init__(self, kind: str, embed_dim: int, num_heads: int, att_dropout: float, ffn_dropout: float) -> None:
+    def __init__(self, kind: str, embed_dim: int, num_heads: int, att_dropout: float,
+                 ffn_dropout: float) -> None:
         super().__init__()
         self.attention = STAttention(kind, embed_dim, num_heads, att_dropout)
         self.drop_attention = nn.Dropout(ffn_dropout)
         self.norm_attention = BatchNormChannels(embed_dim)
         self.ffn = nn.Sequential(
-            nn.Linear(embed_dim, 4 * embed_dim), nn.Dropout(ffn_dropout), nn.ReLU(), nn.Linear(4 * embed_dim, embed_dim)
+            nn.Linear(embed_dim, 4 * embed_dim), nn.Dropout(ffn_dropout), nn.ReLU(),
+            nn.Linear(4 * embed_dim, embed_dim),
         )
         self.drop_ffn = nn.Dropout(ffn_dropout)
         self.norm_ffn = BatchNormChannels(embed_dim)
@@ -408,8 +363,7 @@ class STBlock(nn.Module):
         super().__init__()
         self.temporal = STTransformer("T", embed_dim, num_heads, att_dropout, ffn_dropout)
         self.spatial = STTransformer("S", embed_dim, num_heads, att_dropout, ffn_dropout)
-        self.norm1 = BatchNormChannels(embed_dim)
-        self.norm2 = BatchNormChannels(embed_dim)
+        self.norm1, self.norm2 = BatchNormChannels(embed_dim), BatchNormChannels(embed_dim)
         self.dropout = nn.Dropout(ffn_dropout)
 
     def forward(self, x, temporal_pe, spatial_pe, mask=None):
@@ -422,8 +376,7 @@ class TransposedConvDecoder(nn.Module):
 
     def __init__(self, embed_dim: int, hidden: int, out_dim: int, hid_len: int, out_len: int) -> None:
         super().__init__()
-        self.kernel = self.stride = math.ceil(out_len / hid_len)
-        k = self.kernel
+        k = self.kernel = self.stride = math.ceil(out_len / hid_len)
         self.pad = (round((k - 1) / 2), (k - 1) - round((k - 1) / 2))
         self.trim = round((k - 1) * k / 2)
         self.tconv = nn.ConvTranspose1d(embed_dim, hidden, kernel_size=k, stride=k)
@@ -443,13 +396,6 @@ def _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routi
         raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
     if position_routing not in ("official", "matched"):
         raise ValueError("position_routing must be 'official' or 'matched'")
-
-
-def _checked_adjacency(adj_mx, num_nodes: int) -> np.ndarray:
-    adjacency = np.eye(num_nodes, dtype=np.float64) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
-    if adjacency.shape != (num_nodes, num_nodes):
-        raise ValueError("adj_mx shape must match num_nodes")
-    return adjacency
 
 
 class Model(nn.Module):
@@ -478,61 +424,54 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         _check_config(embed_dim, conv_kernels, gconv_hops, num_heads, position_routing)
+        adjacency = np.eye(num_nodes) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
+        if adjacency.shape != (num_nodes, num_nodes):
+            raise ValueError("adj_mx shape must match num_nodes")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
-        self.mark_features = mark_features
-        self.position_routing = position_routing
-        adjacency = _checked_adjacency(adj_mx, num_nodes)
+        self.mark_features, self.position_routing = mark_features, position_routing
         finite = np.where(np.isfinite(adjacency), adjacency, 0.0) + np.eye(num_nodes)
-        self.register_buffer("propagation", torch.from_numpy(finite / finite.sum(axis=1, keepdims=True)).float())
-        self.register_buffer(
-            "head_masks",
-            multilevel_masks(adjacency, num_heads, max_tree_height) if spatial_masks else torch.ones(num_nodes, num_nodes, num_heads, dtype=torch.bool),
-        )
+        self.register_buffer("propagation", torch.from_numpy(finite / finite.sum(1, keepdims=True)).float())
+        self.register_buffer("head_masks", torch.ones(num_nodes, num_nodes, num_heads, dtype=torch.bool))
+        if spatial_masks:
+            self.head_masks = multilevel_masks(adjacency, num_heads, max_tree_height)
         lape_dim = max(1, int(round(num_nodes * lape_ratio)))
         self.register_buffer("laplacian", laplacian_eigenvectors(adjacency, lape_dim))
         self.node_pe = nn.Linear(lape_dim, embed_dim)
 
-        self.encoder = MultiFilterConv(1 + mark_features, embed_dim, tuple(conv_kernels), conv_stride, gconv_hops, gconv_alpha)
+        self.encoder = MultiFilterConv(1 + mark_features, embed_dim, tuple(conv_kernels), conv_stride,
+                                       gconv_hops, gconv_alpha)
         self.hid_len = math.ceil(seq_len / conv_stride)
         self.time_pe = positional_encoding("sincos", False, self.hid_len, embed_dim)
-        self.blocks = nn.ModuleList(STBlock(embed_dim, num_heads, att_dropout, ffn_dropout) for _ in range(num_layers))
+        self.blocks = nn.ModuleList(STBlock(embed_dim, num_heads, att_dropout, ffn_dropout)
+                                    for _ in range(num_layers))
         self.dropout = nn.Dropout(ffn_dropout)
         self.decoder = TransposedConvDecoder(embed_dim, embed_dim // 2, 1, self.hid_len, pred_len)
 
     def inputs(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
         """``[B, T, N]`` (+ covariates) -> ``[B, N, T, 1 + mark_features]``."""
-        if self.mark_features:
-            data = to_spatiotemporal(x_enc, x_mark_enc)
-            if data.shape[-1] != 1 + self.mark_features:
-                raise ValueError(f"expected {self.mark_features} covariate features, got {data.shape[-1] - 1}")
-        else:
-            data = x_enc[..., None]
+        data = to_spatiotemporal(x_enc, x_mark_enc) if self.mark_features else x_enc[..., None]
+        if data.shape[-1] != 1 + self.mark_features:
+            raise ValueError(f"expected {self.mark_features} covariate features, got {data.shape[-1] - 1}")
         return data.permute(0, 2, 1, 3)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"expected x_enc [batch, {self.seq_len}, {self.num_nodes}], got {tuple(x_enc.shape)}")
+            expected = f"[batch, {self.seq_len}, {self.num_nodes}]"
+            raise ValueError(f"expected x_enc {expected}, got {tuple(x_enc.shape)}")
         node_pe = self.node_pe(self.laplacian)[None, :, None, :]  # D_s
         time_pe = self.time_pe[None, None, :, :]  # D_t
-        if self.position_routing == "official":  # Sec. 3.3.1 / official STBlock
-            temporal_pe, spatial_pe = node_pe, time_pe
-        else:  # Sec. 3.3.2
-            temporal_pe, spatial_pe = time_pe, node_pe
+        official = self.position_routing == "official"  # Sec. 3.3.1 / official STBlock; else Sec. 3.3.2
+        temporal_pe, spatial_pe = (node_pe, time_pe) if official else (time_pe, node_pe)
         x = self.encoder(self.inputs(x_enc, x_mark_enc), self.propagation)
         skip = x
         for block in self.blocks:
             h = block(x, temporal_pe, spatial_pe, self.head_masks)
-            skip = skip + h
-            x = x + h
+            skip, x = skip + h, x + h
         out = self.decoder(self.dropout(skip))  # [B, N, H, 1]
         return out[..., 0].transpose(1, 2)
 
 
 __all__ = [
-    "EncodingTree",
-    "Model",
-    "build_encoding_tree",
-    "laplacian_eigenvectors",
-    "multilevel_masks",
-    "structural_entropy",
+    "EncodingTree", "Model", "build_encoding_tree",
+    "laplacian_eigenvectors", "multilevel_masks", "structural_entropy",
 ]

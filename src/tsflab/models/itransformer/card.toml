@@ -22,7 +22,7 @@ license = "MIT"
 reference_sources = []
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:per-variate-linear-token-embedding"
 channel = "local:variate-token-self-attention"

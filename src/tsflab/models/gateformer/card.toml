@@ -13,7 +13,7 @@ venue = "arXiv preprint"
 year = 2025
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:patch-transformer-encoder+component:positional_encoding+component:flatten_forecast_head"
 channel = "local:cross-variate-attention+component:gated_fusion"

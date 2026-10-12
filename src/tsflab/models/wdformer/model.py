@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.differential_attention import DifferentialAttention
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.wavelet import DecimatedWaveletTransform
 
 
@@ -170,10 +171,7 @@ class Model(nn.Module):
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
 
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        centered = x_enc - mean
-        std = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-        normalized = centered / std
+        normalized, mean, std = standardize(x_enc)
 
         variate_first = normalized.transpose(1, 2)  # (B, enc_in, seq_len)
         if x_mark_enc is not None:
@@ -194,4 +192,4 @@ class Model(nn.Module):
         reconstructed = self.output_wavelet.reconstruct(chunks)  # (B, enc_in[+marks], pred_len)
         forecast = reconstructed[:, : self.enc_in, :].transpose(1, 2)
 
-        return forecast * std[:, 0, :].unsqueeze(1) + mean[:, 0, :].unsqueeze(1)
+        return destandardize(forecast, mean, std)

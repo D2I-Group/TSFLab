@@ -43,6 +43,6 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_wdformer.toml",
     capabilities=frozenset({"time-series"}),
-    components=("differential_attention", "wavelet"),
+    components=("differential_attention", "instance_norm", "wavelet"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

@@ -40,6 +40,6 @@ SPEC = ModelSpec(
     factory=build_model,
     params_schema=ModelParameterConfig,
     capabilities=frozenset(["time-series"]),
-    components=("dominant_periods", "forecast_embedding", "inception_block"),
+    components=("dominant_periods", "forecast_embedding", "inception_block", "instance_norm"),
     contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
 )

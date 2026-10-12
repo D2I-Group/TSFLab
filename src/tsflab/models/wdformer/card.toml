@@ -18,7 +18,7 @@ license = "NOASSERTION"
 reference_sources = ["https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/model/WDformer.py", "https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/layers/SelfAttention_Family.py", "https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/layers/Embed.py"]
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "component:wavelet"
 temporal = "local:subband-linear-embedding"
 channel = "component:differential_attention+local:variate-token-encoder"

@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.embed import DataEmbedding_inverted
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.marks import days_from_civil
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
@@ -122,15 +123,12 @@ class Model(nn.Module):
                 f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
             )
         if self.use_norm:
-            means = x_enc.mean(1, keepdim=True).detach()
-            centered = x_enc - means
-            stdev = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-            x_enc = centered / stdev
+            x_enc, means, stdev = standardize(x_enc)
         phase = forecast_phase(x_mark_enc, self.cycle, x_enc.shape[0], x_enc.device)
         tokens = self.armored_tokens(x_enc, phase)
         encoded, _ = self.encoder(tokens, attn_mask=None)
         # Official head reads the encoder output plus the armored input tokens.
         forecast = self.projector(encoded + tokens).transpose(1, 2)
         if self.use_norm:
-            forecast = forecast * stdev + means
+            forecast = destandardize(forecast, means, stdev)
         return forecast

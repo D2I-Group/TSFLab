@@ -11,7 +11,7 @@ description: "Transformer that gate-fuses a global-window and a patch-attention 
 - Each variate gets a global embedding (the whole window projected to `d_model`, as in the inverted embedding) and a temporal embedding (patches encoded by a shared Transformer across patches, flattened by `flatten_forecast_head`).
 - `gate_global_temporal` (`gated_fusion`) blends the two embeddings per variate.
 - A variate-wise Transformer encoder attends across variates, and `gate_variate` blends its output with its input.
-- A linear layer projects each variate token to `pred_len`; local mean/std standardization is restored on the output.
+- A linear layer projects each variate token to `pred_len`; the mean/std standardization is restored on the output.
 
 ## When to use
 

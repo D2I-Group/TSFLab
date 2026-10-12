@@ -66,6 +66,6 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_timepro.toml",
     capabilities=frozenset({"time-series"}),
-    components=("hyper_state_scan",),
+    components=("hyper_state_scan", "instance_norm"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

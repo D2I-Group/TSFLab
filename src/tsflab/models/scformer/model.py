@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from scipy.linalg import solve_triangular
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import FullAttention
 
 StructMode = Literal["triangular", "conv"]
@@ -227,17 +228,14 @@ class Model(nn.Module):
         state = self.hippo_state(x_enc)  # computed on the loader-scaled values, before instance norm
         window = x_enc[:, -self.lookback :, :]
         if self.use_norm:  # Eq. (15)
-            means = window.mean(1, keepdim=True).detach()
-            window = window - means
-            stdev = torch.sqrt(torch.var(window, dim=1, keepdim=True, unbiased=False) + 1e-5)
-            window = window / stdev
+            window, means, stdev = standardize(window)
         z = self.embed(torch.cat([self.window_proj(window.transpose(1, 2)), state], dim=-1))
         z = z + self.channel_embedding
         for layer in self.layers:
             z = layer(z)
         out = self.projector(self.norm(z)).transpose(1, 2)  # [B, pred_len, C]
         if self.use_norm:
-            out = out * stdev + means
+            out = destandardize(out, means, stdev)
         return out
 
 

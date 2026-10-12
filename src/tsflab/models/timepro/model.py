@@ -23,6 +23,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.hyper_state_scan import GridStateMixer, diagonal_selective_scan
+from tsflab.models._components.instance_norm import destandardize, standardize
 
 
 class PatchEmbedding(nn.Module):
@@ -167,9 +168,7 @@ class Model(nn.Module):
             raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
 
         if self.use_norm:
-            mean = x_enc.mean(dim=1, keepdim=True).detach()
-            stdev = torch.sqrt(x_enc.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-            x_enc = (x_enc - mean) / stdev
+            x_enc, mean, stdev = standardize(x_enc)
 
         tokens, n_vars = self.patch_embedding(x_enc.transpose(1, 2))
         enc_out = tokens.reshape(-1, n_vars, self.patch_num * tokens.shape[-1])
@@ -180,5 +179,5 @@ class Model(nn.Module):
 
         forecast = self.projector(enc_out).transpose(1, 2)
         if self.use_norm:
-            forecast = forecast * stdev + mean
+            forecast = destandardize(forecast, mean, stdev)
         return forecast

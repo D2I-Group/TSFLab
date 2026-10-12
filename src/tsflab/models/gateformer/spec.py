@@ -54,6 +54,6 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_gateformer.toml",
     capabilities=frozenset({"time-series"}),
-    components=("flatten_forecast_head", "gated_fusion", "positional_encoding"),
+    components=("flatten_forecast_head", "gated_fusion", "instance_norm", "positional_encoding"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

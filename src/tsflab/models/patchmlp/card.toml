@@ -18,7 +18,7 @@ license = "NOASSERTION"
 reference_sources = ["https://github.com/TangPeiwang/PatchMLP/blob/b36bbc92ecfc4732acaabb6d5e8c4ff487876f5d/model/PatchMLP.py"]
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "local:moving-average-series-decomp"
 temporal = "local:multi-scale-patch-embedding-mlp-encoder"
 channel = "local:channel-mixing-on-smooth-branch"

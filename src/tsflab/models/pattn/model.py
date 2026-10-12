@@ -11,6 +11,8 @@ from __future__ import annotations
 from torch import nn
 from torch.nn import functional as F
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class Model(nn.Module):
     """Patch-and-attention forecasting baseline."""
@@ -53,9 +55,7 @@ class Model(nn.Module):
     ):
         if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len:
             raise ValueError(f"expected [batch, {self.seq_len}, channels], got {tuple(x_enc.shape)}")
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        scale = x_enc.var(dim=1, keepdim=True, unbiased=False).add(1e-5).sqrt()
-        normalized = (x_enc - mean) / scale
+        normalized, mean, scale = standardize(x_enc)
         channels_first = normalized.transpose(1, 2)
         padded = F.pad(channels_first, (0, self.stride), mode="replicate")
         patches = padded.unfold(-1, self.patch_len, self.stride)
@@ -67,5 +67,5 @@ class Model(nn.Module):
         tokens = self.attention_norm(tokens + attended)
         forecast = self.forecast_projection(tokens.flatten(1))
         forecast = forecast.reshape(batch, channels, self.pred_len).transpose(1, 2)
-        forecast = forecast * scale[:, :1] + mean[:, :1]
+        forecast = destandardize(forecast, mean, scale)
         return forecast[:, :, -1:] if self.features == "MS" else forecast

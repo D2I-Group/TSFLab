@@ -5,13 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-
-def normalize_series(values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Normalize every variate over its lookback window."""
-    mean = values.mean(dim=1, keepdim=True).detach()
-    centered = values - mean
-    stdev = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-    return centered / stdev, mean, stdev
+from tsflab.models._components.instance_norm import destandardize, standardize
 
 
 class InvertedEmbedding(nn.Module):
@@ -113,7 +107,7 @@ class Model(nn.Module):
         ):
             raise ValueError("encoder marks must align with x_enc and contain six columns")
         if self.use_norm:
-            normalized, mean, stdev = normalize_series(x_enc)
+            normalized, mean, stdev = standardize(x_enc)
         else:
             normalized = x_enc
             mean = x_enc.new_zeros(x_enc.shape[0], 1, self.channels)
@@ -127,7 +121,7 @@ class Model(nn.Module):
                 attention_maps.append(attention)
         variable_tokens = tokens[:, : self.channels]
         forecast = self.projection(variable_tokens).transpose(1, 2)
-        forecast = forecast * stdev + mean
+        forecast = destandardize(forecast, mean, stdev)
         if self.output_attention:
             return forecast, attention_maps
         return forecast

@@ -9,6 +9,7 @@ from torch import nn
 
 from tsflab.models._components.embed import PatchEmbedding
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.topk_expert_attention import TopKExpertAttention
 
 
@@ -87,10 +88,7 @@ class Model(nn.Module):
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
 
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        centered = x_enc - mean
-        std = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-        normalized = centered / std
+        normalized, mean, std = standardize(x_enc)
 
         channel_first = normalized.permute(0, 2, 1)
         tokens, n_vars = self.patch_embedding(channel_first)
@@ -102,4 +100,4 @@ class Model(nn.Module):
         tokens = tokens.reshape(-1, n_vars, tokens.shape[-2], tokens.shape[-1]).permute(0, 1, 3, 2)
         forecast = self.head(tokens).permute(0, 2, 1)
 
-        return forecast * std[:, 0, :].unsqueeze(1) + mean[:, 0, :].unsqueeze(1)
+        return destandardize(forecast, mean, std)

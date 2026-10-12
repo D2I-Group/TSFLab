@@ -32,6 +32,6 @@ Independent rewrite of arXiv 2505.02655 (Eqs. 1-16) using the official `ShiweiGu
 - One consistent lower-triangular mask for all structured maps (official mixes `tril` and `triu`, breaking the temporal constraint).
 - Follows the code where it departs from the paper: no ReLU on structured maps, two-sided conv padding in `conv` mode, kernel 16 for the stacked q/k/v convolutions, a per-channel embedding, 16 heads.
 - History is a fixed window inside the input, not a cumulative state from the series start; the per-channel embedding is a real learnable parameter.
-- Instance normalization is local: the official std is not detached while `revin.RevIN` detaches it.
+- Instance normalization uses `instance_norm`, not `revin`: the official std is not detached while `revin.RevIN` detaches it.
 
 Full detail in `reference.md`.

@@ -47,6 +47,6 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_timeexpert.toml",
     capabilities=frozenset({"time-series"}),
-    components=("embed", "flatten_forecast_head", "topk_expert_attention"),
+    components=("embed", "flatten_forecast_head", "instance_norm", "topk_expert_attention"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
 )

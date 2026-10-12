@@ -395,6 +395,7 @@ COMPONENT_CATALOG = ComponentCatalog(
             ("StochasticSharedEmbedding", "EfficientCosineGraphConv"),
             ("adaptive", "adjacency", "cosine", "embedding", "graph", "linear-complexity", "node", "regularization", "stochastic"),
         ),
+        ComponentSpec("instance_norm", "tsflab.models._components.instance_norm", "Parameter-free instance standardization over time and its inverse.", ("standardize", "destandardize"), ("instance", "normalization", "non-stationary")),
         ComponentSpec("revin", "tsflab.models._components.revin", "Reversible instance normalization.", ("RevIN",), ("denormalization", "instance", "normalization", "reversible")),
         ComponentSpec(
             "sparse_connection_router",

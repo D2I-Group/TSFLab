@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.embed import DataEmbedding_inverted
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
 
@@ -182,17 +183,14 @@ class Model(nn.Module):
             raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
         if self.use_norm:
             # Instance normalization of every variate over the look-back window.
-            mean = x_enc.mean(dim=1, keepdim=True).detach()
-            centered = x_enc - mean
-            stdev = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-            normalized = centered / stdev
+            normalized, mean, stdev = standardize(x_enc)
         else:
             normalized = x_enc
         means, variances = [], []
         for expert in self.experts:
             expert_mean, expert_variance = expert(normalized)
             if self.use_norm:
-                expert_mean = expert_mean * stdev + mean
+                expert_mean = destandardize(expert_mean, mean, stdev)
                 if self.denorm_variance:
                     expert_variance = expert_variance * stdev.pow(2)
             means.append(expert_mean)

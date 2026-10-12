@@ -66,7 +66,7 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_stats.toml",
     capabilities=frozenset({"quantile-output", "time-series", "pretraining-stage"}),
-    components=("empirical_quantiles",),
+    components=("empirical_quantiles", "instance_norm"),
     contract_task={"seq_len": 96, "label_len": 48, "pred_len": 24},
     training_objective=training_objective,
 )

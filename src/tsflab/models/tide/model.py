@@ -12,6 +12,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class ResidualBlock(nn.Module):
     """The paper's dense-ReLU-dense-dropout block plus projected skip."""
@@ -102,9 +104,7 @@ class Model(nn.Module):
             raise ValueError(f"expected [batch, {self.seq_len}, channels], got {tuple(x_enc.shape)}")
         covariates = self._covariates(x_enc, x_mark_enc, x_mark_dec)
         projected = self.feature_projection(covariates)
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        scale = x_enc.var(dim=1, keepdim=True, unbiased=False).add(1e-5).sqrt()
-        normalized = (x_enc - mean) / scale
+        normalized, mean, scale = standardize(x_enc)
 
         channel_outputs = []
         covariate_vector = projected.flatten(1)
@@ -123,4 +123,4 @@ class Model(nn.Module):
             forecast = nonlinear + self.global_residual(normalized[:, :, channel])
             channel_outputs.append(forecast)
         output = torch.stack(channel_outputs, dim=-1)
-        return output * scale[:, :1] + mean[:, :1]
+        return destandardize(output, mean, scale)

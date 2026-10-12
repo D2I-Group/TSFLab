@@ -21,7 +21,7 @@ reference_sources = ["https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf
 enc_in = { from = "channels", rule = "equal to the dataset channel count" }
 
 [composition]
-normalization = "local:history-instance-normalization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:gated-multiband-spectral-anchor+local:film-mlp-denoiser"
 channel = "local:spectral-distortion-channel-gate"

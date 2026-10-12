@@ -48,6 +48,6 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_scformer.toml",
     capabilities=frozenset({"time-series"}),
-    components=("self_attention_family",),
+    components=("instance_norm", "self_attention_family"),
     contract_task={"seq_len": 192, "pred_len": 96, "label_len": 0},
 )

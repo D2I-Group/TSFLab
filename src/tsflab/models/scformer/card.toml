@@ -22,7 +22,7 @@ enc_in = { from = "channels", rule = "equal to the dataset channel count" }
 lookback = { from = "seq_len", rule = "lookback <= seq_len; the rest of the window is HiPPO history" }
 
 [composition]
-normalization = "local:instance-norm"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:hippo-legs-history-state+local:structured-triangular-linear"
 channel = "component:self_attention_family"

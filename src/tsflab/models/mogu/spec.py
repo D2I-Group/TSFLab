@@ -69,7 +69,7 @@ SPEC = ModelSpec(
     params_schema=ModelParameterConfig,
     smoke_config="configs/runs/smoke_mogu.toml",
     capabilities=frozenset({"distribution-output", "time-series"}),
-    components=("embed", "self_attention_family", "transformer_encdec"),
+    components=("embed", "instance_norm", "self_attention_family", "transformer_encdec"),
     contract_task={"seq_len": 96, "pred_len": 12, "label_len": 0},
     training_objective=training_objective,
 )

@@ -20,11 +20,11 @@ horizon.
 
 from __future__ import annotations
 
-import torch
 import torch.nn as nn
 
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.gated_fusion import GatedFusion
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.positional_encoding import positional_encoding
 
 
@@ -95,10 +95,7 @@ class Model(nn.Module):
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
 
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        centered = x_enc - mean
-        stdev = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-        normalized = centered / stdev
+        normalized, mean, stdev = standardize(x_enc)
 
         # Global (inverted) embedding: one token per variate over the whole window.
         global_embedding = self.global_dropout(self.global_projection(normalized.transpose(1, 2)))
@@ -120,4 +117,4 @@ class Model(nn.Module):
         fused = self.gate_variate(fused, cross_variate)
 
         forecast = self.projection(fused).transpose(1, 2)
-        return forecast * stdev + mean
+        return destandardize(forecast, mean, stdev)

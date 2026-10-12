@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.embed import DataEmbedding_inverted
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.marks import adapt_tslib_marks, tslib_time_feature_dimension
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder
@@ -243,10 +244,7 @@ class Model(nn.Module):
         # The official pipeline interpolates the raw window, then normalizes it.
         values = interpolate(x_enc, self.interpolation)
         if self.use_norm:
-            mean = values.mean(dim=1, keepdim=True).detach()
-            values = values - mean
-            stdev = torch.sqrt(values.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-            values = values / stdev
+            values, mean, stdev = standardize(values)
         marks = self.calendar_tokens(x_mark_enc)
         if marks is not None:
             marks = marks.to(dtype=values.dtype)
@@ -254,5 +252,5 @@ class Model(nn.Module):
         encoded, _ = self.encoder(tokens, attn_mask=None)
         forecast = self.projector(encoded).transpose(1, 2)[:, :, : self.enc_in]
         if self.use_norm:
-            forecast = forecast * stdev + mean
+            forecast = destandardize(forecast, mean, stdev)
         return forecast

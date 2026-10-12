@@ -18,7 +18,7 @@ license = "MIT"
 reference_sources = ["https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/models/MoE.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/models/iTransformer.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/exp/exp_long_term_forecasting.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/Transformer_EncDec.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/SelfAttention_Family.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/Embed.py"]
 
 [composition]
-normalization = "local:instance-norm"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "component:embed"
 channel = "component:self_attention_family+component:transformer_encdec"

@@ -12,7 +12,7 @@ venue = "arXiv preprint"
 year = 2025
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "local:patch-embedding-folded-into-variate-token"
 channel = "component:hyper_state_scan+local:bidirectional-variate-axis-scan"

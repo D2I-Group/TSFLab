@@ -5,6 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models.patchmlp.layers import Emb, Encoder, SeriesDecomp
 
 
@@ -76,12 +77,7 @@ class PatchMLPModel(nn.Module):
                 "PatchMLP input must match the configured sequence length and channels"
             )
         if self.use_norm:
-            means = x_enc.mean(1, keepdim=True).detach()
-            x_enc = x_enc - means
-            stdev = torch.sqrt(
-                torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5
-            )
-            x_enc = x_enc / stdev
+            x_enc, means, stdev = standardize(x_enc)
 
         x = x_enc.permute(0, 2, 1)
         x = self.emb(x)
@@ -97,12 +93,7 @@ class PatchMLPModel(nn.Module):
         dec_out = dec_out.permute(0, 2, 1)
 
         if self.use_norm:
-            dec_out = dec_out * (
-                stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
-            )
-            dec_out = dec_out + (
-                means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
-            )
+            dec_out = destandardize(dec_out, means, stdev)
 
         return dec_out
 

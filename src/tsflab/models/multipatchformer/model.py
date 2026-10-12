@@ -3,6 +3,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._components.instance_norm import destandardize, standardize
+
 
 class PatchScale(nn.Module):
     def __init__(self, seq_len, patch_len, stride, width):
@@ -60,9 +62,8 @@ class Model(nn.Module):
     ):
         if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
-        mean = x_enc.mean(1, keepdim=True).detach()
-        std = (x_enc.var(1, keepdim=True, unbiased=False) + 1e-5).sqrt()
-        series = ((x_enc - mean) / std).transpose(1, 2)
+        series, mean, std = standardize(x_enc)
+        series = series.transpose(1, 2)
         batch, channels = series.shape[:2]
         target_tokens = max(scale(series).shape[2] for scale in self.scales)
         embeddings = []
@@ -82,4 +83,4 @@ class Model(nn.Module):
         channels_tokens = self.channel_projection(tokens.mean(1).reshape(batch, channels, width))
         channels_tokens = self.channel_layer(channels_tokens)
         forecast = self.head(channels_tokens).transpose(1, 2)
-        return forecast * std + mean
+        return destandardize(forecast, mean, std)

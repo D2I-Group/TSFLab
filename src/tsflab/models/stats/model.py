@@ -28,6 +28,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
+from tsflab.models._components.instance_norm import destandardize, standardize
 
 NORM_EPS = 1e-5  # instance-normalisation variance floor
 BETA_CLAMP = 1e-6  # learned beta is clamped to [1e-6, 1 - 1e-6]
@@ -208,14 +209,6 @@ class Model(nn.Module):
         """``abar_t = prod_{s <= t} (1 - beta_s)`` (Proposition 1)."""
         return torch.cumprod(1.0 - self.betas(), dim=0)
 
-    # -- normalisation --------------------------------------------------------
-    @staticmethod
-    def normalise(history: torch.Tensor):
-        """Instance statistics of the history (mean, biased std + 1e-5 variance floor)."""
-        mean = history.mean(dim=1, keepdim=True).detach()
-        std = torch.sqrt(torch.var(history - mean, dim=1, keepdim=True, unbiased=False) + NORM_EPS)
-        return (history - mean) / std, mean, std
-
     # -- objectives -----------------------------------------------------------
     def _corrupt(self, history_n, target_n, t, abar):
         a = abar[t].view(-1, 1, 1)
@@ -226,13 +219,13 @@ class Model(nn.Module):
 
     def objective_terms(self, history: torch.Tensor, future: torch.Tensor) -> dict[str, torch.Tensor]:
         """L_obj (Eq. 3) and the STS regularisers (Eqs. 6-12) for one batch."""
-        history_n, mean, std = self.normalise(history)
+        history_n, mean, std = standardize(history, NORM_EPS)
         target_n = (future - mean) / std
         batch = history.shape[0]
         abar = self.alpha_bar()
         t = torch.randint(0, self.num_steps, (batch,), device=history.device)
         noisy_target, noisy_history, noise = self._corrupt(history_n, target_n, t, abar)
-        prediction = self.denoiser(history_n, noisy_history, noisy_target, t) * std + mean
+        prediction = destandardize(self.denoiser(history_n, noisy_history, noisy_target, t), mean, std)
         terms = {"obj": F.mse_loss(prediction, future)}  # official: de-normalised x0 regression
         betas = self.betas()
         terminal = abar[-1]
@@ -256,11 +249,11 @@ class Model(nn.Module):
         """L_obj (Eq. 3) for FGD under the current schedule."""
         with torch.no_grad():
             abar = self.alpha_bar()
-        history_n, mean, std = self.normalise(history)
+        history_n, mean, std = standardize(history, NORM_EPS)
         target_n = (future - mean) / std
         t = torch.randint(0, self.num_steps, (history.shape[0],), device=history.device)
         noisy_target, noisy_history, _ = self._corrupt(history_n, target_n, t, abar)
-        prediction = self.denoiser(history_n, noisy_history, noisy_target, t) * std + mean
+        prediction = destandardize(self.denoiser(history_n, noisy_history, noisy_target, t), mean, std)
         return F.mse_loss(prediction, future)
 
     # -- two-stage training (Sec. 3.2) ----------------------------------------
@@ -311,7 +304,7 @@ class Model(nn.Module):
     def sample(self, x_enc: torch.Tensor, num_samples: int | None = None) -> torch.Tensor:
         """Trajectories on the input scale: ``[S, B, pred_len, N]``."""
         total = num_samples or self.num_samples
-        history_n, mean, std = self.normalise(x_enc)
+        history_n, mean, std = standardize(x_enc, NORM_EPS)
         abar = self.alpha_bar()
         chunks, done = [], 0
         while done < total:
@@ -323,7 +316,7 @@ class Model(nn.Module):
                 noisy_history = a.sqrt() * history + (1 - a).sqrt() * torch.randn_like(history)  # fresh c_t
                 t = torch.full((history.shape[0],), step, device=x_enc.device, dtype=torch.long)
                 x = self.ddim_step(x, self.denoiser(history, noisy_history, x, t), step, abar)
-            chunks.append(x.view(count, *x_enc.shape[:1], self.pred_len, self.enc_in) * std + mean)
+            chunks.append(destandardize(x.view(count, *x_enc.shape[:1], self.pred_len, self.enc_in), mean, std))
             done += count
         return torch.cat(chunks, dim=0)
 

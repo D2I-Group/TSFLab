@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.embed import DataEmbedding_inverted
+from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
 
@@ -49,14 +50,11 @@ class InvertedForecaster(nn.Module):
 
     def forward(self, window: torch.Tensor) -> torch.Tensor:
         if self.use_norm:
-            mean = window.mean(dim=1, keepdim=True).detach()
-            centered = window - mean
-            std = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-            window = centered / std
+            window, mean, std = standardize(window)
         tokens, _ = self.encoder(self.embedding(window, None))
         patch = self.projector(tokens).transpose(1, 2)  # [B, T, C]
         if self.use_norm:
-            patch = patch * std + mean
+            patch = destandardize(patch, mean, std)
         return patch
 
 

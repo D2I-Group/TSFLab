@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from tsflab.models._components.dominant_periods import dominant_periods
 from tsflab.models._components.forecast_embedding import RawCalendarEmbedding
 from tsflab.models._components.inception_block import InceptionBlock2d
+from tsflab.models._components.instance_norm import destandardize, standardize
 
 
 class TimesBlock(nn.Module):
@@ -91,15 +92,12 @@ class Model(nn.Module):
         if x_mark_enc.shape != (x_enc.shape[0], self.seq_len, 6):
             raise ValueError("encoder marks must align with x_enc and contain six columns")
 
-        mean = x_enc.mean(dim=1, keepdim=True).detach()
-        centered = x_enc - mean
-        stdev = torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
-        normalized = centered / stdev
+        normalized, mean, stdev = standardize(x_enc)
         embedded = self.value_embedding(normalized) + self.calendar_embedding(x_mark_enc)
         embedded = self.embedding_dropout(embedded)
         encoded = self.temporal_projection(embedded.transpose(1, 2)).transpose(1, 2)
         for block, norm in zip(self.blocks, self.block_norms):
             encoded = norm(block(encoded))
         forecast = self.output_projection(encoded)
-        forecast = forecast * stdev + mean
+        forecast = destandardize(forecast, mean, stdev)
         return forecast[:, -self.pred_len :]

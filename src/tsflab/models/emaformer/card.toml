@@ -18,7 +18,7 @@ license = "MIT"
 reference_sources = ["https://github.com/PlanckChang/EMAformer/blob/b8f37c0c7d089e7263bbaeb681672a94f5afe233/model/EMAformer.py", "https://github.com/PlanckChang/EMAformer/blob/b8f37c0c7d089e7263bbaeb681672a94f5afe233/data_provider/data_loader.py"]
 
 [composition]
-normalization = "local:non-stationary-instance-norm"
+normalization = "component:instance_norm"
 decomposition = "none"
 temporal = "component:embed"
 channel = "component:transformer_encdec+component:self_attention_family+local:channel-phase-joint-embeddings"
