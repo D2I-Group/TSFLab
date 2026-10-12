@@ -1,17 +1,6 @@
 """tsf realtime — rolling real-time tracks: data releases, rounds, forecasts, scores.
 
-    tsf realtime list
-    tsf realtime update    --track T [--bootstrap | --no-fetch] [--pull] [--push] [--repo OWNER/NAME]
-    tsf realtime open      --track T [--now ISO]
-    tsf realtime baselines --track T [--round R]
-    tsf realtime forecast  --track T --model M [--round R] [--set section.key=value ...]
-    tsf realtime validate  FILE... [--received-at ISO]   (files from elsewhere; forecast and
-                                                         baselines validate what they write)
-    tsf realtime score     --track T
-    tsf realtime weekly    --track T [T ...] [--pull] [--push]
-    tsf realtime replay    --track T --end DATE --weeks N [--models M ...]
-
-Everything except ``forecast`` runs without torch, so the weekly job fits a
+The command list is in ``tsflab.cli.inventory`` (``tsf realtime --help``). Everything except ``forecast`` runs without torch, so the weekly job fits a
 CPU-only CI runner. ``forecast`` trains a catalog model on the round's history
 with the standard runner and needs a (GPU) machine with the full install.
 """
@@ -142,7 +131,10 @@ def _parse_overrides(pairs: list[str]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="tsf realtime", description=__doc__,
+    from tsflab.cli.inventory import group_usage
+
+    parser = argparse.ArgumentParser(prog="tsf realtime", description=group_usage("realtime"),
+                                     epilog=__doc__.split("\n\n", 1)[1].split(". ", 1)[1],
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("list")

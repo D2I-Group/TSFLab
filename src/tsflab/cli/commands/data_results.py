@@ -122,14 +122,9 @@ def _split_facts(name: str) -> dict[str, str]:
 
 def data_command(args: list[str]) -> int:
     """Route dataset scaffolding, preparation, inspection, plotting, and publishing."""
-    usage = (
-        "usage: tsf data {add,prepare,analyze,splits,download,publish,audit} [args...]\n"
-        "       tsf data analyze <dataset> [--plot] [--split S] [--per-channel] [--json]   profile, TFB\n"
-        "                characteristics, and sample plot (replaces `data inspect` and `data plot`)\n"
-        "       tsf data prepare [--from traffic|ultratraffic|gift-eval|tfb|dcrnn] [args...]\n"
-        "       tsf data splits <dataset> [--seq-len N] [--path FILE] [--json]   official split borders\n"
-        "Find and read datasets with `tsf catalog search|show --kind dataset`."
-    )
+    from tsflab.cli.inventory import group_usage
+
+    usage = group_usage("data") + "\nFind and read datasets with `tsf catalog search|show --kind dataset`."
     if not args or args[0] in {"-h", "--help", "help"}:
         print(usage)
         return 0
@@ -176,18 +171,16 @@ def data_command(args: list[str]) -> int:
     return passthrough(script, rest)
 
 
-#: Retired dataset actions that `tsf data analyze` now covers, and the flag that selects them.
-RETIRED_DATA_ACTIONS = {
-    "inspect": ("its TFB characteristics table", []),
-    "plot": ("--plot", ["--plot"]),
-}
+#: Retired dataset actions that `tsf data analyze` now covers, and the flags that select them.
+RETIRED_DATA_ACTIONS = {"inspect": [], "plot": ["--plot"]}
 
 
 def _forward_to_analyze(action: str, rest: list[str]) -> int:
     """Forward a retired `data inspect|plot` call to `data analyze` after a one-line note."""
-    part, extra = RETIRED_DATA_ACTIONS[action]
-    print(f"note: `tsf data {action}` is now part of `tsf data analyze` ({part}); forwarding",
-          file=sys.stderr)
+    from tsflab.cli.inventory import retired_note
+
+    extra = RETIRED_DATA_ACTIONS[action]
+    print(retired_note(f"data {action}", forwarding=True), file=sys.stderr)
     if action == "inspect":
         rest = _inspect_out_to_analyze(rest)
     return passthrough("dataset_analyze.py", [*rest, *extra])
@@ -317,11 +310,9 @@ def _hub_dataset_command(action: str, rest: list[str]) -> int:
 
 def result_command(args: list[str]) -> int:
     """Route aggregation, ranking, plotting, reporting, submission, leaderboard, and the Hub."""
-    usage = (
-        "usage: tsf result {aggregate,rank,plot,report,predictions,board,submit,leaderboard,hub} "
-        "[args...]\n"
-        "       tsf result hub {pack,push,push-top,list,pull,results,init} [args...]"
-    )
+    from tsflab.cli.inventory import group_usage
+
+    usage = group_usage("result")
     if not args or args[0] in {"-h", "--help", "help"}:
         print(usage)
         return 0

@@ -343,3 +343,49 @@ def test_data_splits_horizon_alias_and_global_json_anywhere() -> None:
             assert cli.main(argv) == 0, argv
         envelope = json.loads(output.getvalue())
         assert envelope["ok"] and envelope["command"] == ["data", "splits", "etth1"], argv
+
+
+def test_one_inventory_feeds_every_help_text(capsys) -> None:
+    from tsflab.cli.inventory import GROUPS, leaf_names, records
+
+    assert [group.name for group in GROUPS] == list(cli.COMMANDS)
+    assert cli.main(["--help"]) == 0
+    overview = capsys.readouterr().out
+    assert all(f"    {group.name:<16} {group.purpose}" in overview for group in GROUPS)
+    for group in ("catalog", "data", "model", "result", "repo", "agent"):
+        assert cli.main([group, "--help"]) == 0
+        text = capsys.readouterr().out
+        assert all(f"tsf {group} {name}" in text for name in leaf_names(group)), group
+    assert cli.main(["repo", "--help"]) == 0
+    repo = capsys.readouterr().out
+    assert "--scope full|changed|release" in repo and "cards themselves are never generated" in repo
+    interface = _json("agent", "interface")
+    assert interface["commands"] == records()
+    assert set(interface["assets"]) == set(cli.COMMANDS)
+
+
+def test_interface_api_replaces_interface_modules(capsys) -> None:
+    import json
+
+    assert cli.main(["agent", "interface", "api", "--json"]) == 0
+    api = json.loads(capsys.readouterr().out)
+    assert cli.main(["agent", "interface", "modules", "--json"]) == 0
+    out = capsys.readouterr()
+    assert json.loads(out.out) == api
+    assert "replaced by `tsf agent interface api`" in out.err
+    assert cli.main(["agent", "modules", "--json"]) == 0  # the project module map keeps its name
+    assert "modules" in json.loads(capsys.readouterr().out)
+
+
+def test_documented_commands_exist_in_the_inventory(tmp_path, monkeypatch) -> None:
+    from tsflab.cli.commands import check_docs
+
+    assert check_docs.command_reference_problems() == []
+    page = tmp_path / "page.md"
+    page.write_text("Run `tsf data inspect --config x`, `tsf model show X`, and `tsf run configs/a.toml`.\n"
+                    "`tsf catalog show A B` and `tsf agent interface modules`.\n")
+    monkeypatch.setattr(check_docs, "ROOT", tmp_path)
+    problems = check_docs.command_reference_problems([page])
+    assert len(problems) == 3, problems
+    assert "retired `tsf data inspect`" in problems[0] and "unknown command `tsf model show`" in problems[1]
+    assert "retired `tsf agent interface modules`" in problems[2]

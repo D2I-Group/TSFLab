@@ -196,8 +196,34 @@ def _relative_link_problems() -> list[str]:
     return problems
 
 
+#: ``tsf <command> [word]`` in prose or code; the word is checked when it can be a subcommand.
+_COMMAND_REFERENCE = re.compile(r"(?<![\w/.-])tsf ([a-z]+)(?: ([a-z][a-z-]*))?(?: ([a-z][a-z-]*))?")
+
+
+def command_reference_problems(paths=None) -> list[str]:
+    """Every documented ``tsf`` command must exist in the command inventory and not be retired."""
+    from tsflab.cli.inventory import RETIRED, known
+
+    if paths is None:
+        paths = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "AGENTS.md", *DOC_DIR.glob("*.md"),
+                 *(ROOT / ".agents").rglob("*.md"), *(ROOT / ".agents").rglob("*.toml")]
+    problems = []
+    for path in paths:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for group, word, third in _COMMAND_REFERENCE.findall(line):
+                name = f"{group} {word}".strip()
+                where = f"{path.relative_to(ROOT)}:{number}"
+                retired = next((old for old in (f"{name} {third}", name) if old in RETIRED), None)
+                if retired:
+                    problems.append(f"{where} uses retired `tsf {retired}`; use `{RETIRED[retired]}`")
+                elif not known(group, word or None):
+                    problems.append(f"{where} names unknown command `tsf {name}` (see tsflab.cli.inventory)")
+    return problems
+
+
 def check() -> list[str]:
     return (
+        command_reference_problems() +
         _generated_model_doc_problems()
         + _readme_count_problems()
         + _docs_index_problems()

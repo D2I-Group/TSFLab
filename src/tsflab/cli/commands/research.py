@@ -25,10 +25,12 @@ def _print(payload: object) -> None:
 
 def research_command(rest: list[str]) -> int:
     """Create, inspect, and update a lightweight research round."""
+    from tsflab.cli.inventory import purpose
+
     parser = argparse.ArgumentParser(prog="tsf research")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
-    start = subparsers.add_parser("start", help="Create a research round")
+    start = subparsers.add_parser("start", help=purpose("research", "start"))
     start.add_argument("--task", default="research", help="Short workflow name")
     start.add_argument("--goal", required=True, help="Falsifiable goal or question")
     start.add_argument("--max-runs", type=int, default=None)
@@ -36,23 +38,23 @@ def research_command(rest: list[str]) -> int:
     start.add_argument("--max-iterations", type=int, default=None)
     start.add_argument("--id", dest="round_id", default=None)
 
-    listing = subparsers.add_parser("list", help="List research rounds")
+    listing = subparsers.add_parser("list", help=purpose("research", "list"))
     listing.add_argument("--json", action="store_true")
 
-    show = subparsers.add_parser("show", help="Show state and events")
+    show = subparsers.add_parser("show", help=purpose("research", "show"))
     show.add_argument("round_id")
 
-    note = subparsers.add_parser("note", help="Append a structured event")
+    note = subparsers.add_parser("note", help=purpose("research", "note"))
     note.add_argument("round_id")
     note.add_argument("--kind", choices=sorted(EVENT_KINDS), default="note")
     note.add_argument("--text", required=True)
 
-    status = subparsers.add_parser("status", help="Update round status")
+    status = subparsers.add_parser("status", help=purpose("research", "status"))
     status.add_argument("round_id")
     status.add_argument("status", choices=sorted(STATUSES))
     status.add_argument("--message")
 
-    iteration = subparsers.add_parser("iteration", help="Claim the next bounded iteration")
+    iteration = subparsers.add_parser("iteration", help=purpose("research", "iteration"))
     iteration.add_argument("round_id")
     iteration.add_argument("--operation", help="Stable ID for idempotent Agent-defined iteration claims")
 

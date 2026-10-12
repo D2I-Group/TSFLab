@@ -233,7 +233,7 @@ def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
     csv = tmp_path / "inspect.csv"
     assert cli.main(["data", "inspect", "--config", "configs/datasets/etth1.toml",
                      "--out", str(csv)]) == 0
-    assert "`tsf data inspect` is now part of `tsf data analyze`" in capfd.readouterr().err
+    assert "`tsf data inspect` is replaced by `tsf data analyze`; forwarding" in capfd.readouterr().err
     assert csv.read_text().startswith("scope,length")
 
 

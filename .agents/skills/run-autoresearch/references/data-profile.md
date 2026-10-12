@@ -13,7 +13,7 @@ Outputs `work_dirs/profiles/<name>/profile.json`, `profile.md`, and
 of any preset or run config.
 Profiles read the preset's own chronological split with unscaled values. Presets whose
 loader has no date column need `--freq` for period tags (for example `solar` is `10min`).
-The TFB characteristics table (formerly `tsf data inspect`) describes one split
+The TFB characteristics table at the end of the report describes one split
 (`--split`, default train); the decision-safe sections above it are what to select on.
 
 ## Sections and how to use them

@@ -8,12 +8,15 @@ import sys
 
 
 def infrastructure_command(args):
+    from tsflab.cli.inventory import GROUPS, group_usage, records, retired_note
+
     parser = argparse.ArgumentParser(
         prog="tsf env" if args[0] == "env" else "tsf agent interface",
-        epilog="tsf env doctor [--json] detects this machine and prints the matching install and run "
-        "profiles; tsf env setup installs that profile (before TSFLab is installed: python3 scripts/setup_env.py). tsf env storage|usage ... manage capacity and spending (see tsf env storage --help)."
-        if args[0] == "env"
-        else None,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=group_usage("env") if args[0] == "env"
+        else "Execution recipes (show), the execution-policy schema (schema), and the Python API "
+             "modules (api).",
+        epilog="Before TSFLab is installed: python3 scripts/setup_env.py." if args[0] == "env" else None,
     )
     parser.add_argument(
         "action", nargs="?", default="audit" if args[0] == "env" else "show"
@@ -30,7 +33,10 @@ def infrastructure_command(args):
     try:
         from tsflab.experiments.infra.policy import ExecutionPolicy, load_policy
 
-        if args[0] == "interface" and parsed.action == "modules":
+        if args[0] == "interface" and parsed.action == "modules":  # retired name of `api`
+            print(retired_note("agent interface modules", forwarding=True), file=sys.stderr)
+            parsed.action = "api"
+        if args[0] == "interface" and parsed.action == "api":
             from tsflab.experiments.infra.api import describe_modules
 
             payload = publish(describe_modules())
@@ -59,7 +65,7 @@ def infrastructure_command(args):
             return 0
         if args[0] == "interface":
             if parsed.action not in {"show", "schema"}:
-                raise ValueError("usage: tsf agent interface [show|schema|modules] [--json]")
+                raise ValueError("usage: tsf agent interface [show|schema|api] [--module SECTION] [--json]")
             payload = (
                 (
                     ExecutionPolicy.model_fields[
@@ -85,7 +91,7 @@ def infrastructure_command(args):
                         "usage": "tsf env usage --help",
                         "json_envelope": "tsf --format json <command> [args...]",
                         "environment": "tsf env audit [--config <toml>] [--policy <toml>] --json",
-                        "python_modules": "tsf agent interface modules --json",
+                        "python_api": "tsf agent interface api --json",
                         "module_schema": "tsf agent interface schema --module <section> --json",
                         "policy_schema": "tsf agent interface schema --json",
                         "policy": "tsf run <toml> --policy <toml>",
@@ -98,17 +104,8 @@ def infrastructure_command(args):
                         "tasks": "tsf agent task --help",
                         "iteration": "tsf research iteration <round-id>",
                     },
-                    "assets": {
-                        name: f"tsf {name} --help"
-                        for name in (
-                            "catalog",
-                            "data",
-                            "model",
-                            "result",
-                            "repo",
-                            "realtime",
-                        )
-                    },
+                    "assets": {group.name: f"tsf {group.name} --help" for group in GROUPS},
+                    "commands": records(),
                 }
             )
         else:

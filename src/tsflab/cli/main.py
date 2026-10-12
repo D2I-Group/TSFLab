@@ -37,6 +37,10 @@ from __future__ import annotations
 
 import sys
 
+from tsflab.cli.inventory import overview
+
+__doc__ = f"{__doc__}\n{overview()}"
+
 def _lazy(module: str, name: str):
     def call(rest: list[str]) -> int:
         from importlib import import_module
@@ -95,12 +99,12 @@ def main(argv: list[str] | None = None) -> int:
         from tsflab.cli.commands.envelope import envelope
         return envelope(stripped)
     if not argv or argv[0] in {"-h", "--help", "help"}:
-        print(__doc__)
+        print(overview(), end="")
         return 0
     handler = COMMANDS.get(argv[0])
     if handler is None:
         print(f"unknown command: {argv[0]!r}\n", file=sys.stderr)
-        print(__doc__, file=sys.stderr)
+        print(overview(), end="", file=sys.stderr)
         return 2
     return handler(argv[1:])
 

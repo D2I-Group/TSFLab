@@ -47,6 +47,21 @@ def audit_module_map(skills_on_disk: set[str]) -> list[str]:
     return errors
 
 
+def _module_command_problems() -> list[str]:
+    """Entry commands in the module map must be commands of the public inventory."""
+    from tsflab.agent.modules import MODULES
+    from tsflab.cli.inventory import RETIRED, known
+
+    errors = []
+    for module, info in MODULES.items():
+        for command in info["commands"]:  # type: ignore[union-attr]
+            words = command.split()[1:]  # drop the leading "tsf"
+            word = words[1] if len(words) > 1 else None
+            if not known(words[0], word) or " ".join(words[:2]) in RETIRED:
+                errors.append(f"module {module!r} lists unknown or retired command {command!r}")
+    return errors
+
+
 def audit_agent_assets() -> list[str]:
     """Return violations of the cross-harness Agent-first contract."""
     errors: list[str] = []
@@ -153,6 +168,7 @@ def audit_agent_assets() -> list[str]:
                 )
 
     errors.extend(audit_module_map(seen))
+    errors.extend(_module_command_problems())
     from tsflab.agent.tasks import audit_tasks
 
     errors.extend(audit_tasks())

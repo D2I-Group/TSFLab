@@ -349,7 +349,7 @@ text terms. This does not introduce another model registry or architecture tree.
 The supported facade is `tsflab.experiments.infra.api`. It loads only the requested
 implementation; importing it does not initialize a run, query hardware, start a
 worker, or connect to a tracking service. Discover the exported functions and their
-operational requirements with `tsf agent interface modules --json`. Inspect just one
+operational requirements with `tsf agent interface api --json`. Inspect just one
 configuration section with `tsf agent interface schema --module storage --json`.
 
 | Responsibility | Focused module | Required context |

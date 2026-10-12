@@ -153,13 +153,19 @@ def _build_loaders(config):
     return train_set, train_loader, vali_set, vali_loader, test_set, test_loader, adj_norm
 
 
+#: Parameters that equal the dataset's channel count when a card declares them ``from = "channels"``.
+CHANNEL_WIDTHS = frozenset({"enc_in", "c_out", "dec_in"})
+
+
 def _channel_params(spec, config, train_set) -> dict:
     """Model parameters with the data-dependent channel counts filled in from the data.
 
-    A model card declares which parameters follow the channel count (``[data_params]`` entries with
-    ``from = "channels"``). Presets carry the value of the dataset they were written for, so on other
-    data (multivariate, ``features = "M"``) these parameters are set to the number of channels the
-    dataset actually has. Other modes and parameters are left as configured.
+    A model card declares which parameters depend on the channel count (``[data_params]`` entries
+    with ``from = "channels"``). The channel widths among them (``enc_in``, ``c_out``, ``dec_in``)
+    equal the channel count, so on other data (multivariate, ``features = "M"``) they are set to the
+    number of channels the dataset actually has; presets carry the value of the dataset they were
+    written for. Other declared parameters only depend on the channel count by a rule stated in the
+    card (a cap, a divisor, a formula, a flag), so they are left as configured.
     """
     params = dict(config.model.params)
     data = getattr(train_set, "data", None)
@@ -175,13 +181,15 @@ def _channel_params(spec, config, train_set) -> dict:
         return params
     channels = int(data.shape[-1])
     follow = {name for name, rule in declared.items()
-              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"}
+              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"
+              and name in CHANNEL_WIDTHS}
     # In multivariate mode the output and decoder widths equal the input width; presets that set them to
     # the same value as enc_in follow it even when the card lists only enc_in.
     if "enc_in" in follow:
         follow |= {n for n in ("c_out", "dec_in") if params.get(n) == params.get("enc_in")}
     for name in sorted(follow):
-        if name in params and isinstance(params[name], int) and params[name] != channels:
+        value = params.get(name)
+        if isinstance(value, int) and not isinstance(value, bool) and value != channels:
             print(f"Setting {name} = {channels} from the data (preset: {params[name]})")
             params[name] = channels
     return params

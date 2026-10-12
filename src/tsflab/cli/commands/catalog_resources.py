@@ -564,17 +564,14 @@ def _read(kind: str, action: str, rest: list[str]) -> int:
     return _dataset_read(action, rest)
 
 
-CATALOG_USAGE = (
-    "usage: tsf catalog [overview] [--json]\n"
-    "       tsf catalog search <terms...> [--kind model|component|dataset] [--capability C] "
-    "[--limit N] [--json]\n"
-    "       tsf catalog list [--kind model|component|dataset] [--json]\n"
-    "       tsf catalog show <name...> [--kind model|component|dataset] [--depth {0,1,2,3}] [--json]\n"
-    "       tsf catalog match <dataset...> [--extra TERM...] [--top N] [--json]   models/components whose fits match\n"
-    "Each search result is one L0 line: name, kind, summary, tags. `show` opens L1 by default;\n"
-    "--kind is needed only when a name exists in more than one catalog. Several names are shown\n"
-    "(or matched) in turn; with --json they print one JSON list."
-)
+def _catalog_usage() -> str:
+    from tsflab.cli.inventory import group_usage
+
+    return group_usage("catalog") + (
+        "\nEach search result is one L0 line: name, kind, summary, tags. `show` opens L1 by default;\n"
+        "--kind is needed only when a name exists in more than one catalog. Several names are shown\n"
+        "(or matched) in turn; with --json they print one JSON list."
+    )
 
 
 def catalog_command(args: list[str]) -> int:
@@ -582,7 +579,7 @@ def catalog_command(args: list[str]) -> int:
     if not args or args[0] == "overview" or args == ["--json"]:
         return _catalog_overview("--json" in args)
     if args[0] in {"-h", "--help", "help"}:
-        print(CATALOG_USAGE)
+        print(_catalog_usage())
         return 0
     action, rest = args[0], args[1:]
     if action == "search":
@@ -598,10 +595,10 @@ def catalog_command(args: list[str]) -> int:
 
         return match_command(rest, ROOT)
     if action not in {"list", "show"}:
-        print(CATALOG_USAGE, file=sys.stderr)
+        print(_catalog_usage(), file=sys.stderr)
         return 2
     if {"-h", "--help"} & set(rest):
-        print(CATALOG_USAGE)
+        print(_catalog_usage())
         return 0
     kind, rest = _extract_kind(rest)
     if kind not in (None, "model", "component", "dataset"):
@@ -674,16 +671,9 @@ def _show_many(kind: str | None, rest: list[str]) -> int:
 
 def model_command(args: list[str]) -> int:
     """Scaffold, add, verify, compose, or audit models (reads live under `tsf catalog`)."""
-    usage = (
-        "usage: tsf model {scaffold,add,artifacts,verify,compose,similar,issues,audit} [args...]\n"
-        "       tsf model verify <Name...> | --all | --changed [--base REF] [--jobs N] [--json]\n"
-        "       tsf model compose <spec.toml> [--json] [--write-config PATH --dataset D --enc-in N "
-        "[--smoke]] [--register NAME [--dry-run]]\n"
-        "       tsf model similar [slug...] [--threshold 0.6] [--min-tokens 40] [--top N] [--json]\n"
-        "       tsf model issues [Name...] [--kind KIND] [--json | --summary]\n"
-        "       tsf model audit [Name...] [--components] [--release] [--json | --summary]\n"
-        "Find and read models with `tsf catalog search|show --kind model`."
-    )
+    from tsflab.cli.inventory import group_usage
+
+    usage = group_usage("model") + "\nFind and read models with `tsf catalog search|show --kind model`."
     if not args or args[0] in {"-h", "--help", "help"}:
         print(usage)
         return 0

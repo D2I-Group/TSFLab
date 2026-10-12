@@ -159,7 +159,10 @@ def run_command(rest: list[str]) -> int:
         return operations_command([backend, *rest])
     from tsflab.experiments.infra.execution import cancel, execute, preflight, prepare_sweep, status, wait
     from tsflab.experiments.infra.policy import load_policy
-    parser = argparse.ArgumentParser(prog="tsf run", description="Run experiments. Optional: --policy execution.toml. Manage existing runs with status/cancel/resume <directory>; wait <directory> [--timeout S] blocks until a run or sweep started in the background ends and prints one summary. --smoke (--all | --model NAME | --config PATH...) runs smoke configs; --backend queue|slurm ACTION DIR submits prepared sweeps (see tsf run --backend queue --help).", epilog="Also: tsf run --smoke (--all | --model NAME | --config PATH...); tsf run --backend queue|slurm ACTION DIR.")
+    from tsflab.cli.inventory import group_usage
+
+    parser = argparse.ArgumentParser(prog="tsf run", description=group_usage("run"),
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("configs", nargs="*")
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--gpus", default=None)

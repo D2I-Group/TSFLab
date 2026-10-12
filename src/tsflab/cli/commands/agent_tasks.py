@@ -39,13 +39,10 @@ def _supplied(items: list[str]) -> dict[str, str]:
     return values
 
 
-AGENT_USAGE = (
-    "usage: tsf agent task {list,show,render,start,validate} [args...]\n"
-    "       tsf agent interface [show|schema|modules] [--module SECTION] [--json]\n"
-    "       tsf agent modules [--json]     modules, skills, and tasks of this project\n"
-    "       tsf agent sync                 refresh project skills/tasks from the installed TSFLab\n"
-    "start prepares a research round and prompt; it does not dispatch an Agent"
-)
+def _usage() -> str:
+    from tsflab.cli.inventory import group_usage
+
+    return group_usage("agent")
 
 
 def _modules_command(tail: list[str]) -> int:
@@ -68,13 +65,14 @@ def _modules_command(tail: list[str]) -> int:
         print(f"    skills: {', '.join(record['skills'])}")
         if record["tasks"]:
             print(f"    tasks: {', '.join(record['tasks'])}")
+        print(f"    commands: {', '.join(record['commands'])}   (usage: tsf <command> --help)")
     return 0
 
 
 def agent_command(args: list[str]) -> int:
     """Route task inspection, rendering, interface discovery, and project asset sync."""
     if not args or args[0] in {"-h", "--help", "help"}:
-        print(AGENT_USAGE)
+        print(_usage())
         return 0
     if args[0] == "interface":
         from tsflab.cli.commands.infrastructure import infrastructure_command
@@ -87,11 +85,11 @@ def agent_command(args: list[str]) -> int:
 
         return sync_command(args[1:])
     if args[0] != "task":
-        print(AGENT_USAGE, file=sys.stderr)
+        print(_usage(), file=sys.stderr)
         return 2
     rest = args[1:]
     if not rest or rest[0] in {"-h", "--help", "help"}:
-        print(AGENT_USAGE)
+        print(_usage())
         return 0
     action, tail = rest[0], rest[1:]
     try:

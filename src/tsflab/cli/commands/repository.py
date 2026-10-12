@@ -78,15 +78,12 @@ def run_contracts(level: str, models: list[str] | None) -> int:
 
 
 def repository_command(args: list[str]) -> int:
-    """Check repository contracts, regenerate cards, or export the TSF-Core schema."""
-    usage = "usage: tsf repo {check,cards,schema} [args...]"
+    """Check repository contracts, regenerate derived indexes, or export the TSF-Core schema."""
+    from tsflab.cli.inventory import group_usage
+
+    usage = group_usage("repo")
     if not args or args[0] in {"-h", "--help", "help"}:
         print(usage)
-        print("  check   the single mergeable gate: [--scope full|changed] [--only STEP...] [--json]")
-        print("          --audit runs the static audits only; --contracts construct|forward|backward|strict")
-        print("          [--models NAME...] executes model tensor contracts")
-        print("  cards   regenerate component/dataset cards, the model documentation index, and .agents/README.md")
-        print("  schema  export TSF-Core JSON Schema [--check] [--out DIR]")
         return 0
     action, rest = args[0], args[1:]
     if action == "check":
