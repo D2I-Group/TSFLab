@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.series_decomposition import EdgePaddedMovingAverage
+from tsflab.models._inputs import check_window
 
 
 class MovingAverageDecomposition(nn.Module):
@@ -112,11 +113,6 @@ def multiscale_lengths(seq_len: int, window: int, layers: int) -> tuple[int, ...
     return tuple(lengths)
 
 
-def _check_arguments(seq_len: int, pred_len: int) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("lengths, channels, widths, and layers must be positive")
-
-
 def _check_top_k(decomp_method: str, top_k: int, scale_lengths: tuple[int, ...]) -> None:
     if decomp_method == "dft_decomp" and top_k > min(scale_lengths) // 2:
         raise ValueError("top_k exceeds the coarsest scale's non-DC frequencies")
@@ -127,7 +123,6 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int, down_sampling_window: int, down_sampling_layers: int, moving_avg: int, top_k: int, dropout: float, use_norm: bool, decomp_method: str) -> None:
         super().__init__()
-        _check_arguments(seq_len, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
@@ -182,8 +177,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         raw_scales = self._downsample(x_enc)
         normalized = [
             normalizer(scale, "norm")

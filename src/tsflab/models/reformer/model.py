@@ -7,6 +7,8 @@ import math
 import torch
 from torch import nn
 
+from tsflab.models._inputs import check_window
+
 
 class LSHSelfAttention(nn.Module):
     """Shared-QK attention after random-projection hashing, sorting, and chunking.
@@ -227,8 +229,6 @@ class Model(nn.Module):
         super().__init__()
         c_out = enc_in if c_out is None else c_out
         total_length = seq_len + pred_len
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("all Reformer dimensions and counts must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.embedding = TimeValueEmbedding(enc_in, d_model, dropout)
         self.layers = nn.ModuleList(
@@ -282,10 +282,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         values = torch.cat((x_enc, self._future(x_enc, x_dec)), dim=1)
         hidden = self.embedding(values, self._marks(x_mark_enc, x_mark_dec))
         for layer in self.layers:

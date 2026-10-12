@@ -22,6 +22,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 # Constants of the official tree (not exposed as command-line options there).
 ROUTER_TEMPERATURE = 0.2
 FORECAST_HIDDEN = 128
@@ -293,10 +295,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         series, mean, std = self.normalize(x_enc.transpose(1, 2))
         forecasts = [
             heads(bands) for heads, bands in zip(self.heads, self.routed_levels(series))

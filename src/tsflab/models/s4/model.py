@@ -9,6 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 def zoh_discretize_diagonal(a: torch.Tensor, b: torch.Tensor, dt: torch.Tensor):
@@ -102,8 +103,6 @@ class Model(nn.Module):
     ):
         super().__init__()
         c_out = enc_in if c_out is None else c_out
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("all S4 dimensions and counts must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_norm = use_norm
         self.input_projection = nn.Linear(enc_in, d_model)
@@ -121,10 +120,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_norm:
             values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         else:

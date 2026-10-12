@@ -8,6 +8,7 @@ from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaBlock
+from tsflab.models._inputs import check_window
 
 
 class InvertedTokenization(nn.Module):
@@ -69,8 +70,6 @@ class Model(nn.Module):
         use_norm=True,
     ):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("all S-Mamba dimensions and counts must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_norm = use_norm
         self.tokenization = InvertedTokenization(seq_len, d_model, dropout)
@@ -89,10 +88,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_norm:
             values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         else:

@@ -29,6 +29,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 NORM_EPS = 1e-5  # instance-normalisation variance floor
 BETA_CLAMP = 1e-6  # learned beta is clamped to [1e-6, 1 - 1e-6]
@@ -321,7 +322,6 @@ class Model(nn.Module):
         return torch.cat(chunks, dim=0)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(f"StaTS expects [B, {self.seq_len}, {self.enc_in}] inputs")
+        check_window(x_enc, self.seq_len, self.enc_in)
         samples = self.sample(x_enc)
         return empirical_quantiles(samples, self.quantile_levels.to(samples.dtype))

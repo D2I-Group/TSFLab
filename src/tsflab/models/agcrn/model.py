@@ -9,6 +9,7 @@ import torch.nn as nn
 from tsflab.models._components.graph_conv_gru import GraphConvGRUCell
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._components.node_adaptive_graph_conv import NodeAdaptiveGraphConv
+from tsflab.models._inputs import check_window
 
 
 class AdaptiveGraphGRUCell(GraphConvGRUCell):
@@ -44,7 +45,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx, output_dim
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("AGCRN dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
@@ -75,8 +76,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"AGCRN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:
             raise ValueError("AGCRN received fewer input features than configured")

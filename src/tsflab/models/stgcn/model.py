@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.graph_spectral import chebyshev_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class TemporalGate(nn.Module):
@@ -63,11 +64,9 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, Kt: int = 3, Ks: int = 3, hidden_dim: int = 64, bottleneck_dim: int = 16, out_hidden_dim: int = 128, act_func: str = "glu", graph_conv_type: str = "cheb_graph_conv", bias: bool = True, droprate: float = 0.5) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("STGCN dimensions must be positive")
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         supports = chebyshev_supports(adjacency, Ks)
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
         self.block1 = SpatioTemporalBlock(input_dim, hidden_dim, bottleneck_dim, Kt, supports, bias, droprate)
@@ -82,8 +81,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STGCN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         if data.shape[-1] < self.input_dim:
             raise ValueError("STGCN received fewer input features than configured")

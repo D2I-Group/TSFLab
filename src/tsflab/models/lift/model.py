@@ -15,6 +15,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.dlinear import DLinearBackbone
+from tsflab.models._inputs import check_window
 
 
 class ComplexLinear(nn.Module):
@@ -50,8 +51,8 @@ class Model(nn.Module):
         lead_chunk_size: int = 32,
     ) -> None:
         super().__init__()
-        if pred_len < 1 or seq_len < 4:
-            raise ValueError("seq_len must be at least 4 and other sizes positive")
+        if seq_len < 4:
+            raise ValueError("seq_len must be at least 4")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.leaders = min(leader_num, enc_in)
         self.states = state_num
@@ -152,8 +153,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         forecast = self.backbone(x_enc)
         refined = self.refine(x_enc.transpose(1, 2), forecast.transpose(1, 2))
         return refined.transpose(1, 2)

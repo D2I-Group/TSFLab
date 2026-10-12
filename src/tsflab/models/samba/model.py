@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class SimplifiedMambaMixer(MambaBlock):
@@ -108,8 +109,6 @@ class Model(nn.Module):
         use_act: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("SAMBA dimensions must be positive")
         if patch_len > seq_len + stride:
             raise ValueError("patch_len exceeds the padded history")
         self.seq_len = seq_len
@@ -150,10 +149,7 @@ class Model(nn.Module):
         return norm(hidden + residual)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch, channels = x_enc.shape[0], self.enc_in
         series = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         patches = self.padding_patch_layer(series).unfold(-1, self.patch_len, self.stride)

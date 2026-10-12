@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class ATanSpike(torch.autograd.Function):
@@ -173,8 +174,7 @@ class Model(nn.Module):
         return out.reshape(b, c, -1)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.size(1) != self.seq_len or x_enc.size(2) != self.enc_in:
-            raise ValueError(f"TSLIF expects [B, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm")
         forecast = self.head(self.spiking_states(x))  # [B, C, pred_len]
         return self.revin(forecast.transpose(1, 2), "denorm")

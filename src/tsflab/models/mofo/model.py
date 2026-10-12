@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.marks import elapsed_minutes
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 #: Dropout of the SwiGLU feed-forward in the reference implementation.
 FFN_DROPOUT = 0.3
@@ -182,8 +183,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         normalized = self.normalization(x_enc, "norm").transpose(1, 2)
         tokens = self.embedding(period_structured_patches(normalized, self.period))

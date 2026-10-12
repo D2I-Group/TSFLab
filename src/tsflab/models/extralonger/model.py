@@ -40,6 +40,7 @@ import torch.nn as nn
 
 from tsflab.models._components.graph_masked_attention import GlobalLocalGraphAttention
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class TransposeAxes(nn.Module):
@@ -121,7 +122,7 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("Extralonger dimensions must be positive")
 
         self.seq_len = seq_len
@@ -195,8 +196,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"Extralonger expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         batch_size = x_enc.shape[0]
         history = to_spatiotemporal(x_enc, x_mark_enc)
         values = history[..., 0]  # (B, T, N)

@@ -20,6 +20,7 @@ from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.mamba import RMSNorm
 from tsflab.models._components.periodic_alibi_bias import periodic_alibi_bias
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class PeriodicNestedGroupAttention(nn.Module):
@@ -112,8 +113,6 @@ class Model(nn.Module):
         causal: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid PENGUIN dimension")
         if seq_len < patch_len:
             raise ValueError("seq_len must be at least patch_len")
         token_periods = _token_periods(periods, stride)
@@ -136,8 +135,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in}), got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         tokens, n_vars = self.patch_embedding(x)  # [B*C, N, d]
         for layer in self.layers:

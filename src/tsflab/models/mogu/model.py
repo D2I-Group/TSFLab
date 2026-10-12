@@ -18,6 +18,7 @@ from tsflab.models._components.embed import DataEmbedding_inverted
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 def precision_weights(variance: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
@@ -151,8 +152,6 @@ class Model(nn.Module):
         nll_eps: float = 1e-6,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -171,8 +170,7 @@ class Model(nn.Module):
 
     def expert_outputs(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Per-expert means and variances, each ``[B, k, H, C]`` (Eq. 15)."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_norm:
             # Instance normalization of every variate over the look-back window.
             normalized, mean, stdev = standardize(x_enc)

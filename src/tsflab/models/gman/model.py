@@ -25,6 +25,7 @@ from torch import nn
 from tsflab.models._components.gated_fusion import GatedFusion
 from tsflab.models._components.marks import TIME_FEATURES
 from tsflab.models._components.node2vec_embedding import node2vec_embedding
+from tsflab.models._inputs import check_window, square_adjacency
 
 # Official masked-score value (``-2 ** 15 + 1``) for the causal temporal mask.
 _MASKED_SCORE = -(2.0**15) + 1.0
@@ -194,16 +195,14 @@ class Model(nn.Module):
         node2vec_seed: int = 0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("lengths and nodes must be positive")
+        if enc_in < 1:
+            raise ValueError("enc_in must be positive")
         if adj_mx is None:
             raise ValueError(
                 "GMAN needs the road-network adjacency adj_mx [enc_in, enc_in] for its node2vec "
                 "spatial embedding; use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
             )
-        adjacency = np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        adjacency = square_adjacency(adj_mx, enc_in, dtype=np.float64)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.steps_per_day = steps_per_day
         width = num_heads * head_dim
@@ -269,8 +268,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         batch = x_enc.shape[0]
         history = self._calendar(x_mark_enc, self.seq_len)
         if history is None:

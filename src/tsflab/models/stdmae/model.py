@@ -33,6 +33,7 @@ from tsflab.models._components.diffusion_conv import DiffusionConv2d
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._components.tst_transformer import TSTEncoder
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def sincos_2d(rows: int, cols: int, width: int) -> torch.Tensor:
@@ -135,8 +136,8 @@ class WaveNetGraphBlock(nn.Module):
         return self.norm(mixed), skip
 
 
-def _check_sizes(seq_len: int, pred_len: int, num_nodes: int, history_len: int, patch_size: int) -> None:
-    if min(seq_len, pred_len, num_nodes) < 1:
+def _check_sizes(seq_len: int, num_nodes: int, history_len: int, patch_size: int) -> None:
+    if num_nodes < 1:
         raise ValueError("STDMAE dimensions must be positive")
     if seq_len % patch_size:
         raise ValueError("seq_len must be a multiple of patch_size")
@@ -160,10 +161,8 @@ def _supports(adj_mx: np.ndarray | None, num_nodes: int):
     adjacency = (
         np.eye(num_nodes, dtype=np.float32)
         if adj_mx is None
-        else np.asarray(adj_mx, dtype=np.float32)
+        else square_adjacency(adj_mx, num_nodes)
     )
-    if adjacency.shape != (num_nodes, num_nodes):
-        raise ValueError("adj_mx shape must match num_nodes")
     return adj_to_supports(adjacency)
 
 
@@ -193,7 +192,7 @@ class Model(nn.Module):
         freeze_encoders: bool = False,
     ) -> None:
         super().__init__()
-        _check_sizes(seq_len, pred_len, num_nodes, history_len, patch_size)
+        _check_sizes(seq_len, num_nodes, history_len, patch_size)
         receptive = receptive_field(blocks, layers, kernel_size)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.history_len, self.in_dim, self.receptive_field = history_len, in_dim, receptive
@@ -258,10 +257,7 @@ class Model(nn.Module):
         return x
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(
-                f"STDMAE expects (B, {self.seq_len}, {self.num_nodes}) values"
-            )
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         if data.shape[-1] < self.in_dim:
             raise ValueError("STDMAE received fewer input features than configured")

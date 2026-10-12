@@ -8,6 +8,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class Model(nn.Module):
@@ -20,7 +21,7 @@ class Model(nn.Module):
                  random_feature_dim: int = 16, dropout: float = 0.1,
                  use_residual: bool = True, use_bn: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("lengths and nodes must be positive")
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
         self.tau, self.use_residual = float(tau), use_residual
@@ -37,9 +38,7 @@ class Model(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.BatchNorm1d(hid_dim) if use_bn else nn.Identity()
         self.forecast = nn.Linear(hid_dim, pred_len)
-        adj = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adj.shape != (num_nodes, num_nodes):
-            raise ValueError(f"adjacency must have shape {(num_nodes, num_nodes)}")
+        adj = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         adj = adj + np.eye(num_nodes, dtype=np.float32)
         adj /= np.maximum(adj.sum(-1, keepdims=True), 1e-6)
         self.register_buffer("graph_prior", torch.from_numpy(adj))
@@ -55,8 +54,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         st = to_spatiotemporal(x_enc, x_mark_enc)
         if st.shape[-1] < self.input_dim:
             st = torch.cat((st, st.new_zeros(*st.shape[:-1], self.input_dim-st.shape[-1])), -1)

@@ -26,6 +26,7 @@ from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.positional_encoding import positional_encoding
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class TokenBatchNorm(nn.Module):
@@ -145,8 +146,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("MoU dimensions must be positive")
         if seq_len < patch_len:
             raise ValueError("seq_len must be at least patch_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -167,10 +166,7 @@ class Model(nn.Module):
         self.head = FlattenForecastHead(False, enc_in, d_model * patch_num, pred_len, head_dropout)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         z = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         z = self.pad(z).unfold(-1, self.patch_len, self.stride)  # [B, C, N, patch_len]

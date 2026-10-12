@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.last_value_center import center_on_last_value, restore_last_value
+from tsflab.models._inputs import check_window
 
 
 def dominant_periods(values: torch.Tensor, count: int) -> list[int]:
@@ -147,8 +148,6 @@ class Model(nn.Module):
         hidden: int = 16,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("CrossGNN dimensions must be positive")
         if scale_number > seq_len // 2:
             raise ValueError("scale_number exceeds available non-DC frequencies")
         self.seq_len = seq_len
@@ -184,10 +183,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.channels})"
-            )
+        check_window(x_enc, self.seq_len, self.channels)
         if self.anti_ood:
             centered, baseline = center_on_last_value(x_enc)
         else:

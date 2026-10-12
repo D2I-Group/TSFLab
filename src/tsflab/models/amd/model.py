@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class FlatBatchNorm(nn.Module):
@@ -182,8 +183,6 @@ class Model(nn.Module):
         batchnorm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("AMD dimensions must be positive")
         if seq_len % patch or seq_len % (mix_layer_scale**mix_layer_num):
             raise ValueError("seq_len must be divisible by patch and by mix_layer_scale**mix_layer_num")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -201,10 +200,7 @@ class Model(nn.Module):
         )
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         time_embedding = self.past_mixing(x)
         for block in self.blocks:

@@ -30,6 +30,7 @@ import torch.nn as nn
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def greedy_scan_path(cost: np.ndarray, start: int) -> np.ndarray:
@@ -153,8 +154,6 @@ class Model(nn.Module):
         atsp_seed: int = 0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, widths, and layer counts must be positive")
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -245,10 +244,7 @@ class Model(nn.Module):
 
     # --------------------------------------------------------------- forward
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"MambaTS expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         values = self.norm(x_enc, "norm")
         patches = values.transpose(1, 2).unfold(-1, self.patch_len, self.stride)

@@ -24,6 +24,7 @@ import torch.nn as nn
 
 from tsflab.models._components.frwkv_linear_attention import FRWKVSpectralBranch
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 _ALPHA_MAX = 0.20
 
@@ -85,8 +86,8 @@ class Model(nn.Module):
         loss_alpha: float = 0.5,
     ) -> None:
         super().__init__()
-        if seq_len < 2 or pred_len < 1:
-            raise ValueError("seq_len >= 2 and positive pred_len required")
+        if seq_len < 2:
+            raise ValueError("seq_len >= 2 required")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.embed_size, self.period_len = embed_size, period_len
         # Training-objective settings read by spec.training_objective (official WeightedL1Loss).
@@ -186,10 +187,7 @@ class Model(nn.Module):
         return series.transpose(-1, -2)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm")
         x_emb = self.embed(x)
         hidden = x_emb + self.spectral_transform(x_emb)  # Eq. 21

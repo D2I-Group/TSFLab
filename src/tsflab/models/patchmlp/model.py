@@ -6,12 +6,13 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 from tsflab.models.patchmlp.layers import Emb, Encoder, SeriesDecomp
 
 
 def _check_patches(seq_len: int, pred_len: int, patch_len: list[int]) -> None:
-    if seq_len < 2 or pred_len < 1:
-        raise ValueError("seq_len >= 2 and pred_len >= 1 are required")
+    if seq_len < 2:
+        raise ValueError("seq_len >= 2 is required")
     if any(patch > seq_len for patch in patch_len):
         raise ValueError("each patch length must be in [2, seq_len]")
 
@@ -56,10 +57,7 @@ class PatchMLPModel(nn.Module):
         self.projector = nn.Linear(d_model, pred_len, bias=True)
 
     def forecast(self, x_enc: torch.Tensor) -> torch.Tensor:
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                "PatchMLP input must match the configured sequence length and channels"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_norm:
             x_enc, means, stdev = standardize(x_enc)
 

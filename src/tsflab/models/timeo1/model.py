@@ -11,6 +11,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     def __init__(
@@ -23,8 +25,6 @@ class Model(nn.Module):
         rank_ratio: float = 0.5,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, and dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -120,10 +120,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected input (B, {self.seq_len}, {self.enc_in}), got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         values = x_enc.transpose(1, 2)
         return (self.temporal(values) + self.skip(values)).transpose(1, 2)
 

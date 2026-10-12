@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -57,8 +58,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm") if self.use_revin else x_enc
         channel_history = normalized.transpose(1, 2)
         masked, _, _ = self.energy_aware_decomposition(channel_history)

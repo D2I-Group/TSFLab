@@ -27,6 +27,7 @@ import torch.nn.functional as F
 from tsflab.models._components.inception_block import InceptionBlock2d
 from tsflab.models._components.positional_encoding import positional_encoding
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def derivative_heatmap(x: torch.Tensor) -> torch.Tensor:
@@ -222,8 +223,7 @@ class Model(nn.Module):
         return self.head_dropout(self.head(windows))
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.size(1) != self.seq_len or x_enc.size(2) != self.enc_in:
-            raise ValueError(f"Times2D expects [B, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm")
         combined = self.pdb(x) + self.fsdh(x)  # Eq. (13)
         return self.revin(combined.transpose(1, 2), "denorm")

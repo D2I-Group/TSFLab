@@ -90,8 +90,6 @@ class PatchEncoding(nn.Module):
 
 
 def _check_config(seq_len, pred_len, patch_len, stride) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("LLM4TS sizes must be positive")
     if patch_len > seq_len + stride:
         raise ValueError("patch_len must not exceed seq_len + stride")
 

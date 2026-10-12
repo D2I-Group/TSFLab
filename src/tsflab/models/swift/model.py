@@ -16,6 +16,7 @@ from torch import nn
 
 from tsflab.models._components.haar_dwt1d import HaarDWT1D, HaarIDWT1D
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def _half_length(length: int) -> int:
@@ -86,8 +87,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ) -> torch.Tensor:
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         normalized = self.revin(x_enc, "norm")
         values = normalized.permute(0, 2, 1)

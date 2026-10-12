@@ -9,6 +9,7 @@ import torch.nn as nn
 from tsflab.models._components.graph_conv_gru import GraphConvGRUCell
 from tsflab.models._components.marks import normalized_time_features, to_spatiotemporal
 from tsflab.models._components.node_adaptive_graph_conv import NodeAdaptiveGraphConv
+from tsflab.models._inputs import check_window
 
 
 class MetaGraphGRUCell(GraphConvGRUCell):
@@ -77,8 +78,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"HimNet expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         states = [x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden) for cell in self.encoder]
         zero_horizon = self.horizon_embedding.new_zeros(self.horizon_embedding.shape[-1])

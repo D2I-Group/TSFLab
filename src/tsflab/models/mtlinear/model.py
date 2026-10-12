@@ -21,6 +21,7 @@ from tsflab.models._components.last_value_center import (
     restore_last_value,
 )
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 LAYER_TYPES = ("DLinear", "NLinear", "Linear", "RLinear")
 
@@ -67,8 +68,6 @@ class Model(nn.Module):
         use_variates_penalty: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cluster_dist = float(cluster_dist)
         self.num_groups = min(max_clusters, enc_in)
@@ -111,8 +110,7 @@ class Model(nn.Module):
     # -- Sec. 4.4: one linear forecaster per group ---------------------------------
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         out = x_enc.new_zeros(batch, self.pred_len, self.enc_in)
         for group, head in enumerate(self.heads):

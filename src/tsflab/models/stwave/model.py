@@ -11,12 +11,11 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _graph_data(adjacency: np.ndarray, nodes: int, width: int) -> tuple[torch.Tensor, torch.Tensor]:
-    matrix = np.asarray(adjacency, dtype=np.float32)
-    if matrix.shape != (nodes, nodes):
-        raise ValueError(f"STWave adjacency must have shape ({nodes}, {nodes})")
+    matrix = square_adjacency(adjacency, nodes)
     symmetric = np.maximum(matrix, matrix.T) + np.eye(nodes, dtype=np.float32)
     degree = symmetric.sum(-1)
     normalized = symmetric / np.sqrt(np.maximum(degree[:, None] * degree[None, :], 1e-8))
@@ -116,7 +115,7 @@ class Model(nn.Module):
                  hidden_size: int = 16, layers: int = 1,
                  log_samples: int = 1) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) <= 0:
+        if num_nodes <= 0:
             raise ValueError("STWave dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         if adj_mx is None:
@@ -142,8 +141,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STWave expects [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         values = to_spatiotemporal(x_enc, x_mark_enc)
         calendar = values[..., 1:3]
         if calendar.shape[-1] < 2:

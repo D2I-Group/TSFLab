@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from tsflab.models._components.embed import DataEmbedding_inverted
 from tsflab.models._components.marks import encoder_timef_marks
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 _SQRT3 = math.sqrt(3.0)
 _NORM = 4.0 * math.sqrt(2.0)
@@ -132,8 +133,6 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("DB2TransF sizes must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -151,10 +150,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.normalizer(x_enc, "norm")
         tokens = self.embedding(x, self.calendar_tokens(x_mark_enc))  # [B, N(+marks), d_model]
         for block, norm in zip(self.blocks, self.block_norms):

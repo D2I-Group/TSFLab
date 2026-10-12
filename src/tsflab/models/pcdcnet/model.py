@@ -4,12 +4,11 @@ import numpy as np
 import torch
 from torch import nn
 from tsflab.models._components.marks import TIME_FEATURES, coerce_time_length, future_time_features, to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _normalized_laplacian(adjacency: np.ndarray, nodes: int) -> torch.Tensor:
-    matrix = np.asarray(adjacency, dtype=np.float32)
-    if matrix.shape != (nodes, nodes):
-        raise ValueError(f"PCDCNet adjacency must have shape ({nodes}, {nodes})")
+    matrix = square_adjacency(adjacency, nodes)
     degree = matrix.sum(-1)
     scale = np.zeros_like(degree)
     scale[degree > 0] = degree[degree > 0] ** -0.5
@@ -46,8 +45,6 @@ class Model(nn.Module):
                  adj_mx: np.ndarray | None = None, cov_dim: int | None = None,
                  d_model: int = 64, dropout: float = 0.1) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("PCDCNet seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cov_dim = TIME_FEATURES if cov_dim is None else cov_dim
         if adj_mx is None:
@@ -83,8 +80,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"PCDCNet expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         b = x_enc.shape[0]
         history = to_spatiotemporal(x_enc, x_mark_enc)
         history_cov = history[..., 1:1 + self.cov_dim]

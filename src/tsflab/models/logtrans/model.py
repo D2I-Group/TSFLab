@@ -18,6 +18,7 @@ from tsflab.models._components.logsparse_conv_attention import (
     logsparse_mask,
 )
 from tsflab.models._components.marks import normalized_time_features
+from tsflab.models._inputs import check_window
 
 _CALENDAR_FEATURES = 2  # [time_in_day, day_in_week] from the marks component
 
@@ -73,8 +74,6 @@ class Model(nn.Module):
         history_likelihood: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, layers and embed_dim must be positive")
         if features not in {"M", "S", "MS"}:
             raise ValueError("features must be M, S, or MS")
         self.seq_len = seq_len
@@ -138,8 +137,7 @@ class Model(nn.Module):
         return self.input_dropout(self.input_projection(rows))
 
     def _check(self, x_enc):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
     def _window_covariates(self, x_enc, x_mark_enc, x_mark_dec):
         """Covariates x_t for t = 2 .. seq_len + pred_len, ``[B*C, length, F]``."""

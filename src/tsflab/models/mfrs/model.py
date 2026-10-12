@@ -23,6 +23,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.marks import elapsed_minutes as stamp_minutes
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
+from tsflab.models._inputs import check_window
 
 WAVEFORMS = ("sine", "sawtooth", "rectangle", "pulse")
 
@@ -173,8 +174,6 @@ class Model(nn.Module):
         share_embedding: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("MFRS seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.waveform = waveform
         self.periods = tuple(int(period) for period in periods)
@@ -267,8 +266,7 @@ class Model(nn.Module):
         return (values - mean) / scale, mean, scale
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         variates, mean, scale = self.standardize(x_enc.transpose(1, 2))
         references, _, _ = self.standardize(self.reference_series(self.start_steps(x_enc, x_mark_enc)))
         tokens = self.embedding_dropout(self.embedding(variates))

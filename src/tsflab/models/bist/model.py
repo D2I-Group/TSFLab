@@ -9,6 +9,7 @@ from torch import nn
 
 from tsflab.models._components.marks import normalized_time_features
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 
 class ResidualMLP(nn.Module):
@@ -42,8 +43,6 @@ class Model(nn.Module):
         virtual_clusters: int = 8,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, dimensions, and counts must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -146,10 +145,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         stable, trend = self.decomposition(x_enc)
         temporal = self.stable_projection(stable.transpose(1, 2))
         temporal = temporal + self.trend_projection(trend.transpose(1, 2))

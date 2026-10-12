@@ -24,6 +24,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.hyper_state_scan import GridStateMixer, diagonal_selective_scan
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 class PatchEmbedding(nn.Module):
@@ -159,8 +160,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
         if self.use_norm:
             x_enc, mean, stdev = standardize(x_enc)

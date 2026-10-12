@@ -15,6 +15,7 @@ from torch import nn
 
 from tsflab.models._components.embed import PositionalEmbedding, TokenEmbedding
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 #: Fixed dropout rate inside each MIC layer, as in the reference implementation.
 MIC_DROPOUT = 0.05
@@ -138,8 +139,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         seasonal, trend = self.decomposition(x_enc)
         if self.mode == "regre":
             trend_forecast = self.regression(trend.transpose(1, 2)).transpose(1, 2)

@@ -19,6 +19,7 @@ from scipy.linalg import solve_triangular
 
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import FullAttention
+from tsflab.models._inputs import check_window
 
 StructMode = Literal["triangular", "conv"]
 
@@ -191,8 +192,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("SCFormer sizes must be positive")
         if lookback > seq_len:
             raise ValueError("SCFormer needs lookback <= seq_len (the rest of the window is history)")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -217,8 +216,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or tuple(x_enc.shape[1:]) != (self.seq_len, self.enc_in):
-            raise ValueError(f"SCFormer expects (B, {self.seq_len}, {self.enc_in}) values")
+        check_window(x_enc, self.seq_len, self.enc_in)
         state = self.hippo_state(x_enc)  # computed on the loader-scaled values, before instance norm
         window = x_enc[:, -self.lookback :, :]
         if self.use_norm:  # Eq. (15)

@@ -23,6 +23,7 @@ import torch.nn as nn
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.spectral_descriptor import SpectralDescriptor
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -38,8 +39,6 @@ class Model(nn.Module):
         gate_bias_init: float = -1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("CoRe dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -80,12 +79,6 @@ class Model(nn.Module):
         nn.init.zeros_(self.scr_gate.weight)
         nn.init.constant_(self.scr_gate.bias, float(gate_bias_init))
 
-    def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
-
     def _fit_context(self, context: torch.Tensor, batch: int) -> torch.Tensor:
         """Return a ``[batch, context_len]`` context, left-padded by repetition."""
         if context.ndim == 3:
@@ -122,8 +115,7 @@ class Model(nn.Module):
     def correct(
         self, base_forecast: torch.Tensor, context: torch.Tensor, spectral: torch.Tensor
     ) -> torch.Tensor:
-        if base_forecast.ndim != 3 or base_forecast.shape[1:] != (self.pred_len, self.enc_in):
-            raise ValueError("base_forecast does not match CoRe's output contract")
+        check_window(base_forecast, self.pred_len, self.enc_in, name="base_forecast")
         if spectral.shape != (base_forecast.shape[0], 4):
             raise ValueError("spectral descriptor must be [batch, 4]")
         # The backbone carrier is frozen even if the caller's tensor tracks gradients.
@@ -138,7 +130,7 @@ class Model(nn.Module):
         context: torch.Tensor | None = None,
         base_forecast: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        self._validate(x_enc)
+        check_window(x_enc, self.seq_len, self.enc_in)
         if base_forecast is None:
             base_forecast = self.base(x_enc.transpose(1, 2)).transpose(1, 2)
         if context is None:

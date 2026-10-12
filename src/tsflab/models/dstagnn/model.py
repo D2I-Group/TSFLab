@@ -9,6 +9,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.graph_spectral import chebyshev_supports
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class AxisAttention(nn.Module):
@@ -133,11 +134,7 @@ class Model(nn.Module):
         n_heads: int = 4,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, nodes, and attention dimensions must be positive")
-        adjacency = np.eye(enc_in, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        adjacency = np.eye(enc_in, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, enc_in)
         supports = chebyshev_supports(adjacency, 3)
         # Dynamic attention remains dense; the predefined graph enters the
         # Chebyshev filter rather than becoming a hard attention mask.
@@ -159,8 +156,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         x = self.value_embedding(x_enc[..., None])
         x = x + self.temporal_position[None, :, None] + self.spatial_position[None, None]
         x, self.last_spatial_attention = self.block(x)

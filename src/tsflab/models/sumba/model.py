@@ -92,8 +92,6 @@ class Model(nn.Module):
                  depth: int = 2, diffusion_steps: int = 2, mix: float = 0.1,
                  dropout: float = 0.1) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("Sumba dimensions must be positive")
         self.seq_len, self.pred_len = seq_len, pred_len
         self.input_projection = nn.Linear(1, d_model)
         self.blocks = nn.ModuleList(SumbaBlock(enc_in, d_model, basis_count, basis_rank, temporal_kernels, diffusion_steps, mix, dropout) for _ in range(depth))

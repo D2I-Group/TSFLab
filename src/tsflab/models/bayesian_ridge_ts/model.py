@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Shared channel-wise lag regression with a learned Gaussian prior precision.
@@ -18,8 +20,6 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, initial_weight_precision: float = 1e-3) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("dimensions and initial_weight_precision must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.projection = nn.Linear(seq_len, pred_len)
         self.log_weight_precision = nn.Parameter(
@@ -38,8 +38,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         forecast = self.projection(x_enc.transpose(1, 2)).transpose(1, 2)
         precision, weights = self.weight_precision, self.projection.weight
         self.aux_loss = 0.5 * precision * weights.square().sum()

@@ -12,6 +12,8 @@ from typing import Literal, Sequence
 import torch
 from torch import nn
 
+from tsflab.models._inputs import check_window
+
 LayerKind = Literal["bidirectional", "unidirectional"]
 ValueRange = Literal["unit", "unbounded"]
 
@@ -128,8 +130,6 @@ class Model(nn.Module):
         value_range: ValueRange = "unit",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         widths = _layer_widths(enc_in, hidden_dim, len(layers))
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -172,8 +172,7 @@ class Model(nn.Module):
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         observed = torch.isfinite(x_enc).to(x_enc.dtype)
         values = torch.where(observed.bool(), x_enc, torch.zeros_like(x_enc))
         predictions, error = self._rollout(values, observed)

@@ -19,6 +19,7 @@ from tsflab.models._components.embed import DataEmbedding_inverted
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 class InvertedForecaster(nn.Module):
@@ -88,8 +89,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if pred_len % rollout_steps:
             raise ValueError("pred_len must be divisible by rollout_steps")
         self.seq_len = seq_len
@@ -104,8 +103,7 @@ class Model(nn.Module):
         )
 
     def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x, self.seq_len, self.enc_in)
 
     def rollout(self, x: torch.Tensor) -> list[torch.Tensor]:
         """Algorithm 1 lines 3 and 7: each call reads the last ``S`` values of the

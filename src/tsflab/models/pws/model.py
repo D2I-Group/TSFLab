@@ -9,6 +9,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 _ACTIVATIONS = {
@@ -23,11 +24,6 @@ _ACTIVATIONS = {
 def make_act(name: str):
     name = (name or "").lower()
     return _ACTIVATIONS[name]()
-
-
-def _check_lengths(seq_len: int, pred_len: int) -> None:
-    if seq_len < 1 or pred_len < 1:
-        raise ValueError("c_in, seq_len, and pred_len must be positive")
 
 
 def _check_patching(period: int, seq_len: int) -> None:
@@ -65,7 +61,6 @@ class PWSModel(nn.Module):
         analysis_hidden: list[int] | tuple[int, ...] = (512, 256),
     ):
         super().__init__()
-        _check_lengths(seq_len, pred_len)
         _check_patching(period, seq_len)
         self.c_in = c_in
         self.period = period
@@ -104,10 +99,7 @@ class PWSModel(nn.Module):
         return nn.Linear(self.num_seq_periods, self.num_future_periods)
 
     def _check_input(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.c_in):
-            raise ValueError(
-                f"PWS expects input shaped (batch, {self.seq_len}, {self.c_in})"
-            )
+        check_window(x, self.seq_len, self.c_in)
 
     def _to_periods(self, x: torch.Tensor) -> torch.Tensor:
         if self.seq_len % self.period != 0:

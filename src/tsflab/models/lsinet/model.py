@@ -162,8 +162,8 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if seq_len < 2 or pred_len < 1:
-            raise ValueError("seq_len must be >= 2 and pred_len must be positive")
+        if seq_len < 2:
+            raise ValueError("seq_len must be >= 2")
 
         self.seq_len = seq_len
         self.pred_len = pred_len

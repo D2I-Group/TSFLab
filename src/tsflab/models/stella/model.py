@@ -12,6 +12,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.marks import TIME_FEATURES
+from tsflab.models._inputs import check_window
 
 #: Sizes of the hour-of-day, day-of-month and month-of-year tables (Eq. 4).
 HOURS, DAYS, MONTHS = 24, 31, 12
@@ -136,8 +137,6 @@ class Model(nn.Module):
         coordinates: np.ndarray | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -155,8 +154,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         encoded = self.encoder(self.embed(x_enc, x_mark_enc))
         return self.output_layer(encoded).transpose(1, 2).contiguous()
 

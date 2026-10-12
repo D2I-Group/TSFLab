@@ -7,6 +7,7 @@ from torch import nn
 
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.wavelet import UndecimatedWaveletTransform
+from tsflab.models._inputs import check_window
 
 
 class MultiScaleTemporalEmbedding(nn.Module):
@@ -165,8 +166,6 @@ class Model(nn.Module):
         num_fusion_layers: int = 1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid AWEMixer dimension")
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -194,8 +193,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         normalized = self.revin(x_enc, "norm")
         flat = normalized.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len)

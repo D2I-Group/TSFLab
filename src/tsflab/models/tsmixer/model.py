@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.mixer_block import MixerBlock
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -21,8 +22,6 @@ class Model(nn.Module):
         dropout: float,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("all dimensions and layer count must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -39,8 +38,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("TSMixer expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden = x_enc
         for block in self.blocks:
             hidden = block(hidden)

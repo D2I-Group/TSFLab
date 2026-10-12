@@ -8,6 +8,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 class ComplexFrequencyInterpolation(nn.Module):
@@ -42,8 +43,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int,
                  individual: bool = False, cut_freq: int = 24) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.total_len = seq_len + pred_len
         self.input_bins = min(cut_freq, seq_len // 2 + 1)
@@ -61,8 +60,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         spectrum = torch.fft.rfft(normalized.transpose(1, 2), dim=-1)[..., : self.input_bins]
         interpolated = self.interpolation(spectrum)

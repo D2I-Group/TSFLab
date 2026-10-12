@@ -5,6 +5,7 @@ from __future__ import annotations
 from torch import nn
 
 from tsflab.models._components.dlinear import DLinearBackbone
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -13,8 +14,6 @@ class Model(nn.Module):
     def __init__(self, c_in: int, seq_len: int, pred_len: int,
                  kernel_size: int = 25, individual: bool = False) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("channels and sequence lengths must be positive")
         self.c_in = c_in
         self.seq_len = seq_len
         self.backbone = DLinearBackbone(
@@ -29,6 +28,5 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.c_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.c_in)
         return self.backbone(x_enc)

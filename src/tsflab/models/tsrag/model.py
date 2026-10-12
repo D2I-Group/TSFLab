@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class AdaptiveRetrievalMixer(nn.Module):
@@ -65,8 +66,6 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -159,10 +158,7 @@ class Model(nn.Module):
         retrieval_contexts: torch.Tensor | None = None,
         retrieval_futures: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected input (B, {self.seq_len}, {self.enc_in}), got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         contexts, futures = self._knowledge(
             normalized, retrieval_contexts, retrieval_futures

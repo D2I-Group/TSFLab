@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -19,8 +20,6 @@ class Model(nn.Module):
                  embedding_dim: int = 8, hyper_hidden: int = 32,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.d_model, self.use_revin = d_model, use_revin
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
@@ -47,8 +46,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm") if self.use_revin else x_enc
         hidden = self.temporal_encoder(normalized.transpose(1, 2))
         weights, bias = self.generated_projection()

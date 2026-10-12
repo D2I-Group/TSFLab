@@ -17,6 +17,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def patch_layout(seq_len: int, patch_len: int, stride: int) -> tuple[int, int]:
@@ -143,8 +144,6 @@ class Model(nn.Module):
         revin_affine: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, and widths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_sizes = tuple(patch_sizes)
         self.revin = RevIN(enc_in, eps=1e-5, affine=revin_affine)
@@ -169,10 +168,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         forecasts = torch.stack(self.branch_forecasts(x_enc), dim=0)
         fused = (self.scale_weights().view(-1, 1, 1, 1) * forecasts).sum(dim=0)
         return self.revin(fused.transpose(1, 2), "denorm")

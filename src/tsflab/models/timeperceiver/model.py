@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class CrossAttentionBlock(nn.Module):
@@ -31,8 +32,6 @@ class Model(nn.Module):
                  num_latents=8, latent_dim=128, latent_d_ff=256,
                  num_latent_blocks=1, query_share=True):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid non-positive TimePerceiver dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.patch_count = math.ceil(seq_len / patch_len)
@@ -71,8 +70,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         padded = F.pad(normalized, (0, self.patch_count*self.patch_len-self.seq_len))

@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.soft_tree import SoftDecisionTree
+from tsflab.models._inputs import check_window
 
 class Model(nn.Module):
     """Average trees with frozen random axis-aligned splits and learned leaves."""
@@ -13,8 +14,6 @@ class Model(nn.Module):
                  temperature: float = 1.0, random_seed: int = 1733,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("dimensions, estimators, and threshold_range must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         input_dim, output_dim = seq_len * enc_in, pred_len * enc_in
         generator = torch.Generator().manual_seed(random_seed)
@@ -38,8 +37,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").flatten(1)
         forecast = torch.stack([tree(normalized) for tree in self.trees]).mean(dim=0)
         forecast = forecast.view(-1, self.pred_len, self.enc_in)

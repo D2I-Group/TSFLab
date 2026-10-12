@@ -24,6 +24,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.adj_norm import symmetric_normalized_laplacian
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 # --------------------------------------------------------------------- graphs
@@ -319,7 +320,7 @@ class Model(nn.Module):
         huber_delta: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("lengths and node counts must be positive")
         if seq_len % local_chunks:
             raise ValueError("seq_len must be a multiple of local_chunks")
@@ -330,9 +331,7 @@ class Model(nn.Module):
         self.semantic_sigma, self.semantic_threshold = semantic_sigma, semantic_threshold
         self.huber_delta = huber_delta  # read by the training objective (Eq. 24)
 
-        adj = np.zeros((num_nodes, num_nodes)) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
-        if adj.shape != (num_nodes, num_nodes):
-            raise ValueError(f"adj_mx must have shape {(num_nodes, num_nodes)}")
+        adj = np.zeros((num_nodes, num_nodes)) if adj_mx is None else square_adjacency(adj_mx, num_nodes, dtype=np.float64)
         support = torch.as_tensor(normalized_support(adj, graph_alpha), dtype=torch.float32)
         self.register_buffer("spatial_support", support)
         # Filled from the training split by ``fit_semantic_graph``; no edges until then.
@@ -380,8 +379,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"GRAMODE expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         x = self.node_features(x_enc, x_mark_enc)
         outputs = []
         for stream, support in ((self.spatial_stream, self.spatial_support),

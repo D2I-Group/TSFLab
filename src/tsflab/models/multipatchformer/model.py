@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 class PatchScale(nn.Module):
@@ -58,8 +59,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         series, mean, std = standardize(x_enc)
         series = series.transpose(1, 2)
         batch, channels = series.shape[:2]

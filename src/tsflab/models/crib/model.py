@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 def observed_statistics(
     values: torch.Tensor, observed: torch.Tensor
@@ -120,8 +122,6 @@ class Model(nn.Module):
         augmentation_rate: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("CRIB dimensions must be positive")
         if seq_len % patch_len:
             raise ValueError("patch_len must divide seq_len")
         self.seq_len = seq_len
@@ -166,10 +166,7 @@ class Model(nn.Module):
         x_enc: torch.Tensor,
         mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.channels})"
-            )
+        check_window(x_enc, self.seq_len, self.channels)
         finite = torch.isfinite(x_enc)
         if mask is not None:
             if mask.shape != x_enc.shape:

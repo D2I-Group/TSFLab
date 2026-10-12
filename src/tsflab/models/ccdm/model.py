@@ -19,6 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
+from tsflab.models._inputs import check_window
 
 
 # ---------------------------------------------------------------------------
@@ -278,8 +279,6 @@ class Model(nn.Module):
         sample_batch_size: int = 100,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("CCDM seq_len and pred_len must be positive")
         levels = _checked_levels(quantile_levels)
         self.output_type = "quantile"
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -361,8 +360,7 @@ class Model(nn.Module):
     @torch.no_grad()
     def sample(self, x_enc: torch.Tensor, num_samples: int | None = None) -> torch.Tensor:
         """``[S, B, pred_len, D]`` forecasts in the input scale."""
-        if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(f"CCDM expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         mean, std = self.window_statistics(x_enc)
         x = (x_enc - mean) / std
         chunks, remaining = [], num_samples or self.num_samples

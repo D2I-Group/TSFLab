@@ -9,6 +9,7 @@ from torch import nn
 from tsflab.models._components.channel_alignment import fit_channels
 from tsflab.models._components.graph_spectral import chebyshev_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class ChebyshevGraphProjection(nn.Module):
@@ -61,11 +62,7 @@ class Model(nn.Module):
         hidden_dim: int = 64,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, nodes, graph order, and hidden size must be positive")
-        adjacency = np.ones((enc_in, enc_in), dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        adjacency = np.ones((enc_in, enc_in), dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, enc_in)
         supports = chebyshev_supports(adjacency, Ks)
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -81,8 +78,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = fit_channels(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         hidden = history.new_zeros((history.shape[0], self.num_nodes, self.cell.hidden_dim))
         cell = torch.zeros_like(hidden)

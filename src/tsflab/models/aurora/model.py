@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -32,8 +33,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("Aurora dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -110,12 +109,6 @@ class Model(nn.Module):
         with torch.no_grad():
             self.prototype_bank.copy_(torch.stack(bases))
 
-    def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
-
     def _patch_tokens(self, x: torch.Tensor) -> torch.Tensor:
         channel_history = x.transpose(1, 2)
         padding = self.num_patches * self.patch_len - self.seq_len
@@ -146,7 +139,7 @@ class Model(nn.Module):
         image_context: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Paper equations (1)--(21), using compact dense modality encoders."""
-        self._validate(x)
+        check_window(x, self.seq_len, self.enc_in)
         batch, _, channels = x.shape
         normalized = self.revin(x, "norm") if self.use_revin else x
         temporal = self._patch_tokens(normalized).reshape(

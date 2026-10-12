@@ -19,6 +19,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.embed import PositionalEmbedding, TokenEmbedding
 from tsflab.models._components.marks import adapt_tslib_marks
+from tsflab.models._inputs import check_window
 
 
 def linear_beta_schedule(beta_start: float, beta_end: float, steps: int) -> torch.Tensor:
@@ -349,8 +350,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         checks = (
-            (min(seq_len, pred_len) < 1,
-             "lengths, channels, widths and diffusion steps must be positive"),
             (features not in {"M", "S", "MS"}, "features must be M, S, or MS"),
             (pred_len % 2**num_blocks, "pred_len must be divisible by 2 ** num_blocks"),
         )
@@ -391,8 +390,7 @@ class Model(nn.Module):
     # ------------------------------------------------------------------ inputs
     def representation(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
         """``X_input = concat(GRU(E(X)), E(X))`` mapped to the horizon: ``[B, pred_len, E+H]``."""
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         embedded = self.value_embedding(x_enc) + self.position_embedding(x_enc)
         if x_mark_enc is not None:
             if x_mark_enc.ndim != 3 or x_mark_enc.shape[:2] != x_enc.shape[:2]:

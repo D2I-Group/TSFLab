@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class TemporalSubsequenceMixer(nn.Module):
@@ -99,8 +100,6 @@ class Model(nn.Module):
         rev: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("all dimensions, layers, and sampling must be positive")
         if features not in {"M", "MS", "S"}:
             raise ValueError("features must be one of M, MS, or S")
         self.seq_len = seq_len
@@ -132,8 +131,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("MTSMixer expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.normalization(x_enc, "norm") if self.normalization else x_enc
         for block in self.blocks:
             x = block(x)

@@ -40,6 +40,7 @@ from tsflab.models._components.interpretable_attention import (
     InterpretableMultiHeadAttention,
     causal_mask,
 )
+from tsflab.models._inputs import check_window
 
 _DEFAULT_LEVELS = [0.1, 0.5, 0.9]
 # Raw mark layout: [year, month, day, weekday, hour, minute]. Year is not a
@@ -87,8 +88,6 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len, pred_len, and enc_in must be positive")
         levels = _quantile_levels(quantile_levels)
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -189,10 +188,7 @@ class Model(nn.Module):
         """Run the network; return quantiles [B, pred_len, C_out, Q] and the
         interpretability weights (static, past, and future variable selection,
         decoder self-attention)."""
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"TFT expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         known_past = self._known_inputs(x_mark_enc, self.seq_len, batch, x_enc)
         known_future = self._known_inputs(x_mark_dec, self.pred_len, batch, x_enc)

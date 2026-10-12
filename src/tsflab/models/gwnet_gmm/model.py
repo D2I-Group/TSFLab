@@ -31,6 +31,7 @@ from tsflab.models._components.adaptive_node_embedding_adjacency import (
 )
 from tsflab.models._components.diffusion_conv import DiffusionConv2d
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 _LOG_2PI = math.log(2.0 * math.pi)
 
@@ -142,8 +143,8 @@ class Model(nn.Module):
         spacing: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("GWNetGMM lengths and num_nodes must be positive")
+        if num_nodes < 1:
+            raise ValueError("GWNetGMM num_nodes must be positive")
         receptive = 1
         dilations = []
         for _ in range(blocks):
@@ -174,8 +175,7 @@ class Model(nn.Module):
 
     def backbone(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
         """ST_Backbone of Eq. (3): ``[B, seq_len, N]`` -> location features ``[B, N, end_channels]``."""
-        if x_enc.ndim != 3 or tuple(x_enc.shape[1:]) != (self.seq_len, self.num_nodes):
-            raise ValueError(f"GWNetGMM expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         if data.shape[-1] < self.in_dim:
             raise ValueError("GWNetGMM received fewer input features than in_dim")

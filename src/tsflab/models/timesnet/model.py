@@ -10,6 +10,7 @@ from tsflab.models._components.dominant_periods import dominant_periods
 from tsflab.models._components.forecast_embedding import RawCalendarEmbedding
 from tsflab.models._components.inception_block import InceptionBlock2d
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_marks, check_window
 
 
 class TimesBlock(nn.Module):
@@ -54,8 +55,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, c_out: int, d_model: int, e_layers: int, d_ff: int, dropout: float, top_k: int = 3, num_kernels: int = 3) -> None:
         super().__init__()
         del label_len
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths, and layer counts must be positive")
         total_length = seq_len + pred_len
         if top_k > total_length // 2:
             raise ValueError("top_k exceeds the available non-DC Fourier frequencies")
@@ -83,12 +82,10 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         if x_mark_enc is None:
             x_mark_enc = x_enc.new_zeros(x_enc.shape[0], self.seq_len, 6)
-        if x_mark_enc.shape != (x_enc.shape[0], self.seq_len, 6):
-            raise ValueError("encoder marks must align with x_enc and contain six columns")
+        check_marks(x_mark_enc, x_enc)
 
         normalized, mean, stdev = standardize(x_enc)
         embedded = self.value_embedding(normalized) + self.calendar_embedding(x_mark_enc)

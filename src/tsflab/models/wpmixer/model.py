@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class OrthogonalWaveletAnalysis(nn.Module):
@@ -74,8 +75,6 @@ class Model(nn.Module):
                  wavelet="db2", level=1, patch_len=16, stride=8,
                  no_decomposition=False):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid WPMixer dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.no_decomposition = no_decomposition
         self.revin = RevIN(enc_in)
@@ -103,8 +102,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         resolutions = [normalized] if self.wavelet is None else self.wavelet(normalized)
         forecasts = torch.stack([branch(signal) for branch, signal in zip(self.branches, resolutions)], -1)

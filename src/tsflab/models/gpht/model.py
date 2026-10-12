@@ -18,6 +18,7 @@ from tsflab.models._components.embed import PatchEmbedding
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 class HierarchicalStage(nn.Module):
@@ -82,8 +83,6 @@ class Model(nn.Module):
         activation: str = "gelu",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("GPHT dimensions must be positive")
         if seq_len % token_len:
             raise ValueError("seq_len must be a multiple of token_len")
         self.seq_len = seq_len
@@ -99,10 +98,7 @@ class Model(nn.Module):
         )
 
     def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+        check_window(x, self.seq_len, self.enc_in)
 
     def next_token_series(self, x: torch.Tensor) -> torch.Tensor:
         """Teacher-forced pass: position ``t`` holds the prediction of ``x[t + token_len]``.

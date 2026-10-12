@@ -24,6 +24,7 @@ from torch.nn.utils.parametrizations import weight_norm
 
 from tsflab.models._components.embed import PositionalEmbedding
 from tsflab.models._components.masking import TriangularCausalMask
+from tsflab.models._inputs import check_window
 
 
 def halved_length(length: int) -> int:
@@ -356,8 +357,7 @@ class Model(nn.Module):
         return self.second_stage(self.first_stage(x_enc))
 
     def _check(self, x_enc: torch.Tensor) -> None:
-        if x_enc.ndim != 3 or x_enc.size(1) != self.seq_len or x_enc.size(2) != self.enc_in:
-            raise ValueError(f"GBT expects [B, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
     def pretrain(self, train_loader, device) -> None:
         """Stage 1: train the Auto-Regression stage alone with MSE against the future

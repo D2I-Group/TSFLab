@@ -26,6 +26,7 @@ from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 def channel_position_table(length: int, d_model: int, base: float = 5000.0) -> torch.Tensor:
@@ -138,10 +139,7 @@ class Model(nn.Module):
         return self.embedding_dropout(tokens)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected x_enc [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         # Per-series instance normalization (identical whether applied before or after grouping).
         normalized = self.revin(x_enc, "norm")

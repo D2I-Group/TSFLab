@@ -24,6 +24,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.mamba import MambaBlock
+from tsflab.models._inputs import check_window
 
 
 class TimeEncoderBlock(nn.Module):
@@ -97,8 +98,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("MTSUNMixers lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.num_patches = math.ceil(seq_len / patch_len)
@@ -161,8 +160,7 @@ class Model(nn.Module):
 
     def forecast_and_reconstruct(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the forecast ``[B, H, N]`` and the reconstructed history ``[B, T, N]``."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         series = x_enc.transpose(1, 2)
         if self.use_norm:
             mean = series.mean(-1, keepdim=True).detach()

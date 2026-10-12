@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def patchify(
@@ -118,8 +119,6 @@ class Model(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if min(context_window, target_window) < 1:
-            raise ValueError("window values must be positive")
         probe = torch.zeros(1, context_window, c_in)
         patch_count = patchify(probe, patch_len, stride, padding_patch).shape[2]
         self.channels = c_in
@@ -176,13 +175,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (
-            self.context_window,
-            self.channels,
-        ):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.context_window}, {self.channels})"
-            )
+        check_window(x_enc, self.context_window, self.channels)
         normalized = self.revin(x_enc, "norm")
         patches = patchify(
             normalized, self.patch_len, self.stride, self.padding_patch

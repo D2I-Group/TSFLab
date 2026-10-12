@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from torch.nn.utils.parametrizations import weight_norm
 
 from tsflab.models._components.marks import days_from_civil
+from tsflab.models._inputs import check_window
 
 EPSILON = 1e-5
 
@@ -158,8 +159,6 @@ class CoefModule(nn.Module):
 
 
 def _check_sizes(seq_len, pred_len, heads, bottleneck) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("seq_len and pred_len must be positive")
     if pred_len < heads:
         raise ValueError("pred_len must be at least heads (the future basis is split into heads)")
     if pred_len < bottleneck:
@@ -284,10 +283,7 @@ class Model(nn.Module):
         return forecast, self.alignment_loss(history_coef, future_coef), self.smoothness_loss(z)
 
     def _check(self, x_enc: torch.Tensor) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec

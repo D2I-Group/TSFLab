@@ -24,6 +24,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.orthogonal_dwt import OrthogonalDWT, coefficient_lengths
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 ROPE_BASE = 10000
 
@@ -230,10 +231,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         coefficients = self.dwt.decompose(normalized)
         tokens = torch.stack([embed(c) for embed, c in zip(self.embeddings, coefficients)], dim=2)

@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from tsflab.models._components.marks import cycle_phase
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class GlobalTemporalRetriever(nn.Module):
@@ -78,8 +79,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -98,10 +97,7 @@ class Model(nn.Module):
         x_enc: torch.Tensor,
         start_index: int | torch.Tensor = 0,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         enhanced = self.retriever(normalized, start_index)
         latent = self.input_projection(enhanced.transpose(1, 2))

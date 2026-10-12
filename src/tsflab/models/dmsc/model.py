@@ -210,8 +210,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("DMSC sizes must be positive")
         if patch_max > seq_len:
             raise ValueError("DMSC needs 1 <= patch_min <= patch_max <= seq_len")
         self.seq_len, self.pred_len, self.enc_in, self.e_layers = seq_len, pred_len, enc_in, e_layers

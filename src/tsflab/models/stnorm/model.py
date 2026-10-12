@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class SpatialNormalization(nn.Module):
@@ -93,8 +94,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STNorm expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         if data.shape[-1] < self.input_dim:
             raise ValueError("STNorm received fewer input features than configured")

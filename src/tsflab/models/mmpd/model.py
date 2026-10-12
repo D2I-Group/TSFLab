@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class AdaLNMLPBlock(nn.Module):
     """Appendix-B AdaLN-MLP recurrence from Eq. (12)."""
@@ -155,8 +157,6 @@ class Model(nn.Module):
         diffusion_weight: float = 0.99,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -188,10 +188,7 @@ class Model(nn.Module):
     def _normalized_context(
         self, x: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+        check_window(x, self.seq_len, self.enc_in)
         mean = x.mean(1, keepdim=True).detach()
         scale = x.std(1, keepdim=True, unbiased=False).clamp_min(1e-5).detach()
         normalized = (x - mean) / scale

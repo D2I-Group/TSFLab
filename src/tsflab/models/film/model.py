@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def legt_transition(order: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -140,8 +141,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len, features
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("FiLM dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
@@ -160,10 +159,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.channels})"
-            )
+        check_window(x_enc, self.seq_len, self.channels)
         normalized = self.revin(x_enc, "norm")
         forecasts = torch.stack([expert(normalized) for expert in self.experts], dim=-1)
         forecast = self.expert_mixture(forecasts).squeeze(-1)

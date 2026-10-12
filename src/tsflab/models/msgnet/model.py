@@ -11,6 +11,7 @@ from torch import nn
 
 from tsflab.models._components.dominant_periods import dominant_periods
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 class AdaptiveMixHopGraph(nn.Module):
@@ -117,8 +118,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         for block in self.blocks:
             hidden = block(hidden)

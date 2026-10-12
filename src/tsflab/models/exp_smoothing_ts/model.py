@@ -7,6 +7,8 @@ import math
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Learn one smoothing coefficient per channel and repeat the final level."""
@@ -15,8 +17,6 @@ class Model(nn.Module):
         self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         initial_logit = math.log(initial_alpha / (1.0 - initial_alpha))
         self.alpha_logit = nn.Parameter(torch.full((enc_in,), initial_logit))
@@ -33,10 +33,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         alpha = self.alpha.view(1, -1)
         level = x_enc[:, 0, :]
         for index in range(1, self.seq_len):

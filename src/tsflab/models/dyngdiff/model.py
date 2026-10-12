@@ -27,6 +27,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
+from tsflab.models._inputs import check_window
 
 # Floors used by the method (official constants).
 SCALE_FLOOR = 1e-5  # mean-absolute context scale
@@ -499,7 +500,6 @@ class Model(nn.Module):
         return torch.cat(chunks, dim=0)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(f"DynGDiff expects [B, {self.seq_len}, {self.enc_in}] inputs")
+        check_window(x_enc, self.seq_len, self.enc_in)
         samples = self.sample(x_enc)
         return empirical_quantiles(samples, self.quantile_levels.to(samples.dtype))

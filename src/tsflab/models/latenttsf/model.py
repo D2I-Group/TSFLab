@@ -38,8 +38,6 @@ class Model(nn.Module):
                  use_latent_norm: bool = True, kernel_size: int = 25, individual: bool = False,
                  ae_train_epochs: int = 100, ae_lr: float = 5e-4, ae_loss: str = "MAE") -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("LatentTSF seq_len and pred_len must be positive")
         self.seq_len, self.pred_len = seq_len, pred_len
         self.mse_weight, self.cosine_weight = float(mse_weight), float(cosine_weight)
         self.ae_train_epochs, self.ae_lr, self.ae_loss = int(ae_train_epochs), float(ae_lr), ae_loss.upper()

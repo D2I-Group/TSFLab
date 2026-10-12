@@ -13,14 +13,11 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from tsflab.models._inputs import check_marks, check_window
+
 
 def _raw_calendar_features(marks: torch.Tensor) -> torch.Tensor:
     """Normalize ``[year, month, day, weekday, hour, minute]`` marks."""
-    if marks.ndim != 3 or marks.shape[-1] != 6:
-        raise ValueError(
-            "Pyraformer raw marks must have shape [batch, time, 6] with "
-            "[year, month, day, weekday, hour, minute]"
-        )
     scales = marks.new_tensor((50.0, 11.0, 30.0, 6.0, 23.0, 59.0))
     offsets = marks.new_tensor((2000.0, 1.0, 1.0, 0.0, 0.0, 0.0))
     return (marks - offsets) / scales - 0.5
@@ -216,8 +213,6 @@ class Model(nn.Module):
         inner_size: int = 5,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         branching = tuple(window_size)
         sizes = pyramid_sizes(seq_len, branching)
         neighbours, neighbour_valid = pyramid_neighbour_table(
@@ -271,17 +266,11 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3:
-            raise ValueError("x_enc must have shape [batch, time, channels]")
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected x_enc shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
+        check_marks(x_mark_enc, x_enc)
         if x_mark_enc is None:
             calendar = x_enc.new_zeros((*x_enc.shape[:2], 6))
         else:
-            if x_mark_enc.shape[:2] != x_enc.shape[:2]:
-                raise ValueError("x_mark_enc batch/time axes must match x_enc")
             calendar = _raw_calendar_features(x_mark_enc.to(dtype=x_enc.dtype))
 
         finest = (

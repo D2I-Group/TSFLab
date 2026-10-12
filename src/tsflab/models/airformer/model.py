@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class CausalTemporalAttention(nn.Module):
@@ -132,8 +133,6 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("AirFormer dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -158,8 +157,7 @@ class Model(nn.Module):
         self.output_head = nn.Linear(d_model * 2, 1)
 
     def _features(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("AirFormer expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         if x_mark_enc is None:
             x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
         features = to_spatiotemporal(x_enc, x_mark_enc)

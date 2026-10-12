@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class ComplexFrequencyMLP(nn.Module):
     """Full complex matrix mapping expanded into real arithmetic (Eq. 7)."""
@@ -74,8 +76,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del features
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("FreTS dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
@@ -102,10 +102,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.channels})"
-            )
+        check_window(x_enc, self.seq_len, self.channels)
         hidden = x_enc.transpose(1, 2).unsqueeze(-1) * self.dimension_extension
         residual = hidden
         if self.channel_learner is not None:

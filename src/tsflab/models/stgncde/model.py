@@ -33,6 +33,7 @@ import torchdiffeq
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._components.natural_cubic_spline import NaturalCubicSpline, natural_cubic_spline_coeffs
 from tsflab.models._components.node_adaptive_graph_conv import NodeAdaptiveGraphConv
+from tsflab.models._inputs import check_window
 
 SOLVERS = ("rk4", "euler", "midpoint", "dopri5")
 
@@ -119,7 +120,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx  # the graph is learned from node embeddings
-        if min(pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("STGNCDE dimensions must be positive")
         if seq_len < 2:
             raise ValueError("STGNCDE needs at least two input steps for the spline path")
@@ -156,8 +157,7 @@ class Model(nn.Module):
         return times, NaturalCubicSpline(times, natural_cubic_spline_coeffs(times, path))
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STGNCDE expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         times, spline = self._control_path(x_enc, x_mark_enc)
         start = spline.evaluate(times[0])
         state = (self.initial_h(start), self.initial_z(start))

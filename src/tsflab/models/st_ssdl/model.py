@@ -40,6 +40,7 @@ from tsflab.models._components.deviation_memory import PrototypeMemory, deviatio
 from tsflab.models._components.graph_conv_gru import graph_gru_step
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import coerce_time_length, future_time_features, to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class ChebGraphConv(nn.Module):
@@ -122,8 +123,8 @@ class Model(nn.Module):
         output_dim: int = 1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("ST-SSDL dimensions must be positive")
+        if num_nodes < 1:
+            raise ValueError("ST-SSDL num_nodes must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
         self.rnn_units = rnn_units
@@ -151,9 +152,7 @@ class Model(nn.Module):
         self.output_proj = nn.Linear(decoder_dim, output_dim)
 
     def _register_supports(self, adj_mx: np.ndarray | None, num_nodes: int) -> None:
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         static_supports = adj_to_supports(adjacency, adj_type="symadj")
         for index, support in enumerate(static_supports):
             self.register_buffer(f"encoder_support_{index}", support)
@@ -186,8 +185,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec
-        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"ST-SSDL expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:
             raise ValueError("ST-SSDL received fewer input features than configured")

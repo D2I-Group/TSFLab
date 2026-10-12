@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
+from tsflab.models._inputs import check_window
 
 
 class ComplexTemporalProjection(nn.Module):
@@ -69,8 +70,6 @@ class Model(nn.Module):
         e_layers: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -88,8 +87,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("RPMixer expects (batch, configured seq_len, nodes)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden = x_enc.transpose(1, 2)
         for block in self.blocks:
             hidden = block(hidden)

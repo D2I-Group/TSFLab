@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class LatentCorrelationGraph(nn.Module):
     """Infer a symmetric latent graph from node history embeddings."""
@@ -92,8 +94,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"StemGNN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         graph = self.graph(x_enc)
         residual = x_enc
         forecasts = []

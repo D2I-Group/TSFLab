@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.mamba import MambaBlock
+from tsflab.models._inputs import check_window
 
 
 class CDMambaBlock(nn.Module):
@@ -87,8 +88,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("SORMamba lengths, widths and counts must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.reg_lambda = reg_lambda
         self.use_norm = use_norm
@@ -101,8 +100,7 @@ class Model(nn.Module):
 
     def forecast_with_regularizer(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the forecast ``[B, H, C]`` and ``sum_i L_reg(z^(i))`` of Eq. (4)."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         values = x_enc
         if self.use_norm:
             mean = x_enc.mean(1, keepdim=True).detach()

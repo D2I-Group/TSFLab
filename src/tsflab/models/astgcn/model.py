@@ -18,6 +18,7 @@ from torch.nn import functional as F
 
 from tsflab.models._components.graph_spectral import chebyshev_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _coerce_features(values: torch.Tensor, width: int) -> torch.Tensor:
@@ -128,16 +129,12 @@ class Model(nn.Module):
         nb_time_filter: int = 64,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, nodes, blocks, graph order, and widths must be positive")
         if adj_mx is None:
             raise ValueError(
                 "ASTGCN needs the road-network adjacency adj_mx [enc_in, enc_in] for its Chebyshev "
                 "supports; use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
             )
-        adjacency = np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        adjacency = square_adjacency(adj_mx, enc_in)
         supports = chebyshev_supports(adjacency, K)
 
         self.seq_len = seq_len
@@ -165,10 +162,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]"
-            )
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = _coerce_features(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         for block in self.blocks:
             history = block(history)

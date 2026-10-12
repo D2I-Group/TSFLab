@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.dlinear import DLinearBackbone
+from tsflab.models._inputs import check_window
 
 Weighting = Literal["fixed", "uw"]
 
@@ -67,8 +68,6 @@ class Model(nn.Module):
         eps: float = 1e-8,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -95,10 +94,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         return self.backbone(x_enc)
 
     def combine(self, base_loss: torch.Tensor, dir_loss: torch.Tensor) -> torch.Tensor:

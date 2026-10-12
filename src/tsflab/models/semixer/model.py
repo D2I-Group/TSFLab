@@ -28,6 +28,7 @@ import torch.nn as nn
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.positional_encoding import positional_encoding
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def _parse_scale_factors(raw: str) -> tuple[int, ...]:
@@ -158,8 +159,6 @@ class Model(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths, and layer counts must be positive")
         scales = _parse_scale_factors(scale_factors)
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -199,8 +198,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         batch = x_enc.shape[0]
         normalized = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, seq_len]
 

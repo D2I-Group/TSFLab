@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from tsflab.models._components.marks import to_calendar_spatiotemporal
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 
 class ChannelMixer(nn.Module):
@@ -51,8 +52,6 @@ class Model(nn.Module):
                  tod_size: int = 24, kernel_size: int = 3, core: int = 4,
                  head: int = 4) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("STOP dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.decomposition = SeriesDecomposition(kernel_size)
         self.long_encoder = nn.Linear(seq_len, model_dim)
@@ -96,8 +95,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"STOP expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         return self._forecast(self._representation(x_enc, x_mark_enc))
 
     def environment_forecasts(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None = None,

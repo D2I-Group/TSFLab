@@ -11,6 +11,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 # PyTorch's fused attention kernels reject more than 65535 sequences per call when
 # dropout is active; the local attention sees batch x channels x patches sequences
@@ -83,8 +84,6 @@ class Model(nn.Module):
                  d_ff=64, residual_connection=1, revin=True, n_heads=4,
                  dropout=0.1):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("sequence and horizon must be positive")
         sizes = patch_size_list or [16, 12, 8, 6] * layer_nums
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.residual_connection = bool(residual_connection)
@@ -103,8 +102,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         values = self.revin(x_enc, "norm").transpose(1, 2)
         for pathway, norm in zip(self.layers, self.norms):
             update = pathway(values)

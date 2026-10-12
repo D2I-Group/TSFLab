@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class EndogenousEmbedding(nn.Module):
@@ -75,8 +76,6 @@ class Model(nn.Module):
                  n_heads=8, e_layers=2, d_ff=256, patch_len=16, dropout=0.1,
                  activation="gelu", use_norm=True):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid TimeXer dimensions")
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.endogenous_count = enc_in if features == "M" else 1
         self.patch_count = math.ceil(seq_len / patch_len)
@@ -93,8 +92,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         all_series = normalized.transpose(1, 2)
         endogenous = all_series if self.features == "M" else all_series[:, -1:]

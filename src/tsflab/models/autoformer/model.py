@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from tsflab.models._components.decomposition_encdec import DecompositionDecoderLayer, DecompositionEncoderLayer
 from tsflab.models._components.forecast_embedding import ForecastEmbedding
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 
 def fft_autocorrelation(query: torch.Tensor, key: torch.Tensor) -> torch.Tensor:
@@ -100,10 +101,8 @@ class AutoformerDecoderLayer(DecompositionDecoderLayer):
 
 
 def _check_sizes(seq_len: int, label_len: int, pred_len: int) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("lengths must be positive")
-    if label_len < 0 or label_len > seq_len:
-        raise ValueError("label_len must be between zero and seq_len")
+    if label_len > seq_len:
+        raise ValueError("label_len must not exceed seq_len")
 
 
 class Model(nn.Module):
@@ -130,8 +129,7 @@ class Model(nn.Module):
         return values.new_zeros(values.shape[0], length, 6)
 
     def _check_inputs(self, x_enc: torch.Tensor, x_dec: torch.Tensor | None) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         # Same as ndim == 3, matching batch and shape[1:] == (label_len + pred_len, channels).
         if x_dec is not None and x_dec.shape != (x_enc.shape[0], self.label_len + self.pred_len, self.channels):
             raise ValueError("x_dec has an incompatible decoder contract")

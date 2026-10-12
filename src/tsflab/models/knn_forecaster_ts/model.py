@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Kernel-weight trainable reference windows and their future continuations."""
@@ -18,8 +20,6 @@ class Model(nn.Module):
         kernel_gamma: float = 0.08,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("dimensions, num_prototypes, and kernel_gamma must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.kernel_gamma = kernel_gamma
         self.reference_windows = nn.Parameter(
@@ -45,10 +45,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         weights = self.neighbor_weights(x_enc)
         forecast = torch.einsum("bk,khc->bhc", weights, self.reference_futures)
         self.aux_loss = forecast.new_zeros(())

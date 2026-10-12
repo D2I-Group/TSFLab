@@ -308,8 +308,6 @@ class Model(nn.Module):
         moe_weight: float = 0.02,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("TALON sizes must be positive")
         if seq_len % token_len:
             raise ValueError("seq_len must be a multiple of token_len (context = N segments)")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in

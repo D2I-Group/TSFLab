@@ -4,13 +4,11 @@ import numpy as np
 import torch
 from torch import nn
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _row_normalize(adjacency: np.ndarray, nodes: int) -> torch.Tensor:
-    matrix = np.asarray(adjacency, dtype=np.float32)
-    if matrix.shape != (nodes, nodes):
-        raise ValueError(f"STTN adjacency must have shape ({nodes}, {nodes})")
-    matrix = matrix + np.eye(nodes, dtype=np.float32)
+    matrix = square_adjacency(adjacency, nodes) + np.eye(nodes, dtype=np.float32)
     return torch.from_numpy(matrix / np.maximum(matrix.sum(-1, keepdims=True), 1e-8))
 
 
@@ -74,8 +72,6 @@ class Model(nn.Module):
                  d_model: int = 64, mlp_expand: int = 4, num_layers: int = 3,
                  dropout: float = 0.1) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("STTN dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cov_dim = seq_len, pred_len, enc_in, cov_dim
         if adj_mx is None:
             adj_mx = np.ones((enc_in, enc_in), dtype=np.float32)
@@ -93,8 +89,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"STTN expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         inputs = to_spatiotemporal(x_enc, x_mark_enc)[..., :1 + self.cov_dim]
         if inputs.shape[-1] < 1 + self.cov_dim:
             inputs = torch.nn.functional.pad(inputs, (0, 1 + self.cov_dim - inputs.shape[-1]))

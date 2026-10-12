@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Goal-conditioned direct forecaster using the paper's D*_L policy."""
@@ -30,8 +32,6 @@ class Model(nn.Module):
         classification_weight: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -91,10 +91,7 @@ class Model(nn.Module):
 
     def interval_outputs(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return regression values and membership confidences for every interval."""
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+        check_window(x, self.seq_len, self.enc_in)
         history = self.history_encoder(x.transpose(1, 2))
         bounds = self.interval_bounds
         condition = torch.stack(

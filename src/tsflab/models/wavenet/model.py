@@ -7,6 +7,7 @@ from torch import nn
 
 from tsflab.models._components.gated_dilated_conv import gated_dilated_conv
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class GatedCausalLayer(nn.Module):
@@ -56,8 +57,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         if features not in {"M", "S", "MS"}:
             raise ValueError("features must be M, S, or MS")
         self.seq_len = seq_len
@@ -94,10 +93,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm") if self.revin is not None else x_enc
         batch = normalized.shape[0]
         values = normalized.transpose(1, 2).reshape(

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_marks, check_window
 
 
 class InvertedEmbedding(nn.Module):
@@ -70,8 +71,6 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, e_layers: int, d_ff: int, dropout: float, activation: str, output_attention: bool, use_norm: bool) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
@@ -96,14 +95,8 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
-        if x_mark_enc is not None and x_mark_enc.shape != (
-            x_enc.shape[0],
-            self.seq_len,
-            6,
-        ):
-            raise ValueError("encoder marks must align with x_enc and contain six columns")
+        check_window(x_enc, self.seq_len, self.channels)
+        check_marks(x_mark_enc, x_enc)
         if self.use_norm:
             normalized, mean, stdev = standardize(x_enc)
         else:

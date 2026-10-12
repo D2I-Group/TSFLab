@@ -13,6 +13,7 @@ from tsflab.models._components.diffusion_conv import DiffusionConv2d
 from tsflab.models._components.gated_dilated_conv import gated_dilated_conv
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class WaveNetGraphLayer(nn.Module):
@@ -39,11 +40,9 @@ class Model(nn.Module):
 
     def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("GWNet dimensions must be positive")
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         static = adj_to_supports(adjacency)
         self.register_buffer("forward_support", static[0])
         self.register_buffer("reverse_support", static[1])
@@ -73,8 +72,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"GWNet expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         if data.shape[-1] < self.input_dim:
             raise ValueError("GWNet received fewer input features than configured")

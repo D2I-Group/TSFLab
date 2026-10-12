@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class PatchGraphBuilder(nn.Module):
@@ -71,8 +72,6 @@ class Model(nn.Module):
                  d_model=64, d_ff=128, e_layers=2, patch_len=16,
                  dropout=0.1, top_p=0.5, pos=True, num_experts=4):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid non-positive TimeFilter dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
         self.patch_count = math.ceil(seq_len / patch_len)
@@ -94,8 +93,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         patches, affinity = self.graph_builder(normalized)
         if self.position is not None:

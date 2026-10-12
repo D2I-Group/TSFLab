@@ -6,6 +6,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _row_normalize(value: np.ndarray) -> np.ndarray:
@@ -67,7 +68,7 @@ class Model(nn.Module):
         ode_steps: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("invalid STGODE dimensions")
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = (
             seq_len,
@@ -78,10 +79,8 @@ class Model(nn.Module):
         adj = (
             np.eye(num_nodes, dtype=np.float32)
             if adj_mx is None
-            else np.asarray(adj_mx, dtype=np.float32)
+            else square_adjacency(adj_mx, num_nodes)
         )
-        if adj.shape != (num_nodes, num_nodes):
-            raise ValueError(f"adjacency must have shape {(num_nodes, num_nodes)}")
         spatial = _row_normalize(adj)
         profiles = spatial @ spatial.T
         semantic = _row_normalize(np.maximum(profiles, 0).astype(np.float32))
@@ -100,8 +99,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         st = to_spatiotemporal(x_enc, x_mark_enc)
         if st.shape[-1] < self.input_dim:
             st = torch.cat((st, st.new_zeros(*st.shape[:-1], self.input_dim - st.shape[-1])), -1)

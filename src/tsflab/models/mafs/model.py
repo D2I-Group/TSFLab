@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 def _topology_mask(num_agents: int, topology: str) -> torch.Tensor:
     mask = torch.zeros(num_agents, num_agents)
@@ -64,8 +66,6 @@ class Model(nn.Module):
         topology: str = "star",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -113,8 +113,7 @@ class Model(nn.Module):
 
     def specialization_targets(self, target: torch.Tensor) -> list[torch.Tensor]:
         """Homogeneous multi-scale targets from Appendix A."""
-        if target.ndim != 3 or target.shape[1:] != (self.pred_len, self.enc_in):
-            raise ValueError("target has the wrong forecasting shape")
+        check_window(target, self.pred_len, self.enc_in, name="target")
         return [
             target[:, : max(1, self.pred_len * (index + 1) // self.num_agents)]
             for index in range(self.num_agents)
@@ -123,10 +122,7 @@ class Model(nn.Module):
     def agent_representations(
         self, x: torch.Tensor, adaptive_topology: bool = True
     ) -> torch.Tensor:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+        check_window(x, self.seq_len, self.enc_in)
         variates = x.transpose(1, 2)
         states = torch.stack(
             [embedding(variates) for embedding in self.input_embeddings], dim=1

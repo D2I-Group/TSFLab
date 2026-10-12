@@ -17,6 +17,7 @@ import torch.nn as nn
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 def pyramid_chains(windows: tuple[int, ...]) -> list[list[int]]:
@@ -181,8 +182,6 @@ class Model(nn.Module):
         causal_variate_mask: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         # A period longer than the lookback has no complete window to convolve;
         # the official scripts never meet this case (seq_len 660-720). Such
@@ -217,10 +216,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         tokens = self.embedding(normalized)
         encoded, _ = self.encoder(tokens, attn_mask=None)

@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.marks import normalized_time_features
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _laplacian_positions(adjacency: np.ndarray, width: int) -> torch.Tensor:
@@ -45,9 +46,7 @@ class Model(nn.Module):
         super().__init__()
         width = K * d
         slots = 1440 // time_slice_size
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         self.register_buffer("spatial_positions", _laplacian_positions(adjacency, width))
         self.seq_len, self.pred_len, self.num_nodes, self.slots = seq_len, pred_len, num_nodes, slots
         self.value_projection = nn.Linear(1, width)
@@ -92,8 +91,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STDN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         tod, dow = self._calendar(x_mark_enc, self.seq_len, x_enc.device)
         if tod.shape[0] == 1 and x_enc.shape[0] != 1:
             tod, dow = tod.expand(x_enc.shape[0], -1), dow.expand(x_enc.shape[0], -1)

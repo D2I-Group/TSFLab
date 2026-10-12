@@ -8,6 +8,7 @@ from torch import nn
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.marks import cycle_phase
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -17,8 +18,6 @@ class Model(nn.Module):
                  model_type: str = "linear", d_model: int = 512,
                  use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cycle = seq_len, pred_len, enc_in, cycle
         self.cycle_pattern = nn.Parameter(torch.zeros(cycle, enc_in))
         self.normalization = RevIN(enc_in, affine=False, enabled=use_revin)
@@ -44,8 +43,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.normalization(x_enc, "norm")
         end_phase = self._phase(x_mark_enc, x_enc.shape[0], x_enc.device)
         history_phase = (end_phase - self.seq_len + 1).remainder(self.cycle)

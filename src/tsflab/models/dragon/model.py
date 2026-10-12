@@ -32,6 +32,7 @@ from tsflab.models._components.embed import DataEmbedding
 from tsflab.models._components.inception_block import InceptionBlock2d
 from tsflab.models._components.marks import adapt_tslib_marks
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 # ----------------------------------------------------------------------------
 # Discretization and MdBG construction (Section 2.1, Algorithm 1)
@@ -442,7 +443,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         for failed, message in (
-            (min(seq_len, pred_len) < 1, "seq_len and pred_len must be positive"),
             (seq_len < k - 1, "seq_len must be at least k - 1"),
             (top_k > (seq_len + pred_len) // 2, "top_k exceeds the non-DC frequencies of seq_len + pred_len"),
         ):
@@ -483,8 +483,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"DRAGON expects [B, {self.seq_len}, {self.enc_in}] inputs")
+        check_window(x_enc, self.seq_len, self.enc_in)
         graph = self.graph_features(x_enc)
         marks = adapt_tslib_marks(x_mark_enc, embed_type="timeF", freq="h")
         tokens = torch.cat([self.embedding(self.norm(x_enc, "norm"), marks), graph], dim=-1)

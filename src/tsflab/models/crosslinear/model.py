@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class CrossCorrelationEmbedding(nn.Module):
@@ -71,8 +72,6 @@ class Model(nn.Module):
         beta: float,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -90,8 +89,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("CrossLinear expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.normalization(x_enc, "norm").transpose(1, 2)
         forecast = self.head(self.cross_embedding(normalized)).transpose(1, 2)
         return self.normalization(forecast, "denorm")

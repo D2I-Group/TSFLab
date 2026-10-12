@@ -31,6 +31,7 @@ from tsflab.models._components.transformer_encdec import (
     Encoder,
     EncoderLayer,
 )
+from tsflab.models._inputs import check_window
 
 # Numerical floor added to variances during training (official constant ``10e-8``).
 VARIANCE_FLOOR = 1e-7
@@ -314,8 +315,8 @@ class Model(nn.Module):
         super().__init__()
         if rolling_length >= seq_len:
             raise ValueError("rolling_length must satisfy 0 < rolling_length < seq_len")
-        if not 0 <= label_len <= seq_len:
-            raise ValueError("label_len must lie in [0, seq_len]")
+        if label_len > seq_len:
+            raise ValueError("label_len must not exceed seq_len")
         levels = list(quantile_levels)
         if not levels or any(not 0.0 < q < 1.0 for q in levels) or levels != sorted(set(levels)):
             raise ValueError("quantile levels must be strictly increasing inside (0, 1)")
@@ -404,8 +405,7 @@ class Model(nn.Module):
     # -- priors ------------------------------------------------------------
     def priors(self, x_enc, x_mark_enc=None, x_mark_dec=None):
         """Return ``f_phi(X)`` and ``g_psi(X)``, both ``[B, pred_len, enc_in]``."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected x_enc of shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         return self.prior_mean(x_enc, x_mark_enc, x_mark_dec), self.prior_variance(x_enc)
 
     # -- reverse process (Algorithm 2) ---------------------------------------

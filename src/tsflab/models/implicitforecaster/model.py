@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -30,8 +31,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("sequence, horizon, channels, and model width must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.frequency_pool = max(pred_len, frequency_pool or 2 * pred_len)
         self.pool_bins = self.frequency_pool // 2 + 1
@@ -71,8 +70,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [B,{self.seq_len},{self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         amplitude, phase = self.spectral_parameters(normalized)
         spectrum = torch.polar(amplitude, phase)

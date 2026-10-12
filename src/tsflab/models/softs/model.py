@@ -54,8 +54,6 @@ class Model(nn.Module):
                  d_model: int = 128, d_core: int = 64, d_ff: int = 256, e_layers: int = 2,
                  dropout: float = 0.1, activation: str = "gelu", use_norm: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("SOFTS dimensions must be positive")
         self.seq_len, self.pred_len, self.use_norm = seq_len, pred_len, use_norm
         self.history_embedding = nn.Linear(seq_len, d_model)
         self.blocks = nn.ModuleList(SOFTSBlock(d_model, d_core, d_ff, dropout, activation) for _ in range(e_layers))

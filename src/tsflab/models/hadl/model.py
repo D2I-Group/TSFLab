@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.haar_dwt1d import HaarDWT1D
+from tsflab.models._inputs import check_window
 
 
 def dct_ii_matrix(length: int) -> torch.Tensor:
@@ -116,19 +117,13 @@ class Model(nn.Module):
         """Eq. 4: ``A_F = (2 / L) DCT(A_T)``, i.e. orthonormal DCT-II over its own length."""
         return (x @ self.dct_matrix.T) / x.shape[-1]
 
-    def _check_input(self, x_enc: torch.Tensor) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
-
     def _predict(self, x: torch.Tensor) -> torch.Tensor:
         if self.individual:
             return torch.stack([layer(x[:, i]) for i, layer in enumerate(self.pred_layer)], dim=1)
         return self.pred_layer(x)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        self._check_input(x_enc)
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = x_enc.transpose(1, 2)  # [B, C, L]
         mean = x.mean(dim=-1, keepdim=True)
         x = x - mean

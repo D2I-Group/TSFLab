@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 def _fit_features(values: torch.Tensor, width: int) -> torch.Tensor:
@@ -164,8 +165,6 @@ class Model(nn.Module):
         backbone_dropout: float = 0.3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, nodes, blocks, layers, rank and widths must be positive")
         if seq_len != pred_len:
             raise ValueError(
                 "ST-LoRA concatenates history and adapter outputs step by step "
@@ -209,8 +208,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         history = _fit_features(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         base = self.backbone(history)
         output, _ = self.fuse(history, base, self.adapt(history, base))

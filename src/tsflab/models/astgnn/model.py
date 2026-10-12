@@ -29,6 +29,7 @@ from torch.nn import functional as F
 
 from tsflab.models._components.adj_norm import transition_matrix
 from tsflab.models._components.embed import PositionalEmbedding
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class GraphConvolution(nn.Module):
@@ -173,9 +174,7 @@ def _normalized_adjacency(adj_mx: np.ndarray | None, enc_in: int) -> torch.Tenso
             "ASTGNN needs the road-network adjacency adj_mx [enc_in, enc_in]; "
             "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
         )
-    adjacency = np.asarray(adj_mx, dtype=np.float64)
-    if adjacency.shape != (enc_in, enc_in):
-        raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+    adjacency = square_adjacency(adj_mx, enc_in, dtype=np.float64)
     # A_hat = D^-1 (A + I): self-loops set to one, then row normalization.
     adjacency = adjacency.copy()
     np.fill_diagonal(adjacency, 1.0)
@@ -200,8 +199,6 @@ class Model(nn.Module):
         teacher_forcing: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.register_buffer("adjacency", _normalized_adjacency(adj_mx, enc_in))
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -233,8 +230,7 @@ class Model(nn.Module):
                 nn.init.xavier_uniform_(parameter)
 
     def _check(self, x_enc: torch.Tensor) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
 
     def encode(self, x_enc: torch.Tensor) -> torch.Tensor:
         """``[B, L, N]`` history -> memory ``[B, N, L, d]``."""

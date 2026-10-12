@@ -118,8 +118,8 @@ class Model(nn.Module):
                  hidden_dim: int = 64, hidden_layers: int = 2, num_blocks: int = 3,
                  multistep: bool = False, alpha: float = 0.2) -> None:
         super().__init__()
-        if seq_len < 2 or pred_len < 1:
-            raise ValueError("Koopa requires seq_len >= 2 and positive dimensions")
+        if seq_len < 2:
+            raise ValueError("Koopa requires seq_len >= 2")
         segment = pred_len if seg_len is None else seg_len
         if segment < 2:
             raise ValueError("seg_len must be at least 2")

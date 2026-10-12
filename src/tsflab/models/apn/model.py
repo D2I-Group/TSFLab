@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class _TimeEmbedding(nn.Module):
     def __init__(self, d_time: int) -> None:
@@ -30,8 +32,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  d_time: int = 8, num_patches: int = 8) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("all dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_patches = num_patches
         self.time_embedding = _TimeEmbedding(d_time)
@@ -72,8 +72,7 @@ class Model(nn.Module):
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         times = self._times(x_enc, x_mark_enc)
         time_features = self.time_embedding(times)
         augmented = torch.cat((x_enc.unsqueeze(-1), time_features[:, :, None, :].expand(-1, -1, self.enc_in, -1)), dim=-1)

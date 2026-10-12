@@ -27,6 +27,7 @@ from tsflab.models._components.regularized_adaptive_graph_conv import (
     EfficientCosineGraphConv,
     StochasticSharedEmbedding,
 )
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class FeedForward(nn.Module):
@@ -66,12 +67,10 @@ class Model(nn.Module):
         use_sse: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("RAGC dimensions must be positive")
+        if num_nodes < 1:
+            raise ValueError("RAGC num_nodes must be positive")
 
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         self.register_buffer("static_adj", torch.as_tensor(adjacency, dtype=torch.float32))
 
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
@@ -103,8 +102,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"RAGC expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:
             raise ValueError("RAGC received fewer input features than configured")

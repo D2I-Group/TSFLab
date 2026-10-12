@@ -18,6 +18,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.marks import to_calendar_spatiotemporal
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 #: Fixed constants of the official code.
 BLOCK_DROPOUT = 0.15
@@ -187,8 +188,6 @@ class Model(nn.Module):
         kl_weight: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("VLBM sizes must be positive")
         steps_per_day = int(1440 / interval)
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -208,20 +207,16 @@ class Model(nn.Module):
     def _identity(self, reference: torch.Tensor) -> torch.Tensor:
         return torch.eye(self.enc_in, dtype=reference.dtype, device=reference.device)
 
-    def _check(self, values: torch.Tensor, length: int, what: str) -> None:
-        if values.ndim != 3 or values.shape[1:] != (length, self.enc_in):
-            raise ValueError(f"VLBM expects {what} shaped [B, {length}, {self.enc_in}]")
-
     def variational_forward(self, x_enc, x_mark_enc=None, y_future=None, y_mark_future=None) -> VariationalOutput:
         """Forecast from the prior; also evaluate the posterior when ``y_future`` is given."""
-        self._check(x_enc, self.seq_len, "histories")
+        check_window(x_enc, self.seq_len, self.enc_in)
         identity = self._identity(x_enc)
         tod, dow = calendar_indices(x_enc, x_mark_enc, self.steps_per_day)
         x = self.history_embedding(self.norm(x_enc, "norm"), tod, dow)
         mu_p, logvar_p = self.prior(x, x, identity)
         out = VariationalOutput(forecast=x_enc.new_empty(0), mu_p=mu_p, logvar_p=logvar_p)
         if y_future is not None:
-            self._check(y_future, self.pred_len, "futures")
+            check_window(y_future, self.pred_len, self.enc_in, name="y_future")
             # The official posterior embeds the future values without the history normalization.
             tod_y, dow_y = calendar_indices(y_future, y_mark_future, self.steps_per_day)
             y = self.future_embedding(y_future, tod_y, dow_y)

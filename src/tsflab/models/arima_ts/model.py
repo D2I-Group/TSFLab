@@ -5,14 +5,14 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Conditional ARIMA(p, 1, q) recurrence shared across channels."""
 
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, ar_order: int = 2, ma_order: int = 1) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.ar_order, self.ma_order = ar_order, ma_order
         self.ar_coefficients = nn.Parameter(torch.zeros(ar_order))
@@ -41,8 +41,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         zero = torch.zeros_like(x_enc[:, 0])
         differences = [x_enc[:, index] - x_enc[:, index - 1] for index in range(1, self.seq_len)]
         innovations: list[torch.Tensor] = []

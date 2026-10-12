@@ -1,10 +1,11 @@
 """Clean-room STPGNN from the AAAI 2024 equations and architecture diagram."""
 from __future__ import annotations
 
-import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
+
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _row_normalize(graph: torch.Tensor) -> torch.Tensor:
@@ -78,14 +79,12 @@ class Model(nn.Module):
                  topk=4, residual_channels=16, end_channels=64,
                  kernel_size=2, blocks=2, layers=2, dims=16):
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("invalid non-positive STPGNN dimension")
         if adj_mx is None:
             graph = torch.eye(num_nodes)
         else:
-            graph = torch.as_tensor(np.asarray(adj_mx), dtype=torch.float32)
-            if graph.shape != (num_nodes, num_nodes):
-                raise ValueError(f"adjacency must have shape {(num_nodes, num_nodes)}")
+            graph = torch.as_tensor(square_adjacency(adj_mx, num_nodes, dtype=None), dtype=torch.float32)
         graph = _row_normalize(graph + torch.eye(num_nodes))
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.register_buffer("physical_graph", graph)
@@ -129,8 +128,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"expected (*,{self.seq_len},{self.num_nodes})")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         marks = self._mark_features(x_enc, x_mark_enc)
         features = torch.cat((x_enc.unsqueeze(-1), marks), -1)
         hidden = self.input_projection(features)

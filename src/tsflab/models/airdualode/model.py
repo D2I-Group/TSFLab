@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 def _normalize(matrix: torch.Tensor) -> torch.Tensor:
@@ -107,8 +108,6 @@ class Model(nn.Module):
         ode_method: Literal["euler", "rk4"] = "euler",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("Air-DualODE dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -165,8 +164,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("Air-DualODE expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         if x_mark_enc is None:
             x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
         features = to_spatiotemporal(x_enc, x_mark_enc)

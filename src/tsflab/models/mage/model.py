@@ -8,6 +8,7 @@ import math
 import torch
 from torch import nn
 from tsflab.models._components.marks import to_calendar_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class AdaptiveGraphExpert(nn.Module):
@@ -55,8 +56,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, model_dim: int = 64,
                  recur_num: int = 8, topk: int = 2, node_dim: int = 16) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("MAGE dimensions must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.history = nn.Linear(seq_len * 3, model_dim)
         self.calendar = nn.Sequential(nn.Linear(2, model_dim), nn.SiLU())
@@ -70,8 +69,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"MAGE expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         if x_mark_enc is None:
             x_mark_enc = x_enc.new_zeros(x_enc.shape[0], self.seq_len, 6)
         values = to_calendar_spatiotemporal(x_enc, x_mark_enc)

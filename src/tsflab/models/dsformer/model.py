@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def dual_sampling(x, samples):
@@ -62,8 +63,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         piece, interval = dual_sampling(normalized, self.num_samp)
         for block in self.piece_blocks:

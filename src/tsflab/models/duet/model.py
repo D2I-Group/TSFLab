@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.topk_expert_router import GatingMLP, topk_dense_mix
+from tsflab.models._inputs import check_window
 
 
 def moving_average(x, kernel):
@@ -120,8 +121,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         raw = x_enc.transpose(1, 2)  # [batch, channels, time], before RevIN as in the official code
         weights = topk_dense_mix(self.router(raw), self.k, 1e-3)  # [batch, channels, experts]
         x = self.revin(x_enc, "norm")

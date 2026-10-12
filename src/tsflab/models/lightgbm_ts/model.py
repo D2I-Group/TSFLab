@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.soft_tree import SoftDecisionTree
+from tsflab.models._inputs import check_window
 
 #: Cap on the dense ``(seq_len*enc_in) x (pred_len*enc_in)`` weights (8 GB of float32 on
 #: the host at construction, about 32 GB on the device with gradients and Adam moments).
@@ -24,8 +25,6 @@ class Model(nn.Module):
                  temperature: float = 1.0, use_revin: bool = True,
                  max_dense_parameters: int = MAX_DENSE_PARAMETERS) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("dimensions, estimators, and learning_rate must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         dense = dense_parameter_count(seq_len, pred_len, enc_in, num_estimators)
         if dense > max_dense_parameters:
@@ -50,8 +49,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         state = self.revin(x_enc, "norm").flatten(1)
         gate = torch.sigmoid(self.feature_logits)
         forecast = self.base(state * gate)

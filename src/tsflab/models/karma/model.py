@@ -25,6 +25,7 @@ from tsflab.models._components.marks import encoder_timef_marks, tslib_time_feat
 from tsflab.models._components.orthogonal_dwt import OrthogonalDWT
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 #: ATCD constants resolved from the official code: four attention heads, dropout 0.1.
 ATCD_HEADS = 4
@@ -139,8 +140,6 @@ class Model(nn.Module):
         time_loss_weight: float = 0.2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("KARMA sizes must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -181,10 +180,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.normalizer(x_enc, "norm")
         forecast = self.projection(self.encode(x, x_mark_enc)).transpose(1, 2)[:, :, : self.enc_in]
         return self.normalizer(forecast, "denorm")

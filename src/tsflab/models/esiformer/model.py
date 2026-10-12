@@ -19,6 +19,7 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.marks import adapt_tslib_marks
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder
+from tsflab.models._inputs import check_window
 
 
 def interpolated_length(seq_len: int, method: str) -> int:
@@ -175,8 +176,6 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         _check_interpolation(interpolation, seq_len)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.interpolation = interpolation
@@ -215,10 +214,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         # The official pipeline interpolates the raw window, then normalizes it.
         values = interpolate(x_enc, self.interpolation)
         if self.use_norm:

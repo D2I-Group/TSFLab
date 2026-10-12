@@ -20,6 +20,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def edge_list(adj_mx, num_nodes: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -31,9 +32,7 @@ def edge_list(adj_mx, num_nodes: int) -> tuple[torch.Tensor, torch.Tensor]:
     loops = torch.arange(num_nodes)
     if adj_mx is None:
         return loops, loops.clone()
-    adj = torch.as_tensor(np.asarray(adj_mx, dtype=np.float64))
-    if adj.shape != (num_nodes, num_nodes):
-        raise ValueError(f"adj_mx must have shape ({num_nodes}, {num_nodes})")
+    adj = torch.as_tensor(square_adjacency(adj_mx, num_nodes, dtype=np.float64))
     mask = (adj != 0) & ~torch.eye(num_nodes, dtype=torch.bool)
     src, dst = mask.nonzero(as_tuple=True)
     return torch.cat((src, loops)), torch.cat((dst, loops))
@@ -171,8 +170,8 @@ class Model(nn.Module):
         scan_layout: Literal["axis", "official"] = "axis",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("lengths, nodes, widths, heads and layers must be positive")
+        if num_nodes < 1:
+            raise ValueError("num_nodes must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.steps_per_day = steps_per_day
         self.gat = gat
@@ -232,8 +231,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"GAMMANet expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         hidden = self.embed(x_enc, x_mark_enc)
         hidden = self._run(self.temporal_stack, hidden)
         hidden = self._run(self.spatial_stack, hidden)

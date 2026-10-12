@@ -20,6 +20,7 @@ import torch.nn as nn
 from tsflab.models._components.embed import DataEmbedding
 from tsflab.models._components.marks import adapt_tslib_marks, tslib_time_feature_dimension
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 
@@ -104,8 +105,6 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("FreDF dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -141,10 +140,7 @@ class Model(nn.Module):
         return adapt_tslib_marks(marks, embed_type="timeF", freq=self.freq)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden = self.revin(x_enc, "norm")
         hidden = self.history_mlp(hidden.transpose(1, 2)).transpose(1, 2)
         padding = hidden.new_zeros(hidden.shape[0], self.pred_len, hidden.shape[2])

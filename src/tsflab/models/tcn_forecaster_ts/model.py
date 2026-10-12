@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class CausalConv1d(nn.Conv1d):
@@ -43,8 +44,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  dropout: float = 0.1, num_layers: int = 2, use_revin: bool = True) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)
         blocks: list[nn.Module] = []
@@ -63,8 +62,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         encoded = self.encoder(normalized.transpose(1, 2))
         forecast = self.head(encoded[..., -1]).reshape(-1, self.pred_len, self.enc_in)

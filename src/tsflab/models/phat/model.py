@@ -127,8 +127,6 @@ class Model(nn.Module):
         period_list: list[int] | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("all dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.period_topk = period_topk

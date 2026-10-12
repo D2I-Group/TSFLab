@@ -8,6 +8,7 @@ from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaResidualBlock, RMSNorm
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -28,8 +29,6 @@ class Model(nn.Module):
         dropout=0.1,
     ):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("sequence lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         inner, rank = d_model * expand, math.ceil(d_model / 16)
         self.input_projection = nn.Linear(enc_in, d_model)
@@ -51,10 +50,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, detach_std=True)
         hidden = self.input_dropout(self.input_projection(normalized))
         for layer in self.layers:

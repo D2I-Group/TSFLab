@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from tsflab.models._components.graph_conv_gru import graph_gru_step
 from tsflab.models._components.marks import coerce_time_length, future_time_features, to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 class GraphGRUCell(nn.Module):
     def __init__(self,input_width:int,hidden:int)->None:
@@ -21,12 +22,8 @@ class GraphGRUCell(nn.Module):
 class Model(nn.Module):
     def __init__(self,seq_len:int,pred_len:int,enc_in:int,adj_mx:np.ndarray|None=None,cov_dim:int=2,hid_dim:int=64)->None:
         super().__init__()
-        if min(seq_len,pred_len)<1:
-            raise ValueError("invalid PM25_GNN dimensions")
         self.seq_len,self.pred_len,self.enc_in,self.cov_dim=seq_len,pred_len,enc_in,cov_dim
-        adj=np.eye(enc_in,dtype=np.float32) if adj_mx is None else np.asarray(adj_mx,dtype=np.float32)
-        if adj.shape!=(enc_in,enc_in):
-            raise ValueError(f"adjacency must have shape {(enc_in,enc_in)}")
+        adj=np.eye(enc_in,dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx,enc_in)
         adj=adj+np.eye(enc_in,dtype=np.float32)
         adj/=np.maximum(adj.sum(-1,keepdims=True),1e-6)
         self.register_buffer("graph",torch.from_numpy(adj))
@@ -36,8 +33,7 @@ class Model(nn.Module):
         self.decoder=GraphGRUCell(hid_dim,hid_dim)
         self.output=nn.Linear(hid_dim,1)
     def _history(self,x_enc,x_mark_enc):
-        if x_enc.ndim!=3 or x_enc.shape[1:]!=(self.seq_len,self.enc_in):
-            raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         st=to_spatiotemporal(x_enc,x_mark_enc)
         needed=1+self.cov_dim
         if st.shape[-1]<needed:

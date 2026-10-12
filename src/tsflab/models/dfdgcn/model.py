@@ -13,6 +13,7 @@ from tsflab.models._components.adaptive_node_embedding_adjacency import (
 from tsflab.models._components.gated_dilated_conv import gated_dilated_conv
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class DynamicGraphMix(nn.Module):
@@ -94,10 +95,7 @@ def _checked_adjacency(adj_mx, num_nodes) -> np.ndarray:
             "DFDGCN needs the dataset adjacency adj_mx [N, N] for its predefined graphs; "
             "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
         )
-    adjacency = np.asarray(adj_mx, dtype=np.float32)
-    if adjacency.shape != (num_nodes, num_nodes):
-        raise ValueError("adj_mx shape must match num_nodes")
-    return adjacency
+    return square_adjacency(adj_mx, num_nodes)
 
 
 class Model(nn.Module):
@@ -125,8 +123,7 @@ class Model(nn.Module):
         self.output = nn.Sequential(nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1))
 
     def _inputs(self, x_enc, x_mark_enc):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"DFDGCN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)[..., :3]
         if data.shape[-1] < 3:
             raise ValueError("DFDGCN needs time-of-day and day-of-week covariates")

@@ -20,6 +20,7 @@ from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 # Floor of the cosine-annealed pruning rate (official ``CosineDecay`` eta_min).
 DEATH_RATE_FLOOR = 1e-3
@@ -316,10 +317,7 @@ class Model(nn.Module):
 
     # ---------------------------------------------------------------- forward
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         x = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         tokens = self.tokenizer(self.patchify(x))  # [B, C, N, D]  (Eq. 1)

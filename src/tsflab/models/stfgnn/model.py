@@ -26,6 +26,7 @@ from tsflab.models._components.synchronous_graph_conv import (
     SynchronousGraphModule,
     mxnet_xavier_uniform_,
 )
+from tsflab.models._inputs import check_window, square_adjacency
 
 _WINDOW = 4
 
@@ -188,9 +189,9 @@ class STFGNL(nn.Module):
         return output
 
 
-def _check_layers(seq_len, pred_len, enc_in, num_layers) -> None:
-    if min(seq_len, pred_len, enc_in) < 1:
-        raise ValueError("lengths, nodes, layers, widths and steps_per_day must be positive")
+def _check_layers(seq_len, enc_in, num_layers) -> None:
+    if enc_in < 1:
+        raise ValueError("the number of nodes must be positive")
     if seq_len - (_WINDOW - 1) * num_layers < 1:
         raise ValueError(f"seq_len ({seq_len}) must exceed 3 * num_layers ({3 * num_layers})")
 
@@ -201,10 +202,7 @@ def _checked_adjacency(adj_mx, enc_in: int) -> np.ndarray:
             "STFGNN needs the road-network adjacency adj_mx [enc_in, enc_in] for its fusion graph; "
             "use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
         )
-    spatial = np.asarray(adj_mx, dtype=np.float64)
-    if spatial.shape != (enc_in, enc_in):
-        raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
-    return spatial
+    return square_adjacency(adj_mx, enc_in, dtype=np.float64)
 
 
 class Model(nn.Module):
@@ -232,7 +230,7 @@ class Model(nn.Module):
         dtw_sparsity: float = 0.01,
     ) -> None:
         super().__init__()
-        _check_layers(seq_len, pred_len, enc_in, num_layers)
+        _check_layers(seq_len, enc_in, num_layers)
         spatial = _checked_adjacency(adj_mx, enc_in)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.huber_delta, self.steps_per_day = huber_delta, steps_per_day
@@ -281,8 +279,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         adjacency = self.adjacency if self.mask is None else self.mask * self.adjacency
         hidden = torch.relu(self.input_layer(x_enc.unsqueeze(-1)))
         for layer in self.layers:

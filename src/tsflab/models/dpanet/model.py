@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def log_frequency_bands(length: int, num_scales: int) -> list[tuple[int, int]]:
@@ -116,8 +117,6 @@ class Model(nn.Module):
         dropout: float = 0.2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("DPANet sizes must be positive")
         if seq_len // 2 ** (num_scales - 1) < 1:
             raise ValueError("seq_len is too short for num_scales temporal pyramid levels")
         self.seq_len = seq_len
@@ -165,8 +164,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"DPANet expects [B, {self.seq_len}, {self.enc_in}] inputs")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         values = self.revin(x_enc, "norm")
         h_t, h_f = self.embed_pyramids(values)

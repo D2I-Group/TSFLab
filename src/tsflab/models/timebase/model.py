@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 def cal_orthogonal_loss(matrix: torch.Tensor) -> torch.Tensor:
     gram_matrix = torch.matmul(matrix.transpose(-2, -1), matrix)
@@ -15,9 +17,7 @@ def cal_orthogonal_loss(matrix: torch.Tensor) -> torch.Tensor:
     return loss.mean()
 
 
-def _check_lengths(seq_len: int, pred_len: int, period_len: int) -> None:
-    if seq_len < 1 or pred_len < 1:
-        raise ValueError("seq_len, pred_len, and enc_in must be positive")
+def _check_lengths(seq_len: int, period_len: int) -> None:
     if period_len > seq_len:
         raise ValueError("period_len must be in [1, seq_len]")
 
@@ -35,7 +35,7 @@ class TimeBaseModel(nn.Module):
         use_period_norm: bool,
     ) -> None:
         super().__init__()
-        _check_lengths(seq_len, pred_len, period_len)
+        _check_lengths(seq_len, period_len)
         self.use_period_norm = use_period_norm
         self.orthogonal_weight = orthogonal_weight
         self.aux_loss: torch.Tensor | None = None
@@ -122,10 +122,7 @@ class TimeBaseModel(nn.Module):
         return x, x_basis
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"TimeBase expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x, self.seq_len, self.enc_in)
         batch_size, _, channels = x.shape
         x = x.permute(0, 2, 1)
 

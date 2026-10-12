@@ -16,6 +16,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.quantile_head import QuantileHead
+from tsflab.models._inputs import check_window
 
 
 _DEFAULT_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -93,8 +94,6 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, and dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -144,10 +143,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected input (B, {self.seq_len}, {self.enc_in}), got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         history = self._history_tokens(normalized)
         missing = normalized.new_zeros(

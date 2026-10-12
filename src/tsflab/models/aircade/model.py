@@ -18,6 +18,7 @@ from tsflab.models._components.marks import (
     future_time_features,
     to_spatiotemporal,
 )
+from tsflab.models._inputs import check_window
 
 
 class DomainKnowledgeAttention(nn.Module):
@@ -93,11 +94,6 @@ class CausalLayer(nn.Module):
         return self.output_norm(value + self.feed_forward(value))
 
 
-def _check_dims(seq_len, pred_len) -> None:
-    if min(seq_len, pred_len) <= 0:
-        raise ValueError("seq_len and pred_len must be positive")
-
-
 class Model(nn.Module):
     """Spatiotemporal causal-decoupling air-quality forecaster."""
 
@@ -116,7 +112,6 @@ class Model(nn.Module):
         environments: int = 3,
     ) -> None:
         super().__init__()
-        _check_dims(seq_len, pred_len)
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -183,8 +178,7 @@ class Model(nn.Module):
         return value
 
     def _history(self, x_enc, x_mark_enc):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("AirCade expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         if x_mark_enc is None:
             x_mark_enc = x_enc.new_zeros((x_enc.shape[0], self.seq_len, 6))
         history = to_spatiotemporal(x_enc, x_mark_enc)

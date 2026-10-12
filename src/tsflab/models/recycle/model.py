@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 NUM_DAY_TYPES = 3
 META_FEATURES = 9  # weekday one-hot (7) + holiday today + holiday tomorrow
 
@@ -80,8 +82,6 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths, heads and layers must be positive")
         if seq_len % cycle_len or pred_len % cycle_len:
             raise ValueError("seq_len and pred_len must be whole multiples of cycle_len")
         self.seq_len = seq_len
@@ -149,8 +149,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch, channels = x_enc.shape[0], self.enc_in
         # PCC: [B, L, C] -> [B * C, H, D], one token per primary cycle and series.
         cycles = x_enc.permute(0, 2, 1).reshape(batch * channels, self.history_cycles, self.cycle_len)

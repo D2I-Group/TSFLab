@@ -7,6 +7,7 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 from tsflab.models._components.gaussian_parameter_head import GaussianParameterHead
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -31,8 +32,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del label_len
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, and recurrent widths must be positive")
         if features not in {"M", "S", "MS"}:
             raise ValueError("features must be M, S, or MS")
         self.checkpoint_steps = checkpoint_steps
@@ -149,10 +148,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         channels = self.enc_in
         history_cov = self._covariates(

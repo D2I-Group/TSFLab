@@ -29,8 +29,6 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("all dimensions must be positive")
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
         self.seq_len = seq_len

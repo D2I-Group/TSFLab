@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.positional_encoding import positional_encoding
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 # Eq. (5): weight of the subspace-basis regularizer R, fixed in the paper.
 BASIS_PENALTY = 1e-3
@@ -275,8 +276,7 @@ class Model(nn.Module):
     def forecast_with_affinity(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forecast ``[B, H, C]`` plus the time and frequency subspace affinities
         ``s_t``, ``s_f`` (``[B * N_out, K]``) used by the clustering loss."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm")
         patches = patchify(x.transpose(1, 2), self.patch_len, self.stride)  # [B, C, N_in, P]
         h_time, s_time = self.route(self.encode_time(patches), self.time_project, self.time_identifier, self.time_experts)

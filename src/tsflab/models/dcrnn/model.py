@@ -10,6 +10,7 @@ from tsflab.models._components.channel_alignment import fit_channels
 from tsflab.models._components.graph_conv_gru import GraphConvGRUCell
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class DiffusionConvolution(nn.Module):
@@ -92,11 +93,9 @@ class Model(nn.Module):
         max_diffusion_step: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("lengths, nodes, channels, and recurrent widths must be positive")
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError(f"adj_mx must have shape {(num_nodes, num_nodes)}")
+        if num_nodes < 1:
+            raise ValueError("num_nodes must be positive")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         supports = torch.stack(adj_to_supports(adjacency))
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -113,8 +112,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = fit_channels(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         state = self.encoder.zeros(x_enc.shape[0], self.num_nodes, x_enc)
         for step in range(self.seq_len):

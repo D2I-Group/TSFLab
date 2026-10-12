@@ -17,6 +17,8 @@ import math
 import torch
 import torch.nn as nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Mean-centred bias-free linear forecaster trained with root purging.
@@ -37,8 +39,6 @@ class Model(nn.Module):
         purge_order: int = 1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.domain = domain
         self.individual = individual
@@ -69,8 +69,7 @@ class Model(nn.Module):
 
     def linear_map(self, z: torch.Tensor) -> torch.Tensor:
         """Apply ``G_W`` to ``[B, L, C]`` and return ``[B, H, C]`` (no normalization)."""
-        if z.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("input does not match the configured lookback and channels")
+        check_window(z, self.seq_len, self.enc_in)
         if self.domain == "time":
             weight = self.weight.expand(self.enc_in, -1, -1)
             return torch.einsum("blc,chl->bhc", z, weight)

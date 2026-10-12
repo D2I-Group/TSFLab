@@ -94,8 +94,6 @@ class Model(nn.Module):
         levels = list(quantile_levels)
         if not levels or any(not 0.0 < q < 1.0 for q in levels) or levels != sorted(set(levels)):
             raise ValueError("quantile levels must be strictly increasing inside (0, 1)")
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, widths and patch_len must be positive")
         self.output_type = "quantile"
         self.seq_len = seq_len
         self.pred_len = pred_len

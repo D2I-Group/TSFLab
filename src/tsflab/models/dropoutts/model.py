@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.patchtst import PatchTSTBackbone
+from tsflab.models._inputs import check_window
 
 
 class DropoutRateState:
@@ -141,8 +142,6 @@ class Model(nn.Module):
         init_sensitivity: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len, pred_len and enc_in must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -188,11 +187,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in}), "
-                f"got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if not self.training:
             return self.backbone(x_enc)
         self.rate_state.rates = self.dropout_rates(x_enc)

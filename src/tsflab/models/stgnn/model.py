@@ -21,6 +21,7 @@ from torch.nn import functional as F
 
 from tsflab.models._components.embed import PositionalEmbedding
 from tsflab.models._components.graph_conv_gru import graph_gru_step
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class PositionalGraphFilter(nn.Module):
@@ -53,9 +54,7 @@ class Model(nn.Module):
                 "STGNN needs the road-network adjacency adj_mx [enc_in, enc_in] for its relation mask; "
                 "use a graph dataset that ships adj_mx.npy"
             )
-        adjacency = np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        adjacency = square_adjacency(adj_mx, enc_in, dtype=np.float64)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.hidden_dim = hidden_dim
         # Eq. 5: keep relations only where A~ = A + I is positive.
@@ -87,8 +86,7 @@ class Model(nn.Module):
         return inverse_sqrt[:, None] * relation * inverse_sqrt[None, :]
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         propagation = self.propagation()
         batch = x_enc.shape[0]
         state = x_enc.new_zeros(batch, self.num_nodes, self.hidden_dim)

@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class GlobalCalendarEmbedding(nn.Module):
@@ -42,8 +43,6 @@ class Model(nn.Module):
                  use_hour_index=True, use_day_index=False, scale=0.02,
                  hour_length=24, day_length=7):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid non-positive TimeEmb dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_hour_index, self.use_day_index = use_hour_index, use_day_index
         bins = seq_len // 2 + 1
@@ -72,8 +71,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
         spectrum = torch.fft.rfft(normalized, dim=-1, norm="ortho")
         hour, day = self._indices(x_enc, x_mark_enc, x_mark_dec)

@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.gaussian_parameter_head import GaussianParameterHead
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -26,8 +27,6 @@ class Model(nn.Module):
         eps: float = 1e-6,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -55,11 +54,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                "GaussianMLP expects input shaped "
-                f"(batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         B = x_enc.shape[0]
         h = self.backbone(x_enc.reshape(B, -1))             # (B, hidden)
         loc, scale = self.parameter_head(h)

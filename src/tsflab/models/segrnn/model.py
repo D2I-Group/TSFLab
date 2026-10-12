@@ -9,6 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from tsflab.models._components.last_value_center import center_on_last_value, restore_last_value
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -17,8 +18,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
                  dropout: float = 0.1, seg_len: int = 24) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.seg_len = seq_len, pred_len, enc_in, seg_len
         self.history_segments = math.ceil(seq_len / seg_len)
         self.future_segments = math.ceil(pred_len / seg_len)
@@ -37,8 +36,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         centered, level = center_on_last_value(x_enc)
         batch = centered.shape[0]
         padding = self.history_segments * self.seg_len - self.seq_len

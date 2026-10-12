@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 class Projector(nn.Module):
@@ -80,8 +81,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         raw = x_enc
         normalized, mean, std = standardize(raw, 1e-5, detach_mean=True, detach_std=True)
         tau = self.tau_learner(raw, std).clamp(-5, 5).exp().squeeze(-1)

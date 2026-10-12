@@ -10,6 +10,7 @@ import torch.nn as nn
 from tsflab.models._components.decomposition_encdec import DecompositionDecoderLayer, DecompositionEncoderLayer
 from tsflab.models._components.forecast_embedding import ForecastEmbedding
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_marks, check_window
 
 
 def selected_modes(length: int, count: int, method: str) -> torch.Tensor:
@@ -126,19 +127,13 @@ class FEDformerDecoderLayer(DecompositionDecoderLayer):
         )
 
 
-def _check_sizes(seq_len: int, label_len: int, pred_len: int) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("lengths and channel counts must be positive")
-    if label_len < 0 or label_len > seq_len:
-        raise ValueError("label_len must be between zero and seq_len")
-
-
 class Model(nn.Module):
     """Forecast-only Fourier FEDformer with progressive decomposition."""
 
     def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int, d_model: int, n_heads: int, e_layers: int, d_layers: int, d_ff: int, moving_avg: int, dropout: float, activation: str = "gelu", mode_select: str = "random", modes: int = 32) -> None:
         super().__init__()
-        _check_sizes(seq_len, label_len, pred_len)
+        if label_len > seq_len:
+            raise ValueError("label_len must not exceed seq_len")
         self.seq_len = seq_len
         self.label_len = label_len
         self.pred_len = pred_len
@@ -164,8 +159,7 @@ class Model(nn.Module):
         return values.new_zeros(values.shape[0], length, 6)
 
     def _check_inputs(self, x_enc: torch.Tensor, x_dec: torch.Tensor | None) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         # Same as ndim == 3, matching batch and shape[1:] == (label_len + pred_len, channels).
         if x_dec is not None and x_dec.shape != (x_enc.shape[0], self.label_len + self.pred_len, self.channels):
             raise ValueError("x_dec has an incompatible decoder contract")
@@ -175,8 +169,7 @@ class Model(nn.Module):
         decoder_length = self.label_len + self.pred_len
         x_mark_enc = self._default_marks(x_enc, self.seq_len) if x_mark_enc is None else x_mark_enc
         x_mark_dec = self._default_marks(x_enc, decoder_length) if x_mark_dec is None else x_mark_dec
-        if x_mark_enc.shape != (x_enc.shape[0], self.seq_len, 6):
-            raise ValueError("encoder marks must align with x_enc and contain six columns")
+        check_marks(x_mark_enc, x_enc)
         if x_mark_dec.shape != (x_enc.shape[0], decoder_length, 6):
             raise ValueError("decoder marks must align with the decoder sequence")
         return x_mark_enc, x_mark_dec

@@ -19,6 +19,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._components.positional_encoding import positional_encoding
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 # --------------------------------------------------------------------------- encoding tree
@@ -416,9 +417,7 @@ class Model(nn.Module):
         position_routing: str = "official",
     ) -> None:
         super().__init__()
-        adjacency = np.eye(num_nodes) if adj_mx is None else np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes) if adj_mx is None else square_adjacency(adj_mx, num_nodes, dtype=np.float64)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.mark_features, self.position_routing = mark_features, position_routing
         finite = np.where(np.isfinite(adjacency), adjacency, 0.0) + np.eye(num_nodes)
@@ -447,9 +446,7 @@ class Model(nn.Module):
         return data.permute(0, 2, 1, 3)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            expected = f"[batch, {self.seq_len}, {self.num_nodes}]"
-            raise ValueError(f"expected x_enc {expected}, got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         node_pe = self.node_pe(self.laplacian)[None, :, None, :]  # D_s
         time_pe = self.time_pe[None, None, :, :]  # D_t
         official = self.position_routing == "official"  # Sec. 3.3.1 / official STBlock; else Sec. 3.3.2

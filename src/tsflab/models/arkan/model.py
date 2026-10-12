@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.bspline_basis import bspline_basis
+from tsflab.models._inputs import check_window
 
 class BSplineKANLayer(nn.Module):
     """KAN layer ``y_j = sum_i phi_ij(x_i) + b_j`` with ``phi = w_b silu + w_s sum_k c_k B_k``.
@@ -155,8 +156,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         window = x_enc[:, -self.lag :, :]
         steps = []
         for _ in range(self.pred_len):

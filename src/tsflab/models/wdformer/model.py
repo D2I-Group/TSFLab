@@ -13,6 +13,7 @@ from torch import nn
 from tsflab.models._components.differential_attention import DifferentialAttention
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.wavelet import DecimatedWaveletTransform
+from tsflab.models._inputs import check_window
 
 
 class RMSNorm(nn.Module):
@@ -89,11 +90,6 @@ class WDformerEncoderLayer(nn.Module):
         return self.out_norm(x + self.feed_forward(x))
 
 
-def _check_arguments(seq_len: int, pred_len: int) -> None:
-    if min(seq_len, pred_len) < 1:
-        raise ValueError("invalid WDformer dimension")
-
-
 def _subband_sizes(wavelet: DecimatedWaveletTransform, length: int) -> list[int]:
     """Coefficient count of every subband that ``wavelet`` produces for a ``length``-step series."""
     with torch.no_grad():
@@ -122,7 +118,6 @@ class Model(nn.Module):
         wave_size: int = 3,
     ) -> None:
         super().__init__()
-        _check_arguments(seq_len, pred_len)
         del d_ff  # accepted for preset/CLI parity; the official SwiGLU feed-forward
         # width is fixed at 2 * d_model and never reads d_ff (its only official
         # consumer, a Conv1d-based feed-forward branch, is unused dead code in
@@ -162,8 +157,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
         normalized, mean, std = standardize(x_enc)
 

@@ -10,6 +10,7 @@ from tsflab.models._components.marks import (
     future_time_features,
     to_spatiotemporal,
 )
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 class MetaGraphCell(nn.Module):
@@ -52,7 +53,7 @@ class Model(nn.Module):
         mem_dim: int = 16,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("invalid MegaCRN dimensions")
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = (
             seq_len,
@@ -76,10 +77,8 @@ class Model(nn.Module):
         adj = (
             np.eye(num_nodes, dtype=np.float32)
             if adj_mx is None
-            else np.asarray(adj_mx, dtype=np.float32)
+            else square_adjacency(adj_mx, num_nodes)
         )
-        if adj.shape != (num_nodes, num_nodes):
-            raise ValueError(f"adjacency must have shape {(num_nodes, num_nodes)}")
         adj = adj + np.eye(num_nodes, dtype=np.float32)
         adj /= np.maximum(adj.sum(-1, keepdims=True), 1e-6)
         self.register_buffer("predefined_graph", torch.from_numpy(adj))
@@ -102,8 +101,7 @@ class Model(nn.Module):
         return graph, node_memory
 
     def _inputs(self, x_enc, x_mark_enc):
-        if x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         st = to_spatiotemporal(x_enc, x_mark_enc)
         if st.shape[-1] < self.input_dim:
             st = torch.cat((st, st.new_zeros(*st.shape[:-1], self.input_dim - st.shape[-1])), -1)

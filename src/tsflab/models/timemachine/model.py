@@ -17,6 +17,7 @@ from torch import nn
 
 from tsflab.models._components.mamba import MambaBlock
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def _mamba(width: int, d_state: int, d_conv: int, expand: int) -> MambaBlock:
@@ -50,8 +51,6 @@ class Model(nn.Module):
         residual: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, widths, and Mamba sizes must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.ch_ind, self.residual = bool(ch_ind), bool(residual)
         # revin=False keeps the same statistics but drops the learnable affine
@@ -75,8 +74,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         x = self.norm(x_enc, "norm").transpose(1, 2)  # (B, C, L)
         if self.ch_ind:

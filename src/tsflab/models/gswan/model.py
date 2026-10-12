@@ -19,6 +19,7 @@ from tsflab.models._components.adaptive_node_embedding_adjacency import (
 )
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 TimeFeature = Literal["time_of_week", "time_of_day"]
 
@@ -170,10 +171,7 @@ def _static_supports(adj_mx: np.ndarray | None, num_nodes: int) -> list[torch.Te
     # when no adjacency is supplied (the adaptive support A_adp is always present).
     if adj_mx is None:
         return []
-    adjacency = np.asarray(adj_mx, dtype=np.float32)
-    if adjacency.shape != (num_nodes, num_nodes):
-        raise ValueError("adj_mx shape must match num_nodes")
-    return adj_to_supports(adjacency, "doubletransition")
+    return adj_to_supports(square_adjacency(adj_mx, num_nodes), "doubletransition")
 
 
 class Model(nn.Module):
@@ -198,7 +196,7 @@ class Model(nn.Module):
         time_feature: TimeFeature = "time_of_week",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("GSWaN sizes must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.time_feature = time_feature
@@ -246,8 +244,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or tuple(x_enc.shape[1:]) != (self.seq_len, self.num_nodes):
-            raise ValueError(f"GSWaN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         metric, time = self.inputs(x_enc, x_mark_enc)
         pad = self.padded_len - self.seq_len
         metric, time = F.pad(metric, (pad, 0)), F.pad(time, (pad, 0))

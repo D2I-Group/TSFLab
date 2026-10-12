@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def _normal_support(size: int, bound: float) -> tuple[torch.Tensor, torch.Tensor]:
@@ -52,8 +53,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -81,10 +80,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_revin:
             x_enc = self.revin(x_enc, "norm")
         channel_sequences = x_enc.permute(0, 2, 1).reshape(-1, self.seq_len)

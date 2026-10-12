@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.dlinear import DLinearBackbone
+from tsflab.models._inputs import check_window
 
 _EPS = 1e-5
 
@@ -112,8 +113,6 @@ class Model(nn.Module):
         individual: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, top_k, and widths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -139,8 +138,7 @@ class Model(nn.Module):
         )
 
     def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x, self.seq_len, self.enc_in)
 
     # ------------------------------------------------------------------ Eq. 1
     @torch.no_grad()

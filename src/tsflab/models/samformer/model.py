@@ -24,6 +24,7 @@ import torch.nn as nn
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.sharpness_aware import sharpness_aware_loss
+from tsflab.models._inputs import check_window
 
 
 class ChannelWiseAttention(nn.Module):
@@ -55,8 +56,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("SAMformer dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -66,10 +65,7 @@ class Model(nn.Module):
         self.forecaster = ChannelWiseLinear(seq_len, pred_len, enc_in, individual=False)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm").transpose(1, 2)  # [B, C, L]
         x = x + self.attention(x)
         y = self.forecaster(x).transpose(1, 2)  # [B, H, C]

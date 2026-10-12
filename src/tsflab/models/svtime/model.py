@@ -15,6 +15,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class PatchWisePeriodMap(nn.Module):
@@ -74,8 +75,6 @@ class SVTimeModel(nn.Module):
         subtract_last: bool = False,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if period > seq_len:
             raise ValueError("period must be in [1, seq_len]")
         self.c_in = c_in
@@ -116,10 +115,7 @@ class SVTimeModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.c_in):
-            raise ValueError(
-                f"SVTime expects input shaped (batch, {self.seq_len}, {self.c_in})"
-            )
+        check_window(x, self.seq_len, self.c_in)
         if self.revin_layer is not None:
             x = self.revin_layer(x, "norm")
 

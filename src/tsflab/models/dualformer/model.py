@@ -52,6 +52,7 @@ from tsflab.models._components.harmonic_energy_gate import HarmonicEnergyGate
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 class AutoCorrelationAttention(nn.Module):
@@ -131,8 +132,6 @@ class Model(nn.Module):
         dc_bins: int = 3,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -194,8 +193,7 @@ class Model(nn.Module):
         return signal, (start, end)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.channels})")
+        check_window(x_enc, self.seq_len, self.channels)
         x_mark_enc = self._default_marks(x_enc, self.seq_len) if x_mark_enc is None else x_mark_enc
         if x_mark_enc.shape[:2] != x_enc.shape[:2]:
             raise ValueError("encoder marks do not align with x_enc")

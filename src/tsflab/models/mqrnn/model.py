@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.quantile_head import QuantileHead
+from tsflab.models._inputs import check_window
 
 _DEFAULT_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
@@ -41,8 +42,6 @@ class Model(nn.Module):
         quantile_levels: list[float] | None = None,
     ) -> None:
         super().__init__()
-        if seq_len < 1 or pred_len < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -127,10 +126,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"MQRNN expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         historical_covariates = self._covariates(
             x_mark_enc,

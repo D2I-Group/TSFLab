@@ -7,6 +7,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._inputs import check_window
+
 
 def exponential_smooth(tokens: torch.Tensor, alpha: float) -> torch.Tensor:
     """Causal EMA over the token axis of a ``[B,C,P,D]`` tensor."""
@@ -64,8 +66,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         series = x_enc.transpose(1, 2)
         tokens = self.patch_projection(series.unfold(-1, self.patch_len, self.stride)) + self.position
         if self.stat_projection is not None:

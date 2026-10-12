@@ -40,6 +40,7 @@ from tsflab.models._components.node_visibility import (
     ungroup_subgraphs,
     unshuffle_tokens,
 )
+from tsflab.models._inputs import check_window
 
 
 class SelfAttentionLayer(nn.Module):
@@ -97,7 +98,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx  # VisiFold's node visibility mechanism does not consume a fixed adjacency.
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("VisiFold dimensions must be positive")
 
         self.seq_len = seq_len
@@ -141,8 +142,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"VisiFold expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         batch_size = x_enc.shape[0]
         history = to_spatiotemporal(x_enc, x_mark_enc)
 

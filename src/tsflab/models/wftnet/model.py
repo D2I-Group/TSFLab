@@ -23,6 +23,7 @@ from tsflab.models._components.embed import DataEmbedding
 from tsflab.models._components.inception_block import InceptionBlock2d
 from tsflab.models._components.marks import adapt_tslib_marks, tslib_time_feature_dimension
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 # Real Morlet mother wavelet psi(t) = exp(-t^2 / 2) cos(5 t), tabulated on
 # [-8, 8] with 2**10 points and integrated by rectangles (the pywt "morl" grid the
@@ -150,8 +151,6 @@ class Model(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if top_k > (seq_len + pred_len) // 2:
             raise ValueError("top_k exceeds the available non-DC frequencies of seq_len + pred_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -180,10 +179,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden = self.encode(self.revin(x_enc, "norm"), x_mark_enc)
         for block in self.blocks:
             # One LayerNorm shared by every block, as in the official encoder loop.

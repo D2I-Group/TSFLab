@@ -11,6 +11,7 @@ from tsflab.models._components.adaptive_node_embedding_adjacency import (
 )
 from tsflab.models._components.graph_utils import adj_to_supports
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _propagate(x: torch.Tensor, graph: torch.Tensor) -> torch.Tensor:
@@ -79,9 +80,7 @@ class Model(nn.Module):
         del num_feat, output_hidden
         if pred_len % gap:
             raise ValueError("D2STGNN pred_len must be divisible by gap")
-        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else np.asarray(adj_mx, dtype=np.float32)
-        if adjacency.shape != (num_nodes, num_nodes):
-            raise ValueError("adj_mx shape must match num_nodes")
+        adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         static = adj_to_supports(adjacency)
         self.register_buffer("forward_support", static[0])
         self.register_buffer("reverse_support", static[1])
@@ -109,8 +108,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"D2STGNN expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         tod = (data[..., 1] * self.time_in_day_size).long().clamp(0, self.time_in_day_size - 1)
         dow = (data[..., 2] * self.day_in_week_size).long().clamp(0, self.day_in_week_size - 1)

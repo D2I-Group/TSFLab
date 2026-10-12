@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 def patchify(values: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
@@ -109,8 +110,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         tokens = self.embedding(patchify(normalized, self.patch_len, self.stride))
         for block in self.blocks:

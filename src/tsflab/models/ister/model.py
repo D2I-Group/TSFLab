@@ -18,6 +18,7 @@ from tsflab.models._components.revin import RevIN
 from tsflab.models._components.self_attention_family import AttentionLayer
 from tsflab.models._components.series_decomposition import SeriesDecomposition
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 class DotAttention(nn.Module):
@@ -108,8 +109,6 @@ class Model(nn.Module):
         gelu_scores: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths and layers must be positive")
         if recon_len > seq_len:
             raise ValueError("recon_len must not exceed seq_len")
         self.seq_len = seq_len
@@ -152,8 +151,7 @@ class Model(nn.Module):
     def full_forecast(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None = None) -> torch.Tensor:
         """Return ``[B, recon_len + pred_len, C]``: the reconstruction of the last
         ``recon_len`` history steps followed by the horizon forecast."""
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         marks = self._marks(x_mark_enc)
         normalized = self.normalizer(x_enc, "norm")
         seasonal, trend = self.decomposition(normalized)

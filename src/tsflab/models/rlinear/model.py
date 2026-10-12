@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from tsflab.models._components.channel_wise_linear import ChannelWiseLinear
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -22,8 +23,6 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("sequence lengths must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = c_in
@@ -41,8 +40,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("RLinear expects (batch, configured seq_len, c_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.normalization(x_enc, "norm")
         forecast = self.projection(
             self.input_dropout(normalized).transpose(1, 2)

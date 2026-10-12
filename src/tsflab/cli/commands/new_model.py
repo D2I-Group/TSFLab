@@ -102,12 +102,8 @@ def _spec(
     for field, kind, default in params:
         if field in {"enc_in", "cov_dim"}:
             continue
-        access = (
-            f'params["{field}"]'
-            if default is None
-            else f'params.get("{field}", {_python_literal(kind, default)})'
-        )
-        arguments.append(f"        {field}={access},")
+        # validated params contain every schema field, so defaults live only in the schema
+        arguments.append(f'        {field}=params["{field}"],')
     capability = {
         "time_series": "time-series",
         "spatiotemporal": "spatiotemporal",
@@ -129,12 +125,9 @@ def build_model(cfg, params):
 
 SPEC = ModelSpec(
     name="{name}",
-    module="tsflab.models.{module}",
     model_class=Model,
     factory=build_model,
     params_schema=ModelParameterConfig,
-    config_path="configs/models/{name}.toml",
-    model_card="src/tsflab/models/{module}/README.md",
     smoke_config="configs/runs/smoke_{module}.toml",
     capabilities=frozenset({{{capability!r}}}),
     components={components!r},

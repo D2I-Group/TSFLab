@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class ResidualPointwiseBlock(nn.Module):
@@ -42,7 +43,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("STID dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -70,8 +71,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STID expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:
             raise ValueError("STID received fewer input features than configured")

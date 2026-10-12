@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def patch_count(seq_len: int, patch_size: int, stride: int) -> int:
@@ -149,8 +150,6 @@ class Model(nn.Module):
         freeze_backbone: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths, heads and layers must be positive")
         if seq_len < patch_size:
             raise ValueError("seq_len must be at least patch_size")
         if pretrain_epochs > 0 and (pred_len < stride or patch_count(seq_len, patch_size, stride) < 2):
@@ -182,8 +181,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         latent = self.backbone(to_patches(normalized, self.patch_size, self.stride))
         forecast = self.head(latent).transpose(1, 2)  # [B, H, C]

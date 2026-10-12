@@ -29,6 +29,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 def linear_beta_schedule(steps: int) -> torch.Tensor:
     scale = 1000 / steps
@@ -54,8 +56,6 @@ class Model(nn.Module):
         w_grad: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if seq_len < pred_len:
             raise ValueError("ARMD slides a window of pred_len steps, so seq_len >= pred_len")
         if sampling_steps > pred_len:
@@ -131,10 +131,7 @@ class Model(nn.Module):
 
     # ------------------------------------------------------------------ forecast
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"ARMD expects input shaped (batch, {self.seq_len}, {self.enc_in})"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         total = self.pred_len
         state = x_enc[:, -total:, :]
         times = torch.linspace(-1, total - 1, steps=self.sampling_steps + 1).int().tolist()

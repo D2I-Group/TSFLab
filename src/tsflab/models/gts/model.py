@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from tsflab.models._components.channel_alignment import fit_channels
 from tsflab.models._components.graph_conv_gru import GraphConvGRUCell
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _row_normalize(adjacency: torch.Tensor) -> torch.Tensor:
@@ -136,14 +137,12 @@ class Model(nn.Module):
         prior_strength: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, num_nodes) < 1:
-            raise ValueError("lengths, nodes, channels, and hidden dimensions must be positive")
+        if num_nodes < 1:
+            raise ValueError("num_nodes must be positive")
         if adj_mx is None:
             prior = torch.zeros(num_nodes, num_nodes)
         else:
-            adjacency = np.asarray(adj_mx, dtype=np.float32)
-            if adjacency.shape != (num_nodes, num_nodes):
-                raise ValueError(f"adj_mx must have shape {(num_nodes, num_nodes)}")
+            adjacency = square_adjacency(adj_mx, num_nodes)
             prior = torch.as_tensor((adjacency > 0).astype(np.float32))
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -167,8 +166,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         graph = self.graph_discovery(x_enc)
         history = fit_channels(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         state = [history.new_zeros((history.shape[0], self.num_nodes, self.encoder.hidden_dim)) for _ in self.encoder.cells]

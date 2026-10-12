@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window
 
 
 class AxisAttentionBlock(nn.Module):
@@ -56,7 +57,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         del adj_mx
-        if min(seq_len, pred_len, num_nodes) < 1:
+        if num_nodes < 1:
             raise ValueError("STAEformer dimensions must be positive")
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_dim = input_dim
@@ -98,8 +99,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
 
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"STAEformer expects (B, {self.seq_len}, {self.num_nodes}) values")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         data = to_spatiotemporal(x_enc, x_mark_enc)
         tod = (data[..., 1] * self.steps_per_day).long().clamp(0, self.steps_per_day - 1)
         dow = (data[..., 2] * 7).long().clamp(0, 6)

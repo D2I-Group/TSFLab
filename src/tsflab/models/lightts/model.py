@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from tsflab.models._inputs import check_window
+
 
 class InformationExchangeBlock(nn.Module):
     """Bottleneck temporal/channel/output projections from Section 3.4."""
@@ -44,8 +46,6 @@ class Model(nn.Module):
         chunk_size: int = 24,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if seq_len % chunk_size:
             raise ValueError("seq_len must be divisible by chunk_size")
         self.seq_len = seq_len
@@ -84,10 +84,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         per_series = x_enc.transpose(1, 2).reshape(
             batch * self.enc_in, self.seq_len

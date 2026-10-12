@@ -4,6 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class ResidualDeRedundant(nn.Module):
@@ -80,8 +81,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"MGSFformer expects [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         raw = [self._granularity(self.embed(normalized.unsqueeze(-1)), f) for f in self.GRANULARITIES]
         features = [raw[0]]

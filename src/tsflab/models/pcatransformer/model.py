@@ -19,6 +19,7 @@ import torch.nn as nn
 from tsflab.models._components.embed import DataEmbedding
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Decoder, DecoderLayer, Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 def principal_axes(covariates: torch.Tensor, n_components: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -66,8 +67,8 @@ class Model(nn.Module):
         freq: str = "h",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1 or label_len < 0 or label_len > seq_len:
-            raise ValueError("require seq_len, pred_len >= 1 and 0 <= label_len <= seq_len")
+        if label_len > seq_len:
+            raise ValueError("label_len must not exceed seq_len")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.label_len = label_len
@@ -121,10 +122,7 @@ class Model(nn.Module):
         return torch.cat((scores, values[..., -1:]), dim=-1)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected x_enc [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         encoder_input = self.reduce(x_enc)
         # Decoder input in the reduced space: observed label window, then a zero horizon
         # (the official loader applies PCA before the zero horizon is appended).

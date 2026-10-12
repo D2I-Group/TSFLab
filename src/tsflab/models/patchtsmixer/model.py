@@ -14,6 +14,7 @@ import torch.nn as nn
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.softmax_gate import SoftmaxGate
+from tsflab.models._inputs import check_window
 
 
 class MixerMLP(nn.Module):
@@ -114,8 +115,6 @@ class Model(nn.Module):
         gated_attn: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid PatchTSMixer dimension")
         if seq_len <= patch_len:
             raise ValueError("seq_len must exceed patch_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -144,8 +143,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in}), got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         hidden = self.patch_embedding(self.patchify(self.revin(x_enc, "norm")))
         for layer in self.layers:
             hidden = layer(hidden)

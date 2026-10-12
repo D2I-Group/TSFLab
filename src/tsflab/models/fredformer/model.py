@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 class FrequencyEqualization(nn.Module):
@@ -89,8 +90,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         reconstructed, _ = self.frequency_debias(normalized)
         forecast = self.head(reconstructed).transpose(1, 2)

@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 # Steps per day for each supported data frequency (the official frequency table).
 STEPS_PER_DAY = {"h": 24, "t": 96, "15min": 96, "30min": 48, "d": 1, "w": 1, "m": 1, "s": 86400}
 
@@ -286,8 +288,7 @@ class Model(nn.Module):
 
     # ------------------------------------------------------------------ forward
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected x_enc [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         last = x_enc[:, -1:, :].detach()
         direct = self.direct((x_enc - last).transpose(1, 2)).transpose(1, 2)
         retrieved = self.retrieve(x_enc, x_mark_enc).to(x_enc.dtype)

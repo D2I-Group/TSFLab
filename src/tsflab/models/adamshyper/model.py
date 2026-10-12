@@ -20,6 +20,7 @@ from tsflab.models._components.adaptive_node_embedding_adjacency import (
     adaptive_node_embedding_adjacency,
 )
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 _NEG = -1e9
 
@@ -140,8 +141,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         window_size, hyper_num = tuple(window_size), tuple(hyper_num)
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid AdaMSHyper dimension")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.lambda_balance, self.const_weight = lambda_balance, const_weight
         nodes = _scale_nodes(seq_len, window_size)
@@ -183,8 +182,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in}), got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         series = self.multi_scale(self.revin(x_enc, "norm"))
         nodes, edges, valids = [], [], []
         node_loss = hyper_loss = x_enc.new_zeros(())

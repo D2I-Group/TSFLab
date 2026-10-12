@@ -17,6 +17,7 @@ import torch.nn as nn
 from tsflab.models._components.embed import DataEmbedding_inverted
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 FFTNorm = Literal["backward", "ortho", "forward"]
 
@@ -72,10 +73,7 @@ class FrequencySpectrumAttention(nn.Module):
 
     def attention_weights(self, amplitude: torch.Tensor) -> torch.Tensor:
         """``softmax(MSS_Q(A) MSS_K(A)^T / sqrt(F))`` as ``[B, H, C, C]`` (pre-dropout)."""
-        if amplitude.ndim != 3 or amplitude.shape[1:] != (self.channels, self.n_freq):
-            raise ValueError(
-                f"amplitude spectrum must have shape (batch, {self.channels}, {self.n_freq})"
-            )
+        check_window(amplitude, self.channels, self.n_freq, name="amplitude")
         queries = self.query_scaling(amplitude)
         keys = self.key_scaling(amplitude)
         scores = torch.einsum("bhcf,bhsf->bhcs", queries, keys) * self.scale
@@ -112,8 +110,6 @@ class Model(nn.Module):
         fft_norm: FFTNorm = "backward",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, widths, heads, and layers must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -139,8 +135,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.normalizer(x_enc, "norm")
         amplitude = amplitude_spectrum(normalized, self.fft_norm)
         tokens = self.embedding(normalized, None)

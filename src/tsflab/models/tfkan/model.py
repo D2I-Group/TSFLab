@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.bspline_basis import bspline_basis
+from tsflab.models._inputs import check_window
 
 
 class BSplineKANLinear(nn.Module):
@@ -132,10 +133,7 @@ class Model(nn.Module):
         return self.time_kan(series)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         series = x_enc.transpose(1, 2)  # T_t: [B, N, L]
         lifted = self.adjust_dimension(series)  # F_t: [B, N, L, d]

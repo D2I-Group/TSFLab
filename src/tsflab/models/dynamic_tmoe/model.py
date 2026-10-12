@@ -17,6 +17,7 @@ import torch.nn.functional as F
 from tsflab.models._components.marks import elapsed_minutes
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.topk_expert_router import topk_dense_mix
+from tsflab.models._inputs import check_window
 
 
 class _IdentityExpert(nn.Module):
@@ -103,8 +104,6 @@ class Model(nn.Module):
         use_revin: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("DynamicTMoE dimensions must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -144,10 +143,7 @@ class Model(nn.Module):
         nn.init.normal_(self.cycle_relation, std=0.02)
 
     def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+        check_window(x, self.seq_len, self.enc_in)
 
     def _patches(self, x: torch.Tensor) -> torch.Tensor:
         history = x.transpose(1, 2)

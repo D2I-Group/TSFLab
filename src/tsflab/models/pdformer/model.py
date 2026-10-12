@@ -31,6 +31,7 @@ from torch.nn import functional as F
 from tsflab.models._components.adj_norm import symmetric_normalized_laplacian
 from tsflab.models._components.embed import PositionalEmbedding
 from tsflab.models._components.marks import to_calendar_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 # ------------------------------------------------------------ graph statistics
@@ -314,11 +315,7 @@ class Model(nn.Module):
                 "PDFormer needs the road-network adjacency adj_mx [enc_in, enc_in] for its "
                 "Laplacian embedding and geographic mask; use a graph dataset that ships adj_mx.npy"
             )
-        adjacency = np.asarray(adj_mx, dtype=np.float64)
-        if adjacency.shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, nodes, pattern size, clusters, dtw_delta, steps_per_day must be >= 1")
+        adjacency = square_adjacency(adj_mx, enc_in, dtype=np.float64)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.s_attn_size, self.n_cluster = s_attn_size, n_cluster
         self.dtw_delta = min(dtw_delta, enc_in)
@@ -407,8 +404,7 @@ class Model(nn.Module):
         return self.embedding_dropout(h)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         patterns = self.pattern_embedding(self._recent_windows(x_enc))
         keys = self.pattern_embedding(self.pattern_set)
         h = self._embed(x_enc, x_mark_enc)

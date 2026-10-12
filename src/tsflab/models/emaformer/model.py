@@ -16,6 +16,7 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.marks import days_from_civil
 from tsflab.models._components.self_attention_family import AttentionLayer, FullAttention
 from tsflab.models._components.transformer_encdec import Encoder, EncoderLayer
+from tsflab.models._inputs import check_window
 
 
 def _elapsed_minutes(stamp: torch.Tensor) -> torch.Tensor:
@@ -58,8 +59,6 @@ class Model(nn.Module):
         use_norm: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cycle, self.d_model, self.use_norm = cycle, d_model, use_norm
 
@@ -112,10 +111,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         if self.use_norm:
             x_enc, means, stdev = standardize(x_enc)
         phase = forecast_phase(x_mark_enc, self.cycle, x_enc.shape[0], x_enc.device)

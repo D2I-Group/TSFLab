@@ -18,6 +18,7 @@ import torch
 from torch import nn
 
 from tsflab.models._components.freq_band_moe import FrequencyBandMixtureOfExperts
+from tsflab.models._inputs import check_window
 
 
 class ComplexReLU(nn.Module):
@@ -82,8 +83,6 @@ class Model(nn.Module):
         dropout_freq: float = 0.1,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.moe = FrequencyBandMixtureOfExperts(expert_num, seq_len)
         self.blocks = nn.ModuleList(
@@ -98,8 +97,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ) -> torch.Tensor:
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         denoised, self.last_band_boundaries, self.last_gating_scores = self.moe(
             x_enc.permute(0, 2, 1)
         )

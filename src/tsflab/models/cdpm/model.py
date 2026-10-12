@@ -16,6 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.series_decomposition import SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 
 def beta_schedule(kind: str, steps: int) -> torch.Tensor:
@@ -250,8 +251,7 @@ class Model(nn.Module):
         return sample
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected x_enc [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
+        check_window(x_enc, self.seq_len, self.enc_in)
         mean, std = self.statistics(x_enc)
         season_hist, trend_hist = self.decomposition((x_enc - mean) / std)
         generator = None

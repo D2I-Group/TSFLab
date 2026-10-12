@@ -28,6 +28,7 @@ from torch import nn
 from tsflab.models._components.energy_frequency_pooling import EnergyBasedFrequencyPooling
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.series_decomposition import EdgePaddedMovingAverage
+from tsflab.models._inputs import check_window
 
 
 class FLinear(nn.Module):
@@ -131,8 +132,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ) -> torch.Tensor:
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         x_enc = self.revin(x_enc, "norm")
         x_enc = x_enc - self.beta * self.moving_average(x_enc)
         x_embed = self.embed(x_enc.transpose(1, 2))

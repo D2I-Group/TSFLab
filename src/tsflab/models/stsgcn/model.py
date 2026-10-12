@@ -27,6 +27,7 @@ from tsflab.models._components.synchronous_graph_conv import (
     localized_adjacency,
     mxnet_xavier_uniform_,
 )
+from tsflab.models._inputs import check_window, square_adjacency
 
 _WINDOW = 3
 
@@ -97,8 +98,8 @@ class Model(nn.Module):
         huber_delta: float = 1.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len, enc_in) < 1:
-            raise ValueError("lengths, nodes, layers and widths must be positive")
+        if enc_in < 1:
+            raise ValueError("enc_in must be positive")
         if seq_len - 2 * num_layers < 1:
             raise ValueError(f"seq_len ({seq_len}) must exceed 2 * num_layers ({2 * num_layers})")
         if adj_mx is None:
@@ -106,8 +107,7 @@ class Model(nn.Module):
                 "STSGCN needs the road-network adjacency adj_mx [enc_in, enc_in] for its localized "
                 "spatial-temporal graph; use a graph dataset that ships adj_mx.npy (for example a PEMS preset)"
             )
-        if np.asarray(adj_mx).shape != (enc_in, enc_in):
-            raise ValueError(f"adj_mx must have shape {(enc_in, enc_in)}")
+        square_adjacency(adj_mx, enc_in, dtype=None)
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, enc_in
         self.huber_delta = huber_delta
 
@@ -138,8 +138,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.num_nodes):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.num_nodes}]")
+        check_window(x_enc, self.seq_len, self.num_nodes)
         adjacency = self.adjacency if self.mask is None else self.mask * self.adjacency
         hidden = torch.relu(self.input_layer(x_enc.unsqueeze(-1)))
         for layer in self.layers:

@@ -25,6 +25,7 @@ import torch.nn as nn
 
 from tsflab.models._components.marks import adapt_tslib_marks
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 TIME_FEATURES = 4  # hourly Time-Series-Library continuous calendar features
 
@@ -97,8 +98,6 @@ class Model(nn.Module):
         use_short_branch: bool = True,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("sizes must be positive")
         if seq_len % period or pred_len % period:
             raise ValueError("seq_len and pred_len must be multiples of period")
         if seq_len // period < 2:
@@ -119,10 +118,7 @@ class Model(nn.Module):
         self.head = VariateLinear(enc_in, branches * d_model, self.pred_rows)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         marks = adapt_tslib_marks(x_mark_enc, embed_type="timeF", freq="h")
         if marks is None:

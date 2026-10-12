@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.dlinear import DLinearBackbone
+from tsflab.models._inputs import check_window
 
 ValueRange = Literal["signed", "unit"]
 _NORM_EPS = 1e-8
@@ -80,8 +81,6 @@ class Model(nn.Module):
         value_range: ValueRange = "signed",
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -97,8 +96,7 @@ class Model(nn.Module):
         self.register_buffer("centers", (edges[1:] + edges[:-1]) / 2, persistent=False)
 
     def _validate(self, x_enc: torch.Tensor) -> None:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
     def bin_probabilities(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predicted ``[B, pred_len, C, K]`` bin probabilities and the input min/max."""

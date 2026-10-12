@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tsflab.models._components.patchtst import PatchTSTBackbone
+from tsflab.models._inputs import check_window
 
 _EPS = 1e-5
 
@@ -232,8 +233,8 @@ class Model(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1 or seq_len < 2:
-            raise ValueError("lengths, channels, and widths must be positive (seq_len >= 2)")
+        if seq_len < 2:
+            raise ValueError("seq_len must be at least 2")
         if not 1 <= window_len <= min(seq_len, pred_len):
             raise ValueError("window_len must lie in [1, min(seq_len, pred_len)]")
         self.trend = WaveletTrend(wavelet, dwt_levels)
@@ -286,13 +287,9 @@ class Model(nn.Module):
         mean, std = statistics
         return output * (std + _EPS) + mean
 
-    def _validate(self, x: torch.Tensor) -> None:
-        if x.ndim != 3 or x.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
-
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        self._validate(x_enc)
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, statistics = self.normalize(x_enc)
         return self.denormalize(self.backbone(normalized), statistics)  # Eqs. (13)-(14)
 

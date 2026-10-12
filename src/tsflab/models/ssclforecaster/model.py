@@ -26,6 +26,7 @@ import torch.nn.functional as F
 from tsflab.models._components.embed import DataEmbedding
 from tsflab.models._components.marks import elapsed_minutes, encoder_timef_marks, tslib_time_feature_dimension
 from tsflab.models._components.series_decomposition import EdgePaddedMovingAverage, SeriesDecomposition
+from tsflab.models._inputs import check_window
 
 # The official experiment passes temperature = base_temperature = 1.0 to AutoCon,
 # so the (temperature / base_temperature) loss factor is 1.
@@ -253,8 +254,7 @@ class Model(nn.Module):
     def forecast_with_representation(
         self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         short, long, state = self.normalize(x_enc)
         representation = self.represent(long, x_mark_enc)
         long_term = self.long_term(representation, x_enc.shape[0])

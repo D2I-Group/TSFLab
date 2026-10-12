@@ -18,6 +18,7 @@ import torch.nn as nn
 
 from tsflab.models._components.fft_extrapolation_conv import FFTExtrapolationConv
 from tsflab.models._components.weight_set_router import WeightSetRouter, mix_weight_sets
+from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
@@ -37,8 +38,8 @@ class Model(nn.Module):
         anneal_epochs: int = 10,
     ) -> None:
         super().__init__()
-        if pred_len < 1 or seq_len < 2:
-            raise ValueError("seq_len must be >= 2 and pred_len positive")
+        if seq_len < 2:
+            raise ValueError("seq_len must be >= 2")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_experts = num_experts
         self.use_revin, self.use_time_w, self.use_freq_w = use_revin, use_time_w, use_freq_w
@@ -79,10 +80,7 @@ class Model(nn.Module):
 
     # ------------------------------------------------------------------- forward
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         x = x_enc.transpose(1, 2)  # [B, C, L]
         if self.use_revin:
             mean = x.mean(dim=-1, keepdim=True).detach()

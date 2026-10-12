@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tsflab.models._inputs import check_window
+
 
 class SegmentTrendPath(nn.Module):
     """Factor local segment shapes and dependencies between segments."""
@@ -64,8 +66,6 @@ class Model(nn.Module):
         spectral_rank: int = 2,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) <= 0:
-            raise ValueError("all dimensions and factors must be positive")
         if seq_len % downsample:
             raise ValueError("seq_len must be divisible by downsample")
         effective_length = seq_len // downsample
@@ -86,8 +86,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("MixLinear expects (batch, configured seq_len, enc_in)")
+        check_window(x_enc, self.seq_len, self.enc_in)
         center = x_enc.mean(dim=1, keepdim=True)
         history = (x_enc - center).transpose(1, 2)
         reduced = F.avg_pool1d(

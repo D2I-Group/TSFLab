@@ -9,6 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from tsflab.models._components.instance_norm import destandardize, standardize
+from tsflab.models._inputs import check_window
 
 
 def interleave(even: torch.Tensor, odd: torch.Tensor) -> torch.Tensor:
@@ -117,8 +118,6 @@ class Model(nn.Module):
     ):
         super().__init__()
         hidden_size = max(1, enc_in * 4) if hidden_size is None else hidden_size
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("all SCINet dimensions and counts must be positive")
         if seq_len < 2**num_levels:
             raise ValueError("seq_len must be at least 2**num_levels")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -153,10 +152,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, detach_std=True)
         history = normalized + self.position_encoding
         prediction = None

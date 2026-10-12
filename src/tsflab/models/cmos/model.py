@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 
 from tsflab.models._components.revin import RevIN
+from tsflab.models._inputs import check_window
 
 
 def periodic_correlation_initialization(
@@ -90,8 +91,6 @@ class Model(nn.Module):
         period: int | None = None,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("CMoS dimensions must be positive")
         if seq_len % seg_size or pred_len % seg_size:
             raise ValueError("seg_size must divide both seq_len and pred_len")
         if kernel_size > seq_len:
@@ -112,9 +111,6 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.channels):
-            raise ValueError(
-                f"x_enc must have shape (batch, {self.seq_len}, {self.channels})"
-            )
+        check_window(x_enc, self.seq_len, self.channels)
         normalized = self.revin(x_enc, "norm")
         return self.revin(self.mixer(normalized), "denorm")

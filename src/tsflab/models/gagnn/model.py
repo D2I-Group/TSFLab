@@ -7,12 +7,11 @@ import torch
 from torch import nn
 
 from tsflab.models._components.marks import to_spatiotemporal
+from tsflab.models._inputs import check_window, square_adjacency
 
 
 def _normalized_graph(adj: np.ndarray, nodes: int) -> torch.Tensor:
-    value = np.asarray(adj, dtype=np.float32)
-    if value.shape != (nodes, nodes):
-        raise ValueError(f"adjacency must have shape {(nodes, nodes)}")
+    value = square_adjacency(adj, nodes, name="adjacency")
     value = value + np.eye(nodes, dtype=np.float32)
     return torch.from_numpy(value / np.maximum(value.sum(-1, keepdims=True), 1e-6))
 
@@ -48,8 +47,6 @@ class Model(nn.Module):
                  d_model: int = 64, num_layers: int = 3,
                  dropout: float = 0.1, group_num: int = 4) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         self.seq_len, self.pred_len, self.enc_in, self.cov_dim = seq_len, pred_len, enc_in, cov_dim
         adj = np.eye(enc_in, dtype=np.float32) if adj_mx is None else adj_mx
         self.register_buffer("city_graph", _normalized_graph(adj, enc_in))
@@ -65,8 +62,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [B,{self.seq_len},{self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         st = to_spatiotemporal(x_enc, x_mark_enc)
         needed = 1 + self.cov_dim
         if st.shape[-1] < needed:

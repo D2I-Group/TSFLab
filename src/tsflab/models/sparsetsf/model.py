@@ -6,6 +6,8 @@ import math
 
 from torch import nn
 
+from tsflab.models._inputs import check_window
+
 
 class Model(nn.Module):
     """Aggregate locally, forecast phase-aligned subsequences, and interleave them."""
@@ -13,8 +15,6 @@ class Model(nn.Module):
     def __init__(self, seq_len: int, pred_len: int, enc_in: int, period: int = 24,
                  d_model: int = 64, model_type: str = "linear") -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("lengths, channels, period, and d_model must be positive")
         if period > seq_len:
             raise ValueError("period must not exceed seq_len")
         self.seq_len, self.pred_len, self.enc_in, self.period = seq_len, pred_len, enc_in, period
@@ -39,8 +39,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError("x_enc does not match configured time/channel dimensions")
+        check_window(x_enc, self.seq_len, self.enc_in)
         mean = x_enc.mean(dim=1, keepdim=True).detach()
         centered = x_enc - mean
         batch = centered.shape[0]

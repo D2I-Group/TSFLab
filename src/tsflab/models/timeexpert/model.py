@@ -11,6 +11,7 @@ from tsflab.models._components.embed import PatchEmbedding
 from tsflab.models._components.flatten_forecast_head import FlattenForecastHead
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.topk_expert_attention import TopKExpertAttention
+from tsflab.models._inputs import check_window
 
 
 class TMOEBlock(nn.Module):
@@ -57,8 +58,6 @@ class Model(nn.Module):
         shared: bool = False,
     ) -> None:
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("invalid TimeExpert dimension")
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -83,8 +82,7 @@ class Model(nn.Module):
         x_dec: torch.Tensor | None = None,
         x_mark_dec: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        if x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
 
         normalized, mean, std = standardize(x_enc)
 

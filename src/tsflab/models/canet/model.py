@@ -24,6 +24,7 @@ import torch.nn as nn
 
 from tsflab.models._components.adain_style_norm import AdaptiveInstanceNorm1d
 from tsflab.models._components.positional_encoding import positional_encoding
+from tsflab.models._inputs import check_window
 
 
 class Patchifier(nn.Module):
@@ -202,8 +203,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape (batch, {self.seq_len}, {self.enc_in})")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch, _, m = x_enc.shape
         mean = x_enc.mean(dim=1, keepdim=True)
         std = x_enc.std(dim=1, keepdim=True)

@@ -18,6 +18,7 @@ import torch.nn.functional as F
 
 from tsflab.models._components.ddpm_epsilon import GaussianDDPM
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
+from tsflab.models._inputs import check_window
 
 # Raw marks are [year, month, day, weekday, hour, minute]; fixed periods per feature.
 _TIME_FEATURES = {"month": (1, 12.0, 1.0), "dayofweek": (3, 7.0, 0.0), "hour": (4, 24.0, 0.0), "minute": (5, 60.0, 0.0)}
@@ -209,10 +210,6 @@ class Model(nn.Module):
     def _denoise(self, condition):
         return lambda x, n: self.denoiser(x, n, condition)
 
-    def _check(self, x_enc):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
-
     def _marks(self, x_mark_enc, x_mark_dec, batch, ref):
         future = None if x_mark_dec is None else x_mark_dec[:, -self.pred_len:]
         if x_mark_enc is None or future is None:
@@ -222,7 +219,7 @@ class Model(nn.Module):
     # --------------------------------------------------------------- training
     def training_loss(self, x_enc, x_mark_enc, future, x_mark_dec) -> torch.Tensor:
         """Teacher-forced epsilon loss (Algorithm 1) over the context and/or the horizon."""
-        self._check(x_enc)
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         sequence = torch.cat((x_enc, future), dim=1)
         scale = self._scale(x_enc)
@@ -246,7 +243,7 @@ class Model(nn.Module):
     @torch.no_grad()
     def sample(self, x_enc, x_mark_enc=None, x_mark_dec=None, num_samples: int | None = None) -> torch.Tensor:
         """``[num_samples, B, pred_len, D]`` sample paths (Algorithm 2 run autoregressively)."""
-        self._check(x_enc)
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         scale = self._scale(x_enc)
         start = self.seq_len - self.context

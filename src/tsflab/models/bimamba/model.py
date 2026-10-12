@@ -10,6 +10,7 @@ from torch.nn import functional as F
 
 from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.mamba import MambaBlock
+from tsflab.models._inputs import check_window
 
 
 def patchify(values: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
@@ -112,8 +113,6 @@ class Model(nn.Module):
         sra_threshold=0.5,
     ):
         super().__init__()
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if patch_len > seq_len:
             raise ValueError("patch_len must not exceed seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -146,10 +145,7 @@ class Model(nn.Module):
         x_dec=None,
         x_mark_dec=None,
     ):
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         values, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         patches = patchify(values, self.patch_len, self.stride)
         batch, channels, count, width = patches.shape

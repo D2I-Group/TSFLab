@@ -23,6 +23,7 @@ from torch.utils.data import DataLoader, Subset
 
 from tsflab.models._components.dilated_conv_encoder import DilatedConvEncoder
 from tsflab.models._components.marks import days_from_civil
+from tsflab.models._inputs import check_window
 
 RIDGE_ALPHAS = (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000)
 _CALENDAR = 7  # minute, hour, dayofweek, day, dayofyear, month, weekofyear
@@ -197,8 +198,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(f"x_enc must have shape [batch, {self.seq_len}, {self.enc_in}]")
+        check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         out = self.representation(x_enc, x_mark_enc) @ self.ridge_weight + self.ridge_bias
         if self.channel_independent:

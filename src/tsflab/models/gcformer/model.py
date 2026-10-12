@@ -26,6 +26,7 @@ from tsflab.models._components.self_attention_family import (
     FullAttention,
     ProbAttention,
 )
+from tsflab.models._inputs import check_window
 
 
 def multiscale_kernel_count(seq_len: int, kernel_dim: int) -> int:
@@ -239,8 +240,6 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         context_len = seq_len if context_len is None else context_len
-        if min(seq_len, pred_len) < 1:
-            raise ValueError("seq_len and pred_len must be positive")
         if context_len > seq_len or patch_len > context_len:
             raise ValueError("require patch_len <= context_len <= seq_len")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -276,10 +275,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_mark_enc, x_dec, x_mark_dec
-        if x_enc.ndim != 3 or x_enc.shape[1:] != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"x_enc must be [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+        check_window(x_enc, self.seq_len, self.enc_in)
         last = x_enc[:, -1:].detach()
         normalized = self.revin(x_enc, "norm") if self.norm_type == "revin" else x_enc - last
         output = self.decode(*self.branches(normalized))
