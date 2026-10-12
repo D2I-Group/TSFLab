@@ -2,7 +2,7 @@
 
     tsf result hub pack <run_id|record.json> [--out DIR]
     tsf result hub push <run_id|record.json> [--repo OWNER/NAME] [--public] [--create]
-    tsf result hub push-top --dataset D [--horizon H] --top K [--metric mse] [--records DIR] [--dry-run]
+    tsf result hub push-top <dataset> [--horizon H] --top K [--metric mse] [--records DIR] [--dry-run]
     tsf result hub list [--repo OWNER/NAME] [--revision REV] [--dataset D] [--model M]
     tsf result hub pull <hf://...bundle-dir> [--json]
     tsf result hub results push <DIR...> [--dry-run] [--no-board] [--batch N] [--force]
@@ -23,6 +23,8 @@ validated bundles not yet present; ``init`` creates the published repositories
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, resolve_name
 import json
 from pathlib import Path
 import sys
@@ -153,7 +155,7 @@ def hub_command(argv: list[str]) -> int:
     push.add_argument("--public", action="store_true", help="create the repo as public")
     push.add_argument("--create", action="store_true", help="create the repo if missing")
     top = sub.add_parser("push-top", help="upload the checkpoints of the top-K ranked local runs")
-    top.add_argument("--dataset", required=True)
+    add_name(top, "dataset", flag="--dataset", help="dataset id, e.g. ETTh1")
     top.add_argument("--horizon", default=None, help="prediction length; default every horizon found")
     top.add_argument("--top", type=int, default=3, help="rows per horizon (default 3)")
     top.add_argument("--metric", default="mse", help="ranking metric, lower is better (default mse)")
@@ -195,6 +197,7 @@ def hub_command(argv: list[str]) -> int:
             print(f"Published: {uri}")
             return 0
         if args.action == "push-top":
+            resolve_name(top, args, "dataset")
             return _push_top(args)
         if args.action == "init":
             for name in hub.init_repositories(args.owner, private=args.private,

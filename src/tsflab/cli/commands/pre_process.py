@@ -14,19 +14,21 @@ Usage examples
 # From a single CSV (auto-split 70/10/20):
   uv run tsf data prepare \\
       --input-csv dataset/ETTh1.csv \\
-      --output-dir dataset/ETTh1_npy \\
-      --seq-len 96 --label-len 48 --pred-len 96 --features M
+      --out dataset/ETTh1_npy \\
+      --seq-len 96 --label-len 48 --horizon 96 --features M
 
 # From a folder that already has train/val/test CSVs:
   uv run tsf data prepare \\
       --input-dir dataset/my_dataset \\
-      --output-dir dataset/my_dataset_npy \\
-      --seq-len 96 --label-len 48 --pred-len 96 --features S --target OT
+      --out dataset/my_dataset_npy \\
+      --seq-len 96 --label-len 48 --horizon 96 --features S --target OT
 """
 
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import os
 
 import numpy as np
@@ -173,7 +175,7 @@ def _process_split_dir(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(prog="tsf data prepare",
         description="Convert time-series CSV(s) to pre-windowed .npz splits "
                     "for use with the 'pre_processed' dataset.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -191,11 +193,12 @@ def main() -> None:
         help="Folder containing train.csv, val.csv, and test.csv.",
     )
 
-    parser.add_argument("--output-dir", metavar="DIR", required=True,
-                        help="Where to write train.npz, val.npz, test.npz.")
+    add_option(parser, "--out", "output_dir", "--output-dir", metavar="DIR", required=True,
+               help="Where to write train.npz, val.npz, test.npz.")
     parser.add_argument("--seq-len",   type=int, required=True, help="Input sequence length.")
     parser.add_argument("--label-len", type=int, required=True, help="Decoder label length.")
-    parser.add_argument("--pred-len",  type=int, required=True, help="Prediction horizon.")
+    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, required=True,
+               help="Prediction horizon.")
     parser.add_argument("--features",  choices=["M", "S", "MS"], default="M",
                         help="Feature mode (default: M).")
     parser.add_argument("--target",    default="OT",

@@ -2,6 +2,8 @@
 """Rank completed model runs by horizon, seed, MSE, and MAE."""
 
 import argparse
+
+from tsflab.cli.args import add_name, add_option, resolve_name
 from pathlib import Path
 
 import pandas as pd
@@ -9,20 +11,12 @@ import pandas as pd
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="tsf result rank",
         description="Rank models by pred_len/seed for MSE and MAE."
     )
-    parser.add_argument(
-        "--input-root",
-        type=Path,
-        default=Path("work_dirs"),
-        help="Root directory containing dataset/model subfolders with performance.csv",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="ETTh1",
-        help="Dataset name to filter (default: ETTh1)",
-    )
+    add_option(parser, "--records", "input_root", "--input-root", type=Path, default=Path("work_dirs"),
+               help="run-records root with <dataset>/<model>/ performance.csv files (default work_dirs)")
+    add_name(parser, "dataset", flag="--dataset", help="dataset name to rank (default ETTh1)")
     parser.add_argument(
         "--out-mse",
         type=Path,
@@ -72,7 +66,9 @@ def parse_args() -> argparse.Namespace:
             "metric over surviving rows) before ranking. Off by default."
         ),
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    resolve_name(parser, args, "dataset", default="ETTh1")
+    return args
 
 
 def read_performance_files(root: Path) -> pd.DataFrame:

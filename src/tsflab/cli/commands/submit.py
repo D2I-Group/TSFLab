@@ -15,14 +15,16 @@ moves accepted bundles to the Hub.
 
 Examples
 --------
-    uv run tsf result submit --dataset ETTh1 --model iTransformer --latest
+    uv run tsf result submit ETTh1 --model iTransformer --latest
     uv run tsf result submit --all                          # every record under work_dirs/
-    uv run tsf result submit --all --dataset ETTh1 --skip-existing
+    uv run tsf result submit --all ETTh1 --skip-existing
 """
 
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, add_option, resolve_name
 import csv
 import hashlib
 import json
@@ -309,21 +311,24 @@ def _next_steps(out_root: Path, path_in_repo: str | None = None) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="tsf result submit", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", help="Dataset name (work_dirs/<dataset>/...); a filter with --all")
+    add_name(ap, "dataset", flag="--dataset", help="dataset name (<records>/<dataset>/...); a filter with --all")
     ap.add_argument("--model", help="Model name (work_dirs/<dataset>/<model>/...); a filter with --all")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--run-id", help="Specific run_id to submit")
     g.add_argument("--latest", action="store_true", help="Use the newest record.json (default)")
     g.add_argument("--all", action="store_true",
-                   help="Package every record under --work-dir (bulk; e.g. a whole sweep)")
-    ap.add_argument("--work-dir", type=Path, default=WORK, help="Records root (default: work_dirs)")
+                   help="Package every record under --records (bulk; e.g. a whole sweep)")
+    add_option(ap, "--records", "work_dir", "--work-dir", type=Path, default=WORK,
+               help="run-records root (default: work_dirs)")
     ap.add_argument("--skip-existing", action="store_true",
                     help="With --all: keep bundles that already exist in the output dir")
     ap.add_argument("--track", default=None, help="Override track (default: from record)")
     ap.add_argument("--submitter", default=None, help="Submitter name (default: git user)")
     ap.add_argument("--dataset-version", default="1.0.0", help="DatasetSpec version to pin")
-    ap.add_argument("--out-dir", default=None, help="Output dir (default: work_dirs/_submissions)")
+    add_option(ap, "--out", "out_dir", "--out-dir", default=None,
+               help="output directory (default: work_dirs/_submissions)")
     args = ap.parse_args(argv)
+    resolve_name(ap, args, "dataset", required=False)
 
     submitter = args.submitter or _git_user() or "anonymous"
     out_root = Path(args.out_dir) if args.out_dir else args.work_dir / "_submissions"

@@ -18,6 +18,8 @@ with the standard runner and needs a (GPU) machine with the full install.
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import json
 from pathlib import Path
 import sys
@@ -143,7 +145,8 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--model", required=True)
             p.add_argument("--submitter")
             p.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
-            p.add_argument("--work-dir", type=Path, default=Path("work_dirs") / "_realtime")
+            add_option(p, "--records", "work_dir", "--work-dir", type=Path, default=Path("work_dirs") / "_realtime",
+                       help="run-records root for the model run (default work_dirs/_realtime)")
     validate = sub.add_parser("validate")
     validate.add_argument("files", nargs="+", type=Path)
     validate.add_argument("--received-at", help="trusted arrival time (e.g. PR creation) checked against the deadline")

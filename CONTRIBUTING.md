@@ -103,7 +103,7 @@ See the [model workflow](docs/en/workflows.md#add-a-model-or-method). In short:
    edit) with placeholders that keep the audit red until replaced.
 3. Implement locally and complete the card (see [Cards](#cards)): the facts in
    `card.toml` and the short `README.md`.
-4. Run `tsf model add --name <Name> --verify`. Admission checks the package is
+4. Run `tsf model add <Name> --verify`. Admission checks the package is
    discoverable and complete, runs the audits and the executable contract, and
    records the result in the card's `[admission]`; on failure, fix and rerun.
 

@@ -288,3 +288,58 @@ def test_catalog_show_and_match_accept_several_names(capsys) -> None:
     matched = _json("catalog", "match", "etth1", "weather")
     assert [item["dataset"] for item in matched] == ["etth1", "weather"]
     assert json.loads(_run("catalog", "match", "etth1", "--json"))["dataset"] == "etth1"
+
+
+def test_shared_spellings_keep_hidden_aliases() -> None:
+    import argparse
+
+    from tsflab.cli.args import add_name, add_option, resolve_name
+
+    parser = argparse.ArgumentParser()
+    add_name(parser, "dataset", flag="--dataset", help="dataset")
+    add_option(parser, "--records", "work_dir", "--work-dir", default="work_dirs")
+    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int)
+    add_option(parser, "--out", "output", "--output", "--out-dir")
+    help_text = parser.format_help()
+    assert "--records" in help_text and "--work-dir" not in help_text and "--pred-len" not in help_text
+    for argv in (["ETTh1", "--records", "w", "--horizon", "96", "--out", "o"],
+                 ["--dataset", "ETTh1", "--work-dir", "w", "--pred-len", "96", "--output", "o"],
+                 ["--dataset=ETTh1", "--work-dir=w", "--pred-len=96", "--out-dir", "o"]):
+        args = parser.parse_args(argv)
+        resolve_name(parser, args, "dataset")
+        assert (args.dataset, args.work_dir, args.pred_len, args.output) == ("ETTh1", "w", 96, "o"), argv
+    defaults = parser.parse_args([])
+    assert defaults.work_dir == "work_dirs" and defaults.pred_len is None
+    with pytest.raises(SystemExit):
+        resolve_name(parser, defaults, "dataset")
+
+
+@pytest.mark.parametrize("argv", [
+    ["fixture", "--records", "{root}"],
+    ["--dataset", "fixture", "--work-dir", "{root}"],
+])
+def test_result_aggregate_reads_dataset_and_records_in_either_spelling(argv, tmp_path, monkeypatch) -> None:
+    import sys
+
+    from tsflab.cli.commands import aggregate_results
+
+    monkeypatch.setattr(sys, "argv", ["aggregate", *(arg.format(root=tmp_path) for arg in argv)])
+    with pytest.raises(SystemExit, match=f"under {tmp_path}/fixture"):
+        aggregate_results.main()
+
+
+def test_data_splits_horizon_alias_and_global_json_anywhere() -> None:
+    import contextlib
+    import io
+    import json
+
+    new = _json("data", "splits", "etth1", "--horizon", "96")
+    assert _json("data", "splits", "etth1", "--pred-len", "96") == new
+    for argv in (["--format", "json", "data", "splits", "etth1"],
+                 ["data", "splits", "--format", "json", "etth1"],
+                 ["data", "splits", "etth1", "--format=json"]):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            assert cli.main(argv) == 0, argv
+        envelope = json.loads(output.getvalue())
+        assert envelope["ok"] and envelope["command"] == ["data", "splits", "etth1"], argv

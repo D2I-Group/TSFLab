@@ -105,7 +105,7 @@ def select_steps(scope: str, changed: list[str], root: Path, *, base: str | None
     """
     steps = [
         Step("schema-export", [PY, "-m", "tsflab.core", "--check",
-                               "--out-dir", "src/tsflab/core/schema"]),
+                               "--out", "src/tsflab/core/schema"]),
         Step("agent-tasks", CLI + ["agent", "task", "validate"]),
         Step("model-cards", CLI + ["model", "audit", "--summary"], scopes=("full", "changed")),
         Step("model-release", CLI + ["model", "audit", "--summary", "--release"], scopes=("release",)),

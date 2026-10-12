@@ -25,8 +25,8 @@ the site reads the generated `board/leaderboard.json` there. GitHub keeps code o
    one the bundle's trajectory is marked synthetic. Package the finished records:
 
    ```bash
-   uv run tsf result submit --dataset <dataset> --model <model> [--run-id <run_id> | --latest]
-   uv run tsf result submit --all [--dataset <dataset>] [--model <model>] --skip-existing   # a whole sweep
+   uv run tsf result submit <dataset> --model <model> [--run-id <run_id> | --latest]
+   uv run tsf result submit --all [<dataset>] [--model <model>] --skip-existing   # a whole sweep
    ```
    Bundles land in `work_dirs/_submissions/`; `--all` reads the research rounds once
    and reports built, kept, and failed counts.
@@ -36,7 +36,7 @@ the site reads the generated `board/leaderboard.json` there. GitHub keeps code o
    synthetic. Preview the board with the same contract the site uses:
 
    ```bash
-   uv run tsf result leaderboard --source work_dirs/_submissions --out work_dirs/_board/leaderboard.json
+   uv run tsf result leaderboard --records work_dirs/_submissions --out work_dirs/_board/leaderboard.json
    ```
 
 3. Publish (maintainers, with authorization and a write token). Plan first; the

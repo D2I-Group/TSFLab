@@ -5,13 +5,15 @@ Validation and aggregation are the shared TSF-Core implementation used by the
 TSFLab Leaderboard site (``tsflab.core.leaderboard``), so a local
 build ranks exactly as the published board does. No torch, no LLM.
 
-    uv run tsf result leaderboard --source apps/web/submissions
-    uv run tsf result leaderboard --source work_dirs/_submissions --out leaderboard.json
+    uv run tsf result leaderboard --records apps/web/submissions
+    uv run tsf result leaderboard --records work_dirs/_submissions --out leaderboard.json
 """
 
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -26,8 +28,9 @@ CANONICAL_TRACKS = ("time_series", "spatiotemporal", "covariate", "realtime")
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="tsf result leaderboard", description=__doc__)
-    ap.add_argument("--source", default="work_dirs/_submissions",
-                    help="Directory searched recursively for submission.json files")
+    add_option(ap, "--records", "source", "--source", default="work_dirs/_submissions",
+               help="submission-records root searched for submission.json files "
+                    "(default work_dirs/_submissions)")
     ap.add_argument("--out", default="leaderboard.json", help="Output path")
     ap.add_argument("--primary-metric", default=PRIMARY_METRIC,
                     help="Metric used to rank (lower is better; default: mse)")

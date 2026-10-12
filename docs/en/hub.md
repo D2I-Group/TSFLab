@@ -115,7 +115,7 @@ legacy/                                              every TSEval-era result and
 per `--batch` bundles), and regenerates `board/` from the whole `results/` tree:
 
 ```bash
-uv run tsf result submit --all [--dataset ETTh1] [--model DLinear] --skip-existing
+uv run tsf result submit --all [ETTh1] [--model DLinear] --skip-existing
 uv run tsf result hub results push work_dirs/_submissions --dry-run
 uv run tsf result hub results push work_dirs/_submissions
 uv run tsf result hub results pull --dataset ETTh1          # mirror under work_dirs/_hub/
@@ -134,8 +134,8 @@ Only top-ranked runs are uploaded. `push-top` ranks the local runs with
 rows, and uploads their bundles in one commit:
 
 ```bash
-uv run tsf result hub push-top --dataset ETTh1 --horizon 96 --top 3 --dry-run
-uv run tsf result hub push-top --dataset ETTh1 --horizon 96 --top 3
+uv run tsf result hub push-top ETTh1 --horizon 96 --top 3 --dry-run
+uv run tsf result hub push-top ETTh1 --horizon 96 --top 3
 ```
 
 A bundle directory holds:

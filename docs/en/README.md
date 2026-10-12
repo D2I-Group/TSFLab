@@ -71,5 +71,13 @@ Eleven commands, one per module (`tsf <command> --help`):
 | `tsf agent` | `task`, `interface`, `modules`, `sync` |
 | `tsf init` | scaffold a project for chosen modules |
 
+Arguments are spelled the same everywhere: a command about one dataset or model takes
+its name as the first positional (`tsf result board ETTh1`, `tsf model add MyModel`),
+the forecast length is `--horizon`, an output path is `--out`, the run-records root is
+`--records`, and structured output is `--json`. `tsf --format json <command>` wraps any
+command's result in a versioned JSON envelope; `--format json` may appear anywhere on the
+line. Earlier spellings (`--dataset`, `--name`, `--pred-len`, `--output`, `--out-dir`,
+`--work-dir`, `--input-root`, `--source`) are still accepted.
+
 Install by module with extras: `data`, `models`, `experiments`, `hub`, `realtime`,
 `autoresearch`, `all`.

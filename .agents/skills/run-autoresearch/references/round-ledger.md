@@ -19,7 +19,7 @@ before spending, and `--round <id>` so the budget is consumed atomically.
 Screening: one seed, one representative horizon. Confirmation: at least 3 seeds. Report
 mean and spread; call a gain real only when it exceeds the baseline seed spread. Compare
 only cells with the same split, preprocessing, lookback, horizon, metric, and evaluation
-strategy. Aggregate with `tsf result aggregate --dataset <name>` and `tsf result rank`.
+strategy. Aggregate with `tsf result aggregate <name>` and `tsf result rank`.
 
 ## Leakage guards
 

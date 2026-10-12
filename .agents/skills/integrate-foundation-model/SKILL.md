@@ -40,7 +40,7 @@ demonstrated need, or bundle weights in TSFLab.
 
 ```bash
 uv run tsf model artifacts <Name>
-uv run tsf model add --name <Name> --verify   # offline, CPU, small tensors: writes [admission]
+uv run tsf model add <Name> --verify   # offline, CPU, small tensors: writes [admission]
 ```
 
 ## Chain
@@ -59,5 +59,5 @@ uv run tsf model add --name <Name> --verify   # offline, CPU, small tensors: wri
 
 - Stop if the license, official loader, checkpoint identity, or input/output
   semantics cannot be established; an adapter alone is not a catalog model.
-- Admit the entry with `tsf model add --name <Name> --verify` exactly as `add-model`
+- Admit the entry with `tsf model add <Name> --verify` exactly as `add-model`
   step 7 does (static audits, admission contract; fix and rerun on failure).

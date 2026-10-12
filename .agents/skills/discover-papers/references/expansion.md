@@ -15,7 +15,7 @@ without it, stop at the ranked queue.
 4. Papers are independent: run them in parallel workers only on disjoint model
    directories; the model and component catalogs are derived from the packages, so
    there is no shared registry file to merge (regenerate pages once at the end).
-5. Each model is admitted with `tsf model add --name <Name> --verify` (`[admission]`
+5. Each model is admitted with `tsf model add <Name> --verify` (`[admission]`
    passed) and passes the model audit, component audit, and repository audit.
    A declined paper goes into `catalog/declined.toml` with its reason and issues.
 

@@ -20,7 +20,7 @@ Examples
     uv run tsf data prepare --from traffic \
         --values dataset/metr_la/metr-la.npz --values-key data \
         --adj dataset/metr_la/adj_mx.pkl \
-        --output-dir dataset/metr_la --add-time --freq-min 5
+        --out dataset/metr_la --add-time --freq-min 5
 
 The ``--adj`` path may be ``.npy``, ``.npz``, or a ``.pkl`` (METR-LA / PEMS-BAY
 ship ``adj_mx.pkl`` as a ``(sensor_ids, id_map, adj_mx)`` tuple — the last
@@ -40,6 +40,8 @@ Then point a dataset config at it::
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import json
 import os
 import pickle
@@ -169,16 +171,18 @@ def build_bundle(
 
 def main(argv: list[str] | None = None) -> None:
     """Convert raw traffic arrays into a TSFLab node bundle."""
-    p = argparse.ArgumentParser(description="Convert traffic data to a node bundle")
+    p = argparse.ArgumentParser(prog="tsf data prepare --from traffic",
+                                description="Convert traffic data to a node bundle")
     p.add_argument("--values", required=True, help="Path to the value array (.npy/.npz)")
     p.add_argument("--values-key", default=None, help="Key inside an .npz value file")
     p.add_argument(
         "--adj", default=None, help="Path to the (N, N) adjacency (.npy/.npz/.pkl)"
     )
     p.add_argument("--adj-key", default=None, help="Key inside an .npz adjacency file")
-    p.add_argument("--output-dir", required=True, help="Bundle output directory")
+    add_option(p, "--out", "output_dir", "--output-dir", required=True, help="Bundle output directory")
     p.add_argument("--seq-len", type=int, default=12, help="History length (PeMS protocol: 12)")
-    p.add_argument("--pred-len", type=int, default=12, help="Forecast horizon (PeMS protocol: 12)")
+    add_option(p, "--horizon", "pred_len", "--pred-len", type=int, default=12,
+               help="Forecast horizon (PeMS protocol: 12)")
     p.add_argument("--add-time", action="store_true", help="Append calendar covariates")
     p.add_argument("--freq-min", type=int, default=5, help="Minutes per step (for --add-time)")
     p.add_argument(

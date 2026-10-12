@@ -123,7 +123,7 @@ two-phase so a placeholder cannot be admitted.
 6. Admit the entry:
 
    ```bash
-   uv run tsf model add --name MyModel --verify
+   uv run tsf model add MyModel --verify
    ```
 
    Admission checks the package is discoverable and complete, runs the model audit,
@@ -382,7 +382,7 @@ were measured from local files or reported by the source.
 Use an existing CSV preset or create a loader-backed dataset:
 
 ```bash
-uv run tsf data add --name my_data --pattern custom \
+uv run tsf data add my_data --pattern custom \
   --path ./dataset/my_data/my_data.csv --target OT
 uv run tsf data analyze my_data --plot   # profile (JSON + markdown), TFB table, sample plot
 uv run tsf data analyze my_data --write-card   # record its characteristics in the card
@@ -562,10 +562,10 @@ optional research round.
 
    ```bash
    uv run tsf model compose spec.toml --write-config configs/runs/auto_seasonal.toml \
-     --dataset etth1 --enc-in 7 --pred-len 96 --work-dir work_dirs/round1
+     --dataset etth1 --enc-in 7 --horizon 96 --records work_dirs/round1
    # tiny CPU check on the fixture dataset instead:
    uv run tsf model compose spec.toml --write-config /tmp/auto.toml \
-     --dataset configs/fixtures/smoke.toml --enc-in 6 --pred-len 12 --smoke
+     --dataset configs/fixtures/smoke.toml --enc-in 6 --horizon 12 --smoke
    uv run tsf run --smoke --config /tmp/auto.toml        # or: uv run tsf run configs/runs/auto_seasonal.toml --round <id>
    ```
 
@@ -575,8 +575,8 @@ optional research round.
    records and prints compact lines, best first (`rank model metric mae/mse H n source`):
 
    ```bash
-   uv run tsf result board --dataset ETTh1 --horizon 96 --top 5
-   uv run tsf result board --dataset weather --records work_dirs/round1 --json
+   uv run tsf result board ETTh1 --horizon 96 --top 5
+   uv run tsf result board weather --records work_dirs/round1 --json
    ```
 
    Local rows list their `seq` and `epochs`; a short or smoke run is not comparable
@@ -590,7 +590,7 @@ optional research round.
    ```bash
    uv run tsf model compose spec.toml --register SeasonalRevLinear --dry-run   # lists the files
    uv run tsf model compose spec.toml --register SeasonalRevLinear
-   uv run tsf model add --name SeasonalRevLinear --verify   # audits and admission; fix and rerun on failure
+   uv run tsf model add SeasonalRevLinear --verify   # audits and admission; fix and rerun on failure
    ```
 
    `--register` writes `src/tsflab/models/<slug>/` (model, spec, a card with

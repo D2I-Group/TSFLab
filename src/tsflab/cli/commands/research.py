@@ -56,6 +56,9 @@ def research_command(rest: list[str]) -> int:
     iteration.add_argument("round_id")
     iteration.add_argument("--operation", help="Stable ID for idempotent Agent-defined iteration claims")
 
+    for action, sub in subparsers.choices.items():
+        if action != "list":  # these always print JSON; --json is accepted for uniformity
+            sub.add_argument("--json", action="store_true", help="structured output (the default here)")
     args = parser.parse_args(rest)
     try:
         if args.action == "start":

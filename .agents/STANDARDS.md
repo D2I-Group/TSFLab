@@ -67,7 +67,7 @@ a fidelity claim.
 contract once (construction, forward, backward or one training step, shapes, finite
 outputs, active gradients, state-dict round trip, CPU) and writes `[admission]`
 (status, date, commit, device, reference, note) into `card.toml`. Check a model when it
-is added (`tsf model add --name X --verify`) or when its package, preset, or a used
+is added (`tsf model add X --verify`) or when its package, preset, or a used
 component changes (`--changed`, also run in CI). There is no fingerprint, evidence file,
 or global model test suite; `tests/` holds infrastructure tests. A release requires
 every admission `passed` (`tsf model audit --release`, `tsf repo check --scope release`).

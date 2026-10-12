@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, add_option, resolve_name
 import csv
 import glob
 import os
@@ -268,21 +270,14 @@ def _collapse_rows(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
+        prog="tsf result aggregate",
         description="Aggregate performance and profile CSVs for a dataset"
     )
-    parser.add_argument("--dataset", required=True, type=str, help="Dataset name")
-    parser.add_argument(
-        "--work-dir",
-        type=str,
-        default="./work_dirs",
-        help="Root work directory",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="Output CSV path (default: work_dirs/<dataset>/results_all.csv)",
-    )
+    add_name(parser, "dataset", flag="--dataset", help="dataset name (work_dirs/<dataset>/)")
+    add_option(parser, "--records", "work_dir", "--work-dir", type=str, default="./work_dirs",
+               help="run-records root (default ./work_dirs)")
+    add_option(parser, "--out", "output", "--output", type=str, default=None,
+               help="output CSV path (default: <records>/<dataset>/results_all.csv)")
     parser.add_argument(
         "--filter",
         type=str,
@@ -342,6 +337,7 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    resolve_name(parser, args, "dataset")
 
     dataset_dir = os.path.join(args.work_dir, args.dataset)
     perf_paths = _collect_csv_files(dataset_dir, "performance.csv")

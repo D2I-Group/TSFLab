@@ -5,12 +5,14 @@ Use ``tsf model scaffold`` only after paper extraction and component matching.
 The catalog is derived from the model packages, so the workspace is discoverable
 as soon as it is written; its SCAFFOLD markers keep ``tsf repo check --audit`` red
 and ``tsf model verify`` refuses it until the code and card are finished. Then run
-``tsf model add --name NAME --verify``. No registry file is edited.
+``tsf model add NAME --verify``. No registry file is edited.
 """
 
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, resolve_name
 import re
 import sys
 
@@ -266,8 +268,8 @@ enc_in = {8 if graph else 6}
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", required=True)
+    parser = argparse.ArgumentParser(prog="tsf model scaffold", description=__doc__)
+    add_name(parser, "name", flag="--name", help="public model name, e.g. MyModel")
     parser.add_argument("--module")
     parser.add_argument("--params")
     parser.add_argument("--paper-title", required=True)
@@ -284,6 +286,7 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    resolve_name(parser, args, "name")
     try:
         require_checkout("tsf model scaffold")
     except RuntimeError as exc:
@@ -341,7 +344,7 @@ def main() -> None:
         print(f"  + {path.relative_to(ROOT)}")
     print("Next: replace SCAFFOLD code and card text (card.toml, README.md); the audit stays red")
     print("until no SCAFFOLD/PLACEHOLDER/TODO marker remains. Then run")
-    print(f"  tsf model add --name {name} --verify")
+    print(f"  tsf model add {name} --verify")
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ copy paper values into results.
 
 2. Get the model. A catalog model with doubts goes to `audit`. A method not in the
    catalog becomes a model module, not a private script: `tsf model scaffold`,
-   implement it per `add-model` steps 1-6, register it with `tsf model add --name X`
+   implement it per `add-model` steps 1-6, register it with `tsf model add X`
    (no `--verify`), and run it through `tsf run` on the dataset presets (set
    `dataset.path` for a raw copy kept elsewhere). It stays unadmitted until
    `add-model` admits it; a reproduction attempt does not need admission.

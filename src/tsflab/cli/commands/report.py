@@ -7,11 +7,13 @@ internal aggregate and plot commands under the hood.
 
 Example
 -------
-    uv run tsf result report --dataset ETTh1 --pred-len 96
+    uv run tsf result report ETTh1 --horizon 96
 """
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, add_option, resolve_name
 import csv
 import subprocess
 import sys
@@ -56,15 +58,17 @@ def _md_table(headers: list[str], rows: list[dict]) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Generate a Markdown benchmark report for a dataset.",
+    ap = argparse.ArgumentParser(prog="tsf result report", description="Generate a Markdown benchmark report for a dataset.",
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", required=True, help="Dataset name (work_dirs/<dataset>/)")
-    ap.add_argument("--work-dir", default="work_dirs")
-    ap.add_argument("--pred-len", default=None, help="Filter to a single pred_len")
+    add_name(ap, "dataset", flag="--dataset", help="dataset name (<records>/<dataset>/)")
+    add_option(ap, "--records", "work_dir", "--work-dir", default="work_dirs",
+               help="run-records root (default work_dirs)")
+    add_option(ap, "--horizon", "pred_len", "--pred-len", default=None, help="only this prediction length")
     ap.add_argument("--top", type=int, default=10, help="Top-N models in the leaderboard")
     ap.add_argument("--out", default=None, help="Output .md path (default: work_dirs/<dataset>/report.md)")
     ap.add_argument("--no-plot", action="store_true", help="Skip the bubble chart")
     args = ap.parse_args()
+    resolve_name(ap, args, "dataset")
 
     ds = args.dataset
     out_dir = Path(args.work_dir) / ds
@@ -74,7 +78,7 @@ def main() -> int:
     out_md = Path(args.out) if args.out else out_dir / "report.md"
 
     # 1. Aggregate per-run CSVs.
-    agg_args = ["--dataset", ds, "--work-dir", args.work_dir, "--output", str(agg_csv),
+    agg_args = [ds, "--records", args.work_dir, "--out", str(agg_csv),
                 "--prof-fields", "latency_avg_ms,throughput_samples_sec,total_params,peak_vram_mb"]
     if args.pred_len:
         agg_args += ["--filter", f"pred_len={args.pred_len}"]
@@ -138,7 +142,7 @@ def main() -> int:
         plotted = _run_tool("plot_bubble.py", ["--csv", str(agg_csv), "--x", "mse", "--y", "mae",
                                      "--size", "total_params", "--size-scale", "log",
                                      "--color-by", "model", "--label-by", "model",
-                                     "--output", str(bubble_svg)])
+                                     "--out", str(bubble_svg)])
         if plotted.returncode:
             print(plotted.stderr or plotted.stdout or "Plot generation failed", file=sys.stderr)
             return plotted.returncode

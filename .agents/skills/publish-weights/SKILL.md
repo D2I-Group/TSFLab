@@ -25,7 +25,7 @@ immutable revision. Only top-ranked runs are uploaded, never every run of a swee
 1. Show the selection; nothing is uploaded:
 
    ```bash
-   uv run tsf result hub push-top --dataset <dataset> --horizon <H> --top <K> --dry-run
+   uv run tsf result hub push-top <dataset> --horizon <H> --top <K> --dry-run
    ```
 
    Rows are ranked with `tsf result board` (seed averages); each selected entry is
@@ -41,7 +41,7 @@ immutable revision. Only top-ranked runs are uploaded, never every run of a swee
 3. Publish the selection in one commit; bundles already present are skipped:
 
    ```bash
-   uv run tsf result hub push-top --dataset <dataset> --horizon <H> --top <K>
+   uv run tsf result hub push-top <dataset> --horizon <H> --top <K>
    ```
 
    For one specific run use `uv run tsf result hub push <run_id>`, which prints the

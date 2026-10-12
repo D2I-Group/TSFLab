@@ -26,7 +26,7 @@ data_params, Idea) is the model context AutoResearch retrieves and `tsf catalog 
    `--task-mode` explicitly when it is not ordinary `time_series`:
 
    ```bash
-   uv run tsf model scaffold --name MyModel --paper-title "..." --paper-url <url> \
+   uv run tsf model scaffold MyModel --paper-title "..." --paper-url <url> \
      --venue <venue> --year <year> --components revin \
      --params "enc_in:int,hidden:int=128" [--task-mode spatiotemporal]
    ```
@@ -53,7 +53,7 @@ data_params, Idea) is the model context AutoResearch retrieves and `tsf catalog 
    contract, and writes `[admission]` (on failure, fix and rerun):
 
    ```bash
-   uv run tsf model add --name MyModel --verify   # also refreshes generated pages and audits
+   uv run tsf model add MyModel --verify   # also refreshes generated pages and audits
    ```
 
 ## Chain

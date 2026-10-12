@@ -14,6 +14,8 @@ smoke or short run is not comparable with a published row.
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, resolve_name
 import json
 from pathlib import Path
 import sys
@@ -144,7 +146,7 @@ def board_command(args: list[str]) -> int:
         prog="tsf result board",
         description="Best methods and metrics on a dataset (published leaderboard + local run records).",
     )
-    parser.add_argument("--dataset", required=True, help="dataset id, e.g. ETTh1 (case-insensitive)")
+    add_name(parser, "dataset", flag="--dataset", help="dataset id, e.g. ETTh1 (case-insensitive)")
     parser.add_argument("--horizon", default=None, help="prediction length; default all horizons found")
     parser.add_argument("--top", type=int, default=5, help="rows per horizon (default 5)")
     parser.add_argument("--metric", default="mse", help="ranking metric, lower is better (default mse)")
@@ -152,6 +154,7 @@ def board_command(args: list[str]) -> int:
     parser.add_argument("--board-file", default=None, help="leaderboard JSON; default apps/web/data/leaderboard.json, else the published board on the Hub")
     parser.add_argument("--json", action="store_true")
     parsed = parser.parse_args(args)
+    resolve_name(parser, parsed, "dataset")
     result = board(
         parsed.dataset,
         horizon=parsed.horizon,

@@ -45,7 +45,7 @@ results come back as `work_dirs/` records and round events.
    run through `tsf run`; never write a private training or evaluation loop for them.
 
    ```bash
-   uv run tsf data add --name <data> --pattern custom --path <file.csv>   # file stays where it is
+   uv run tsf data add <data> --pattern custom --path <file.csv>   # file stays where it is
    uv run tsf data splits <data> --seq-len <L>    # set split_ratio in the preset if the task states one
    ```
 

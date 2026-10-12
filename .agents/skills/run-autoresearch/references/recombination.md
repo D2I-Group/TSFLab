@@ -84,7 +84,7 @@ Only with authorization, after finalists beat the baseline panel with confirmati
    card has `fidelity = "composed"`, no `[paper]` or `[code]`, and states in its README
    the composition, donors, hypothesis, profile facts, research round id, and material
    differences; set `fits` to the characteristics the round showed it helps with.
-2. Admit it: `uv run tsf model add --name <Name> --verify` (writes `[admission]`,
+2. Admit it: `uv run tsf model add <Name> --verify` (writes `[admission]`,
    refreshes generated pages, and runs the audits).
 3. Compare the registered model against the whole catalog under the same protocol before
    claiming a result; note it in the round as a `conclusion`.

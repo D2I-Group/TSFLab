@@ -11,15 +11,17 @@ Two patterns:
 
 Examples
 --------
-    uv run tsf data add --name my_csv --pattern custom \
+    uv run tsf data add my_csv --pattern custom \
         --path ./dataset/my_csv/my_csv.csv --target OT
 
-    uv run tsf data add --name my_special --pattern single \
+    uv run tsf data add my_special --pattern single \
         --path ./dataset/my_special/my_special.csv --target OT
 """
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, resolve_name
 import sys
 from pathlib import Path
 
@@ -178,15 +180,16 @@ def _profile(name: str) -> bool:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
+    ap = argparse.ArgumentParser(prog="tsf data add", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--name", required=True, help="Dataset key / file name (snake_case)")
+    add_name(ap, "name", flag="--name", metavar="dataset", help="dataset key / file name (snake_case)")
     ap.add_argument("--pattern", required=True, choices=["custom", "single"])
     ap.add_argument("--path", default=None, help="Dataset file (default: ./dataset/<name>/<name>.csv)")
     ap.add_argument("--target", default=None,
                     help="Target column name (default: OT if the file has it, else its last non-date column)")
     ap.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = ap.parse_args()
+    resolve_name(ap, args, "name")
     try:
         require_checkout("tsf data add")
     except RuntimeError as exc:

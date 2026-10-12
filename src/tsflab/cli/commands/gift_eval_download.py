@@ -6,13 +6,13 @@ Usage examples
   uv run tsf data prepare --from gift-eval
 
 # Download to a custom location:
-  uv run tsf data prepare --from gift-eval --output-dir /data/gift_eval
+  uv run tsf data prepare --from gift-eval --out /data/gift_eval
 
 # Download specific datasets only:
   uv run tsf data prepare --from gift-eval --datasets electricity/15T ett1/H m4_monthly
 
 # Link an already-downloaded directory (skip download):
-  uv run tsf data prepare --from gift-eval --link-only --output-dir /data/gift_eval
+  uv run tsf data prepare --from gift-eval --link-only --out /data/gift_eval
 
 The script creates a symlink at ``./dataset/gift_eval`` pointing to the
 download directory so that TOML configs with ``path = "./dataset/gift_eval"``
@@ -22,6 +22,8 @@ work out of the box.
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import os
 import sys
 
@@ -154,15 +156,12 @@ def _make_symlink(output_dir: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(prog="tsf data prepare --from gift-eval",
         description="Download GIFT-EVAL datasets and symlink into the project.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--output-dir",
-        default=DEFAULT_OUTPUT,
-        help=f"Download destination (default: {DEFAULT_OUTPUT}).",
-    )
+    add_option(parser, "--out", "output_dir", "--output-dir", default=DEFAULT_OUTPUT,
+               help=f"Download destination (default: {DEFAULT_OUTPUT}).")
     parser.add_argument(
         "--datasets",
         nargs="*",

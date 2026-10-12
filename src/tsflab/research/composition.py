@@ -9,7 +9,7 @@ also resolves the slots against the executable slot registry
 - ``--write-config PATH --dataset D [--enc-in N]``: a run config for the ``Composed``
   model (or for the registered model when combined with ``--register``).
 - ``--register NAME [--dry-run]``: scaffold a dedicated catalog model package whose
-  card records the composition as provenance; ``tsf model add --name NAME`` admits it.
+  card records the composition as provenance; ``tsf model add NAME`` admits it.
 
 Spec (TOML)::
 
@@ -152,7 +152,7 @@ def validate_composition(spec: dict[str, Any], root: Path) -> dict[str, Any]:
     }
     components_flag = ",".join(components) if components else "none"
     scaffold = (
-        f'tsf model scaffold --name {name} --paper-title "{name} (recombination)" '
+        f'tsf model scaffold {name} --paper-title "{name} (recombination)" '
         f"--paper-url <research-report-url> --venue unpublished --year <year> "
         f"--components {components_flag}"
     )
@@ -191,6 +191,8 @@ def compose_command(args: list[str], root: Path) -> int:
     import json
     import sys
 
+    from tsflab.cli.args import add_option
+
     parser = argparse.ArgumentParser(
         prog="tsf model compose",
         description=(
@@ -206,9 +208,10 @@ def compose_command(args: list[str], root: Path) -> int:
     parser.add_argument("--base", default="configs/base.toml", help="base config to extend (default configs/base.toml)")
     parser.add_argument("--enc-in", type=int, help="channel count of the dataset (or [params] enc_in in the spec)")
     parser.add_argument("--seq-len", type=int)
-    parser.add_argument("--pred-len", type=int)
+    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, help="prediction length")
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--work-dir", help="experiment.work_dir for the run (keeps a round's records together)")
+    add_option(parser, "--records", "work_dir", "--work-dir",
+               help="run-records root, experiment.work_dir (keeps a round's records together)")
     parser.add_argument("--smoke", action="store_true", help="CPU, 1 epoch, small batch (tiny fixture runs)")
     parser.add_argument("--register", metavar="NAME", help="scaffold a dedicated catalog model named NAME from the spec")
     parser.add_argument("--dry-run", action="store_true", help="with --register: list the files without writing")

@@ -15,8 +15,8 @@ source. Stop before replacing an existing output directory without authorization
 
    ```bash
    # window a CSV (use --input-dir for pre-split CSVs)
-   uv run tsf data prepare --input-csv <file.csv> --output-dir <dir> \
-     --seq-len 96 --label-len 48 --pred-len 96
+   uv run tsf data prepare --input-csv <file.csv> --out <dir> \
+     --seq-len 96 --label-len 48 --horizon 96
    # graph traffic bundles and GIFT-Eval: read the options first
    uv run tsf data prepare --from traffic --help
    uv run tsf data prepare --from gift-eval --help

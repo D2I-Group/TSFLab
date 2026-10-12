@@ -86,7 +86,7 @@ def repository_command(args: list[str]) -> int:
         print("          --audit runs the static audits only; --contracts construct|forward|backward|strict")
         print("          [--models NAME...] executes model tensor contracts")
         print("  cards   regenerate component/dataset cards, the model documentation index, and .agents/README.md")
-        print("  schema  export TSF-Core JSON Schema [--check] [--out-dir DIR]")
+        print("  schema  export TSF-Core JSON Schema [--check] [--out DIR]")
         return 0
     action, rest = args[0], args[1:]
     if action == "check":

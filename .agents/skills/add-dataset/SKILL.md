@@ -29,7 +29,7 @@ strict parameter schema, a preset, and a card. The card and the profile from
    `uv run tsf data prepare --from traffic --help` and pass explicit inputs and splits:
 
    ```bash
-   uv run tsf data add --name my_data --pattern custom \
+   uv run tsf data add my_data --pattern custom \
      --path ./dataset/my_data/my_data.csv --target OT   # also measures characteristics into the card
    ```
 

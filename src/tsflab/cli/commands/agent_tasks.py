@@ -106,8 +106,9 @@ def agent_command(args: list[str]) -> int:
                     print(f"{record['name']}: {record['summary']}")
             return 0
         if action == "show":
+            tail = [arg for arg in tail if arg != "--json"]  # always JSON
             if len(tail) != 1:
-                raise AgentTaskError("usage: tsf agent task show <name>")
+                raise AgentTaskError("usage: tsf agent task show <name> [--json]")
             _json(load_task(tail[0]))
             return 0
         if action == "validate":

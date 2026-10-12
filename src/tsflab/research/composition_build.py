@@ -3,7 +3,7 @@
 Used by ``tsf model compose --write-config`` and ``--register``. Nothing here
 runs training: ``write_config`` emits one TOML run config (extends base + dataset
 + model preset) and ``register_model`` writes a model package, which the catalog
-discovers from its ``spec.py``; ``tsf model add --name NAME`` then gates it.
+discovers from its ``spec.py``; ``tsf model add NAME`` then gates it.
 """
 
 from __future__ import annotations
@@ -302,5 +302,5 @@ def register_model(spec: dict[str, Any], result: dict[str, Any], name: str, root
     return {
         "dry_run": dry_run,
         "files": sorted(files),
-        "next": f"tsf model add --name {name}",
+        "next": f"tsf model add {name}",
     }

@@ -10,6 +10,8 @@ runs the gates (structure, components, cards, audits). Executed verification
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_name, resolve_name
 import importlib
 from pathlib import Path
 import subprocess
@@ -96,11 +98,12 @@ def _run(*arguments: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", required=True)
+    parser = argparse.ArgumentParser(prog="tsf model add", description=__doc__)
+    add_name(parser, "name", flag="--name", help="public model name of the scaffolded package")
     parser.add_argument("--verify", action="store_true",
                         help="also run `tsf model verify` and the strict runtime contracts")
     args = parser.parse_args()
+    resolve_name(parser, args, "name")
     try:
         require_checkout("tsf model add")
         _, module = _preflight(args.name)

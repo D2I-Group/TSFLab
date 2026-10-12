@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import os
 
 import matplotlib
@@ -45,7 +47,7 @@ def _default_output_path(csv_path: str) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Plot a bubble chart from CSV")
+    parser = argparse.ArgumentParser(prog="tsf result plot", description="Plot a bubble chart from CSV")
     parser.add_argument("--csv", required=True, type=str, help="Path to CSV file")
     parser.add_argument("--x", required=True, type=str, help="Field for x axis")
     parser.add_argument("--y", required=True, type=str, help="Field for y axis")
@@ -93,12 +95,8 @@ def main() -> None:
         action="store_true",
         help="Show legend",
     )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="Output image path (default: work_dirs/plots/bubble_<csv>.png)",
-    )
+    add_option(parser, "--out", "output", "--output", type=str, default=None,
+               help="output image path (default: work_dirs/plots/bubble_<csv>.png)")
     parser.add_argument(
         "--show",
         action="store_true",

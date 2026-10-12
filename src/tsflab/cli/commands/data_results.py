@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+
+from tsflab.cli.args import add_option
 import json
 from pathlib import Path
 import sys
@@ -221,8 +223,8 @@ def splits_command(args: list[str]) -> int:
     parser.add_argument("dataset", help="dataset preset name, for example etth1 or weather")
     parser.add_argument("--seq-len", type=int, default=None,
                         help="lookback (default: the first lookback in the card's [protocol])")
-    parser.add_argument("--pred-len", type=int, default=None,
-                        help="horizon; only window-index bundles use it (default: first card horizon)")
+    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, default=None,
+               help="prediction length; only window-index bundles use it (default: first card horizon)")
     parser.add_argument("--path", default=None,
                         help="apply the preset's protocol to this file or bundle directory instead")
     parser.add_argument("--json", action="store_true", help="structured output")

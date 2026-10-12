@@ -77,12 +77,23 @@ COMMANDS = {
 }
 
 
+def _without_format_json(argv: list[str]) -> list[str] | None:
+    """``argv`` without the global ``--format json`` (any position), or None when it is absent."""
+    for index, arg in enumerate(argv):
+        if arg == "--format" and argv[index + 1:index + 2] == ["json"]:
+            return argv[:index] + argv[index + 2:]
+        if arg == "--format=json":
+            return argv[:index] + argv[index + 1:]
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     """Dispatch one public command without importing unrelated heavy modules."""
     argv = sys.argv[1:] if argv is None else argv
-    if argv[:2] == ["--format", "json"]:
+    stripped = _without_format_json(argv)
+    if stripped is not None:
         from tsflab.cli.commands.envelope import envelope
-        return envelope(argv[2:])
+        return envelope(stripped)
     if not argv or argv[0] in {"-h", "--help", "help"}:
         print(__doc__)
         return 0

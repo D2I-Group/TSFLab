@@ -20,9 +20,9 @@ aggregation and protocol checks. The CLI helpers are optional.
 1. Aggregate without mutating source artifacts:
 
    ```bash
-   uv run tsf result aggregate --dataset <name> --collapse \
+   uv run tsf result aggregate <name> --collapse \
      --aggregate mean --null-threshold 0.3
-   uv run tsf result board --dataset <name> --json     # published board (Hub) plus local records
+   uv run tsf result board <name> --json     # published board (Hub) plus local records
    uv run tsf result rank --help
    uv run tsf result plot --help
    uv run tsf result predictions --help
