@@ -30,8 +30,8 @@ enc_in = { from = "channels", rule = "must equal the number of input variates" }
 
 [admission]
 status = "passed"
-date = "2026-10-05"
-commit = "b5401b2c"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "official"
 note = ""

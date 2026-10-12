@@ -26,8 +26,8 @@ kernel_gamma = { from = "seq_len", rule = "RBF width; squared distance sums over
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "none"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""

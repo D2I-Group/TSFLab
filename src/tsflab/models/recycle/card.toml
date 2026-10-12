@@ -32,11 +32,11 @@ rhp_cycles = { from = "seq_len", rule = "seq_len must contain rhp_cycles cycles 
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
 
 [[issues]]
 kind = "paper-code-mismatch"

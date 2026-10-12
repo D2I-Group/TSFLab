@@ -31,11 +31,11 @@ token_len = { from = "seq_len", rule = "seq_len must be divisible by token_len; 
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
 
 [[issues]]
 kind = "code-bug"

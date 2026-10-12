@@ -33,8 +33,8 @@ subgraph_size = { from = "nodes", rule = "top-k neighbours per node, capped at t
 
 [admission]
 status = "passed"
-date = "2026-10-09"
-commit = "e8a0fdf1"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "official"
 note = ""

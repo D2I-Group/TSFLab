@@ -33,11 +33,11 @@ kernel_size = { from = "seq_len", rule = "with layers, seq_len must equal 1 + (k
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-12"
+commit = "7719e538"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
 
 [[issues]]
 kind = "code-bug"
