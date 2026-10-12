@@ -24,7 +24,7 @@ models never import peers), or `loss:<name>`. Components must be real
 (`uv run tsf catalog list --kind component`); `tsf catalog match <preset>` lists the ones
 whose `fits` match the data, grouped by their card `slot`. Check shapes, axes,
 normalization, masking, and residual order in the component card's Interface
-(`tsf catalog show <name>`) before combining.
+(`tsf catalog show <name...>`, all chosen components in one call) before combining.
 
 ## Fill and prune from the profile
 

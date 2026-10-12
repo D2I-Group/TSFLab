@@ -238,6 +238,9 @@ uv run tsf catalog show revin --depth 2   # L2
 uv run tsf catalog show PatchTST --depth 3    # L3
 ```
 
+`show` and `match` take several names in one call (`tsf catalog show PatchTST DLinear
+revin`); each is printed in turn, and `--json` returns a list.
+
 | Depth | Content |
 | --- | --- |
 | 0 | one line: `name`, `kind`, the README `description`, `tags` (what search returns) |

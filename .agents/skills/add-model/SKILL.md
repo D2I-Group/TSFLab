@@ -31,8 +31,8 @@ data_params, Idea) is the model context AutoResearch retrieves and `tsf catalog 
      --params "enc_in:int,hidden:int=128" [--task-mode spatiotemporal]
    ```
 
-3. Before implementing any block, `uv run tsf catalog search --kind component <terms>` (L0), open a
-   candidate with `tsf catalog show <name>` (L1), and read `--depth 2|3` only to
+3. Before implementing any block, `uv run tsf catalog search --kind component <terms>` (L0), open
+   the candidates with one `tsf catalog show <name...>` (L1), and read `--depth 2|3` only to
    settle a doubt. Retrieval is a shortlist: verify shapes, axes, normalization,
    masking, residual order, initialization, state, and outputs before reusing.
 4. Implement locally per [references/implementation.md](references/implementation.md);

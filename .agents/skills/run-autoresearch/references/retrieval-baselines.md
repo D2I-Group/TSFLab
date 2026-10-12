@@ -4,17 +4,19 @@
 
 Start from the data, then read the shortest card level and escalate only for survivors:
 
-1. Match: `uv run tsf catalog match <preset> [--extra TERM...] [--json]` ranks models
+1. Match: `uv run tsf catalog match <preset...> [--extra TERM...] [--json]` ranks models
    and components (grouped by composition slot) whose card `fits` overlap the dataset
    card's `characteristics`, and lists generic (`any`) components. Unannotated cards
    do not match; widen with lexical shortlists (`uv run tsf catalog search --kind
-   model <terms>`, `--kind component`) and the fired rules' `models` and `components`.
-2. L1 for the shortlist (about 8 candidates): `uv run tsf catalog show <name>` gives a
+   model <terms>`, `--kind component`) and the fired rules' `models` and `components`. A match
+   is a hypothesis to test against the baseline panel, not a verdict.
+2. L1 for the shortlist (about 8 candidates), in one call: `uv run tsf catalog show
+   <name> <name>...` gives each
    model's card facts (`fits`, `fidelity`, composition, `data_params`, `[admission]`),
    its README (Idea, When to use, Configure, Differences), and runtime facts (`config`,
    `smoke_config`, `task_modes`, `output_type`), or a component's role, slot, fits,
    interface, and consumers.
-3. L2 (`--depth 2`, adds `reference.md`) only for at most 3 finalists. `--depth 3`
+3. L2 (`tsf catalog show <finalist...> --depth 2`, adds `reference.md`) only for at most 3 finalists. `--depth 3`
    lists the files to open.
 
 Drop a candidate as soon as a shallow level excludes it: wrong task mode (time_series vs

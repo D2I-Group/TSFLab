@@ -24,7 +24,7 @@ revision with its license recorded; the current component catalog
 
    ```bash
    uv run tsf catalog search --kind component <operation-and-contract-terms>   # L0 lines
-   uv run tsf catalog show <candidate>                        # L1; --depth 2 only if needed
+   uv run tsf catalog show <candidate...>                     # L1 of every candidate; --depth 2 only if needed
    ```
 
    Compare mathematics, axes, normalization, masking, residual order,

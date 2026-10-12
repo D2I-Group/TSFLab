@@ -569,10 +569,11 @@ CATALOG_USAGE = (
     "       tsf catalog search <terms...> [--kind model|component|dataset] [--capability C] "
     "[--limit N] [--json]\n"
     "       tsf catalog list [--kind model|component|dataset] [--json]\n"
-    "       tsf catalog show <name> [--kind model|component|dataset] [--depth {0,1,2,3}] [--json]\n"
-    "       tsf catalog match <dataset> [--extra TERM...] [--top N] [--json]   models/components whose fits match\n"
+    "       tsf catalog show <name...> [--kind model|component|dataset] [--depth {0,1,2,3}] [--json]\n"
+    "       tsf catalog match <dataset...> [--extra TERM...] [--top N] [--json]   models/components whose fits match\n"
     "Each search result is one L0 line: name, kind, summary, tags. `show` opens L1 by default;\n"
-    "--kind is needed only when a name exists in more than one catalog."
+    "--kind is needed only when a name exists in more than one catalog. Several names are shown\n"
+    "(or matched) in turn; with --json they print one JSON list."
 )
 
 
@@ -615,20 +616,60 @@ def catalog_command(args: list[str]) -> int:
             if code:
                 return code
         return 0
-    names = [item for item in rest if not item.startswith("-")]
-    if not names:
-        print("usage: tsf catalog show <name> [--kind K] [--depth N] [--json]", file=sys.stderr)
-        return 2
-    if kind is None:
-        kinds = _kinds_of(names[0])
-        if not kinds:
-            print(f"Unknown resource {names[0]!r}; try `tsf catalog search {names[0]}`", file=sys.stderr)
-            return 2
-        if len(kinds) > 1:
-            print(f"{names[0]!r} exists as {', '.join(kinds)}; pass --kind", file=sys.stderr)
-            return 2
-        kind = kinds[0]
-    return _read(kind, "show", rest)
+    return _show_many(kind, rest)
+
+
+def _resolve_kind(name: str, kind: str | None) -> str | None:
+    """The catalog kind of ``name`` (``kind`` when given); print why when it is unknown or ambiguous."""
+    if kind is not None:
+        return kind
+    kinds = _kinds_of(name)
+    if not kinds:
+        print(f"Unknown resource {name!r}; try `tsf catalog search {name}`", file=sys.stderr)
+        return None
+    if len(kinds) > 1:
+        print(f"{name!r} exists as {', '.join(kinds)}; pass --kind", file=sys.stderr)
+        return None
+    return kinds[0]
+
+
+def _show_many(kind: str | None, rest: list[str]) -> int:
+    """Show one or more resources in turn; several names with --json print one JSON list."""
+    import argparse
+    import contextlib
+    import io
+
+    from tsflab.catalog.cards.depth import DEPTHS
+
+    parser = argparse.ArgumentParser(prog="tsf catalog show")
+    parser.add_argument("names", nargs="+", metavar="name")
+    parser.add_argument("--depth", type=int, choices=DEPTHS, default=1)
+    parser.add_argument("--json", action="store_true")
+    parsed = parser.parse_args(rest)
+    flags = ["--depth", str(parsed.depth), *(["--json"] if parsed.json else [])]
+    if len(parsed.names) == 1:  # one name keeps the single-object output
+        resolved = _resolve_kind(parsed.names[0], kind)
+        return 2 if resolved is None else _read(resolved, "show", [parsed.names[0], *flags])
+    code, payloads = 0, []
+    for index, name in enumerate(parsed.names):
+        resolved = _resolve_kind(name, kind)
+        if resolved is None:
+            code = 2
+            continue
+        if parsed.json:
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                status = _read(resolved, "show", [name, *flags])
+            if status == 0:
+                payloads.append(json.loads(buffer.getvalue()))
+        else:
+            if index:
+                print()
+            status = _read(resolved, "show", [name, *flags])
+        code = code or status
+    if parsed.json:
+        _print(payloads)
+    return code
 
 
 def model_command(args: list[str]) -> int:

@@ -35,7 +35,7 @@ Maintenance (audit, contributions) keeps it sound. Map: `.agents/README.md` (gen
   and resource cards, limited to public APIs. Agent-only procedures live in `.agents/`.
 - Descriptive truth lives in cards; runtime truth in schemas, specs, configs, and
   tests. Read cards progressively: `tsf catalog`, `tsf catalog search`,
-  `tsf catalog show <name>`, and `--depth 2|3` only when a decision needs it;
+  `tsf catalog show <name...>`, and `--depth 2|3` only when a decision needs it;
   `tsf catalog match <dataset>` maps data characteristics to model and component fits.
 - Splits/scaling: `tsf data splits <dataset>`, never re-derived; new CSV: `tsf data add`, then `tsf run`.
 

@@ -273,3 +273,18 @@ def test_model_audit_reports_cards_and_admission() -> None:
     record = _json("model", "audit", "CATS")[0]
     assert record["name"] == "CATS" and record["blockers"] == [] and record["codebase"]["missing"] == []
     assert record["verification"]["status"] in {"passed", "failed", "pending"}
+
+
+def test_catalog_show_and_match_accept_several_names(capsys) -> None:
+    import json
+
+    text = _run("catalog", "show", "PatchTST", "DLinear", "revin", "--depth", "0").splitlines()
+    assert [line.split("\t")[0] for line in text if line] == ["PatchTST", "DLinear", "revin"]
+    payload = _json("catalog", "show", "PatchTST", "revin")
+    assert [item["card"]["name"] for item in payload] == ["PatchTST", "revin"]
+    assert isinstance(_json("catalog", "show", "PatchTST"), dict)  # one name keeps one object
+    assert cli.main(["catalog", "show", "PatchTST", "no_such_resource", "--depth", "0"]) == 2
+    assert "Unknown resource 'no_such_resource'" in capsys.readouterr().err
+    matched = _json("catalog", "match", "etth1", "weather")
+    assert [item["dataset"] for item in matched] == ["etth1", "weather"]
+    assert json.loads(_run("catalog", "match", "etth1", "--json"))["dataset"] == "etth1"

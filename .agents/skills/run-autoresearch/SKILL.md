@@ -38,10 +38,10 @@ current Agent (no second Agent needed). Read each reference only at its step.
    --max-iterations M`, or reuse a supplied one) and note each hypothesis
    (`tsf research note <id> --kind hypothesis --text ...`). Claim one iteration per phase
    with `tsf research iteration <id> --operation <phase>`; reuse of an id is free.
-4. Retrieve candidates: `uv run tsf catalog match <preset> [--extra TERM...]` ranks
+4. Retrieve candidates: `uv run tsf catalog match <preset...> [--extra TERM...]` ranks
    models and slot-grouped components whose card `fits` overlap the dataset's
-   characteristics; widen with `tsf catalog search`, open L1 with `tsf catalog show`;
-   see [retrieval-baselines](references/retrieval-baselines.md). A match is a hypothesis.
+   characteristics; widen with `tsf catalog search`, open the shortlist's L1 in one call
+   (`tsf catalog show <name...>`); see [retrieval-baselines](references/retrieval-baselines.md).
 5. Evaluate a small baseline panel before any search (same split, horizon, metric,
    seeds) as one sweep; it sets the bar every later candidate must beat.
 6. Search in batches: each iteration puts several candidates, each one factor away from

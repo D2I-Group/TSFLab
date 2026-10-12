@@ -1,6 +1,6 @@
 """Match a dataset's characteristics to the models and components designed for them.
 
-``tsf catalog match <dataset> [--extra TERM ...] [--top N] [--json]`` reads the
+``tsf catalog match <dataset...> [--extra TERM ...] [--top N] [--json]`` reads the
 dataset card's ``characteristics`` (measured data terms plus curated task terms),
 adds any ``--extra`` task terms (for example ``probabilistic-output``), and ranks
 every model and component whose card ``fits`` overlaps. Components are grouped by
@@ -83,18 +83,28 @@ def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
 
 def match_command(argv: list[str], root: Path) -> int:
     parser = argparse.ArgumentParser(prog="tsf catalog match", description=__doc__.splitlines()[0])
-    parser.add_argument("dataset", help="dataset card name or preset alias")
+    parser.add_argument("datasets", nargs="+", metavar="dataset",
+                        help="dataset card name(s) or preset alias(es); several are matched in turn")
     parser.add_argument("--extra", nargs="*", default=[], help="additional task characteristics")
     parser.add_argument("--top", type=int, default=15, help="models to show (0 = all)")
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--json", action="store_true",
+                        help="structured output (a list when several datasets are named)")
     args = parser.parse_args(argv)
-    result = match(root, args.dataset, args.extra)
+    results = [match(root, name, args.extra) for name in args.datasets]
     if args.json:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(results[0] if len(results) == 1 else results, indent=2))
         return 0
+    for index, result in enumerate(results):
+        if index:
+            print()
+        _print_match(result, args.top)
+    return 0
+
+
+def _print_match(result: dict, top: int) -> None:
     print(f"{result['dataset']}: {', '.join(result['characteristics']) or '(no characteristics recorded)'}")
     print(f"  basis: {result['basis']}")
-    models = result["models"][: args.top] if args.top else result["models"]
+    models = result["models"][:top] if top else result["models"]
     print(f"\nModels ({len(result['models'])} match):")
     for entry in models:
         print(f"  {entry['score']}  {entry['name']:<22} [{', '.join(entry['matched'])}]  {entry['headline'][:80]}")
