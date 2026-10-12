@@ -29,19 +29,15 @@ window is observed and are scored when a later data release covers it.
    ```
 
    The command exports history to the cutoff, trains through the standard runner,
-   and writes `forecasts/<Name>.json`. It trains a model: run it on a GPU machine or
-   CI, never locally, and bring the forecast file back. An external method writes the
-   same `ForecastSubmission` JSON itself.
-3. Validate exactly as CI does:
-
-   ```bash
-   uv run tsf realtime validate apps/web/submissions/realtime/<track>/rounds/<id>/forecasts/<Name>.json
-   ```
-
-4. Submit by pull request adding only the forecast file; CI rejects it if the pull
+   writes `forecasts/<Name>.json`, and validates the written file exactly as CI does
+   (`wrote ... (validated)`, or `FAIL` and exit 1). It trains a model: run it on a GPU
+   machine or CI, never locally, and bring the forecast file back. An external method
+   writes the same `ForecastSubmission` JSON itself and checks it with
+   `uv run tsf realtime validate <file.json>`.
+3. Submit by pull request adding only the forecast file; CI rejects it if the pull
    request was last updated after the deadline, and only the weekly workflow may
    write `round.json` or `scores.json`.
-5. After the truth arrives, read `scores.json` and the track summary in
+4. After the truth arrives, read `scores.json` and the track summary in
    `apps/web/data/realtime/<track>.json` (mean rank, mean z-scored MSE, Kendall τ).
 
 To study the protocol on history instead, use

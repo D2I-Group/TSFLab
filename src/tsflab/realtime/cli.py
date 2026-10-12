@@ -5,7 +5,8 @@
     tsf realtime open      --track T [--now ISO]
     tsf realtime baselines --track T [--round R]
     tsf realtime forecast  --track T --model M [--round R] [--set section.key=value ...]
-    tsf realtime validate  FILE... [--received-at ISO]
+    tsf realtime validate  FILE... [--received-at ISO]   (files from elsewhere; forecast and
+                                                         baselines validate what they write)
     tsf realtime score     --track T
     tsf realtime weekly    --track T [T ...] [--pull] [--push]
     tsf realtime replay    --track T --end DATE --weeks N [--models M ...]
@@ -18,14 +19,13 @@ with the standard runner and needs a (GPU) machine with the full install.
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_option
 import json
 from pathlib import Path
 import sys
 
 import pandas as pd
 
+from tsflab.cli.args import add_option
 from tsflab.release.hub.uri import default_repo
 from tsflab.realtime import rounds as R
 from tsflab.realtime.store import PanelStore
@@ -105,6 +105,27 @@ def _score(track_id: str) -> dict:
     SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
     (SUMMARY_DIR / f"{track_id}.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return summary
+
+
+def validate_file(path: Path, received_at: str | None = None) -> None:
+    """Re-read a forecast file and check it against its round on disk; raise on any problem."""
+    submission = ForecastSubmission.model_validate_json(path.read_text(encoding="utf-8"))
+    spec = R.load_round(submission.track, submission.round_id)
+    if received_at:
+        submission = submission.model_copy(update={"submitted_at": received_at})
+    submission.check_against(spec)
+
+
+def _write_validated(submission, spec) -> bool:
+    """Write one forecast, then validate the written file exactly as `tsf realtime validate` does."""
+    path = R.write_forecast(submission, spec)
+    try:
+        validate_file(path)
+    except (OSError, ValueError) as exc:
+        print(f"FAIL {path}: {exc}", file=sys.stderr)
+        return False
+    print(f"wrote {path} (validated)")
+    return True
 
 
 def _parse_overrides(pairs: list[str]) -> dict:
@@ -203,9 +224,9 @@ def main(argv: list[str] | None = None) -> int:
             from tsflab.realtime.baselines import run_baselines
 
             spec = _latest_round(args.track, args.round)
-            for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track)):
-                print("wrote", R.write_forecast(submission, spec))
-            return 0
+            results = [_write_validated(submission, spec)
+                       for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track))]
+            return 0 if all(results) else 1
         if args.action == "forecast":
             from tsflab.realtime.forecast import forecast_with_model
 
@@ -213,17 +234,12 @@ def main(argv: list[str] | None = None) -> int:
             submission = forecast_with_model(spec, PanelStore(args.track), get_track(args.track),
                                              args.model, args.work_dir, _parse_overrides(args.set),
                                              args.submitter)
-            print("wrote", R.write_forecast(submission, spec))
-            return 0
-        if args.action == "validate":
+            return 0 if _write_validated(submission, spec) else 1
+        if args.action == "validate":  # for files written elsewhere; forecast validates its own
             failures = 0
             for path in args.files:
                 try:
-                    submission = ForecastSubmission.model_validate_json(path.read_text(encoding="utf-8"))
-                    spec = R.load_round(submission.track, submission.round_id)
-                    if args.received_at:
-                        submission = submission.model_copy(update={"submitted_at": args.received_at})
-                    submission.check_against(spec)
+                    validate_file(path, args.received_at)
                     print(f"ok   {path}")
                 except (OSError, ValueError) as exc:
                     failures += 1

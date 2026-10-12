@@ -134,9 +134,11 @@ A forecast is a `ForecastSubmission` (`predictions` of shape
   round's history in the index-windowed `cauair` layout, trains and early-stops
   through the standard runner, and forecasts the window at the cutoff.
   Time-series models see stations as channels; spatiotemporal models also get
-  calendar covariates. Needs the full install; a GPU is recommended.
-- **Anyone** can open a pull request adding `forecasts/<Model>.json`. CI rejects
-  it if the pull request was last updated after the deadline.
+  calendar covariates. Needs the full install; a GPU is recommended. It
+  validates the file it writes with the same check as `tsf realtime validate`.
+- **Anyone** can open a pull request adding `forecasts/<Model>.json`; check it first
+  with `tsf realtime validate <file>`. CI rejects it if the pull request was last
+  updated after the deadline.
 
 ## Scoring and stability
 

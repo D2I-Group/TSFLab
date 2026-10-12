@@ -146,6 +146,29 @@ def test_validate_cli_uses_trusted_arrival_time(tmp_path: Path, monkeypatch) -> 
     assert main(["validate", str(path), "--received-at", spec.target_timestamps[-1]]) == 1
 
 
+def test_forecast_cli_validates_the_file_it_writes(tmp_path: Path, monkeypatch, capsys) -> None:
+    from tsflab.realtime import cli, forecast
+
+    _, spec = _opened_round(tmp_path)
+    root = tmp_path / "rounds"
+    write = R.write_forecast
+    monkeypatch.setattr(R, "write_forecast", lambda submission, spec: write(submission, spec, root))
+    monkeypatch.setattr(cli, "_latest_round", lambda track, round_id: spec)
+    monkeypatch.setattr(cli, "get_track", lambda track: TOY_TRACK)
+    monkeypatch.setattr(forecast, "forecast_with_model", lambda *args: ForecastSubmission(
+        track="toy", round_id=spec.round_id, model="M", submitted_at=spec.opened_at,
+        predictions=[[0.0] * 3] * spec.horizon))
+    on_disk = R.RoundSpec.model_validate_json((root / "toy" / "rounds" / spec.round_id / "round.json").read_text())
+    monkeypatch.setattr(R, "load_round", lambda track, round_id: on_disk)
+    assert cli.main(["forecast", "--track", "toy", "--model", "M"]) == 0
+    assert "(validated)" in capsys.readouterr().out
+    # a written file that no longer matches its round on disk is reported, not silently kept
+    shorter = on_disk.model_copy(update={"target_timestamps": on_disk.target_timestamps[:-1]})
+    monkeypatch.setattr(R, "load_round", lambda track, round_id: shorter)
+    assert cli.main(["forecast", "--track", "toy", "--model", "M", "--work-dir", str(tmp_path)]) == 1
+    assert "FAIL" in capsys.readouterr().err
+
+
 def test_equity_fallback_moves_the_working_vendor_first(monkeypatch) -> None:
     from tsflab.realtime.sources import equity
 
