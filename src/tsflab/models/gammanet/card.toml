@@ -32,8 +32,8 @@ steps_per_day = { from = "frequency", rule = "samples per day (288 for 5-minute 
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "none"
 note = ""

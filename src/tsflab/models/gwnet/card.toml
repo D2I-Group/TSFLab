@@ -33,8 +33,8 @@ layers = { from = "seq_len", rule = "with blocks and kernel_size, the causal rec
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "official"
 note = ""

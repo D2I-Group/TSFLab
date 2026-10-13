@@ -34,8 +34,8 @@ gap = { from = "pred_len", rule = "pred_len must be divisible by gap" }
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "official"
 note = ""

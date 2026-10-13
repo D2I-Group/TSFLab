@@ -34,8 +34,8 @@ adj_mx = { from = "graph", rule = "[enc_in, enc_in] adjacency, used only as a sc
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "official"
 note = ""

@@ -25,8 +25,8 @@ patch_len = { from = "seq_len", rule = "patch_len <= seq_len; patch_num = (seq_l
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "none"
 note = ""

@@ -31,8 +31,8 @@ num_scales = { from = "seq_len", rule = "seq_len // 2^(num_scales - 1) must be a
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = "f00bb976"
 device = "cpu"
 reference = "official"
 note = ""

@@ -32,7 +32,7 @@ loss = "loss:mse"
 [admission]
 status = "passed"
 date = "2026-10-13"
-commit = ""
+commit = "f00bb976"
 device = "cpu"
 reference = "official"
 note = ""

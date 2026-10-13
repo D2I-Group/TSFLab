@@ -26,7 +26,7 @@ period = { from = "frequency", rule = "lag window P, selected from validation or
 [admission]
 status = "passed"
 date = "2026-10-13"
-commit = ""
+commit = "f00bb976"
 device = "cpu"
 reference = "none"
 note = ""
