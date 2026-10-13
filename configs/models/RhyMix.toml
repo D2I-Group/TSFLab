@@ -1,0 +1,6 @@
+[model]
+name = "RhyMix"
+
+[model.params]
+enc_in = 7
+dropout = 0.1

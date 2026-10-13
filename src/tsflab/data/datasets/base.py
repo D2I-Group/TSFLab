@@ -274,7 +274,12 @@ class ForecastingDataset(ABC, Dataset):
         split_ratio: tuple[float, float, float],
         num_samples: int,
     ) -> Tuple[int, int]:
-        """Return ``(start, end)`` rows of ``flag``; see ``protocol.split_borders``."""
+        """Return ``(start, end)`` rows of ``flag``; see ``protocol.split_borders``.
+
+        Validation and test read ``seq_len`` prior rows as input context;
+        ``_history_context_rows`` records them so within-split windows can drop them.
+        """
+        self._history_context_rows = self.seq_len if flag != "train" else 0
         return split_borders(num_samples, split_ratio, self.seq_len)[flag]
 
     @abstractmethod

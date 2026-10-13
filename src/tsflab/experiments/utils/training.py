@@ -15,6 +15,7 @@ def adjust_learning_rate(
     lradj: str,
     lr: float,
     total_epochs: int,
+    min_lr: float = 0.0,
 ) -> None:
     """Adjust learning rate using a predefined schedule.
 
@@ -42,7 +43,7 @@ def adjust_learning_rate(
     elif lradj == "exponential":
         lr_adjust = {epoch: lr if epoch < 3 else lr * (0.9 ** ((epoch - 3) // 1))}
     elif lradj == "cosine_annealing":
-        lr_adjust = {epoch: lr / 2 * (1 + math.cos(epoch / total_epochs * math.pi))}
+        lr_adjust = {epoch: min_lr + (lr - min_lr) / 2 * (1 + math.cos(epoch / total_epochs * math.pi))}
     else:
         return
 

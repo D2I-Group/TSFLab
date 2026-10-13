@@ -1,0 +1,548 @@
+"""Compute the metrics of one agent-cost session: analyze.py <run-dir>.
+
+Inputs in <run-dir>: stream.<n>.jsonl (stamped Claude Code stream-json),
+stages.tsv, interventions.tsv, gpu.csv, diff.numstat, success.json, meta.json.
+
+Every tool call is classified by action type:
+  paper   reading or fetching the target paper (needed in every environment)
+  read    finding and reading information: the environment (knowledge, code,
+          documentation) and the web (searches, and fetching pages, code, or data
+          that are not the target paper)
+  write   writing or editing files
+  run     executing code (installs, training, scripts, git, ...)
+  other   bookkeeping (todo lists, stage markers, subagent launches)
+Discovery time is measured for `read` calls; exact action tokens are unknown.
+Content-based token attribution is retained only in explicitly estimated fields.
+Legacy diagnostic: tokens of `read` calls were estimated. Tokens of a model turn
+are split equally over the tool calls it makes; a turn without tool calls
+counts as `reason`. Time is split into model time (from the previous event to
+the turn) and tool time (from the call to its result).
+"""
+
+import csv
+import json
+import re
+import sys
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+READ_TOOLS = {"Read", "Grep", "Glob", "LS", "NotebookRead", "WebSearch", "WebFetch"}
+WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+OTHER_TOOLS = {"TodoWrite", "Task", "Agent", "ToolSearch", "Skill"}
+PAPER_HINT = re.compile(r"arxiv\.org|openreview\.net|\.pdf\b|pdftotext|paper\.(md|txt|pdf)", re.I)
+READ_CMD = re.compile(
+    r"^(cat|head|tail|less|more|ls|tree|find|fd|grep|rg|ag|wc|file|stat|du|"
+    r"sed\s+-n|awk|jq|diff|"
+    r"git\s+(log|show|diff|status|grep|ls-files|blame)|"
+    r"(uv\s+run\s+)?tsf\s+(catalog|model\s+(show|issues|similar|list)|component\s+(show|list)|dataset\s+(show|list)|data\s+(show|list))|"
+    r"(uv\s+run\s+)?python3?\s+-c\s+['\"]\s*(import\s+\w+\s*;\s*)*print\(\s*open)"
+)
+# Fetching from the web (pages, repositories, data); a fetch of the target paper is `paper`.
+WEB_CMD = re.compile(
+    r"^(curl|wget|aria2c|git\s+clone|gh\s+(repo|api|release|search)|huggingface-cli\s+download|"
+    r"(uv\s+run\s+)?python3?\s+-c\s+.*\b(requests|urllib|httpx)\b)"
+)
+WRITE_CMD = re.compile(r"(^|\s)(cat|tee|echo|printf)\b[^|]*(>|<<)|^\s*(cp|mv|mkdir|touch|rm)\b")
+
+
+def strip_cmd(cmd: str) -> str:
+    """Remove leading `cd x &&`, env assignments, and `timeout N` from a shell command."""
+    cmd = cmd.strip()
+    while True:
+        new = re.sub(r"^(cd\s+\S+\s*(&&|;)\s*|[A-Z_][A-Z0-9_]*=\S+\s+|timeout\s+\S+\s+|nice\s+(-n\s*\d+\s+)?)", "", cmd)
+        if new == cmd:
+            return cmd
+        cmd = new
+
+
+def classify(name: str, inp: dict) -> str:
+    text = json.dumps(inp)
+    if name in READ_TOOLS:
+        return "paper" if PAPER_HINT.search(text) else "read"
+    if name in WRITE_TOOLS:
+        return "write"
+    if name in OTHER_TOOLS:
+        return "other"
+    if name == "Bash":
+        cmd = strip_cmd(str(inp.get("command", "")))
+        if re.match(r"^stage\b", cmd):
+            return "other"
+        if PAPER_HINT.search(cmd) and re.match(r"^(curl|wget|pdftotext|python3?|uv)", cmd):
+            return "paper"
+        if WEB_CMD.match(cmd):
+            return "read"
+        if WRITE_CMD.search(cmd):
+            return "write"
+        if READ_CMD.match(cmd):
+            return "read"
+        return "run"
+    return "other"
+
+
+def load_stream(run: Path) -> list[tuple[float, dict]]:
+    events = []
+    for p in sorted(run.glob("stream.*.jsonl")):
+        for line in p.read_text().splitlines():
+            if line.strip():
+                e = json.loads(line)
+                events.append((e["t"], e["d"]))
+    events.sort(key=lambda x: x[0])
+    return events
+
+
+def parse_ts(s: str) -> float:
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+
+
+def stage_of(t: float, stages: list[tuple[float, str]]) -> str:
+    name = "before-first-stage"
+    for ts, n in stages:
+        if ts <= t:
+            name = n
+    return name
+
+
+CODEX_EVENTS = {"thread.started", "turn.started", "turn.completed", "turn.failed", "item.started", "item.completed"}
+LUNA = {"input": 0.10, "cache_read": 0.01, "cache_write": 0.125, "output": 0.50}
+
+
+def unwrap_shell(cmd: str) -> str:
+    """Codex reports commands as `/bin/bash -lc '<cmd>'`; return <cmd>."""
+    m = re.match(r"^\S*(ba|z)?sh\s+-l?c\s+(['\"])(.*)\2\s*$", cmd.strip(), re.S)
+    return m.group(3) if m else cmd
+
+
+def codex_rollout_usage(run: Path, stages):
+    """True token usage of a Codex session from its own session log.
+
+    `turn.completed` in the exec stream reports a running total for the whole
+    conversation, and nothing at all for an attempt killed by the timeout, so
+    summing it over attempts is wrong. The session log under
+    <run>/codex/sessions records a `token_count` event after every model call
+    with the cumulative `total_token_usage`; resumes append to the same file.
+    Each increase of that total is one model call, attributed to the stage in
+    which it happened. Returns (usage, stage_tokens) or None if there is no log.
+    """
+    files = sorted((run / "codex" / "sessions").rglob("*.jsonl")) if (run / "codex").exists() else []
+    if not files and (run / "usage-events.jsonl").exists():
+        files = [run / "usage-events.jsonl"]
+    points = defaultdict(list)
+    for f in files:
+        for line in f.read_text().splitlines():
+            if '"token_count"' not in line:
+                continue
+            e = json.loads(line)
+            info = ((e.get("payload") or {}).get("info") or {})
+            tu = info.get("total_token_usage")
+            if not tu:
+                continue
+            points[e.get("usage_chain", f.stem)].append((parse_ts(e["timestamp"]), tu))
+    if not points:
+        return None
+    def split(u):
+        cached = u.get("cached_input_tokens", 0) or 0
+        cw = u.get("cache_write_input_tokens", 0) or 0
+        return {"input": max(0, (u.get("input_tokens", 0) or 0) - cached - cw), "cache_read": cached,
+                "cache_write": cw, "output": u.get("output_tokens", 0) or 0}
+    usage = {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+    stage_tokens = defaultdict(float)
+    for chain in points.values():
+        chain.sort(key=lambda x: (x[0], x[1].get("total_tokens", 0)))
+        prev = dict.fromkeys(usage, 0)
+        prev_total = 0
+        for t, tu in chain:
+            cur = split(tu)
+            total = tu.get("total_tokens") or sum(cur.values())
+            if total <= prev_total:
+                continue  # repeated event within the same conversation
+            stage_tokens[stage_of(t, stages)] += sum(max(0, cur[k] - prev[k]) for k in cur)
+            prev, prev_total = cur, total
+        for k in usage:
+            usage[k] += prev[k]
+    return usage, dict(stage_tokens)
+
+
+def analyze_codex(events, stages, run=None, rollout_usage=None):
+    """Token, time, and call counts of a Codex `exec --json` stream.
+
+    Codex reports token usage per user turn, not per model call, so tokens are
+    attributed to actions by the size of what each action brought into the
+    context (command output, file edits, messages): read calls' share of that
+    content is the discovery share.
+    """
+    usage = {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+    calls, secs, chars = defaultdict(int), defaultdict(float), defaultdict(float)
+    stage_chars = defaultdict(float)
+    started: dict[str, float] = {}
+    steps = 0
+    thread_id = "main"
+    thread_usage = {}
+    for t, d in events:
+        typ = d.get("type")
+        if typ == "thread.started":
+            thread_id = d.get("thread_id") or thread_id
+        elif typ == "turn.completed":
+            u = d.get("usage") or {}
+            cached = u.get("cached_input_tokens", 0) or 0
+            cw = u.get("cache_write_input_tokens", 0) or 0
+            # Resumed turns report conversation totals, not independent usage.
+            # Keep the largest complete snapshot; rollout logs, when present,
+            # remain authoritative and include interrupted attempts below.
+            snapshot = {"input": max(0, (u.get("input_tokens", 0) or 0) - cached - cw),
+                        "cache_read": cached, "cache_write": cw,
+                        "output": u.get("output_tokens", 0) or 0}
+            if sum(snapshot.values()) > sum(thread_usage.get(thread_id, {}).values()):
+                thread_usage[thread_id] = snapshot
+        elif typ == "item.started":
+            started[(d.get("item") or {}).get("id", "")] = t
+        elif typ == "item.completed":
+            it = d.get("item") or {}
+            kind = it.get("type")
+            if kind == "command_execution":
+                cmd = unwrap_shell(str(it.get("command", "")))
+                c = classify("Bash", {"command": cmd})
+                n = len(cmd) + len(it.get("aggregated_output", "") or "")
+            elif kind == "file_change":
+                c, n = "write", len(json.dumps(it.get("changes", [])))
+            elif kind == "web_search":
+                q = json.dumps(it)
+                c, n = ("paper" if PAPER_HINT.search(q) else "read"), len(q)
+            elif kind in ("agent_message", "reasoning"):
+                c, n = "reason", len(it.get("text", "") or "")
+            elif kind in ("mcp_tool_call", "todo_list"):
+                c, n = "other", len(json.dumps(it))
+            else:
+                continue
+            if c != "reason":
+                calls[c] += 1
+                steps += 1
+                secs[c] += t - started.pop(it.get("id", ""), t)
+            chars[c] += n
+            stage_chars[stage_of(t, stages)] += n
+    usage = {k: sum(u.get(k, 0) for u in thread_usage.values()) for k in usage}
+    rollout = rollout_usage if rollout_usage is not None else (codex_rollout_usage(run, stages) if run is not None else None)
+    if rollout is not None:
+        usage = rollout[0]
+    total = sum(usage.values())
+    if not chars:
+        chars["unattributed"] = 1
+    all_chars = sum(chars.values()) or 1
+    tokens = {c: {k: v * n / all_chars for k, v in usage.items()} for c, n in chars.items()}
+    luna = sum(usage[k] * LUNA[k] for k in usage) / 1e6
+    stage_tokens = {s: total * n / all_chars for s, n in stage_chars.items()}
+    return tokens, secs, calls, luna, steps, stage_tokens, usage
+
+
+PI_EVENTS = {"agent_start", "agent_end", "turn_start", "turn_end", "tool_execution_start", "tool_execution_end"}
+PI_TOOLS = {"bash": "Bash", "read": "Read", "write": "Write", "edit": "Edit", "grep": "Grep", "find": "Glob", "ls": "LS"}
+
+
+def pi_tool(d: dict) -> tuple[str, dict]:
+    """Claude Code-style tool name and input of a pi tool event (for classify)."""
+    name = PI_TOOLS.get(str(d.get("toolName", "")), str(d.get("toolName", "")))
+    args = d.get("args") if isinstance(d.get("args"), dict) else {}
+    if name == "Read" and "path" in args:
+        args = {**args, "file_path": args["path"]}
+    return name, args
+
+
+def analyze_pi(events, stages):
+    """Token, time, and call counts of a pi `--mode json` stream.
+
+    Each assistant message reports its own usage at `message_end`; tokens are attributed to actions by the
+    size of what each tool call brought into the context, as for Codex.
+    """
+    usage = {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+    calls, secs, chars = defaultdict(int), defaultdict(float), defaultdict(float)
+    stage_chars = defaultdict(float)
+    started: dict[str, float] = {}
+    steps = 0
+    for t, d in events:
+        typ = d.get("type")
+        if typ == "message_end":
+            m = d.get("message") or {}
+            if m.get("role") != "assistant":
+                continue
+            u = m.get("usage") or {}
+            usage["input"] += u.get("input", 0) or 0
+            usage["cache_read"] += u.get("cacheRead", 0) or 0
+            usage["cache_write"] += u.get("cacheWrite", 0) or 0
+            usage["output"] += u.get("output", 0) or 0
+            n = sum(len(str(c.get("text", "") or c.get("thinking", "") or "")) for c in m.get("content") or []
+                    if isinstance(c, dict))
+            chars["reason"] += n
+            stage_chars[stage_of(t, stages)] += n
+        elif typ == "tool_execution_start":
+            started[str(d.get("toolCallId", ""))] = t
+        elif typ == "tool_execution_end":
+            name, args = pi_tool(d)
+            if name == "Bash":
+                args = {"command": unwrap_shell(str(args.get("command", "")))}
+            c = classify(name, args)
+            n = len(json.dumps(args)) + len(json.dumps(d.get("result", "")))
+            calls[c] += 1
+            steps += 1
+            secs[c] += t - started.pop(str(d.get("toolCallId", "")), t)
+            chars[c] += n
+            stage_chars[stage_of(t, stages)] += n
+    total = sum(usage.values())
+    if not chars:
+        chars["unattributed"] = 1
+    all_chars = sum(chars.values()) or 1
+    tokens = {c: {k: v * n / all_chars for k, v in usage.items()} for c, n in chars.items()}
+    luna = sum(usage[k] * LUNA[k] for k in usage) / 1e6
+    stage_tokens = {s: total * n / all_chars for s, n in stage_chars.items()}
+    return tokens, secs, calls, luna, steps, stage_tokens, usage
+
+
+def claude_native_usage(events):
+    """Deduplicate native Claude result/message usage, without output-size estimates."""
+    results, messages = {}, {}
+    for _, event in events:
+        if event.get("type") == "result" and isinstance(event.get("usage"), dict):
+            key = event.get("uuid") or json.dumps({"session_id": event.get("session_id"), "usage": event["usage"], "duration_ms": event.get("duration_ms")}, sort_keys=True)
+            results[key] = event["usage"]
+        elif event.get("type") == "assistant":
+            message = event.get("message") or {}
+            if message.get("usage") and message.get("id"):
+                messages[message["id"]] = message["usage"]
+    rows = list((results or messages).values())
+    if not rows:
+        return None
+    fields = {"input": "input_tokens", "cache_read": "cache_read_input_tokens",
+              "cache_write": "cache_creation_input_tokens", "output": "output_tokens"}
+    return {key: sum(row.get(native, 0) or 0 for row in rows) for key, native in fields.items()}
+
+
+def main() -> None:
+    run = Path(sys.argv[1])
+    events = load_stream(run)
+    stages = []
+    if (run / "stages.tsv").exists():
+        for row in csv.reader((run / "stages.tsv").open(), delimiter="\t"):
+            if len(row) == 2:
+                stages.append((parse_ts(row[0]), row[1]))
+
+    is_codex = any(d.get("type") in CODEX_EVENTS for _, d in events)
+    is_pi = not is_codex and any(d.get("type") in PI_EVENTS for _, d in events)
+    tokens = defaultdict(lambda: {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0})
+    secs = defaultdict(float)
+    stage_tokens = defaultdict(float)
+    calls = defaultdict(int)
+    tool_start: dict[str, tuple[float, str]] = {}
+    cost = 0.0
+    reported_cost_by_session = {}
+    turns = 0
+    asks = 0
+    out_total = 0
+    results = []
+
+    # Group the stream lines of one model turn (same message id).
+    msgs: dict[str, dict] = {}
+    order: list[str] = []
+    prev_t = events[0][0] if events else 0.0
+    for t, d in events:
+        typ = d.get("type")
+        if typ == "assistant":
+            m = d.get("message", {})
+            mid = m.get("id") or f"anon-{t}"
+            if mid not in msgs:
+                msgs[mid] = {"t0": prev_t, "t1": t, "usage": m.get("usage") or {}, "cats": [], "chars": 0,
+                             "chain": d.get("parent_tool_use_id") or "main"}
+                order.append(mid)
+            g = msgs[mid]
+            g["t1"] = t
+            for b in m.get("content", []) or []:
+                bt = b.get("type")
+                if bt == "tool_use":
+                    c = classify(b.get("name", ""), b.get("input", {}))
+                    g["cats"].append(c)
+                    tool_start[b["id"]] = (t, c)
+                    calls[c] += 1
+                    if b.get("name") == "AskUserQuestion":
+                        asks += 1
+                    g["chars"] += len(json.dumps(b.get("input", {})))
+                else:
+                    g["chars"] += len(b.get("text", "") or b.get("thinking", "") or "")
+        elif typ == "user":
+            for b in (d.get("message", {}) or {}).get("content", []) or []:
+                if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") in tool_start:
+                    t0, c = tool_start.pop(b["tool_use_id"])
+                    secs[c] += t - t0
+        elif typ == "result":
+            # Claude resume reports a cumulative conversation estimate.
+            chain = d.get("session_id") or "unknown-session"
+            reported_cost_by_session[chain] = max(
+                reported_cost_by_session.get(chain, 0), d.get("total_cost_usd", 0) or 0
+            )
+            cost = sum(reported_cost_by_session.values())
+            turns += d.get("num_turns", 0) or 0
+            out_total += (d.get("usage") or {}).get("output_tokens", 0) or 0
+            results.append({k: d.get(k) for k in ("subtype", "is_error", "duration_ms", "num_turns")})
+        prev_t = t
+
+    # Uniform pricing (GPT-6 Luna list prices, USD per 1M tokens). Model-reported cache
+    # fields differ between providers, so caching is estimated the same way for every
+    # model: within one conversation chain, the part of a turn's input that repeats the
+    # previous turn's input and output is a cache read; the rest is a cache write.
+    chars = sum(g["chars"] for g in msgs.values()) or 1
+    scale = out_total / chars if out_total else 0.25
+    prev_ctx: dict[str, float] = {}
+    luna = 0.0
+    for mid in order:
+        g = msgs[mid]
+        cats = g["cats"] or ["reason"]
+        u = g["usage"]
+        ctx = sum((u.get(k, 0) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+        cached = min(ctx, prev_ctx.get(g["chain"], 0.0))
+        out_t = g["chars"] * scale
+        prev_ctx[g["chain"]] = ctx + out_t
+        luna += (cached * LUNA["cache_read"] + (ctx - cached) * LUNA["cache_write"] + out_t * LUNA["output"]) / 1e6
+        parts = {
+            "input": u.get("input_tokens", 0) or 0,
+            "cache_read": u.get("cache_read_input_tokens", 0) or 0,
+            "cache_write": u.get("cache_creation_input_tokens", 0) or 0,
+            "output": g["chars"] * scale,
+        }
+        for c in cats:
+            secs[c] += (g["t1"] - g["t0"]) / len(cats)
+            for k, v in parts.items():
+                tokens[c][k] += v / len(cats)
+        stage_tokens[stage_of(g["t1"], stages)] += sum(parts.values())
+
+    usage_total = None
+    rollout_usage = codex_rollout_usage(run, stages) if is_codex else None
+    if is_codex:
+        tokens, secs, calls, luna, turns, stage_tokens, usage_total = analyze_codex(events, stages, rollout_usage=rollout_usage)
+        tokens = defaultdict(dict, tokens)
+    elif is_pi:
+        tokens, secs, calls, luna, turns, stage_tokens, usage_total = analyze_pi(events, stages)
+        tokens = defaultdict(dict, tokens)
+
+    if not is_codex and not is_pi:
+        usage_total = claude_native_usage(events)
+        luna = sum(usage_total[k] * LUNA[k] for k in usage_total) / 1e6 if usage_total is not None else None
+
+    if is_pi and not any(d.get("type") == "message_end" and
+                         (d.get("message") or {}).get("role") == "assistant" and
+                         (d.get("message") or {}).get("usage") for _, d in events):
+        usage_total, luna = None, None
+    if is_codex and rollout_usage is None and not any(
+            d.get("type") == "turn.completed" and d.get("usage") for _, d in events):
+        usage_total, luna = None, None
+
+    wall = (events[-1][0] - events[0][0]) if events else 0.0
+    total_tok = {c: sum(v.values()) for c, v in tokens.items()}
+    all_tok = sum(total_tok.values()) or 1
+
+    stage_secs = {}
+    if stages:
+        end = events[-1][0] if events else stages[-1][0]
+        bounds = stages + [(end, "end")]
+        for (t0, n), (t1, _) in zip(bounds, bounds[1:]):
+            stage_secs[n] = stage_secs.get(n, 0.0) + max(0.0, t1 - t0)
+
+    gpu_busy = 0.0
+    gpu_rows = list(csv.reader((run / "gpu.csv").open())) if (run / "gpu.csv").exists() else []
+    if len(gpu_rows) > 1:
+        meta0 = json.loads((run / "meta.json").read_text()) if (run / "meta.json").exists() else {}
+        interval = float(meta0.get("gpu_sample_s", 5))
+        for r in gpu_rows:
+            try:
+                if float(r[1].strip().rstrip("%").strip()) >= 10:
+                    gpu_busy += interval
+            except (IndexError, ValueError):
+                pass
+
+    code = defaultdict(lambda: {"files": 0, "added": 0, "removed": 0})
+    if (run / "diff.numstat").exists():
+        for line in (run / "diff.numstat").read_text().splitlines():
+            parts = line.split("\t")
+            if len(parts) != 3 or parts[0] == "-":
+                continue
+            a, r, path = int(parts[0]), int(parts[1]), parts[2]
+            if path.startswith(("results/", ".venv/")):
+                kind = "results"
+            elif path.endswith((".py", ".sh", ".ipynb")):
+                kind = "code"
+            elif path.endswith((".toml", ".yaml", ".yml", ".json", ".cfg", ".ini")):
+                kind = "config"
+            elif path.endswith((".md", ".txt", ".rst")):
+                kind = "docs"
+            else:
+                kind = "other"
+            code[kind]["files"] += 1
+            code[kind]["added"] += a
+            code[kind]["removed"] += r
+
+    interventions = 0
+    if (run / "interventions.tsv").exists():
+        interventions = sum(1 for l in (run / "interventions.tsv").read_text().splitlines() if l.strip())
+
+    success = json.loads((run / "success.json").read_text()) if (run / "success.json").exists() else None
+    meta = json.loads((run / "meta.json").read_text()) if (run / "meta.json").exists() else {}
+
+    # Commands that point CUDA_VISIBLE_DEVICES at another GPU than the assigned one.
+    own = str(meta.get("train_gpu", ""))
+    overrides = 0
+    for _, d in events:
+        txt = json.dumps(d)
+        for m in re.finditer(r"CUDA_VISIBLE_DEVICES=([0-9,]+)", txt):
+            if m.group(1) != own:
+                overrides += 1
+    out = {
+        "meta": meta,
+        "gpu_overrides": overrides,
+        "success": success,
+        "wall_seconds": wall,
+        "cost_usd_reported": cost,
+        "cost_usd_luna": luna,
+        "cost_usd_luna_basis": "normalized_api_list_price_estimate_not_actual_bill",
+        "cost_usd_reported_basis": "cli_reported_estimate_not_verified_bill",
+        "actual_billed_usd": None,
+        "authentication_mode": meta.get("authentication_mode", "unknown"),
+        "usage_total": usage_total,
+        "action_token_attribution": "unknown; content-share estimates are separate diagnostics",
+        "exact_core_tokens": None,
+        "usage_source": ("codex_usage_events" if is_codex and rollout_usage is not None
+                         else "codex_complete_turn_maximum_lower_bound" if is_codex
+                         else "pi_message_usage" if is_pi else "claude_stream"),
+        "terminal": json.loads((run / "terminal.json").read_text()) if (run / "terminal.json").exists() else None,
+        "limits": json.loads((run / "limits.json").read_text()) if (run / "limits.json").exists() else None,
+        "turns": turns,
+        "interventions": interventions,
+        "agent_questions": asks,
+        "tool_calls": dict(calls),
+        "tokens_by_action": None,
+        "estimated_tokens_by_action": {c: {k: round(v) for k, v in t.items()} for c, t in tokens.items()},
+        "token_share_by_action": None,
+        "estimated_token_share_by_action": {c: v / all_tok for c, v in total_tok.items()},
+        "seconds_by_action": dict(secs),
+        "discovery": {
+            "tokens": None,
+            "token_share": None,
+            "estimated_tokens": round(total_tok.get("read", 0)),
+            "estimated_token_share": total_tok.get("read", 0) / all_tok,
+            "seconds": secs.get("read", 0.0),
+            "calls": calls.get("read", 0),
+        },
+        "stage_seconds": stage_secs,
+        "stage_tokens": ({k: round(v) for k, v in rollout_usage[1].items()} if rollout_usage is not None else None),
+        "stage_tokens_basis": "native call-time usage deltas" if rollout_usage is not None else "unknown",
+        "estimated_stage_tokens": {k: round(v) for k, v in stage_tokens.items()},
+        # Tokens of each model call, by the stage in which the call happened (Codex only).
+        # stage_tokens instead splits the session total by the content each stage brought
+        # into the context, which is what the discovery cost measures.
+        "stage_tokens_by_call": ({k: round(v) for k, v in rollout_usage[1].items()}
+                                 if rollout_usage is not None else None),
+        "gpu_busy_seconds": gpu_busy,
+        "code_changes": dict(code),
+        "sessions": results,
+        "discovery_errors": None,  # filled by review of diff.patch (see README)
+    }
+    print(json.dumps(out, indent=2))
+
+
+if __name__ == "__main__":
+    main()

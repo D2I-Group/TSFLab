@@ -48,7 +48,9 @@ def _extract_splits(datasets: dict[str, object]) -> dict[str, np.ndarray]:
         b1 = int(np.asarray(datasets["val"].idx).min())
         b2 = int(np.asarray(datasets["test"].idx).min())
         return {"train": full[:b1], "val": full[b1:b2], "test": full[b2:]}
-    return {flag: _full_array(ds) for flag, ds in datasets.items()}
+    # Chronological loaders prepend ``seq_len`` history rows to validation and
+    # test windows; a profile describes disjoint target periods, so drop them.
+    return {flag: _full_array(ds)[getattr(ds, "_history_context_rows", 0):] for flag, ds in datasets.items()}
 
 
 def _frequency_from_file(ds_path: Path) -> Any:
@@ -75,10 +77,13 @@ def _freq_override(text: str | None) -> dict[str, Any] | None:
 
 
 def preset_config_path(name_or_path: str) -> Path:
-    """A preset name resolves to ``configs/datasets/<name>.toml``; a TOML path is used as given."""
+    """A preset name resolves to ``configs/datasets/<name>.toml`` (case-insensitive); a TOML path is used as given."""
     path = Path(name_or_path)
     if not path.suffix:
         path = Path("configs/datasets") / f"{name_or_path}.toml"
+        matches = [p for p in path.parent.glob("*.toml") if p.stem.casefold() == name_or_path.casefold()]
+        if not path.is_file() and len(matches) == 1:
+            path = matches[0]
     if not path.is_file():
         raise SystemExit(f"unknown dataset preset {name_or_path!r} (looked for {path})")
     return path
@@ -104,8 +109,12 @@ def load_dataset_config(path: Path):
         )
 
 
-def load_preset(name_or_path: str, freq: str | None) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    """Load train/val/test (unscaled) for a dataset preset or run config TOML."""
+def load_preset(name_or_path: str, freq: str | None, data_path: str | None = None,
+                include_test: bool = False) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Load train/val (and test on request, unscaled) for a dataset preset or run config TOML.
+
+    ``data_path`` replaces the preset's file while keeping its native loader and split.
+    """
     from tsflab.cli.commands import dataset_characteristics as dc
 
     path = preset_config_path(name_or_path)
@@ -114,16 +123,24 @@ def load_preset(name_or_path: str, freq: str | None) -> tuple[dict[str, np.ndarr
     if "scale" in params:
         params["scale"] = False
     config = dc._PartialConfig(
-        dataset=dataclasses.replace(partial.dataset, params=params), task=partial.task
+        dataset=dataclasses.replace(partial.dataset, params=params, path=data_path or partial.dataset.path),
+        task=partial.task,
     )
-    datasets = {flag: dc._build_dataset(config, flag) for flag in ("train", "val", "test")}
+    datasets = {flag: dc._build_dataset(config, flag) for flag in ("train", "val")}
+    if include_test or hasattr(datasets["val"], "idx"):
+        datasets["test"] = dc._build_dataset(config, "test")
     splits = _extract_splits(datasets)
+    if not include_test:
+        splits.pop("test", None)
     file_path = getattr(datasets["train"], "file_path", "")
     meta: dict[str, Any] = {
         "name": config.dataset.alias or config.dataset.name,
         "source": f"{path} -> {config.dataset.path}",
         "split_ratio": params.get("split_ratio"),
         "config": config,
+        "loader": type(datasets["train"]).__name__,
+        "split_source": "native-loader-disjoint-target-periods",
+        "preset_path": str(path),
     }
     freq_info = _freq_override(freq)
     if freq_info is None:
@@ -182,6 +199,8 @@ def analyze(splits: dict[str, np.ndarray], meta: dict[str, Any], max_channels: i
         max_channels=max_channels,
         split_ratio=tuple(meta["split_ratio"]) if meta.get("split_ratio") else None,
     )
+    profile["dataset"].update(loader=meta.get("loader", "raw-file"),
+                              split_source=meta.get("split_source", "raw-file-ratio"))
     profile["recommendations"] = prof.evaluate_rules(profile)
     return profile
 
@@ -222,6 +241,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", help="dataset preset or run config TOML (overrides <preset>)")
     parser.add_argument("--dataset", dest="dataset_alias", help=hidden)
     parser.add_argument("--path", help="raw csv/txt/parquet/npy/npz file or realtime store directory")
+    parser.add_argument("--data-path", help="override a preset's data file while keeping its native loader and split")
     parser.add_argument("--split-ratio", type=float, nargs=3, default=DEFAULT_RATIO,
                         metavar=("TRAIN", "VAL", "TEST"), help="chronological split for --path")
     parser.add_argument("--freq", help="sampling interval override such as 10min or 1h")
@@ -239,6 +259,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=None, help="random seed for the plotted windows")
     parser.add_argument("--out", help="output directory (default work_dirs/profiles/<name>)")
     parser.add_argument("--json", action="store_true", help="print the JSON profile instead of markdown")
+    parser.add_argument("--compact", action="store_true",
+                        help="with --json, print the summary and artifact path instead of the full profile")
+    parser.add_argument("--include-test", action="store_true",
+                        help="opt into test-split diagnostics after decisions are frozen (default: train/val only)")
     parser.add_argument("--write-card", action="store_true",
                         help="record the fired data characteristics in the preset's dataset card")
     # Spellings of the retired `data inspect` and `data plot`: CSV and image paths, a plot window.
@@ -252,6 +276,10 @@ def _validate(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None
     args.preset = args.config or args.preset or args.dataset_alias
     if bool(args.preset) == bool(args.path):
         parser.error("give exactly one of <preset> (or --config TOML) or --path FILE")
+    if args.data_path and not args.preset:
+        parser.error("--data-path needs a preset; use --path for a raw file")
+    if args.split == "test" and not args.include_test:
+        parser.error("--split test needs --include-test (test diagnostics only after decisions are frozen)")
     if args.max_channels < 2:
         parser.error("--max-channels must be at least 2")
     if args.write_card and not args.preset:
@@ -260,17 +288,25 @@ def _validate(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None
         parser.error("--plot needs a preset or --config (sample windows come from its loader)")
 
 
-def _write_card(preset: str, report: dict[str, Any]) -> tuple[Path, list[str]]:
+def _write_card(config: Path, report: dict[str, Any]) -> tuple[Path, list[str]]:
     from datetime import date
 
     from tsflab.catalog.cards.datasets import write_characteristics
     from tsflab.core.paths import repository_root
 
-    config = Path(preset) if Path(preset).suffix else Path("configs/datasets") / f"{preset}.toml"
     fired = [str(rule["id"]) for rule in report["recommendations"]["fired"]]
     basis = (f"measured by tsf data analyze ({prof.SCHEMA}, decision-safe train/val metrics, "
              f"thresholds in profile_rules.toml) on {date.today().isoformat()}")
     return write_characteristics(repository_root(), config.as_posix(), fired, basis), fired
+
+
+def _rendered(report: dict[str, Any], markdown: str, out: Path, args: argparse.Namespace) -> str:
+    """Markdown, the JSON profile, or (``--json --compact``) the summary and artifact path."""
+    if not args.json:
+        return markdown
+    if args.compact:
+        return json.dumps({"profile": str(out / "profile.json"), "summary": markdown}, separators=(",", ":"))
+    return json.dumps(report, indent=2)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -278,11 +314,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     _validate(parser, args)
     splits, meta = (
-        load_preset(args.preset, args.freq)
+        load_preset(args.preset, args.freq, args.data_path, args.include_test)
         if args.preset
         else load_path(args.path, tuple(args.split_ratio), args.freq)
     )
     config = meta.pop("config", None)
+    if not args.include_test:
+        splits.pop("test", None)
     report = analyze(splits, meta, args.max_channels)
     rows = tfb_characteristics(splits, args.split, args.period, args.per_channel)
     report["tfb_characteristics"] = {"split": args.split, "rows": rows}
@@ -297,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     csv_path = Path(args.characteristics_csv or out / f"characteristics_{args.split}.csv")
     dc.write_rows_csv(str(csv_path), rows)
     note = sys.stderr if args.json else sys.stdout
-    print(json.dumps(report, indent=2) if args.json else markdown)
+    print(_rendered(report, markdown, out, args))
     outputs = [out / "profile.json", out / "profile.md", csv_path]
     if args.plot or args.plot_file or args.show:
         from tsflab.cli.commands.visual_data import plot_samples
@@ -308,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         outputs.append(image)
     print("Output: " + ", ".join(str(path) for path in outputs), file=note)
     if args.write_card:
-        card, fired = _write_card(args.preset, report)
+        card, fired = _write_card(Path(meta["preset_path"]), report)
         print(f"Characteristics written to {card}: {', '.join(fired) or 'none fired'}", file=note)
     return 0
 

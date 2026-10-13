@@ -30,4 +30,5 @@ and two decoder layers; its learning rate (0.1) and batch size (512) are run set
 - Independent clean-room implementation from the paper; the THUML repository is reference-only and no source was copied.
 - The scalar temporal decoder omits LayerNorm: in the THUML code, LayerNorm over one value removes it, so the nonlinear branch never reaches the forecast.
 - `decoder_output_dim` is an internal width.
+- Shared channel weights execute in bounded channel batches. Large training panels use activation checkpointing; outputs and gradients match the original per-channel equations with dropout disabled. Batching changes the seeded dropout draw order, while checkpoint recomputation preserves each forward draw.
 - Static attributes, paper preprocessing, and a numerical comparison with reported results are not included.

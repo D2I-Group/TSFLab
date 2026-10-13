@@ -7,7 +7,7 @@ from typing import Tuple, cast
 import numpy as np
 import pandas as pd
 
-from tsflab.data.schemas.datasets.custom import DatasetParameterConfig
+from tsflab.data.schemas.datasets.custom import DatasetParameterConfig, WeatherParameterConfig
 from tsflab.catalog.registry import DATASET_REGISTRY
 from tsflab.data.datasets.base import ForecastingDataset
 
@@ -46,13 +46,13 @@ class Dataset_Custom(ForecastingDataset):
     def _impute_sentinels(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Replace sentinel values by NaN, then fill causally.
 
-        Forward fill uses only past values; the back fill touches only NaNs
-        before a series' first valid reading, so no later value leaks into an
-        interior gap. A column with no valid value becomes 0.
+        Forward fill uses only past values. Leading gaps use zero: back filling
+        them could expose validation/test values when training is all missing.
+        A column with no valid value also becomes zero.
         """
         values = frame.astype("float64")
         values = values.mask(values.isin(self.missing_sentinels))
-        return values.ffill().bfill().fillna(0.0)
+        return values.ffill().fillna(0.0)
 
     def _read_data(
         self,
@@ -102,7 +102,7 @@ def register() -> None:
     """Register the custom dataset."""
     modes = frozenset({"time_series"})
     DATASET_REGISTRY.register("traffic", Dataset_Custom, DatasetParameterConfig, task_modes=modes)
-    DATASET_REGISTRY.register("weather", Dataset_Custom, DatasetParameterConfig, task_modes=modes)
+    DATASET_REGISTRY.register("weather", Dataset_Custom, WeatherParameterConfig, task_modes=modes)
     DATASET_REGISTRY.register("electricity", Dataset_Custom, DatasetParameterConfig, task_modes=modes)
     # Generic name so any flat-multivariate CSV config can use name = "custom".
     DATASET_REGISTRY.register("custom", Dataset_Custom, DatasetParameterConfig, task_modes=modes)

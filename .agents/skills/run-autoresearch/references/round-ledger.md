@@ -24,9 +24,10 @@ strategy. Aggregate with `tsf result aggregate <name>` and `tsf result rank`.
 ## Leakage guards
 
 - Fix the selection rule (metric, source, tie-break) in a `decision` note before runs.
-- Select among candidates by validation behavior (the trainer logs `val_loss` per epoch
-  and keeps the best-validation checkpoint). Runs also write test metrics; read them only
-  for frozen candidates at confirmation, never to pick, tune, or stop early.
+- Run baseline, screening, and seed confirmation with `--eval-split val`; the trainer
+  keeps the best-validation checkpoint. Only after freezing the candidate and selection
+  rule, run `tsf run evaluate RUN_DIRECTORY... --eval-split test` on the saved
+  successful confirmation runs, with no retraining; never use it to pick or stop.
 - Profile statistics for decisions come from train and train-to-val shift. A claim that
   needed `shift.train_to_test` is invalid and must be rerun without it.
 - Never change a candidate after seeing its test result; a changed candidate is a new
@@ -60,3 +61,32 @@ suffice.
 One table per dataset: hypothesis, treatment, control, seeds, validation and test metric
 with spread, verdict. Add profile path, run ledger, excluded and failed cells,
 limitations, and a stop or continue recommendation.
+## Automatic execution and stopping
+
+Keep one round and one session-wide budget. Submit independent candidates as
+one sweep and wait on the original process; `tsf run wait DIR --timeout 1800
+--json` returns saved metrics if the launch tool yielded. Do not query healthy
+training logs, GPU status, or process lists between epochs. Each completed
+sweep supplies the evidence for one next-step decision. A budget stop or two
+iterations without improvement ends the search, including when no method wins.
+Set validation explicitly for baseline, screening and confirmation runs;
+only a frozen finalist gets a separate, explicit test evaluation.
+
+## Minimal policy on a two-GPU run host
+
+Use only needed limits; exclusive allocation is already the default.
+
+```toml
+[budget]
+max_runs = 10
+max_parallel_jobs = 2
+max_wall_minutes = 10
+[resources]
+threads_per_run = 4
+```
+
+Create one round with `tsf research start --goal QUESTION --max-runs 10
+--max-iterations 3 --policy POLICY.toml`. Execute with the same policy,
+`--round ID --gpus auto --jobs auto`. Do not enable GPU sharing with auto selection.
+For arbitrary CSV paths, use `dataset.name=custom`; the file label is an alias,
+not a dataset registry key.

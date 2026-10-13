@@ -1,6 +1,6 @@
 ---
 name: "etth1"
-description: "ETTh1: hourly oil temperature (OT) and six load features of ETT-small transformer station 1, the standard Informer LTSF benchmark. Use for long-horizon (96-720) forecasting comparable with LTSF papers; not for high-dimensional channel modelling (7 channels) or shift-free evaluation (cooler, calmer test period)."
+description: "ETTh1: hourly oil temperature and six load features from ETT-small station1. Use for long-horizon LTSF comparisons; not for high-dimensional channel modeling. Chronological partitions can differ in distribution."
 ---
 
 # etth1
@@ -16,4 +16,3 @@ ETT-small (Electricity Transformer Temperature) records two years of data from t
 - **`drop_last`.** Training drops its last partial batch; validation and test keep it (`drop_last=False`), so test metrics cover every window. Reference code that drops the last test batch reports slightly different numbers, more so at large batch sizes.
 - **Target.** `features = "S"` forecasts `OT`; `"MS"` forecasts the last column, which is also `OT` here; `"M"` forecasts all seven channels.
 - **Frequency naming.** `ETTm*` is 15-minute data, not one-minute data, although the upstream README text says "every minute" (the CSV is verified 15-minute).
-- **Distribution shift.** `OT` mean / std is 17.13 / 9.18 on the training rows and 4.85 / 3.15 on the test rows (measured, used rows), so the test period is much cooler and calmer than training; exact zeros are 1.0% of all values in the CSV (measured).

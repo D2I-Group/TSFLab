@@ -83,11 +83,22 @@ def protocol_fingerprint(snapshot, data):
     """One protocol identity shared by result producers and planned-cell reports."""
     from tsflab.experiments.infra.storage import canonical_hash
 
+    # A newly exposed zero cosine floor has the same behavior as historical
+    # snapshots that omitted it. Preserve their cohort identity without mutation.
+    from copy import deepcopy
+    training = deepcopy(snapshot["training"])
+    optimizer = training.get("optimizer", {})
+    if optimizer.get("min_lr") == 0:
+        optimizer.pop("min_lr", None)
+    task = deepcopy(snapshot["task"])
+    if task.get("window_context") == "carry":
+        task.pop("window_context", None)
+
     return canonical_hash(
         {
             "data": data,
-            "task": snapshot["task"],
+            "task": task,
             "evaluation": snapshot["evaluation"],
-            "training": snapshot["training"],
+            "training": training,
         }
     )

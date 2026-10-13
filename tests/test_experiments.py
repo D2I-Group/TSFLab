@@ -246,7 +246,7 @@ class InterruptAfterEpoch:
             raise RuntimeError("simulated interruption after checkpoint commit")
 
 
-def training_case(directory, *, resume=False, tracker=None):
+def training_case(directory, *, resume=False, tracker=None, patience=10):
     torch.set_num_threads(1)
     torch.manual_seed(431)
     model = Forecaster()
@@ -264,7 +264,7 @@ def training_case(directory, *, resume=False, tracker=None):
         loader,
         torch.device("cpu"),
         epochs=3,
-        patience=10,
+        patience=patience,
         loss_name="mse",
         loss_params={},
         optimizer=optimizer,
@@ -284,10 +284,11 @@ def training_case(directory, *, resume=False, tracker=None):
 
 
 def test_resume_matches_uninterrupted_training_including_rng_and_optimizer(tmp_path):
-    expected_model, expected_optimizer, _ = training_case(tmp_path / "full")
+    expected_model, expected_optimizer, full_result = training_case(tmp_path / "full")
     with pytest.raises(RuntimeError, match="simulated"):
         training_case(tmp_path / "resumed", tracker=InterruptAfterEpoch())
-    model, optimizer, _ = training_case(tmp_path / "resumed", resume=True)
+    model, optimizer, resumed_result = training_case(tmp_path / "resumed", resume=True)
+    assert full_result.epochs_run == resumed_result.epochs_run == 3
     for key, value in model.state_dict().items():
         torch.testing.assert_close(
             value, expected_model.state_dict()[key], rtol=0, atol=0
@@ -301,8 +302,16 @@ def test_resume_matches_uninterrupted_training_including_rng_and_optimizer(tmp_p
                 atol=0,
             )
     before = (tmp_path / "resumed" / "latest.pth").read_bytes()
-    training_case(tmp_path / "resumed", resume=True)
+    _, _, completed_result = training_case(tmp_path / "resumed", resume=True)
+    assert completed_result.epochs_run == 3
     assert (tmp_path / "resumed" / "latest.pth").read_bytes() == before
+
+
+def test_training_reports_actual_early_stopped_epochs(tmp_path, monkeypatch):
+    losses = iter([1.0, 2.0, 3.0])
+    monkeypatch.setattr("tsflab.experiments.runner.trainer.validate", lambda *a, **k: next(losses))
+    _, _, result = training_case(tmp_path, patience=1)
+    assert result.epochs_run == 2
 
 
 def test_policy_is_optional_and_rejects_unknown_or_invalid_limits():
@@ -1269,7 +1278,9 @@ def test_wait_blocks_until_runs_end_and_reports_compactly(monkeypatch):
     out = execution.wait("x", timeout=100, interval=10, clock=lambda: now[0],
                          sleep=lambda s: now.__setitem__(0, now[0] + s))
     assert out["done"] and not out["ok"] and out["counts"] == {"failed": 1, "succeeded": 1}
-    assert out["unfinished"] == [{"status": "failed", "directory": "r0", "error": None}] and now[0] == 20
+    assert out["unfinished"] == [{"status": "failed", "directory": "r0", "error": None},
+                                 {"status": "succeeded", "directory": "r1",
+                                  "error": "completed run has no result artifact"}] and now[0] == 20
     assert out["results"] == []
     monkeypatch.setattr(execution, "status", lambda d: {"runs": [{"status": "running", "directory": "r0"}]})
     now[0] = 0.0
@@ -1318,3 +1329,251 @@ def test_wait_lists_each_finished_run(monkeypatch, tmp_path):
     out = execution.wait("x", timeout=1, interval=1)
     assert out["results"] == [{"model": "DLinear", "pred_len": 24, "seed": 1, "split": "val", "mse": 0.5, "mae": 0.4,
                                "train_s": 3.2, "params": 10, "epochs": 2, "peak_train_mem_mb": 1.0}]
+
+
+def test_auto_gpu_policy_respects_visibility_busy_memory_and_matrix(monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra import execution
+    config = load_config('configs/runs/smoke_crib.toml')[0].config
+    config.experiment.runtime.device = 'cuda'
+    inventory = [dict(index=str(i), uuid=f'GPU-{i}', free_mb=8000, total_mb=8000,
+                      compute_idle=i != 1) for i in range(4)]
+    inventory[3]['free_mb'] = 100
+    monkeypatch.setattr('tsflab.experiments.infra.environment.gpu_inventory', lambda: inventory)
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '0,1,GPU-3')
+    policy = ExecutionPolicy.model_validate({'resources': {'auto_select': True, 'min_free_memory_mb': 1000}, 'budget': {'auto_parallel': True}})
+    resolved = execution.resolve_policy([config, config], policy)
+    assert resolved.resources.gpus == ['GPU-0','GPU-1','GPU-3']
+    assert resolved.budget.max_parallel_jobs == 2
+    assert policy.resources.gpus == []
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '0,2')
+    resolved = execution.resolve_policy([config, config], policy)
+    assert resolved.resources.gpus == ['GPU-0', 'GPU-2']
+    assert resolved.budget.max_parallel_jobs == 2
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '')
+    assert execution.resolve_policy([config], policy).resources.gpus == []
+
+
+def test_auto_gpu_lease_skips_locked_card_and_rechecks_external_activity(tmp_path):
+    from tsflab.experiments.infra.resources import lease_gpus
+    from tsflab.experiments.infra.policy import Resources
+    devices = [dict(index=str(i), uuid=f'GPU-{i}', free_mb=8000, compute_idle=True) for i in range(2)]
+    resources = Resources(gpus=['GPU-0','GPU-1'], auto_select=True, wait_timeout_minutes=0.001)
+    with lease_gpus(resources, inventory=lambda: devices, directory=tmp_path) as first:
+        with lease_gpus(resources, inventory=lambda: devices, directory=tmp_path) as second:
+            assert first == ['GPU-0'] and second == ['GPU-1']
+    calls = 0
+    def changing():
+        nonlocal calls
+        calls += 1
+        return [dict(devices[0], compute_idle=calls == 1)]
+    with pytest.raises(TimeoutError):
+        with lease_gpus(resources, inventory=changing, directory=tmp_path):
+            pytest.fail('must not launch after an external process starts')
+
+
+def test_explicit_gpu_selection_cannot_escape_parent_visibility(tmp_path, monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra import execution
+    from tsflab.experiments.infra.resources import lease_gpus
+    from tsflab.experiments.infra.policy import Resources
+    config = load_config('configs/runs/smoke_crib.toml')[0].config
+    config.experiment.runtime.device = 'cuda'
+    devices = [dict(index=str(i), uuid=f'GPU-{i}', free_mb=8000, total_mb=8000, compute_idle=True) for i in range(8)]
+    monkeypatch.setattr('tsflab.experiments.infra.environment.gpu_inventory', lambda: devices)
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '6,7')
+    with pytest.raises(ValueError, match='outside CUDA_VISIBLE_DEVICES'):
+        execution.resolve_policy([config], ExecutionPolicy(resources=Resources(gpus=['0','1'])))
+    with pytest.raises(ValueError, match='outside CUDA_VISIBLE_DEVICES'):
+        with lease_gpus(Resources(gpus=['GPU-0']), inventory=lambda: devices, directory=tmp_path):
+            pytest.fail('must not lease an invisible GPU')
+    valid = execution.resolve_policy([config], ExecutionPolicy(resources=Resources(gpus=['GPU-6'])))
+    assert valid.resources.gpus == ['GPU-6']
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '')
+    with pytest.raises(ValueError, match='outside CUDA_VISIBLE_DEVICES'):
+        execution.resolve_policy([config], ExecutionPolicy(resources=Resources(gpus=['GPU-6'])))
+
+
+def test_auto_gpu_waits_for_busy_visible_card_without_agent_retry(tmp_path, monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra import execution
+    from tsflab.experiments.infra.resources import lease_gpus
+    from tsflab.experiments.infra.policy import Resources
+    config = load_config('configs/runs/smoke_crib.toml')[0].config
+    config.experiment.runtime.device = 'cuda'
+    busy = dict(index='6',uuid='GPU-6',free_mb=100,total_mb=8000,compute_idle=False)
+    monkeypatch.setenv('CUDA_VISIBLE_DEVICES','6')
+    monkeypatch.setattr('tsflab.experiments.infra.environment.gpu_inventory',lambda:[busy])
+    policy = execution.resolve_policy([config],ExecutionPolicy(resources=Resources(auto_select=True,min_free_memory_mb=1000)))
+    assert policy.resources.gpus == ['GPU-6']
+    queries = 0
+    def available_later():
+        nonlocal queries
+        queries += 1
+        return [busy if queries==1 else dict(busy,free_mb=8000,compute_idle=True)]
+    monkeypatch.setattr('tsflab.experiments.infra.resources.time.sleep',lambda _:None)
+    with lease_gpus(policy.resources,inventory=available_later,directory=tmp_path) as assigned:
+        assert assigned == ['GPU-6'] and queries>=3
+
+
+def test_explicit_training_partial_batch_policy_never_drops_evaluation(monkeypatch):
+    from types import SimpleNamespace
+    from tsflab.data import provider
+    class Dataset:
+        def __init__(self, **kwargs):
+            pass
+        def __len__(self):
+            return 10
+        def __getitem__(self, index):
+            return index
+    monkeypatch.setattr(provider.DATASET_REGISTRY, "get", lambda _: SimpleNamespace(dataset_class=Dataset))
+    def loader(flag, policy):
+        return provider.build_data_loader("fake", ".", "data.csv", (2,0,1), flag, "M", {}, 4, 0, drop_last=policy)[1]
+    assert sum(len(b) for b in loader("train", True)) == 8
+    assert sum(len(b) for b in loader("train", False)) == 10
+    assert sum(len(b) for b in loader("val", True)) == 10
+    assert sum(len(b) for b in loader("test", True)) == 10
+
+
+def test_named_model_request_matches_config_and_expands_scientific_axes():
+    from tsflab.experiments.config.loader import load_model_request
+    rows = load_model_request('StateFlow', ['dataset.name=custom','dataset.path=./data.csv',
+        'dataset.params.target=OT','dataset.params.split_ratio=[0.6,0.2,0.2]',
+        'task.seq_len=96','training.drop_last=true','training.epochs=2',
+        'model.params.enc_in=7','model.params.encoder_epochs=1','evaluation.split=val',
+        'evaluation.metrics=["mse","mae"]'],
+        ['task.pred_len=[96,192]','experiment.random_seed=[42,43]'])
+    assert [(r.config.task.pred_len,r.config.experiment.random_seed) for r in rows] == [(96,42),(96,43),(192,42),(192,43)]
+    assert all(r.config.training.drop_last and r.config.model.params['hidden_size']==32 for r in rows)
+    assert all(set(r.sweep_keys)=={'task.pred_len','experiment.random_seed'} for r in rows)
+    assert all(r.raw['evaluation']['split']=='val' for r in rows)
+    with pytest.raises(ValueError, match='nonempty JSON list'):
+        load_model_request('StateFlow', [], ['task.pred_len=[]'])
+    with pytest.raises(ValueError, match='duplicate request key'):
+        load_model_request('StateFlow', ['task.seq_len=96','task.seq_len=192'])
+
+
+@pytest.mark.parametrize("features,channels", [("M",21),("MS",21),("S",1)])
+def test_csv_preflight_rejects_channel_mismatch_before_compute(tmp_path, monkeypatch, features, channels):
+    from tsflab.experiments.config.loader import load_model_request
+    from tsflab.experiments.infra import execution
+    path = tmp_path/'weather.csv'
+    path.write_text('date,'+','.join([f'c{i}' for i in range(20)]+['OT'])+'\n')
+    rows = load_model_request('Crossformer', ['dataset.name=custom', f'dataset.path={path}',
+        'dataset.params.target=OT', f'task.features={features}', 'experiment.runtime.device=cpu'], ['task.pred_len=[96,192]'])
+    monkeypatch.setattr(execution, 'audit_environment', lambda *a, **k: {'ok':True,'checks':[]})
+    monkeypatch.setattr(execution, 'prepare_run', lambda *a, **k: pytest.fail('preflight must not claim or prepare runs'))
+    report = execution.preflight([r.config for r in rows], ExecutionPolicy())
+    assert not report['ok'] and all(not r['ok'] for r in report['runs'])
+    assert all(f'set model.params.enc_in={channels}' in r['errors'][0] for r in report['runs'])
+    for row in rows:
+        row.config.model.params['enc_in'] = channels
+    assert execution.preflight([r.config for r in rows], ExecutionPolicy())['ok']
+
+
+def test_frozen_evaluation_preserves_snapshot(tmp_path):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra.frozen import frozen_evaluation
+    raw = load_config('configs/runs/smoke_stateflow.toml')[0].config.model_dump(mode='json')
+    manifest = {'status': 'succeeded', 'config': raw}
+    path = tmp_path / 'manifest.json'; path.write_text(json.dumps(manifest))
+    checkpoint = tmp_path / 'checkpoints/best_checkpoint.pth'
+    checkpoint.parent.mkdir(); checkpoint.write_bytes(b'evidence')
+    frozen = frozen_evaluation(str(tmp_path), 'test')
+    assert frozen.config.evaluation.split == 'test'
+    assert frozen.config.evaluation.checkpoint_path == str(checkpoint)
+    assert len(frozen.config.evaluation.checkpoint_sha256) == 64
+    assert frozen.raw['training'] == raw['training']
+    assert frozen.raw['model'] == raw['model']
+    assert json.loads(path.read_text()) == manifest
+    manifest['status'] = 'failed'; path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match='successful'):
+        frozen_evaluation(str(tmp_path), 'test')
+
+
+def test_frozen_checkpoint_skips_both_training_stages(tmp_path, monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    module = importlib.import_module('tsflab.experiments.runner.run_one')
+    config = load_config('configs/runs/smoke_stateflow.toml')[0].config
+    config.experiment.runtime.device = 'cpu'
+    model = nn.Linear(2, 2)
+    checkpoint = tmp_path / 'frozen.pth'; torch.save(model.state_dict(), checkpoint)
+    config.evaluation.checkpoint_path = str(checkpoint)
+    model.pretrain = lambda *a, **k: pytest.fail('must not pretrain')
+    monkeypatch.setattr(module, '_build_loaders', lambda c: ([], [], [1,2,3], [], [1,2,3], [], None))
+    monkeypatch.setattr(module, '_build_model', lambda *a: (model, 'point'))
+    monkeypatch.setattr(module, 'train', lambda **k: pytest.fail('must not train'))
+    monkeypatch.setattr(module, 'evaluate', lambda **k: ({'mse': 1.0, 'mae': .5}, .1))
+    monkeypatch.setattr(module, '_write_run_outputs', lambda **k: None)
+    monkeypatch.setattr('tsflab.experiments.infra.predictions.log_predictions', lambda *a: None)
+    session = SimpleNamespace(stage=lambda *a: None, run_id='frozen', directory=tmp_path,
+                              tracker=SimpleNamespace(log=lambda *a: None))
+    result = module._run_one(config, {}, session=session)
+    assert result.train_time_sec == 0 and result.n_windows == 3 and result.cost["epochs"] == 0
+    assert result.checkpoint_path == str(checkpoint)
+    assert result.cost["peak_train_mem_mb"] is None
+    config.evaluation.checkpoint_sha256 = '0' * 64
+    with pytest.raises(ValueError, match='hash changed'):
+        module._run_one(config, {}, session=session)
+
+
+def test_keyed_matrix_preparation_is_concurrent_and_rejects_changed_request(tmp_path):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra.execution import prepare_sweep
+    loaded=load_config('configs/runs/smoke_crib.toml')
+    for item in loaded:item.config.experiment.work_dir=str(tmp_path)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        paths=list(pool.map(lambda _:prepare_sweep(loaded,ExecutionPolicy(),request_key='completion.json'),range(4)))
+    assert len(set(paths))==1
+    assert len(list((tmp_path/'_sweeps').iterdir()))==1
+    loaded[0].config.experiment.random_seed+=1
+    with pytest.raises(ValueError,match='different matrix'):
+        prepare_sweep(loaded,ExecutionPolicy(),request_key='completion.json')
+    assert prepare_sweep(loaded,ExecutionPolicy(),request_key='another.json')!=paths[0]
+
+
+def test_round_matrix_recovery_does_not_spend_additional_claims(tmp_path,monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra.execution import prepare_sweep
+    from tsflab.research.rounds import create_round,claim_run,load_round
+    monkeypatch.setenv('TSFLAB_WORK_DIR',str(tmp_path))
+    state=create_round(task='test',goal='recover request',max_runs=1)
+    loaded=load_config('configs/runs/smoke_crib.toml')
+    for item in loaded:item.config.experiment.work_dir=str(tmp_path/'runs')
+    original=prepare_sweep(loaded,ExecutionPolicy(),state['id'])
+    claim_run(state['id'],{'run_id':'spent-budget'})
+    assert prepare_sweep(loaded,ExecutionPolicy(),state['id'])==original
+    assert load_round(state['id'])['runs_used']==1
+    loaded[0].config.experiment.random_seed+=1
+    with pytest.raises(ValueError,match='remaining'):
+        prepare_sweep(loaded,ExecutionPolicy(),state['id'])
+
+
+def test_unkeyed_stateless_preparations_remain_independent(tmp_path):
+    from tsflab.experiments.config.loader import load_config
+    from tsflab.experiments.infra.execution import prepare_sweep
+    loaded=load_config('configs/runs/smoke_crib.toml')
+    for item in loaded:item.config.experiment.work_dir=str(tmp_path)
+    assert prepare_sweep(loaded,ExecutionPolicy())!=prepare_sweep(loaded,ExecutionPolicy())
+
+
+def test_pretraining_receives_validation_partition_only_when_requested(tmp_path, monkeypatch):
+    from tsflab.experiments.config.loader import load_config
+    module = importlib.import_module('tsflab.experiments.runner.run_one')
+    config = load_config('configs/runs/smoke_stateflow.toml')[0].config
+    config.experiment.runtime.device = 'cpu'
+    training, validation, heldout = object(), object(), object()
+    model = nn.Linear(2, 2)
+    class StageObserved(Exception):
+        pass
+    def pretrain(loader, device, *, val_loader):
+        assert loader is training and val_loader is validation
+        assert val_loader is not heldout
+        raise StageObserved
+    model.pretrain = pretrain
+    monkeypatch.setattr(module, '_build_loaders', lambda c: ([],training,[],validation,[],heldout,None))
+    monkeypatch.setattr(module, '_build_model', lambda *a: (model,'point'))
+    session = SimpleNamespace(stage=lambda *a: None, run_id='pretrain', directory=tmp_path,
+                              tracker=SimpleNamespace(log=lambda *a: None))
+    with pytest.raises(StageObserved):
+        module._run_one(config, {}, session=session)

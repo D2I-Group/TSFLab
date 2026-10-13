@@ -19,7 +19,7 @@ Modules:
     env              audit the environment; storage and usage subcommands
     result           aggregate, rank, plot, report, predictions, board, submit, leaderboard, hub
     realtime         rolling real-time tracks: update, open, forecast, score
-    research         research rounds: start, list, show, note, status, iteration
+    research         research rounds: start, list, show, note, status, iteration, reference, screen
 
 Repository and Agents:
     repo             check (mergeable gate, audit/contract steps), cards, schema

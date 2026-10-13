@@ -137,7 +137,8 @@ class ModelSpec:
         unknown = sorted(set(params) - set(self.params_schema.model_fields))
         if unknown:
             raise ValueError(
-                f"Unknown parameters for {self.name}: {', '.join(unknown)}"
+                f"Unknown parameters for {self.name}: {', '.join(unknown)}. "
+                f"Read declared fields with `tsf catalog show {self.name} --params`; do not infer parameter names."
             )
         return self.params_schema.model_validate(params).model_dump()
 

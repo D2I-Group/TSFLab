@@ -30,8 +30,8 @@ time_feat_dim = { from = "covariates", rule = "mark features per step; must matc
 
 [admission]
 status = "passed"
-date = "2026-10-12"
-commit = "7719e538"
+date = "2026-10-13"
+commit = ""
 device = "cpu"
 reference = "official"
 note = ""

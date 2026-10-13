@@ -321,8 +321,8 @@ def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
         notes.append("the file has no header row; row 0 is its first line")
     sentinels = params.get("missing_sentinels") or []
     if sentinels:
-        notes.append(f"values {sentinels} are missing; filled causally (forward fill, back fill only "
-                     "at the series start) before scaling")
+        notes.append(f"values {sentinels} are missing; filled causally (forward fill; a leading "
+                     "gap becomes zero) before scaling")
     if splits["val"].start < 0:
         notes.append(f"seq_len {common['seq_len']} is longer than the train split; inputs would start "
                      "before row 0")

@@ -38,8 +38,8 @@ GROUPS: tuple[Group, ...] = (
         C("search", "<terms...> [--kind model|component|dataset] [--capability C] [--limit N] [--json]",
           "ranked L0 lines: name, kind, summary, tags"),
         C("list", "[--kind model|component|dataset] [--json]", "every resource of a kind"),
-        C("show", "<name...> [--kind K] [--depth {0,1,2,3}] [--json]",
-          "open cards at L1 (or --depth 0-3); several names in one call"),
+        C("show", "<name...> [--kind K] [--depth {0,1,2,3}] [--json] [--params]",
+          "open cards at L1 (or --depth 0-3); several names in one call; --params: model parameter schema only"),
         C("match", "<dataset...> [--extra TERM...] [--top N] [--json]",
           "models and components whose card fits match the data"),
     )),
@@ -48,8 +48,9 @@ GROUPS: tuple[Group, ...] = (
           "register a CSV as a preset and card, profiled"),
         C("prepare", "[--from traffic|ultratraffic|gift-eval|tfb|dcrnn] [args...]",
           "convert or fetch data into loader layouts"),
-        C("analyze", "<dataset> | --config TOML | --path FILE [--split S] [--per-channel] [--plot] "
-          "[--write-card] [--json]", "profile, TFB characteristics, and sample plot"),
+        C("analyze", "<dataset> | --config TOML | --path FILE [--data-path FILE] [--split S] [--include-test] "
+          "[--per-channel] [--plot] [--write-card] [--json [--compact]]",
+          "train/val profile, TFB characteristics, and sample plot (test on request)"),
         C("splits", "<dataset> [--seq-len N] [--horizon N] [--path FILE] [--json]",
           "official split borders and scaling rule"),
         C("download", "<preset...> | --all | --list | --check [--root DIR]", "fetch published dataset files"),
@@ -71,8 +72,12 @@ GROUPS: tuple[Group, ...] = (
         C("audit", "[Name...] [--components] [--release] [--json | --summary]", "card and admission audit"),
     )),
     Group("run", "Modules", "run experiments; --smoke, --dry-run, --backend local|queue|slurm", (
-        C("", "<config.toml...> [--dry-run] [--round ID] [--policy TOML] [--jobs N] [--gpus LIST] [--json]",
-          "validate and run a sweep (--prepare-only persists it)"),
+        C("", "<config.toml...> | --model NAME [--set K=V...] [--sweep K=LIST...] [--dry-run] [--round ID] "
+          "[--eval-split val|test] [--policy TOML] [--jobs N|auto] [--gpus LIST|auto] [--output JSON] "
+          "[--json [--compact]]",
+          "validate and run a sweep (--prepare-only persists it; --output keys the request)"),
+        C("evaluate", "<run_dir...> --eval-split val|test [--json]",
+          "score frozen checkpoints of finished runs on one split, without training"),
         C("status", "<directory> [--json]", "state of a run or sweep"),
         C("wait", "<directory> [--timeout S] [--json]", "block until a background sweep ends"),
         C("cancel", "<directory> [--json]", "cancel a run or sweep"),
@@ -119,7 +124,7 @@ GROUPS: tuple[Group, ...] = (
         C("replay", "--track T --end DATE [--weeks N] [--models M...] [--out JSON]",
           "backtest the protocol on history"),
     )),
-    Group("research", "Modules", "research rounds: start, list, show, note, status, iteration", (
+    Group("research", "Modules", "research rounds: start, list, show, note, status, iteration, reference, screen", (
         C("start", "--goal TEXT [--task NAME] [--max-runs N] [--max-iterations N] [--policy TOML] [--id ID]",
           "open a budgeted round"),
         C("list", "[--json]", "rounds and their budgets"),
@@ -127,6 +132,9 @@ GROUPS: tuple[Group, ...] = (
         C("note", "<id> --text TEXT [--kind KIND]", "append a structured event"),
         C("status", "<id> <status> [--message TEXT]", "update the round status"),
         C("iteration", "<id> [--operation ID]", "claim the next bounded iteration"),
+        C("reference", "<id> RUN_DIR...", "reuse saved validation baselines without new training claims"),
+        C("screen", "<id> --baseline RUN_DIR... --candidate RUN_DIR... [--metric mse|mae] [--min-improvement X] [--stop-on-fail]",
+          "check matched validation runs before confirmation"),
     )),
     Group("repo", "Repository and Agents", "check (mergeable gate), cards (derived indexes), schema", (
         C("check", "[--scope full|changed|release] [--base REF] [--only STEP...] [--list] [--fail-fast] [--json]",

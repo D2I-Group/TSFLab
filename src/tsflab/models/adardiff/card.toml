@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AdaRDiff"
+tags = ["linear", "adaptive-differencing", "causal-reconstruction", "two-phase"]
+fits = ["strong-seasonality", "long-horizon", "weak-cross-correlation"]
+fidelity = "inferred"
+
+[paper]
+title = "Learning to Difference: Adaptive Reversible Differencing (AdaRDiff) for Time Series Forecasting"
+url = "https://arxiv.org/abs/2608.28134v1"
+venue = "arXiv"
+year = 2026
+
+[composition]
+normalization = "none"
+decomposition = "local:causal-learnable-lag-differencing"
+temporal = "local:finite-polynomial-Newton-inverse"
+channel = "none"
+head = "component:channel_wise_linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must match all input channels" }
+period = { from = "frequency", rule = "lag window P, selected from validation or declared dominant period; must not exceed seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-13"
+commit = ""
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "three independent archived reproductions"
+what = "Earlier implementations used a current-inclusive difference, wrong companion shift, or circular frequency reciprocal."
+resolution = "Strict previous-lag differences and finite formal-series inverse; direct recurrence and gradient checks."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix B reconstruction algorithm"
+what = "Paper uses companion-matrix repeated squaring; this implementation uses polynomial Newton doubling."
+resolution = "Same finite causal recurrence on tested outputs/gradients; arithmetic backend differs and numerical differences remain possible."
+
+[[issues]]
+kind = "underspecified"
+where = "training and optional validation-selected settings"
+what = "Exact author-selected initializations, normalization, optimizer state transfer and stopping details are not supplied in inspected paper sources."
+resolution = "Zero initialization, no RevIN/reparameterization, residual validation patience3 and fresh phase2 optimizer are declared choices, not author-code parity."
+
+[[issues]]
+kind = "unreleased"
+where = "inspected paper v1 sources"
+what = "No author implementation identified in these inspected sources."
+resolution = "Independent local implementation with inferred fidelity."

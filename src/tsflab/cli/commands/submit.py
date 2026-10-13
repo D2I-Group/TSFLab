@@ -224,6 +224,9 @@ def build_submission(rec_path: Path, *, submitter: str, out_root: Path, track: s
     from tsflab import core as tsf_core
 
     rec_data = json.loads(rec_path.read_text())
+    evaluation = rec_data.get("config", {}).get("snapshot", {}).get("evaluation", {})
+    if evaluation.get("split", "test") != "test":
+        raise ValueError("validation-only results cannot be submitted as test leaderboard results")
     if not rec_data.get("results"):
         raise ValueError(f"record has no results: {rec_path}")
     run_id = rec_data["results"][0].get("run_id") or rec_path.stem

@@ -201,6 +201,8 @@ def test_analyze_cli_on_csv_writes_json_and_markdown(tmp_path, capsys):
     out = tmp_path / "out"
     assert dataset_analyze.main(["--path", str(path), "--out", str(out), "--json"]) == 0
     report = json.loads((out / "profile.json").read_text())
+    assert "train_to_test" not in report["shift"]
+    assert "test" not in report["split"]
     assert report["dataset"]["frequency"]["label"] == "1h"
     assert abs(report["train"]["periods"]["dominant"][0]["period"] - PERIOD) <= 1
     assert report["train"]["periods"]["dominant"][0]["tag"] == "daily"
@@ -282,10 +284,10 @@ def test_missing_sentinels_are_imputed_causally_before_scaling(tmp_path) -> None
     clean = Dataset_Custom(**kw, missing_sentinels=[-9999])
     assert raw.data.min() == -9999
     out = clean.data[:, 0]
-    assert out[0] == out[1] == 3.0  # back fill only at the series start
+    assert out[0] == out[1] == 0.0  # no future observation fills leading gaps
     assert out[50] == out[51] == 50.0  # forward fill from the past, never from the future
     assert out[99] == 99.0
-    assert out.min() == 3.0
+    assert out.min() == 0.0
     scaled = Dataset_Custom(**{**kw, "scale": True}, missing_sentinels=[-9999])
     assert abs(scaled.data).max() < 3
 
@@ -731,3 +733,62 @@ def test_new_dataset_target_defaults_to_the_file(tmp_path):
     other.write_text("date,COAST,EAST\n2020-01-01,1,2\n")
     assert default_target(str(with_ot)) == "OT" and default_target(str(other)) == "EAST"
     assert default_target(str(tmp_path / "missing.csv")) == "OT"
+
+
+@pytest.mark.parametrize("include_test", [False, True])
+def test_preset_profile_path_override_uses_native_ett_split(tmp_path, monkeypatch, include_test):
+    # ETTh1's native loader caps 17,420 input rows at 14,400. Monotonic values
+    # expose incorrect ratio splits and duplicated lookback context.
+    frame = pd.DataFrame({"date": pd.date_range("2021-01-01", periods=17420, freq="h"),
+                          "OT": np.arange(17420, dtype=float)})
+    path = tmp_path / "ETTh1.csv"
+    frame.to_csv(path, index=False)
+    built = []
+    original = dc._build_dataset
+    def build(config, flag):
+        built.append(flag)
+        return original(config, flag)
+    monkeypatch.setattr(dc, "_build_dataset", build)
+    splits, meta = dataset_analyze.load_preset("ETTh1", "1h", str(path), include_test)
+    assert len(splits["train"]) == 8640 and len(splits["val"]) == 2880
+    assert splits["train"][-1, 0] == 8639
+    assert splits["val"][0, 0] == 8640 and splits["val"][-1, 0] == 11519
+    assert meta["loader"] == "Dataset_ETT_hour" and str(path) in meta["source"]
+    if include_test:
+        assert len(splits["test"]) == 2880
+        assert splits["test"][0, 0] == 11520 and splits["test"][-1, 0] == 14399
+    else:
+        assert "test" not in splits and "test" not in built
+
+
+def test_profile_path_override_requires_preset(tmp_path):
+    with pytest.raises(SystemExit):
+        dataset_analyze.main(["--path", "data.csv", "--data-path", "other.csv"])
+
+
+def test_missing_training_values_cannot_be_filled_from_holdout(tmp_path):
+    models = []
+    for holdout_value in (1., 10000.):
+        frame = pd.DataFrame({"date": pd.date_range("2020-01-01", periods=100, freq="h"),
+                              "OT": [-9999.] * 60 + [holdout_value] * 40})
+        path = tmp_path / f"data-{int(holdout_value)}.csv"
+        frame.to_csv(path, index=False)
+        models.append(Dataset_Custom(root_path=str(tmp_path), data_path=path.name,
+            size=(8, 0, 4), flag="train", features="S", target="OT",
+            split_ratio=(.6, .2, .2), scale=True, missing_sentinels=[-9999]))
+    np.testing.assert_array_equal(models[0].data, models[1].data)
+    np.testing.assert_array_equal(models[0].scaler.mean_, models[1].scaler.mean_)
+    np.testing.assert_array_equal(models[0].scaler.scale_, models[1].scaler.scale_)
+    assert np.all(models[0].data == 0)
+
+
+def test_native_weather_schema_matches_preset_missing_value_policy():
+    from tsflab.experiments.config.loader import load_model_request
+    settings = ['dataset.path=./weather.csv', 'dataset.params.target=OT']
+    native = load_model_request('StateFlow', settings + ['dataset.name=weather'])[0].config
+    custom = load_model_request('StateFlow', settings + ['dataset.name=custom'])[0].config
+    explicit = load_model_request('StateFlow', settings + ['dataset.name=weather',
+        'dataset.params.missing_sentinels=[]'])[0].config
+    assert native.model_dump()['dataset']['params']['missing_sentinels'] == [-9999.0]
+    assert custom.model_dump()['dataset']['params']['missing_sentinels'] == []
+    assert explicit.model_dump()['dataset']['params']['missing_sentinels'] == []

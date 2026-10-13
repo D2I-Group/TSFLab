@@ -47,3 +47,4 @@ class TaskConfig(BaseModel):
     pred_len: int = Field(gt=0)
     features: str = "M"
     inverse: bool = False
+    window_context: Literal["carry", "within-split"] = "carry"

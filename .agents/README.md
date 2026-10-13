@@ -43,7 +43,7 @@ Design, run, diagnose, and analyze budgeted experiments (chain).
 
 Skills:
 - [`setup-environment`](skills/setup-environment/SKILL.md): Install, repair, or verify the TSFLab Python environment and PyTorch backend, including the optional hub and realtime extras.
-- [`run-experiment`](skills/run-experiment/SKILL.md): Design, preview, and run one or more TSFLab experiment or sweep configurations, in the repository or in a standalone project created with tsf init.
+- [`run-experiment`](skills/run-experiment/SKILL.md): Design and execute TSFLab runs or sweeps, including standalone projects.
 - [`diagnose-experiment`](skills/diagnose-experiment/SKILL.md): Diagnose a failed, unstable, or invalid TSFLab experiment.
 - [`reproduce-paper-results`](skills/reproduce-paper-results/SKILL.md): Reproduce and compare a forecasting paper's reported experiments in TSFLab by mapping its protocol to runnable configs and aligned metrics.
 - [`analyze-results`](skills/analyze-results/SKILL.md): Aggregate, filter, rank, compare, plot, and report completed TSFLab experiment results.

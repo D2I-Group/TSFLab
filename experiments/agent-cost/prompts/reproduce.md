@@ -1,0 +1,33 @@
+Reproduce the main results of this forecasting paper: {paper_url}
+
+The current directory is your working directory. If it contains a codebase,
+build on it and follow its structure, naming, and conventions instead of
+starting from scratch. If it is empty, write everything yourself.
+
+Raw data files for the datasets are in {data_dir} (read-only). You may also
+download data if you need to. One GPU is available to you: the one already
+selected by CUDA_VISIBLE_DEVICES. Use only that GPU and do not change
+CUDA_VISIBLE_DEVICES.
+
+Scope: reproduce the paper's main results table for these datasets and
+prediction lengths: {cells}. Report MSE and MAE for each cell, using the
+paper's own evaluation protocol as far as the paper describes it.
+
+Rules:
+- Work without asking questions. When the paper leaves a detail open, choose a
+  reasonable value and record the choice in results/decisions.md.
+- Train as the paper specifies (epochs, early stopping, batch size, learning
+  rate, number of runs where given). Do not shorten training to save time: you
+  have up to four hours and a dedicated GPU, and results from cut-down training
+  do not count as a reproduction.
+- At the start of each stage, run the shell command `stage <name>` with one of:
+  collect (get the paper, data, and settings), read (understand the method),
+  implement, check (make sure the code runs end to end), run (the experiments),
+  compare (compare with the paper). Run `stage done` when you finish.
+- Write results/results.json as a JSON list of objects
+  {{"dataset": str, "pred_len": int, "mse": float, "mae": float}}, one per cell.
+- Write results/report.md: what you implemented, the results next to the
+  paper's numbers, and every deviation from the paper.
+
+You are finished when every cell above has a result in results/results.json
+and results/report.md is written.

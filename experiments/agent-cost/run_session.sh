@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+# Run one measured agent session.
+#
+#   run_session.sh <task.json> <arm> <run-dir> [model]
+#
+# Creates <run-dir>/workspace with make_env.sh, then runs the agent headless in
+# it with an isolated configuration (no user instructions, memory, plugins, or
+# MCP servers). AGENT=claude (default) runs Claude Code; AGENT=codex runs Codex
+# CLI with CODEX_HOME=<run-dir>/codex, which links the login of ~/.codex; AGENT=pi runs pi (provider openai, the
+# login of ~/.pi/agent, sessions in <run-dir>/pi). Every stream-json line is stored with the time it arrived.
+# If the session stops before results/results.json covers every cell, the
+# runner resumes it with one fixed message, at most MAX_RESUMES times; each
+# resume counts as one human intervention.
+#
+# Environment: AGENT (claude|codex), TSFLAB_COMMIT (version for tsflab* arms),
+# DATA_DIR (raw data, read-only), TIMEOUT_H (default 8),
+# MAX_RESUMES (default 0; search always 0), MAX_BUDGET_USD (Claude only), GPU_SAMPLE_S (default 5).
+set -euo pipefail
+
+TASK="$(realpath "${1:?usage: run_session.sh <task.json> <arm> <run-dir> [model]}")"
+ARM="${2:?arm}"
+RUN="$(realpath -m "${3:?run-dir}")"
+AGENT="${AGENT:-claude}"
+if [[ "$AGENT" == codex || "$AGENT" == pi ]]; then MODEL="${4:-gpt-6-luna}"; else MODEL="${4:-claude-sonnet-5-5}"; fi
+HERE="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="${DATA_DIR:?set DATA_DIR to the raw data directory}"
+TIMEOUT_H="${TIMEOUT_H:-8}"
+MAX_RESUMES="${MAX_RESUMES:-0}"
+GPU_SAMPLE_S="${GPU_SAMPLE_S:-5}"
+
+mkdir -p "$RUN"
+KIND="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task"])' "$TASK")"
+if [[ "$KIND" == autoresearch && ( -z "${TRAIN_GPU:-}" || "${TRAIN_GPU}" == *,* ) ]]; then
+  echo "Search requires one explicitly assigned TRAIN_GPU for the session GPU budget." >&2
+  exit 2
+fi
+python3 "$HERE/session_control.py" limits "$TASK" "$TIMEOUT_H" "$MAX_RESUMES" > "$RUN/limits.json"
+read -r SESSION_LIMIT_S MAX_RESUMES < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["wall_seconds"], d["max_resumes"])' "$RUN/limits.json")
+if [[ -n "${MAX_BUDGET_USD:-}" && "$AGENT" != claude ]]; then
+  echo "MAX_BUDGET_USD is unsupported for $AGENT; use the enforced session time budget." >&2
+  exit 2
+fi
+"$HERE/make_env.sh" "$ARM" "$RUN/workspace" ${TSFLAB_COMMIT:+"$TSFLAB_COMMIT"}
+
+# Isolated agent configuration.
+mkdir -p "$RUN/config"
+if [[ "$AGENT" == pi ]]; then
+  # pi is installed with npm under nvm; its OAuth login lives in ~/.pi/agent (shared, refreshed in place).
+  export PATH="$(dirname "$(bash -lc 'source ~/.nvm/nvm.sh >/dev/null 2>&1; command -v pi')"):$PATH"
+  mkdir -p "$RUN/pi"
+  AGENT_VERSION="pi $(pi --version | head -1)"
+elif [[ "$AGENT" == codex ]]; then
+  # Link (not copy) the login so a token refresh in one session reaches the others.
+  mkdir -p "$RUN/codex"
+  export CODEX_HOME="$RUN/codex"
+  if [[ -n "${CODEX_BASE_URL:-}" ]]; then
+    # A self-hosted model behind an OpenAI-compatible Responses API (vLLM): no login.
+    cat > "$CODEX_HOME/config.toml" <<TOML
+model_provider = "local"
+[model_providers.local]
+name = "local"
+base_url = "$CODEX_BASE_URL"
+wire_api = "responses"
+env_key = "CODEX_LOCAL_KEY"
+TOML
+    export CODEX_LOCAL_KEY="${CODEX_LOCAL_KEY:-none}"
+  else
+    ln -sf "$HOME/.codex/auth.json" "$CODEX_HOME/auth.json"
+  fi
+  AGENT_VERSION="$(codex --version | head -1)"
+elif [[ -n "${ANTHROPIC_BASE_URL:-}" ]]; then
+  # A vLLM server with the Anthropic API: ANTHROPIC_API_KEY, no login.
+  : "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY for the server at ANTHROPIC_BASE_URL}"
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL" ANTHROPIC_SMALL_FAST_MODEL="$MODEL"
+  export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+  AGENT_VERSION="$(claude --version | head -1)"
+else
+  install -m 600 "$HOME/.claude/.credentials.json" "$RUN/config/.credentials.json"
+  AGENT_VERSION="$(claude --version | head -1)"
+fi
+# The agent sees one training GPU (TRAIN_GPU), if given.
+if [[ -n "${TRAIN_GPU:-}" ]]; then export CUDA_VISIBLE_DEVICES="$TRAIN_GPU"; fi
+
+if [[ "$KIND" == autoresearch ]]; then export TSFLAB_EVAL_SPLIT=val; fi
+PROMPT="$(python3 "$HERE/render_prompt.py" "$TASK" "$DATA_DIR")"
+printf '%s\n' "$PROMPT" > "$RUN/prompt.txt"
+cat > "$RUN/meta.json" <<EOF
+{"task": "$(basename "$TASK")", "kind": "$KIND", "arm": "$ARM", "agent": "$AGENT", "model": "$MODEL",
+ "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "host": "$(uname -n)", "gpu_sample_s": $GPU_SAMPLE_S,
+ "tsflab_commit": "${TSFLAB_COMMIT:-$(git -C "$HERE/../.." rev-parse dev)}", "source_snapshot_sha256": "${TSFLAB_SNAPSHOT_SHA256:-}", "shared_environment": "${SHARED_VENV:-}", "agent_version": "$AGENT_VERSION", "reasoning_effort": "${REASONING_EFFORT:-default}",
+ "base_url": "${CODEX_BASE_URL:-${ANTHROPIC_BASE_URL:-default}}", "train_gpu": "${TRAIN_GPU:-all}"}
+EOF
+
+# GPU sampler (utilization and memory every GPU_SAMPLE_S seconds).
+nvidia-smi ${TRAIN_GPU:+-i "$TRAIN_GPU"} --query-gpu=timestamp,utilization.gpu,memory.used \
+  --format=csv,noheader -l "$GPU_SAMPLE_S" > "$RUN/gpu.csv" 2>/dev/null &
+GPU_PID=$!
+# On exit, also stop every process the agent left running in its workspace (for example training started
+# with nohup), so a timed-out or stopped session never keeps a GPU busy for the next one.
+reap_workspace() {
+  local root pid cwd
+  root="$(realpath "$RUN/workspace" 2>/dev/null)" || return 0
+  for p in /proc/[0-9]*; do
+    pid=${p#/proc/}
+    [[ "$pid" == "$$" ]] && continue
+    cwd=$(readlink "$p/cwd" 2>/dev/null) || continue
+    [[ "$cwd" == "$root" || "$cwd" == "$root"/* ]] && kill "$pid" 2>/dev/null
+  done
+  return 0
+}
+SESSION_TMPDIR=""
+trap 'kill $GPU_PID 2>/dev/null || true; reap_workspace; if [[ -n "$SESSION_TMPDIR" ]]; then rm -rf "$SESSION_TMPDIR"; fi; rm -f "$RUN/config/.credentials.json" "$RUN/codex/auth.json"' EXIT
+
+export AGENT_COST_DIR="$RUN"
+# Each session gets its own temporary directory, so sessions cannot see each other's files.
+# A short private temporary directory: multiprocessing sockets live there, and AF_UNIX paths are limited to
+# 108 bytes, so a directory under the run path makes data-loader workers fail to start.
+SESSION_TMPDIR="$(mktemp -d /tmp/ac.XXXXXX)"
+export TMPDIR="$SESSION_TMPDIR"; echo "$TMPDIR" > "$RUN/tmpdir.txt"
+export PATH="$HERE/bin:$PATH"
+if [[ -n "${SHARED_VENV:-}" ]]; then export PYTHONPATH="$RUN/workspace/src:$RUN/workspace${PYTHONPATH:+:$PYTHONPATH}" UV_NO_SYNC=1; fi
+# TSFLab arms use the preinstalled environment as is: no re-sync to the lockfile (whose torch is the
+# CUDA 13 build) and no `uv sync`. Other arms install their own environments in make_env.sh.
+if [[ "$ARM" == tsflab* ]]; then export UV_NO_SYNC=1 PATH="$HERE/bin-tsflab:$PATH"; fi
+[[ "$AGENT" == codex || "$AGENT" == pi ]] || export CLAUDE_CONFIG_DIR="$RUN/config"
+
+BUDGET_ARGS=()
+[[ -n "${MAX_BUDGET_USD:-}" ]] && BUDGET_ARGS=(--max-budget-usd "$MAX_BUDGET_USD")
+
+stamp() {
+  # Prefix each stream-json line with the arrival time.
+  python3 -u -c '
+import sys, json, time
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line:
+        try:
+            d = json.loads(line)
+        except ValueError:
+            d = {"type": "raw", "text": line}
+        sys.stdout.write(json.dumps({"t": time.time(), "d": d}) + "\n")
+        sys.stdout.flush()
+'
+}
+
+session_id=""
+# One deadline for the whole measured session, including optional resumes.
+SESSION_DEADLINE=$(( $(date +%s) + SESSION_LIMIT_S ))
+for attempt in $(seq 0 "$MAX_RESUMES"); do
+  ATTEMPT_EXIT=0
+  REMAINING_S=$(( SESSION_DEADLINE - $(date +%s) ))
+  [[ $REMAINING_S -gt 0 ]] || break
+  if [[ $attempt -eq 0 ]]; then
+    MSG="$PROMPT"
+  else
+    MSG="Continue until the task is complete."
+    printf '%s\tresume %d\n' "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" "$attempt" >> "$RUN/interventions.tsv"
+  fi
+  if [[ "$AGENT" == pi ]]; then
+    CONT=()
+    [[ $attempt -gt 0 ]] && CONT=(--continue)
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" pi -p --mode json --provider openai --model "$MODEL" \
+        --thinking "${REASONING_EFFORT:-medium}" --session-dir "$RUN/pi" "${CONT[@]}" "$MSG" \
+        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
+    session_id="$(python3 -c '
+import json, sys
+sid = ""
+for l in open(sys.argv[1]):
+    d = json.loads(l)["d"]
+    if d.get("type") == "session":
+        sid = d.get("id", sid)
+print(sid)' "$RUN/stream.$attempt.jsonl")"
+  elif [[ "$AGENT" == codex ]]; then
+    if [[ $attempt -eq 0 ]]; then CMD=(codex exec); else CMD=(codex exec resume "$session_id"); fi
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" "${CMD[@]}" --json -m "$MODEL" \
+        -c model_reasoning_effort="${REASONING_EFFORT:-medium}" \
+        --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$MSG" \
+        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
+    session_id="$(python3 -c '
+import json, sys
+sid = ""
+for l in open(sys.argv[1]):
+    d = json.loads(l)["d"]
+    if d.get("type") == "thread.started":
+        sid = d.get("thread_id", sid)
+print(sid)' "$RUN/stream.$attempt.jsonl")"
+  else
+    RESUME_ARGS=()
+    [[ $attempt -gt 0 ]] && RESUME_ARGS=(--resume "$session_id")
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" claude -p "$MSG" "${RESUME_ARGS[@]}" \
+        --model "$MODEL" --output-format stream-json --verbose \
+        --dangerously-skip-permissions --strict-mcp-config "${BUDGET_ARGS[@]}" \
+        2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
+    session_id="$(python3 -c '
+import json, sys
+sid = ""
+for l in open(sys.argv[1]):
+    d = json.loads(l)["d"]
+    sid = d.get("session_id", sid)
+print(sid)' "$RUN/stream.$attempt.jsonl")"
+  fi
+  python3 "$HERE/session_control.py" snapshot "$RUN" "$TASK" "$attempt" "$ATTEMPT_EXIT"
+  if python3 "$HERE/check_success.py" "$TASK" "$RUN/workspace" --quiet; then break; fi
+  # A bounded search can legitimately end without a winner. Never supervise it
+  # into a different, longer experiment after its first attempt.
+  [[ "$KIND" == autoresearch ]] && break
+  [[ -z "$session_id" ]] && break
+done
+
+# Package: diff (including hidden code files), success, metrics.
+"$HERE/package.sh" "$TASK" "$RUN"
+rm -f "$RUN/config/.credentials.json" "$RUN/codex/auth.json" 2>/dev/null || true
+echo "done: $RUN/metrics.json"

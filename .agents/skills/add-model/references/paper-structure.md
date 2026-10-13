@@ -18,6 +18,13 @@ revision with its license recorded; the current component catalog
    - shape invariants, sequence constraints, marks or adjacency contracts, edge cases;
    - official-code clarifications with revision and source path;
    - unspecified details that would materially change fidelity.
+   Close the map against implemented source before admission: equation/reference,
+   input and output axes, source symbol, residual operands, reduction axes and
+   normalization scope. Trace each branch through its final gate and inverse
+   transform; finite shapes do not establish equation equivalence. Keep this
+   compact map with the implementation notes, without a second supervisory Agent.
+   In particular, preserve channel identity unless the paper explicitly reduces
+   channels, and do not move future priors or residuals across a learned gate.
 3. Give every implementable operation a component decision: `reuse-existing`
    (component and matched contract), `extract-new` (the standalone contract it would
    expose and its expected consumers), or `model-local` (why it is paper-specific).

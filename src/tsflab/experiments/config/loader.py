@@ -348,11 +348,13 @@ def load_config(path: str) -> list[LoadedConfig]:
     list[LoadedConfig]
         Expanded and validated configs for a sweep.
     """
-    config_name = os.path.splitext(os.path.basename(path))[0]
+    return load_mapping(_read_toml(path), base_dir=os.path.dirname(path),
+                        config_name=os.path.splitext(os.path.basename(path))[0])
 
-    raw_cfg = _read_toml(path)
-    base_dir = os.path.dirname(path)
 
+def load_mapping(raw_cfg: dict, *, base_dir: str = ".", config_name: str = "request") -> list[LoadedConfig]:
+    """Validate and expand a declarative request through the same TOML loader."""
+    raw_cfg = deepcopy(raw_cfg)
     extends_cfg: dict[str, Any] = {}
     if "extends" in raw_cfg:
         extends_cfg = _resolve_extends_list(raw_cfg["extends"], base_dir)
@@ -396,3 +398,34 @@ def load_config(path: str) -> list[LoadedConfig]:
                 )
             )
     return configs
+
+
+def load_model_request(name: str, settings=(), axes=()) -> list[LoadedConfig]:
+    """Resolve a named preset plus dotted KEY=JSON overrides without writing TOML.
+
+    Scalar strings may be unquoted. Every value is validated before dispatch;
+    expanded snapshots retain all supplied scientific settings and sweep axes.
+    """
+    import json
+    spec = MODEL_CATALOG.get(name)
+    raw = {"extends": ["tsflab://configs/base.toml", f"tsflab://{spec.config_path}"]}
+    for entries, sweep in ((settings, False), (axes, True)):
+        seen = set()
+        for entry in entries:
+            key, separator, text = entry.partition("=")
+            key = key.strip()
+            if not separator or len(key.split(".")) < 2 or any(not part for part in key.split(".")):
+                raise ValueError("expected dotted KEY=VALUE, e.g. task.seq_len=96")
+            if key in seen:
+                raise ValueError(f"duplicate request key: {key}")
+            seen.add(key)
+            try:
+                value = json.loads(text)
+            except json.JSONDecodeError:
+                value = text
+            if sweep and (not isinstance(value, list) or not value):
+                raise ValueError(f"sweep {key} requires a nonempty JSON list")
+            if key.split(".")[0] not in RootConfig.model_fields:
+                raise ValueError(f"unknown request section: {key.split('.')[0]}")
+            _set_by_path(raw, "sweep." + key if sweep else key, value)
+    return load_mapping(raw, config_name=f"request-{name}")

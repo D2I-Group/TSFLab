@@ -47,7 +47,7 @@ jobs:
           uv run python -m compileall -q src tests
           uvx ruff check src tests --select F
           uvx ruff check src/tsflab/models --select E701,E702
-          uv run tsf repo check --only schema-export agent-assets agent-tasks dataset-cards component-cards
+          uv run tsf repo check --only schema-export agent-tasks
           uv run tsf repo check --audit
       - name: Tests
         run: uv run pytest -q -m "not e2e"

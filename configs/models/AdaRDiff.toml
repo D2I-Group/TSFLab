@@ -1,0 +1,9 @@
+[model]
+name = "AdaRDiff"
+[model.params]
+enc_in = 7
+period = 24
+enabled = true
+phase1_epochs = 30
+phase1_lr = 0.001
+phase1_patience = 3

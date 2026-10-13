@@ -15,6 +15,23 @@ from tsflab.cli.runtime import ROOT, RUN_CONFIG_DIR, module_for_model, run_confi
 from tsflab.research.rounds import load_round
 
 
+def _save_output(path: Path, result: dict) -> bool:
+    """Keep a native execution receipt when a later request is rejected or previewed."""
+    import json
+    from tsflab.experiments.infra.storage import file_lock, write_json
+
+    path = path.expanduser().resolve()
+    with file_lock(path.with_name(path.name + ".output.lock")):
+        try:
+            previous = json.loads(path.read_text())
+        except (OSError, ValueError):
+            previous = {}
+        if isinstance(previous, dict) and previous.get("directory") and not result.get("directory"):
+            return False
+        write_json(path, result)
+    return True
+
+
 def smoke_command(rest: list[str]) -> int:
     """Run selected end-to-end smoke configurations concurrently."""
     parser = argparse.ArgumentParser(
@@ -104,26 +121,42 @@ def _extract_backend(args: list[str]) -> tuple[list[str], str]:
     return rest, backend
 
 
+def _print_runs(result: dict) -> None:
+    """Text lines of a sweep result: one per run, with its errors and scored metrics."""
+    import json
+
+    for run in result["runs"]:
+        print(f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}")
+        for error in run.get("errors", []):
+            print(f"  {error}")
+        if run.get("metrics"):
+            print("  " + json.dumps({k: run[k] for k in ("split", "metrics", "train_time_sec", "test_time_sec") if k in run}))
+        if run.get("error"):
+            print(f"  {run['error']}")
+    if result.get("skipped"):
+        print(f"Skipped {result['skipped']} completed runs")
+
+
+def _print_wait(result: dict, timeout: float) -> None:
+    """Text lines of `tsf run wait`: counts, one line per finished run, then unfinished runs."""
+    state = "done" if result["done"] else f"still running after {timeout:.0f}s"
+    print(f"{state}: " + ", ".join(f"{n} {k}" for k, n in sorted(result["counts"].items())))
+    for row in sorted(result.get("results", []), key=lambda r: (str(r["model"]), r["pred_len"] or 0, r["seed"] or 0)):
+        print(" ".join(f"{k}={v:.4g}" if isinstance(v, float) else f"{k}={v}" for k, v in row.items()))
+    for run in result["unfinished"]:
+        print(f"{run['status']}: {run['directory']}" + (f" ({run['error']})" if run.get("error") else ""))
+
+
 def _print_result(result: dict, args) -> None:
-    """Print the result of one `tsf run` action (JSON with --json)."""
+    """Print the result of one `tsf run` action (JSON with --json; one line with --compact)."""
     import json
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, separators=(",", ":")) if args.compact else json.dumps(result, indent=2))
     elif "counts" in result:
-        state = "done" if result["done"] else f"still running after {args.timeout:.0f}s"
-        print(f"{state}: " + ", ".join(f"{n} {k}" for k, n in sorted(result["counts"].items())))
-        for row in sorted(result.get("results", []), key=lambda r: (str(r["model"]), r["pred_len"] or 0, r["seed"] or 0)):
-            print(" ".join(f"{k}={v:.4g}" if isinstance(v, float) else f"{k}={v}" for k, v in row.items()))
-        for run in result["unfinished"]:
-            print(f"{run['status']}: {run['directory']}" + (f" ({run['error']})" if run.get("error") else ""))
+        _print_wait(result, args.timeout)
     elif "runs" in result:
-        for run in result["runs"]:
-            print(f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}")
-            for error in run.get("errors", []):
-                print(f"  {error}")
-        if result.get("skipped"):
-            print(f"Skipped {result['skipped']} completed runs")
+        _print_runs(result)
     elif "run_id" in result:
         print(f"{result['run_id']}: {result['status']} ({result['stage']})")
         if result.get("error"):
@@ -147,6 +180,155 @@ def _round_defaults(loaded: list, round_id: str | None) -> None:
         print('Research round: scoring the validation split (set evaluation.split = "test" for a final run)')
 
 
+def _split_defaults(loaded: list, args) -> None:
+    """``--eval-split`` (or ``TSFLAB_EVAL_SPLIT``) sets the split of every new run; otherwise round defaults apply."""
+    if not args.eval_split:
+        _round_defaults(loaded, args.round_id)
+        return
+    for item in loaded:
+        item.config.evaluation.split = args.eval_split
+        item.raw.setdefault("evaluation", {})["split"] = args.eval_split
+
+
+def _run_parser() -> argparse.ArgumentParser:
+    from tsflab.cli.inventory import group_usage
+
+    parser = argparse.ArgumentParser(prog="tsf run", description=group_usage("run"),
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("configs", nargs="*",
+                        help="config paths; or status|wait|cancel|resume DIR; or evaluate RUN_DIR... --eval-split S")
+    parser.add_argument("--model", help="run a named model preset without authoring a TOML file")
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=JSON",
+                        help="setting for --model, e.g. task.seq_len=96; strings may be unquoted")
+    parser.add_argument("--sweep", action="append", default=[], metavar="KEY=LIST",
+                        help="sweep axis for --model, e.g. task.pred_len=[96,192]")
+    parser.add_argument("--jobs", default=None, help="worker count, or auto (CUDA matrix only)")
+    parser.add_argument("--gpus", default=None, help="GPU indices/UUIDs, or auto (visible GPUs; waits for free leases)")
+    parser.add_argument("--round", dest="round_id", default=None)
+    parser.add_argument("--eval-split", choices=("val", "test"), default=os.environ.get("TSFLAB_EVAL_SPLIT"),
+                        help="evaluation split of every new run (default: the config; val inside a research round)")
+    parser.add_argument("--policy", help="Optional execution policy TOML")
+    parser.add_argument("--prepare-only", action="store_true", help="Persist a validated matrix for queue or Slurm submission")
+    parser.add_argument("--dry-run", action="store_true", help="Preview the resolved matrix (coverage summary) and check it without executing")
+    parser.add_argument("--json", action="store_true", help="Machine-readable result")
+    parser.add_argument("--compact", action="store_true",
+                        help="compact JSON: preflight keeps failures and coverage only")
+    parser.add_argument("--output", help="save the returned JSON; the path keys one matrix request, so a relaunch reuses its sweep")
+    parser.add_argument("--timeout", type=float, default=1800.0, help="wait: seconds before returning while runs continue")
+    return parser
+
+
+def _apply_overrides(policy, args) -> None:
+    """``--jobs N|auto`` and ``--gpus LIST|auto`` override the execution policy."""
+    if args.jobs is not None:
+        policy.budget.auto_parallel = args.jobs == "auto"
+        jobs = 1 if policy.budget.auto_parallel else int(args.jobs)
+        if jobs < 1:
+            raise ValueError("--jobs must be positive")
+        policy.budget.max_parallel_jobs = jobs
+    if args.gpus is not None:
+        policy.resources.auto_select = args.gpus == "auto"
+        policy.resources.gpus = [] if policy.resources.auto_select else [
+            gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
+
+
+def _manage(policy, args) -> dict:
+    """`tsf run status|wait|cancel|resume <directory>`."""
+    from tsflab.experiments.infra.execution import cancel, execute, status, wait
+
+    if len(args.configs) != 2:
+        raise ValueError("usage: tsf run {status,cancel,resume,wait} <directory> [--json]")
+    action, directory = args.configs
+    if action == "wait":
+        return wait(directory, args.timeout)
+    if action == "status":
+        return status(directory)
+    if action == "cancel":
+        return cancel(directory)
+    if args.eval_split:
+        saved = status(directory)
+        if any(cell.get("config", {}).get("evaluation", {}).get("split") != args.eval_split
+               for cell in saved.get("runs", [saved])):
+            raise ValueError("saved evaluation split differs from --eval-split or TSFLAB_EVAL_SPLIT; "
+                             "create a new sweep instead of changing a saved run")
+    overridden = args.policy or args.jobs is not None or args.gpus is not None
+    return execute(directory, policy if overridden else None, round_id=args.round_id)
+
+
+def _load_matrix(args) -> list:
+    """The runs of a request: config files, a ``--model`` request, or frozen ``evaluate`` runs."""
+    from tsflab.experiments.config.loader import load_config, load_model_request
+
+    if args.model:
+        return load_model_request(args.model, args.set, args.sweep)
+    if args.configs and args.configs[0] == "evaluate":
+        if len(args.configs) < 2 or args.eval_split not in {"val", "test"}:
+            raise ValueError("usage: tsf run evaluate RUN_DIRECTORY... --eval-split val|test")
+        from tsflab.experiments.infra.frozen import frozen_evaluation
+
+        return [frozen_evaluation(name, args.eval_split) for name in args.configs[1:]]
+    loaded = []
+    for name in args.configs or ["configs/runs/run_single_data.toml"]:
+        path = Path(name).expanduser()
+        if not path.exists():
+            path = ROOT / path
+        loaded.extend(load_config(str(path.resolve())))
+    return loaded
+
+
+def _launch(policy, args) -> dict:
+    """Validate the requested matrix, then prepare and (unless previewing) execute it."""
+    from tsflab.experiments.infra.execution import execute, preflight, prepare_sweep, wait
+
+    loaded = _load_matrix(args)
+    if not loaded:
+        raise ValueError("experiment matrix is empty")
+    _split_defaults(loaded, args)
+    if args.dry_run and not args.json:
+        from tsflab.cli.commands.inspect_config import summarize
+
+        summarize(loaded)
+    result = preflight([item.config for item in loaded], policy)
+    if args.round_id and load_round(args.round_id)["status"] != "running":
+        raise ValueError("research round is not running")
+    if not result["ok"] or args.dry_run:
+        return result
+    request_key = str(Path(args.output).expanduser().resolve()) if args.output else None
+    directory = prepare_sweep(loaded, policy, args.round_id, request_key=request_key)
+    if not args.json:
+        print(f"Experiment records: {directory}", flush=True)
+    if args.prepare_only:
+        return {"ok": True, "directory": str(directory), "prepared": True}
+    try:
+        return execute(directory, policy, round_id=args.round_id)
+    except BlockingIOError:  # an identical keyed launch already owns this sweep
+        return wait(directory, args.timeout)
+
+
+def _compact(result: dict) -> dict:
+    """Preflight without passed package checks and the policy dump."""
+    if "environments" not in result:
+        return result
+    kept = {key: result[key] for key in ("schema_version", "ok", "total_runs", "budget_ok", "runs") if key in result}
+    kept["environments"] = [
+        {"ok": env.get("ok"), "checks": [c for c in env.get("checks", []) if c.get("status") != "passed"]}
+        for env in result["environments"]
+    ]
+    return kept
+
+
+def _save_failure(args, failure: dict, exc: Exception) -> None:
+    from tsflab.experiments.infra.execution import RequestConflictError
+
+    if not args.output or isinstance(exc, RequestConflictError):
+        return
+    try:
+        if not _save_output(Path(args.output), failure):
+            failure["output_preserved"] = str(Path(args.output).expanduser().resolve())
+    except OSError:
+        pass  # keep the original error if storing the output itself failed
+
+
 def run_command(rest: list[str]) -> int:
     """Run, preview, smoke-test, cancel, or resume experiments through one public surface."""
     import json
@@ -157,80 +339,33 @@ def run_command(rest: list[str]) -> int:
         from tsflab.cli.commands.operations import operations_command
 
         return operations_command([backend, *rest])
-    from tsflab.experiments.infra.execution import cancel, execute, preflight, prepare_sweep, status, wait
     from tsflab.experiments.infra.policy import load_policy
-    from tsflab.cli.inventory import group_usage
 
-    parser = argparse.ArgumentParser(prog="tsf run", description=group_usage("run"),
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("configs", nargs="*")
-    parser.add_argument("--jobs", type=int, default=None)
-    parser.add_argument("--gpus", default=None)
-    parser.add_argument("--round", dest="round_id", default=None)
-    parser.add_argument("--policy", help="Optional execution policy TOML")
-    parser.add_argument("--prepare-only", action="store_true", help="Persist a validated matrix for queue or Slurm submission")
-    parser.add_argument("--dry-run", action="store_true", help="Preview the resolved matrix (coverage summary) and check it without executing")
-    parser.add_argument("--json", action="store_true", help="Machine-readable result")
-    parser.add_argument("--timeout", type=float, default=1800.0, help="wait: seconds before returning while runs continue")
-    args = parser.parse_args(rest)
+    args = _run_parser().parse_args(rest)
     try:
+        if args.model and args.configs:
+            raise ValueError("use --model or positional configs, not both")
+        if (args.set or args.sweep) and not args.model:
+            raise ValueError("--set and --sweep require --model")
         policy = load_policy(args.policy)
         if not args.policy and len(args.configs) == 2 and args.configs[0] == "resume":
             from tsflab.experiments.infra.execution import saved_policy
             policy = saved_policy(args.configs[1])
-        if args.jobs is not None:
-            if args.jobs < 1:
-                raise ValueError("--jobs must be positive")
-            policy.budget.max_parallel_jobs = args.jobs
-        if args.gpus is not None:
-            policy.resources.gpus = [gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
-        if args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}:
-            if len(args.configs) != 2:
-                raise ValueError("usage: tsf run {status,cancel,resume,wait} <directory> [--json]")
-            action, directory = args.configs
-            if action == "wait":
-                result = wait(directory, args.timeout)
-            elif action == "status":
-                result = status(directory)
-            elif action == "cancel":
-                result = cancel(directory)
-            else:
-                result = execute(directory, policy if args.policy or args.jobs is not None or args.gpus is not None else None, round_id=args.round_id)
-        else:
-            from tsflab.experiments.config.loader import load_config
-            configs = args.configs or ["configs/runs/run_single_data.toml"]
-            loaded = []
-            for name in configs:
-                path = Path(name).expanduser()
-                if not path.exists():
-                    path = ROOT / path
-                loaded.extend(load_config(str(path.resolve())))
-            if not loaded:
-                raise ValueError("experiment matrix is empty")
-            _round_defaults(loaded, args.round_id)
-            if args.dry_run and not args.json:
-                from tsflab.cli.commands.inspect_config import summarize
-
-                summarize(loaded)
-            result = preflight([item.config for item in loaded], policy)
-            if args.round_id:
-                state = load_round(args.round_id)
-                if state["status"] != "running":
-                    raise ValueError("research round is not running")
-                remaining = None if state["max_runs"] is None else state["max_runs"] - state["runs_used"]
-                if remaining is not None and len(loaded) > remaining:
-                    raise ValueError(f"matrix needs {len(loaded)} runs; round has {remaining} remaining")
-            if result["ok"] and not args.dry_run:
-                directory = prepare_sweep(loaded, policy, args.round_id)
-                if not args.json:
-                    print(f"Experiment records: {directory}", flush=True)
-                result = {"ok": True, "directory": str(directory), "prepared": True} if args.prepare_only else execute(directory, policy, round_id=args.round_id)
+        _apply_overrides(policy, args)
+        managing = args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}
+        result = _manage(policy, args) if managing else _launch(policy, args)
+        if args.compact:
+            result = _compact(result)
+        if args.output and not _save_output(Path(args.output), result):
+            result["output_preserved"] = str(Path(args.output).expanduser().resolve())
         publish(result)
         _print_result(result, args)
         return 0 if result.get("ok", True) else 1
     except Exception as exc:
+        failure = {"schema_version": 1, "ok": False, "error": {"type": type(exc).__name__, "message": str(exc)}}
+        _save_failure(args, failure, exc)
         if args.json:
-            print(json.dumps({"schema_version": 1, "ok": False, "error": {"type": type(exc).__name__, "message": str(exc)}}))
+            print(json.dumps(failure))
         else:
             print(str(exc), file=sys.stderr)
         return 2

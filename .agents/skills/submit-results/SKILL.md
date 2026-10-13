@@ -19,10 +19,9 @@ the site reads the generated `board/leaderboard.json` there. GitHub keeps code o
 
 ## Steps
 
-1. Open a round before the run when possible (`tsf research start --task submission
-   --goal <goal> --max-runs <count>`, then `tsf run <cfg> --round <id>` on the run
-   machine, then `tsf research status <id> completed --message <conclusion>`). Without
-   one the bundle's trajectory is marked synthetic. Package the finished records:
+1. Package existing finished records and their round, when present. Without a
+   round the bundle's trajectory is marked synthetic; do not fabricate historical
+   events or start new training to package results.
 
    ```bash
    uv run tsf result submit <dataset> --model <model> [--run-id <run_id> | --latest]
@@ -68,5 +67,6 @@ the site reads the generated `board/leaderboard.json` there. GitHub keeps code o
 
 ## Stop and hand off
 
-- An upload, branch, issue, or pull request requires explicit approval.
+- External uploads, issues, and pull requests require explicit authorization;
+  authorization already given for this task remains valid.
 - Forecasts for live rounds use `forecast-realtime-round`, not this skill.

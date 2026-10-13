@@ -25,7 +25,7 @@ length = 52696
 channels = 21
 channel_kind = "channels"
 target = "OT"
-missing_values = "no NaN; the file holds -9999 sentinels in OT (50 rows), max. PAR (30) and wv (1), which the preset replaces with NaN and imputes causally (forward fill, back fill only at the series start) before scaling"
+missing_values = "no NaN; the file holds -9999 sentinels in OT (50 rows), max. PAR (30) and wv (1), which the preset replaces with NaN and imputes causally (forward fill; a leading gap becomes zero) before scaling"
 stats_basis = "measured"
 
 [protocol]

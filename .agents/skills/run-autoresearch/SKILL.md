@@ -5,28 +5,25 @@ description: "Run a bounded, profile-driven forecasting research loop: analyze t
 
 # Run bounded autoresearch
 
-Iterate profile, hypothesis, experiment, and evidence inside hard budgets, in the
-current Agent (no second Agent needed). Read each reference only at its step.
+Iterate profile, hypothesis, experiment, and evidence inside hard budgets, in the current
+Agent; read each reference only at its step. A supplied candidate space follows only
+[config search](references/config-search.md); open method discovery uses
+[adaptive search](references/adaptive-search.md).
 
 ## Inputs
-
 - A research question, approved datasets, primary metric, hard run, iteration, and
   time budgets, and authorization to execute experiments.
 - Separate authorization before writing model code or registering a model; without
   it, search over configs and existing catalog methods only.
 - Heavy runs happen on GPU machines or CI, not locally: preview each matrix with
-  `--dry-run`, hand the exact `tsf run ... --round <id>` command to the run machine, and
-  continue from the records and round events in `work_dirs/`; stop if none return.
+  `--dry-run` and hand the exact `tsf run ... --round <id>` command to the run machine;
+  continue from the records and round events in `work_dirs/`. On a design-only
+  machine, report the pending handoff without inventing results.
 
-## Context read, per module
-
-| Module | Context | Read with |
-| --- | --- | --- |
-| Data | dataset card `characteristics`, train-only profile | `tsf catalog show`, `tsf data analyze` |
-| Models | card `fits`, compositions, `data_params`, component interfaces | `tsf catalog match`, `tsf catalog search`, `tsf catalog show` |
-| Experiments | result board (aggregates, ranks) | `tsf result board <d>`, `tsf result aggregate` |
-| Release | leaderboard (`board/` of `TSFLab-Checkpoints`), real-time summaries (`apps/web/data/realtime/`) | read-only reference bar |
-| AutoResearch | round ledger `work_dirs/_research/<id>/` | `tsf research show <id>` |
+Context, read progressively: dataset card and train-only profile (`tsf data analyze`);
+card `fits`, compositions, `data_params` (`tsf catalog match|search|show`); validation
+boards for selection (`tsf result board`); published/test leaderboards as context only;
+the round ledger (`tsf research show <id>`).
 
 ## Steps
 
@@ -35,7 +32,9 @@ current Agent (no second Agent needed). Read each reference only at its step.
 2. Write 2-4 falsifiable hypotheses, each tied to a profile fact, with the metric
    change that would refute it. Design controls and seeds per `run-experiment`.
 3. Open a round for durable budgets (`tsf research start --goal ... --max-runs N
-   --max-iterations M`, or reuse a supplied one) and note each hypothesis
+   --max-iterations M --policy <policy.toml>`, or reuse a supplied one). The policy
+   carries the hard time/resource limits. Read [round-ledger](references/round-ledger.md)
+   before spending; reserve confirmation runs and note each hypothesis
    (`tsf research note <id> --kind hypothesis --text ...`). Claim one iteration per phase
    with `tsf research iteration <id> --operation <phase>`; reuse of an id is free.
 4. Retrieve candidates: `uv run tsf catalog match <preset...> [--extra TERM...]` ranks
@@ -43,14 +42,16 @@ current Agent (no second Agent needed). Read each reference only at its step.
    characteristics; widen with `tsf catalog search`, open the shortlist's L1 in one call
    (`tsf catalog show <name...>`); see [retrieval-baselines](references/retrieval-baselines.md).
 5. Evaluate a small baseline panel before any search (same split, horizon, metric,
-   seeds) as one sweep; it sets the bar every later candidate must beat.
+   seeds, validation split) as one sweep; it sets the bar every later candidate must beat.
 6. Search in batches: each iteration puts several candidates, each one factor away from
    the best so far, in one sweep (`[sweep.extend]` or `[sweep]`), runs it once with
-   `--round`, waits once (`tsf run wait`), and reads every result from `performance.csv`.
+   `--round`, waits once (`tsf run wait <dir> --json`), and reads every result returned.
    Start with the cheapest runs that can reject a hypothesis; set data-dependent
-   parameters from card `[data_params]`; recombine per [recombination](references/recombination.md).
-7. Confirm finalists in one seed sweep; compare with spread, not a single best run.
-   If authorized and a recombined method wins, register it with `add-model`.
+   parameters from card `[data_params]` and the profile; recombine per
+   [recombination](references/recombination.md) (`tsf model compose <spec.toml>`).
+7. Select the validation-best completed model across controls and candidates; keep a
+   baseline fallback and report no gain if nothing improves it. Confirm finalists in one
+   seed sweep with spread. If authorized and a recombined method wins, use `add-model`.
 8. Record decisions, runs, and conclusions as round events per
    [round-ledger](references/round-ledger.md); route failures to `diagnose-experiment`
    and compatible results to `analyze-results`, whose board feeds the next iteration.
@@ -59,22 +60,21 @@ current Agent (no second Agent needed). Read each reference only at its step.
 ## Leakage guards
 
 - Select and stop on train and validation only, with the rule fixed first. Runs with
-  `--round` score validation (no test metrics or run record); only frozen finalists set
-  `[evaluation] split = "test"`, once. Never act on `shift.train_to_test`.
+  `--round` score validation by default; only frozen finalists are scored on test, once
+  (`--eval-split test` or `[evaluation] split = "test"`). Never act on `shift.train_to_test`.
 
 ## Chain
 
-- Module: AutoResearch; reads the context table above.
-- Produces: the round ledger, conclusions, and a winning composition spec.
-- Hands off to: `add-model` (registers a winner), `submit-results`, `analyze-results`, `diagnose-experiment`.
+- AutoResearch: reads the context above; produces the round ledger, conclusions, and a
+  winning composition spec; hands off to `add-model` (registers a winner), `submit-results`, `analyze-results`, `diagnose-experiment`.
 
 ## Success
 
-- Profile paths, hypotheses with verdicts, baseline panel, run ledger with seeds and
-  uncertainty, excluded or failed cells, limitations, and a stop/continue recommendation.
+- Profile paths, hypotheses with verdicts, baseline panel, run ledger with seeds, failed
+  cells, limitations, and a stop/continue recommendation.
 
 ## Stop and hand off
 
 - Stop on budget exhaustion, repeated infrastructure failure, an invalid comparison,
-  no measurable progress after two consecutive iterations, or an acceptance criterion met.
+  no measurable progress after the declared search patience, or an acceptance criterion met.
 - External publication and task dispatch stay out of scope unless separately authorized.

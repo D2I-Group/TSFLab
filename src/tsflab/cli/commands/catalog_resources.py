@@ -116,12 +116,22 @@ def _model_impl(args: list[str]) -> int:
         from tsflab.catalog.cards.show import existing, parse_show, show_card
         from tsflab.catalog.registry.models import MODEL_CATALOG
 
-        parsed = parse_show("tsf catalog show --kind model", "public model name", rest)
+        parameters_only = "--params" in rest
+        parsed = parse_show("tsf catalog show --kind model", "public model name", [arg for arg in rest if arg != "--params"])
+        lookup = parsed.name
+        if lookup not in MODEL_CATALOG.names():
+            matches = [name for name in MODEL_CATALOG.names() if name.casefold() == lookup.casefold()]
+            if len(matches) == 1:
+                lookup = matches[0]
         try:
-            spec = MODEL_CATALOG.get(parsed.name)
+            spec = MODEL_CATALOG.get(lookup)
         except KeyError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        if parameters_only:
+            print(json.dumps({"name": spec.name, "config": spec.config_path,
+                              "parameters": spec.params_schema.model_json_schema()}, separators=(",", ":")))
+            return 0
         fields = next(
             record for record in model_records(ROOT) if record["name"] == spec.name
         )
@@ -541,7 +551,7 @@ def _kinds_of(name: str) -> list[str]:
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
     found = []
-    if name in MODEL_CATALOG.names():
+    if any(candidate.casefold() == name.casefold() for candidate in MODEL_CATALOG.names()):
         found.append("model")
     if name in COMPONENT_CATALOG.names():
         found.append("component")
@@ -642,8 +652,11 @@ def _show_many(kind: str | None, rest: list[str]) -> int:
     parser.add_argument("names", nargs="+", metavar="name")
     parser.add_argument("--depth", type=int, choices=DEPTHS, default=1)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--params", action="store_true", help="model parameter schema only (compact JSON)")
     parsed = parser.parse_args(rest)
     flags = ["--depth", str(parsed.depth), *(["--json"] if parsed.json else [])]
+    if parsed.params:
+        kind, flags = kind or "model", [*flags, "--params"]
     if len(parsed.names) == 1:  # one name keeps the single-object output
         resolved = _resolve_kind(parsed.names[0], kind)
         return 2 if resolved is None else _read(resolved, "show", [parsed.names[0], *flags])
