@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import time
 
-from tsflab.experiments.infra.hardware import gpu_inventory
+from tsflab.experiments.infra.hardware import gpu_inventory, validate_gpu_visibility
 from tsflab.experiments.infra.storage import file_lock
 
 
@@ -46,11 +46,13 @@ def lease_gpus(
         if cancelled():
             raise InterruptedError("GPU wait cancelled or budget expired")
         devices = query()
+        validate_gpu_visibility(resources.gpus, devices)
         eligible = [
             gpu
             for gpu in devices
             if any(item in (gpu["index"], gpu["uuid"]) for item in resources.gpus)
             and float(gpu["free_mb"]) >= resources.min_free_memory_mb
+            and (not resources.auto_select or gpu.get("compute_idle") is True)
         ]
         for group in combinations(eligible, resources.gpus_per_run):
             stack = ExitStack()
@@ -68,9 +70,10 @@ def lease_gpus(
                 continue
             try:
                 # Another process may have consumed memory while locks were acquired.
-                current = {gpu["uuid"]: float(gpu["free_mb"]) for gpu in query()}
+                current = {gpu["uuid"]: gpu for gpu in query()}
                 if any(
-                    current.get(gpu["uuid"], -1) < resources.min_free_memory_mb
+                    float(current.get(gpu["uuid"], {}).get("free_mb", -1)) < resources.min_free_memory_mb
+                    or (resources.auto_select and current.get(gpu["uuid"], {}).get("compute_idle") is not True)
                     for gpu in group
                 ):
                     continue
@@ -118,7 +121,9 @@ def shared_gpus(resources, *, cancelled, inventory=None, directory=None):
                             path.unlink()
                     except BlockingIOError:
                         reservations.append(json.loads(path.read_text()))
-                for gpu in query():
+                devices = query()
+                validate_gpu_visibility(resources.gpus, devices)
+                for gpu in devices:
                     if not any(
                         item in (gpu["index"], gpu["uuid"]) for item in resources.gpus
                     ):

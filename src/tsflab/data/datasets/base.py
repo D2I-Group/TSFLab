@@ -264,6 +264,7 @@ class ForecastingDataset(ABC, Dataset):
         """
         flag_map = {"train": 0, "val": 1, "test": 2}
         idx = flag_map[flag]
+        self._history_context_rows = self.seq_len if idx > 0 else 0
         total_ratio = sum(split_ratio)
         cum_ratios = [
             sum(split_ratio[: i + 1]) / total_ratio for i in range(len(split_ratio))

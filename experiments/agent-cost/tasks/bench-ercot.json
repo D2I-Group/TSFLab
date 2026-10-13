@@ -5,16 +5,15 @@
  "dataset": "grid_ercot",
  "file": "grid_ercot.csv",
  "methods": [
-  "DLinear",
   "PatchTST",
   "iTransformer",
-  "TimesNet",
+  "Fredformer",
   "TimeMixer",
   "Crossformer",
-  "SegRNN",
+  "SCINet",
   "TiDE"
  ],
  "seq_len": 168,
  "pred_len": 24,
- "note": "TSFLab real-time track exported by make_benchmark_data.py (window ending 2026-09-30 23:00); every listed method is in TSFLab, TSLib, and TFB"
+ "note": "Real-time forecasting benchmark: six shared baselines plus Fredformer (KDD 2024), available in TSFLab; not found in TFB upstream tree 889459188ec89c9cb3c7e5ec40f30b8c0c5c2529. Missing-model integration must be recorded separately."
 }

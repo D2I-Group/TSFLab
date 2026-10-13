@@ -45,15 +45,18 @@ DATA_DIR=/path/to/raw-data \
   experiments/agent-cost/run_session.sh tasks/<task>.json <arm> runs/<run-id> [model]
 ```
 
-Options: `TIMEOUT_H` (default 8), `MAX_RESUMES` (default 2), `MAX_BUDGET_USD`,
+Options: `TIMEOUT_H` (default 8, whole session), `MAX_RESUMES` (default 0), `MAX_BUDGET_USD` (Claude only),
 `GPU_SAMPLE_S` (default 5), `TSLIB_COMMIT`, `SKIP_INSTALL=1` (tests only).
+Search requires one explicit `TRAIN_GPU`. Its wall deadline is capped by the
+task's GPU-hours, a conservative bound on allocated time for that one GPU.
+The queue defaults to one session per GPU. Search never resumes automatically.
 
 The session runs Claude Code headless with an isolated configuration
 (`CLAUDE_CONFIG_DIR` holding only the login credentials, `--strict-mcp-config`):
 no user `CLAUDE.md`, memory, plugins, or MCP servers. The project's own
-`CLAUDE.md`/`AGENTS.md` and skills load as in normal use. If the session stops
-before the task is complete, it is resumed with the fixed message "Continue
-until the task is complete."; each resume counts as one human intervention.
+`CLAUDE.md`/`AGENTS.md` and skills load as in normal use. Incomplete tasks stop
+normally. Only an explicitly configured `MAX_RESUMES` permits supervised
+resumes for non-search tasks; these are recorded separately from the first attempt.
 
 ## Outputs per run
 
@@ -66,6 +69,9 @@ until the task is complete."; each resume counts as one human intervention.
 | `diff.numstat`, `diff.patch` | Changes against the baseline commit |
 | `success.json` | Result of `check_success.py` |
 | `metrics.json` | Result of `analyze.py` |
+| `limits.json`, `terminal.json` | Enforced session limits and final stopping reason |
+| `attempts/<n>/` | Results and success check before any optional resume |
+| `usage-events.jsonl` | Codex usage-only metadata, without credentials or rollout text |
 
 ## Metrics (`analyze.py`)
 
@@ -73,10 +79,13 @@ until the task is complete."; each resume counts as one human intervention.
 - Every tool call is classified as `paper` (reading the target paper), `read`
   (reading or searching the environment: knowledge, code, documentation),
   `write`, `run`, or `other`.
-- **Discovery cost** = tokens and time of `read` calls, and their share of the total.
-- Input tokens come from each model turn; output tokens are estimated from the
-  turn's content length and scaled to the session total.
-- Time per stage, tokens per stage, GPU-busy seconds (utilization at least 10%).
+- Discovery time and calls are measured; exact discovery/action/core token shares
+  remain unknown. Content-share diagnostics live only in `estimated_*` fields.
+- Total tokens come from native usage: Codex cumulative chains, Pi assistant
+  completions, or deduplicated Claude result/message usage. Missing usage stays
+  null; output text length is never a source for the formal token total.
+- Stage time is measured. Call-time stage tokens require native usage deltas;
+  stage breakdowns without them stay null. GPU-busy seconds use utilization >=10%.
 - Code changes by kind (code, config, docs, results).
 - Discovery errors (a re-implemented existing block, data prepared differently
   from the protocol, a private evaluation loop) are judged from `diff.patch` by
@@ -84,7 +93,32 @@ until the task is complete."; each resume counts as one human intervention.
 
 ## Where to run
 
+Core-process accounting: `python3 core_stats.py ARCHIVE OUTPUT.json --arm tsflab
+--csv OUTPUT.csv`. Excludes old versions, pilot repetitions, supervision,
+pure monitoring, and repeated healthy log probes. Every excluded tool event
+has a file and line reference. Core tokens remain unknown without model-call
+usage; text-size shares cannot be used to subtract monitoring costs. This
+separate analysis does not convert invalid results into successful sessions.
+
+Repeated launches are recoverable without duplicate compute: CLI `--output`
+identifies one matrix request; a different matrix requires a new output path.
+Within a research round, identical matrices reuse the saved sweep even if the
+output path changes. Request receipts and creation use a crash-safe lock.
+Concurrent callers wait on the original controller; completed cells are reused.
+Use a new round or an unkeyed stateless request for an intentional repetition.
+
 - Pipeline tests (`SKIP_INSTALL=1`, small budget): any machine.
 - Reproduction sessions train models on one GPU: local GPU when it is free,
   otherwise one GPU on the server.
 - Autoresearch sessions need more GPU time: server.
+
+### Subscription and dollar-cost interpretation
+
+CLI subscription login does not invalidate recorded token usage. Report input,
+cached input, output tokens, completion, interventions and elapsed time separately.
+`cost_usd_luna` is a normalized API list-price estimate, and
+`cost_usd_reported` is the CLI-reported estimate; neither verifies a subscription
+bill. `actual_billed_usd` remains null without billing evidence. Historical auth
+mode is unknown unless recorded; current login status does not establish it.
+Record quota/rate-limit failures separately from scientific failures, and match
+model, reasoning settings and CLI versions for comparisons.

@@ -15,6 +15,7 @@ to stdout with timestamps.
 """
 
 import argparse
+import fcntl
 import os
 import subprocess
 import sys
@@ -45,10 +46,12 @@ def jobs(path: Path):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("jobs"); ap.add_argument("root")
-    ap.add_argument("--gpus", default="0,1,2,3"); ap.add_argument("--per-gpu", type=int, default=2)
+    ap.add_argument("--gpus", default="0,1,2,3"); ap.add_argument("--per-gpu", type=int, default=1)
     a = ap.parse_args()
     root = Path(a.root).resolve(); root.mkdir(parents=True, exist_ok=True)
-    gpus = a.gpus.split(",")
+    gpus = [g.strip() for g in a.gpus.split(",") if g.strip()]
+    if not gpus or len(gpus) != len(set(gpus)) or a.per_gpu < 1:
+        ap.error("GPUs must be nonempty and unique; --per-gpu must be positive")
     def alive(pid: int) -> bool:
         try:
             os.kill(pid, 0)
@@ -88,29 +91,34 @@ def main() -> None:
             except ValueError:
                 pass
         while todo:
-            # Re-read the load before every start: peer queues may have started sessions meanwhile.
-            load = {g: 0 for g in gpus}
-            for pidf in root.parent.glob("*/*.pid"):  # this queue and its peers
-                try:
-                    pid, g = pidf.read_text().split()
-                except ValueError:
-                    continue
-                if g in load and alive(int(pid)):
-                    load[g] += 1
-            g = min(gpus, key=lambda x: load[x])
-            if load[g] >= per_gpu:
-                break
-            j = todo.pop(0)
-            env = dict(os.environ, AGENT=j["agent"], TRAIN_GPU=g, TSFLAB_COMMIT=j["commit"], **j["env"])
-            cmd = [str(HERE / "run_session.sh"), str(HERE / "tasks" / f"{j['task']}.json"), j["arm"], str(root / j["name"])]
-            if j["model"]:
-                cmd.append(j["model"])
-            out = open(root / f"{j['name']}.log", "w")
-            p = subprocess.Popen(cmd, env=env, stdout=out, stderr=subprocess.STDOUT,
-                                 stdin=subprocess.DEVNULL, start_new_session=True)
-            (root / f"{j['name']}.pid").write_text(f"{p.pid} {g}")
-            running[j["name"]] = (p, g)
-            log(f"start {j['name']} gpu {g}")
+            # Selection, launch and PID publication must be one transaction
+            # across peer queues. Merely re-reading load has a check/start race.
+            with (root.parent / ".agent-cost-dispatch.lock").open("a") as dispatch_lock:
+                fcntl.flock(dispatch_lock, fcntl.LOCK_EX)
+                load = {g: 0 for g in gpus}
+                for pidf in root.parent.glob("*/*.pid"):
+                    try:
+                        pid, g = pidf.read_text().split()
+                        live = alive(int(pid))
+                    except (ValueError, OSError):
+                        continue
+                    if g in load and live:
+                        load[g] += 1
+                g = min(gpus, key=lambda x: load[x])
+                if load[g] >= per_gpu:
+                    break
+                j = todo.pop(0)
+                env = {**os.environ, **j["env"], "AGENT": j["agent"], "TRAIN_GPU": g,
+                       "TSFLAB_COMMIT": j["commit"]}
+                cmd = [str(HERE / "run_session.sh"), str(HERE / "tasks" / f"{j['task']}.json"), j["arm"], str(root / j["name"])]
+                if j["model"]:
+                    cmd.append(j["model"])
+                with (root / f"{j['name']}.log").open("w") as out:
+                    p = subprocess.Popen(cmd, env=env, stdout=out, stderr=subprocess.STDOUT,
+                                         stdin=subprocess.DEVNULL, start_new_session=True)
+                (root / f"{j['name']}.pid").write_text(f"{p.pid} {g}")
+                running[j["name"]] = (p, g)
+                log(f"start {j['name']} gpu {g}")
             time.sleep(20)  # stagger installs and API sessions
         time.sleep(30)
     log("queue empty")

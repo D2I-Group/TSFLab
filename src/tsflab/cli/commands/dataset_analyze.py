@@ -46,7 +46,17 @@ def _extract_splits(datasets: dict[str, object]) -> dict[str, np.ndarray]:
         b1 = int(np.asarray(datasets["val"].idx).min())
         b2 = int(np.asarray(datasets["test"].idx).min())
         return {"train": full[:b1], "val": full[b1:b2], "test": full[b2:]}
-    return {flag: _full_array(ds) for flag, ds in datasets.items()}
+    splits = {flag: _full_array(ds) for flag, ds in datasets.items()}
+    # Flat forecasting loaders prepend history to validation/test windows. A
+    # profile describes disjoint target periods, not that repeated context.
+    from tsflab.data.datasets.custom import Dataset_Custom
+    from tsflab.data.datasets.ett import Dataset_ETT_hour, Dataset_ETT_minute
+    for flag in ("val", "test"):
+        if flag in datasets and type(datasets[flag]) in (Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute):
+            history = len(splits["train"]) + (len(splits["val"]) if flag == "test" else 0)
+            context = min(datasets[flag].seq_len, history)
+            splits[flag] = splits[flag][context:]
+    return splits
 
 
 def _frequency_from_file(ds_path: Path) -> Any:
@@ -72,13 +82,18 @@ def _freq_override(text: str | None) -> dict[str, Any] | None:
     return prof.infer_frequency(pd.date_range("2000-01-01", periods=8, freq=f"{int(step)}s"))
 
 
-def load_preset(name_or_path: str, freq: str | None) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+def load_preset(name_or_path: str, freq: str | None, data_path: str | None = None,
+                include_test: bool = False) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Load train/val/test (unscaled) for a dataset preset TOML."""
     from tsflab.cli.commands import dataset_characteristics as dc
 
     path = Path(name_or_path)
     if not path.suffix:
         path = Path("configs/datasets") / f"{name_or_path}.toml"
+        if not path.is_file():
+            matches = [p for p in path.parent.glob("*.toml") if p.stem.casefold() == name_or_path.casefold()]
+            if len(matches) == 1:
+                path = matches[0]
     if not path.is_file():
         raise SystemExit(f"unknown dataset preset {name_or_path!r} (looked for {path})")
     partial = dc._load_partial_config(str(path))
@@ -86,15 +101,22 @@ def load_preset(name_or_path: str, freq: str | None) -> tuple[dict[str, np.ndarr
     if "scale" in params:
         params["scale"] = False
     config = dc._PartialConfig(
-        dataset=dataclasses.replace(partial.dataset, params=params), task=partial.task
+        dataset=dataclasses.replace(partial.dataset, params=params, path=data_path or partial.dataset.path), task=partial.task
     )
-    datasets = {flag: dc._build_dataset(config, flag) for flag in ("train", "val", "test")}
+    datasets = {flag: dc._build_dataset(config, flag) for flag in ("train", "val")}
+    if include_test or hasattr(datasets["val"], "idx"):
+        datasets["test"] = dc._build_dataset(config, "test")
     splits = _extract_splits(datasets)
+    if not include_test:
+        splits.pop("test", None)
     file_path = getattr(datasets["train"], "file_path", "")
     meta: dict[str, Any] = {
         "name": config.dataset.alias or config.dataset.name,
         "source": f"{path} -> {config.dataset.path}",
         "split_ratio": params.get("split_ratio"),
+        "loader": type(datasets["train"]).__name__,
+        "split_source": "native-loader-disjoint-target-periods",
+        "preset_path": str(path),
     }
     freq_info = _freq_override(freq)
     if freq_info is None:
@@ -153,6 +175,8 @@ def analyze(splits: dict[str, np.ndarray], meta: dict[str, Any], max_channels: i
         max_channels=max_channels,
         split_ratio=tuple(meta["split_ratio"]) if meta.get("split_ratio") else None,
     )
+    profile["dataset"].update(loader=meta.get("loader", "raw-file"),
+                              split_source=meta.get("split_source", "raw-file-ratio"))
     profile["recommendations"] = prof.evaluate_rules(profile)
     return profile
 
@@ -164,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("preset", nargs="?", help="dataset preset name (configs/datasets/<name>.toml)")
     parser.add_argument("--path", help="raw csv/txt/parquet/npy/npz file or realtime store directory")
+    parser.add_argument("--data-path", help="override a preset CSV path while retaining its native loader and split")
     parser.add_argument("--split-ratio", type=float, nargs=3, default=DEFAULT_RATIO,
                         metavar=("TRAIN", "VAL", "TEST"), help="chronological split for --path")
     parser.add_argument("--freq", help="sampling interval override such as 10min or 1h")
@@ -171,25 +196,32 @@ def main(argv: list[str] | None = None) -> int:
                         help="channels sampled for spectral statistics (default 128)")
     parser.add_argument("--out", help="output directory (default work_dirs/profiles/<name>)")
     parser.add_argument("--json", action="store_true", help="print the JSON profile instead of markdown")
+    parser.add_argument("--compact", action="store_true", help="Return summary and artifact paths instead of the full JSON profile")
+    parser.add_argument("--include-test", action="store_true", help="Opt into test-shift diagnostics after freezing decisions; default profiles train/val only")
     parser.add_argument("--write-card", action="store_true",
                         help="record the fired data characteristics in the preset's dataset card")
     args = parser.parse_args(argv)
     if bool(args.preset) == bool(args.path):
         parser.error("give exactly one of <preset> or --path FILE")
+    if args.data_path and not args.preset:
+        parser.error("--data-path requires a dataset preset; use --path for a generic raw file")
     if args.max_channels < 2:
         parser.error("--max-channels must be at least 2")
     splits, meta = (
-        load_preset(args.preset, args.freq)
+        load_preset(args.preset, args.freq, args.data_path, args.include_test)
         if args.preset
         else load_path(args.path, tuple(args.split_ratio), args.freq)
     )
+    if not args.include_test:
+        splits.pop("test", None)
     report = analyze(splits, meta, args.max_channels)
     markdown = prof.render_markdown(report, report["recommendations"])
     out = Path(args.out or Path("work_dirs/profiles") / meta["name"])
     out.mkdir(parents=True, exist_ok=True)
     (out / "profile.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     (out / "profile.md").write_text(markdown, encoding="utf-8")
-    print(json.dumps(report, indent=2) if args.json else markdown)
+    returned = {"profile": str(out / "profile.json"), "summary": markdown} if args.compact else report
+    print(json.dumps(returned, separators=(",", ":") if args.compact else None, indent=None if args.compact else 2) if args.json else markdown)
     print(f"Output: {out}/profile.json, {out}/profile.md", file=sys.stderr if args.json else sys.stdout)
     if args.write_card:
         if not args.preset:
@@ -199,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         from tsflab.catalog.cards.datasets import write_characteristics
         from tsflab.core.paths import repository_root
 
-        config = Path(args.preset) if Path(args.preset).suffix else Path("configs/datasets") / f"{args.preset}.toml"
+        config = Path(meta["preset_path"])
         fired = [str(rule["id"]) for rule in report["recommendations"]["fired"]]
         basis = (f"measured by tsf data analyze ({prof.SCHEMA}, decision-safe train/val metrics, "
                  f"thresholds in profile_rules.toml) on {date.today().isoformat()}")

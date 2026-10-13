@@ -55,7 +55,7 @@ class RunResult:
     Parameters
     ----------
     metrics : dict[str, float]
-        Evaluation metrics computed on the test split.
+        Evaluation metrics computed on the configured validation or test split.
     train_time_sec : float
         Training wall-clock time in seconds.
     test_time_sec : float
@@ -71,6 +71,10 @@ class RunResult:
     test_time_sec: float
     checkpoint_path: str
     run_id: str
+    n_windows: int | None = None
+    trainable_parameters: int | None = None
+    training_peak_cuda_mib: float | None = None
+    epochs_run: int = 0
 
 
 def _build_device(runtime) -> torch.device:
@@ -144,11 +148,14 @@ def _build_loaders(config):
             dataset_params,
             config.training.batch_size,
             config.experiment.runtime.num_workers,
+            drop_last=config.training.drop_last,
+            window_context=getattr(config.task, "window_context", "carry"),
         )
 
     train_set, train_loader = _loader_for("train")
     vali_set, vali_loader = _loader_for("val")
-    test_set, test_loader = _loader_for("test")
+    # Validation-only search must never construct or evaluate a test loader.
+    test_set, test_loader = (vali_set, vali_loader) if config.evaluation.split == "val" else _loader_for("test")
     return train_set, train_loader, vali_set, vali_loader, test_set, test_loader, adj_norm
 
 
@@ -297,6 +304,7 @@ def _write_run_outputs(
     # Record the evaluation strategy only when it diverges from the historical
     # default. This keeps the fixed-path CSV header byte-identical to before
     # while making rolling runs self-describing.
+    summary_row["eval_split"] = config.evaluation.split
     if eval_strategy != "fixed":
         summary_row["eval_strategy"] = eval_strategy
     from tsflab.experiments.infra.fingerprints import dataset_fingerprint
@@ -433,17 +441,25 @@ def _run_one(
     session.stage("construction")
     model, output_type = _build_model(config, train_set, adj_norm, device)
 
+    trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+        torch.cuda.reset_peak_memory_stats(device)
+
     # Optional model-side pretraining stage. Used by two-stage models such as
     # LatentTSF to pretrain + freeze an autoencoder before the forecaster is
     # trained. Run on the raw module before any DataParallel wrap and add the
     # wall time to fit_time/train_time_sec for fair benchmark accounting.
     pretrain_time_sec = 0.0
     spec = MODEL_CATALOG.get(config.model.name)
-    if "pretraining-stage" in spec.capabilities:
+    frozen_checkpoint = config.evaluation.checkpoint_path
+    if "pretraining-stage" in spec.capabilities and not frozen_checkpoint:
         session.stage("pretraining")
         _pretrain_start = time.perf_counter()
         import inspect
         options = {}
+        if "val_loader" in inspect.signature(model.pretrain).parameters:
+            options["val_loader"] = vali_loader
         if "stage_runner" in inspect.signature(model.pretrain).parameters:
             from functools import partial
             from tsflab.experiments.infra.stages import reconstruction_stage
@@ -471,7 +487,19 @@ def _run_one(
     session.stage("training")
 
     trainable = any(parameter.requires_grad for parameter in model.parameters())
-    if inference_only:
+    if frozen_checkpoint:
+        import hashlib
+        from pathlib import Path
+        checkpoint = Path(frozen_checkpoint)
+        if config.evaluation.checkpoint_sha256:
+            actual = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+            if actual != config.evaluation.checkpoint_sha256:
+                raise ValueError("frozen checkpoint hash changed")
+        from tsflab.experiments.runner.model_io import unwrap_model
+        unwrap_model(model).load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
+        train_result = TrainResult(best_model_path=str(checkpoint), train_time_sec=0.0)
+        print("Training skipped: evaluating frozen checkpoint")
+    elif inference_only:
         print("Training skipped: model declares the inference-only capability")
         train_result = TrainResult(best_model_path="", train_time_sec=0.0)
     elif not trainable:
@@ -529,6 +557,7 @@ def _run_one(
             lradj=config.training.optimizer.lradj,
             base_lr=config.training.optimizer.lr,
             total_epochs=config.training.epochs,
+            min_lr=getattr(config.training.optimizer, "min_lr", 0.0),
             label_len=config.task.label_len,
             pred_len=config.task.pred_len,
             features=config.task.features,
@@ -543,6 +572,12 @@ def _run_one(
             checkpoint_every_batches=session.policy.recovery.checkpoint_every_batches,
         )
         train_result.train_time_sec += pretrain_time_sec
+
+    training_peak_cuda_mib = None
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+        if not frozen_checkpoint:
+            training_peak_cuda_mib = torch.cuda.max_memory_allocated(device) / (1024 ** 2)
 
     session.stage("evaluation")
     eval_strategy = getattr(config.evaluation, "strategy", "fixed")
@@ -592,10 +627,10 @@ def _run_one(
         metrics = {k: v for k, v in metrics.items() if k in keep}
 
     metrics_str = ", ".join(f"{k}:{v:.4f}" for k, v in metrics.items())
-    print(f"Test metrics | {metrics_str}")
+    print(f"{config.evaluation.split.capitalize()} metrics | {metrics_str}")
 
     session.stage("outputs")
-    session.tracker.log({f"test/{key}": value for key, value in metrics.items()}, config.training.epochs + 1)
+    session.tracker.log({f"{config.evaluation.split}/{key}": value for key, value in metrics.items()}, config.training.epochs + 1)
     _write_run_outputs(
         config=config,
         model=model,
@@ -621,6 +656,10 @@ def _run_one(
         test_time_sec=test_time,
         checkpoint_path=train_result.best_model_path,
         run_id=run_id,
+        n_windows=len(test_set) if eval_strategy == "fixed" else None,
+        trainable_parameters=trainable_parameters,
+        training_peak_cuda_mib=training_peak_cuda_mib,
+        epochs_run=train_result.epochs_run,
     )
 
 

@@ -41,6 +41,7 @@ LOSS_REGISTRY = LossRegistry()
 LOSS_NAME_MAP = {
     "mse": "tsflab.experiments.losses",
     "mae": "tsflab.experiments.losses",
+    "huber": "tsflab.experiments.losses",
     "freq_mae": "tsflab.experiments.losses.external",
     "freq_weighted_mae": "tsflab.experiments.losses.external",
     "masked_mae": "tsflab.experiments.losses.masked",

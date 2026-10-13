@@ -471,6 +471,20 @@ uv run tsf agent task render experiment --set 'question=<question>'
 uv run tsf agent task start autoresearch --set 'question=<question>' --json
 ```
 
+Reuse saved native validation baselines in another round explicitly:
+
+```bash
+uv run tsf research reference <round-id> <baseline-run-directory> ...
+uv run tsf research screen <round-id> --baseline <baseline-run-directory> --candidate <candidate-run-directory>
+```
+
+References consume no new training claims. Their original compute and Agent
+costs remain attributable to the originating experiment and must be disclosed
+when reporting the full search cost. Registration rejects test and frozen
+evaluation runs; screening checks protocol compatibility and rejects changed
+reference artifacts. Candidates must belong to the current round. A framework
+update alone does not require retraining a compatible saved baseline.
+
 `task start` prepares a round and a directly readable prompt. It deliberately
 does not launch or message an external Agent; the current Harness owns execution.
 
@@ -609,3 +623,32 @@ Paper-result reproduction is separate from admission: reproduce datasets,
 splits, preprocessing, optimization, seeds, metrics, and reported cells through
 run configs, then state all deviations instead of treating a successful forward
 pass as a reproduced paper result.
+
+## Paper-specific training and windows
+
+Run configs can select the native Huber loss and a cosine learning-rate floor:
+
+```toml
+[training]
+loss = "huber"
+[training.loss_params]
+delta = 1.0
+[training.optimizer]
+name = "AdamW"
+lr = 0.0007
+weight_decay = 0.0001
+lradj = "cosine_annealing"
+min_lr = 0.000001
+[training.tricks]
+grad_clip_norm = 1.0
+[task]
+window_context = "within-split"
+```
+
+`min_lr` defaults to zero and a nonzero value requires `cosine_annealing`.
+`window_context` defaults to `"carry"`: validation and test inputs may use the
+preceding partition's historical context. `"within-split"` requires both input
+and target windows to remain inside each partition. Both settings fit scaling
+on training data only. Declare the setting before training and keep incompatible
+window protocols separate when comparing results. This fragment supplements a
+complete run config, including dataset, model, epochs and window lengths.

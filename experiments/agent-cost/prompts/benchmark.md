@@ -5,10 +5,10 @@ build on it and follow its structure, naming, and conventions instead of
 starting from scratch. If it is empty, write everything yourself.
 
 The dataset is {file} in {data_dir} (read-only): an hourly multivariate series,
-one `date` column and one column per channel. One GPU is available to you: the
-one already selected by CUDA_VISIBLE_DEVICES. Use only that GPU and do not
-change CUDA_VISIBLE_DEVICES. No Python environment is installed: set one up in
-the working directory yourself (uv and Python 3.10-3.12 are available).
+one `date` column and one column per channel. Use only GPUs exposed through
+CUDA_VISIBLE_DEVICES and never change that mask. Follow the supplied worker
+limit; schedule independent cells concurrently when more than one worker is allowed. Use the supplied Python environment when present. Otherwise set one up in
+the working directory (uv and Python 3.10-3.12 are available).
 
 Protocol (the same for every method):
 - Split the series chronologically into 70% train, 10% validation, and 20% test.
@@ -18,7 +18,9 @@ Protocol (the same for every method):
   normalized scale.
 - Use each method's standard architecture settings from its paper or official
   code. Train for at most 10 epochs with early stopping on validation loss
-  (patience 3), batch size 32, one seed.
+  (patience 3), batch size 32, seed 42.
+- Drop the incomplete training batch (`training.drop_last=true` in TSFLab),
+  while retaining every validation and test window and partial evaluation batch.
 - Measure for each method: trainable parameters; training time (wall-clock
   seconds for the whole training, and the number of epochs run); inference
   time (wall-clock seconds to predict every test window); and peak GPU memory

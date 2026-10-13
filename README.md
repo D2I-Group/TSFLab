@@ -7,7 +7,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![PyTorch 2.14](https://img.shields.io/badge/PyTorch-2.14-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![Models: 311](https://img.shields.io/badge/models-311-orange.svg)](docs/en/models.md)
+[![Models: 314](https://img.shields.io/badge/models-314-orange.svg)](docs/en/models.md)
 [![Datasets: 93](https://img.shields.io/badge/datasets-93-teal.svg)](docs/en/workflows.md#data)
 [![Real-time tracks: 11](https://img.shields.io/badge/real--time%20tracks-11-purple.svg)](docs/en/realtime.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -42,9 +42,9 @@ protocols, run records) that any coding agent operates through declarative skill
 | Module | What it does |
 | --- | --- |
 | 📚 **Paper reading** | Scans arXiv and Hugging Face Papers, deduplicates against the catalog, and records each paper's structure, equations, and pinned official code |
-| 🧩 **Code & interface** | 311 methods as peers in one flat catalog, composed from 63 shared components, one forecasting signature, and an executable admission contract recorded in every card; each card states its fidelity to the paper and pinned official code, a six-slot composition, the data characteristics it fits, and its data-dependent parameters |
+| 🧩 **Code & interface** | 314 methods as peers in one flat catalog, composed from 63 shared components, one forecasting signature, and an executable admission contract recorded in every card; each card states its fidelity to the paper and pinned official code, a six-slot composition, the data characteristics it fits, and its data-dependent parameters |
 | 🗃️ **Data** | 93 dataset presets in seven domains (energy 25, transport 18, environment 16, finance 14, cloud-web 9, healthcare 7, sales 4; 79 conventional, including the GIFT-Eval family, and 14 spatiotemporal or covariate; 11 of them are frozen releases of the real-time tracks), each with a card, its benchmark suites, a verified redistribution class, and one TSFLab protocol; plus 11 rolling real-time tracks (stocks, traffic, air quality, weather, grid, solar) |
-| ⚙️ **Experiments** | Declarative TOML sweeps, pre-run validation, seeds, budgets, GPU leases, queues, and recovery; `tsf data analyze` profiles a dataset, `tsf catalog match` maps its characteristics to models and components, and `tsf model compose` dry-runs a recombination for AutoResearch |
+| ⚙️ **Experiments** | Declarative model requests and TOML sweeps, pre-run validation, seeds, budgets, GPU leases, queues, and recovery; `tsf data analyze` profiles a dataset, `tsf catalog match` maps its characteristics to models and components, and `tsf model compose` dry-runs a recombination for AutoResearch |
 | 🏆 **Release & compare** | Run records → submissions → a leaderboard recomputed from evidence; weights as pinned `hf://` bundles |
 
 ---
@@ -76,6 +76,16 @@ tsf data download etth1          # pinned, checksum-verified from the Hub
 tsf run configs/runs/example.toml --dry-run
 tsf run configs/runs/example.toml
 ```
+
+For a fully specified task, `tsf run --model NAME --set KEY=VALUE --sweep
+KEY=JSON_LIST` resolves the named preset without writing a config. It uses the
+same validation and saves every expanded snapshot. `--gpus auto --jobs auto`
+schedules visible idle GPUs; `--json --compact --output results/completion.json`
+saves the returned results and artifact paths directly. Repeating a matrix with
+the same output path reuses its sweep; use a new path for a different matrix.
+A rejected request or preview preserves an existing execution report and returns
+its diagnostic to the caller. `tsf catalog show NAME --params` returns only
+accepted model parameters and constraints.
 
 Scaffolded run configs inherit the installed catalog through `tsflab://`
 paths, so upgrading TSFLab upgrades their defaults. Install by module with

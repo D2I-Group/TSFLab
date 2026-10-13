@@ -273,3 +273,103 @@ def test_model_audit_reports_cards_and_admission() -> None:
     record = _json("model", "audit", "CATS")[0]
     assert record["name"] == "CATS" and record["blockers"] == [] and record["codebase"]["missing"] == []
     assert record["verification"]["status"] in {"passed", "failed", "pending"}
+
+
+@pytest.mark.parametrize("name", ["StateFlow", "stateflow", "STATEFLOW"])
+def test_model_parameter_query_returns_schema_without_loading_all_cards(monkeypatch, capsys, name):
+    import json
+    from tsflab.cli.commands.catalog_resources import catalog_command
+    from tsflab.catalog.cards import metadata
+    def unexpected(*a, **k):
+        raise AssertionError("parameter query must not read all catalog cards")
+    monkeypatch.setattr(metadata, "model_records", unexpected)
+    assert catalog_command(["show", name, "--params"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert set(result) == {"name", "config", "parameters"}
+    assert result["parameters"]["properties"]["hidden_size"]["default"] == 32
+    assert result["parameters"]["properties"]["hidden_size"]["enum"] == [16, 32, 64]
+    assert result["parameters"]["properties"]["chunk_width"]["default"] == 5
+    assert result["parameters"]["properties"]["chunk_width"]["enum"] == [3, 5, 7]
+    assert result["parameters"]["required"] == ["enc_in"]
+
+
+def test_parameter_query_disambiguates_model_from_same_named_component(capsys):
+    import json
+    from tsflab.cli.commands.catalog_resources import catalog_command
+    assert catalog_command(["show", "patchtst", "--params"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['name'] == 'PatchTST'
+    assert 'enc_in' in result['parameters']['properties']
+
+
+def test_named_model_request_saves_validation_failure_before_dispatch(tmp_path, capsys):
+    import json
+    from tsflab.cli.commands.execution import run_command
+    output = tmp_path/'completion.json'
+    assert run_command(['--model','StateFlow','--set','model.params.hidden_size=99',
+        '--set','dataset.name=custom','--set','dataset.path=./missing.csv','--set','dataset.params.target=OT',
+        '--json','--output',str(output)]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert json.loads(output.read_text()) == result
+    assert not result['ok'] and 'hidden_size' in result['error']['message']
+
+
+@pytest.mark.parametrize("settings", ["max_parallel_jobs=2\nauto_parallel=true\n", ""])
+def test_research_policy_excludes_automatic_scheduling_flag(tmp_path, monkeypatch, capsys, settings):
+    from tsflab.cli.commands import research
+    policy = tmp_path/'policy.toml'
+    policy.write_text('[budget]\nmax_runs=10\n'+settings+'max_wall_minutes=10\n')
+    captured = {}
+    def create(**kwargs):
+        captured.update(kwargs)
+        from tsflab.research.rounds import _normalize_budget
+        _normalize_budget(kwargs['budget'], kwargs['max_runs'])
+        return {'id':'bounded'}
+    monkeypatch.setattr(research, 'create_round', create)
+    assert research.research_command(['start','--goal','smoke','--policy',str(policy),'--max-iterations','3']) == 0
+    assert captured['budget']['max_iterations'] == 3
+    assert 'auto_parallel' not in captured['budget']
+    assert 'max_parallel_jobs' not in captured['budget']
+
+
+@pytest.mark.parametrize("name", ["itransformer", "FREDFORMER", "scinet"])
+def test_catalog_show_resolves_model_case_without_explicit_kind(capsys, name):
+    import json
+    from tsflab.cli.commands.catalog_resources import catalog_command
+    assert catalog_command(["show", name, "--depth", "0", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["name"].casefold() == name.casefold()
+
+
+def test_catalog_show_preserves_model_component_ambiguity(capsys):
+    from tsflab.cli.commands.catalog_resources import catalog_command
+    assert catalog_command(["show", "patchtst"]) == 2
+    assert "pass --kind" in capsys.readouterr().err
+
+
+def test_rejected_request_preserves_previous_execution_report(tmp_path, capsys):
+    import json
+    from tsflab.cli.commands.execution import run_command
+    output = tmp_path / 'completion.json'
+    original = {'ok': True, 'directory': str(tmp_path / 'native-sweep'),
+                'runs': [{'run_id': 'completed-run', 'status': 'succeeded'}]}
+    output.write_text(json.dumps(original))
+    assert run_command(['--model', 'StateFlow', '--set', 'model.params.hidden_size=99',
+        '--set', 'dataset.name=custom', '--set', 'dataset.path=./missing.csv',
+        '--json', '--output', str(output)]) == 2
+    failure = json.loads(capsys.readouterr().out)
+    assert not failure['ok'] and failure['output_preserved'] == str(output)
+    assert json.loads(output.read_text()) == original
+
+
+def test_preview_cannot_replace_execution_receipt_but_native_status_can(tmp_path):
+    import json
+    from tsflab.cli.commands.execution import _save_output
+    path = tmp_path / 'completion.json'
+    completed = {'ok': True, 'directory': str(tmp_path / 'native-sweep'), 'runs': []}
+    assert _save_output(path, completed)
+    assert not _save_output(path, {'ok': True, 'total_runs': 2, 'runs': []})
+    assert json.loads(path.read_text()) == completed
+    updated = dict(completed, status='finished')
+    assert _save_output(path, updated)
+    assert json.loads(path.read_text()) == updated

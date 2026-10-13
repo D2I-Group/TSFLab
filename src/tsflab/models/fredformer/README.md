@@ -1,32 +1,35 @@
 ---
 name: "Fredformer"
-description: "Frequency-debiased Transformer: rFFT bands rescaled to equal energy, each processed by a shared channel-attention Transformer, then a linear head. Use for multivariate forecasting where low-amplitude frequency components matter and channels interact; not for very many channels."
+description: "Full-FFT frequency-patch Transformer with cross-channel attention and separate real/imaginary residual forecast heads. Use for correlated multivariate forecasting; channel attention grows quadratically with channel count."
 ---
 
 # Fredformer
 
 ## Idea
 
-- Splits the rFFT spectrum into contiguous bands of `band_width` bins (zero-padded to a whole band) and rescales each band to unit RMS energy (`FrequencyEqualization`), so high-energy low frequencies do not dominate learning.
-- `FrequencyBandAttention` applies one shared `nn.TransformerEncoder` whose tokens are the channels, independently within every band.
-- A sigmoid `band_gate` blends the Transformer output into the equalized band before restoring band energy and inverting the FFT.
-- The reconstructed history goes through a linear `seq_len -> pred_len` head; `revin` wraps the model.
+- RevIN normalizes each input variable; a full complex FFT supplies real and imaginary frequency patches.
+- Each frequency patch forms channel tokens for a pre-normalized Transformer with independent Q/K/V projections.
+- Separate real/imaginary projections and three-layer residual MLP heads predict the horizon spectrum.
+- Inverse FFT followed by a real/imaginary projection produces the forecast; RevIN restores the input scale.
 
 ## When to use
 
-- Designed against frequency bias: Transformers tend to learn high-energy low-frequency features and overlook lower-amplitude ones that matter for accuracy.
-- Channel attention within each band suits correlated channels; cost grows quadratically with channel count.
+- Multivariate series with correlated channels and relevant mid/high-frequency structure.
+- Point forecasts; no calendar marks or probabilistic head.
+- Channel attention scales quadratically; validate memory at the actual channel count.
 
 ## Configure
 
-- `enc_in`: number of channels.
-
-Other hyperparameters: preset defaults in `configs/models/Fredformer.toml`; tune generically.
+- `enc_in`: dataset channel count.
+- `band_width`: frequency patch length; must fit `seq_len`.
+- `stride`: frequency patch stride; patches are unpadded as in the reference.
+- Other dimensions and dropout: `configs/models/Fredformer.toml`.
 
 ## Differences
 
-Clean-room implementation from the paper's frequency-equalization and band-local attention design; `chenzRG/Fredformer` at `fa64775e` (no license file, recorded `NOASSERTION`) was not copied or reused.
+Independent implementation checked against the standard forecasting path at official revision `fa64775e`; no official source is vendored or used at runtime. See `reference.md`.
 
-- The paper's lightweight variant with attention-matrix approximation is not implemented.
-
-Citation: Piao, X., Chen, Z., Murayama, T., Matsubara, Y., Sakurai, Y. "Fredformer: Frequency Debiased Transformer for Time Series Forecasting." KDD 2024, pp. 2400-2410. doi:10.1145/3637528.3671928.
+- Uses fused Q/K/V storage with the same independent affine projections.
+- Omits unused official ablation parameters, unused layers, the individual-channel head and the Nystrom variant.
+- Preserves batch/channel dimensions instead of the official unrestricted squeeze.
+- Legacy TSFLab RMS-band equalization, learned band gate and history-linear head were removed because they differ materially from the reference.

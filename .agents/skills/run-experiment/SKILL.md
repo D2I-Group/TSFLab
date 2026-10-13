@@ -1,67 +1,80 @@
 ---
 name: run-experiment
-description: "Design, preview, and run one or more TSFLab experiment or sweep configurations, in the repository or in a standalone project created with tsf init. Use for choosing baselines, seeds, and budgets, then training, evaluation, ablations, hyperparameter grids, concurrency, or GPU assignment; not for contract-only checks (audit), paper replication (reproduce-paper-results), or autonomous search loops (run-autoresearch)."
+description: "Design and execute TSFLab runs or sweeps, including standalone projects. Use for training, evaluation and ablations; paper replication uses reproduce-paper-results, autonomous search uses run-autoresearch, contract checks use audit."
 ---
 
 # Run experiments
 
-Experiments module, step one: design, then execute validated configs and report
-their artifacts. Run configs and `work_dirs/` records feed the result board that
-AutoResearch reads. The Agent owns design and
-interpretation; the library owns validation, execution, budgets, and recovery, so
-do not reimplement them with ad hoc subprocesses or edited manifests.
-
-Where runs happen: training and sweeps run on GPU machines (CI, a lab server, or
-Slurm via `--prepare-only` and `--backend queue|slurm`), not on the maintainer's
-local machine. Locally, design, `--dry-run`, and reading returned records are the work;
-results come back as `work_dirs/` records and round events.
+Agent owns decisions; APIs own validation, execution, budgets and recovery.
 
 ## Inputs
 
-- A research question or resolved run configs and the resource
-  intent: jobs, GPUs, and an optional research round.
-- For a standalone project, scaffold it with `uv run tsf init <dir>`; its run
-  configs extend installed presets through `tsflab://configs/...` and write to
-  the project's own `work_dirs/`.
+- A question or supplied configs, datasets, metric, seeds and resource budget.
+- An authorized GPU/CI run machine; the maintainer's local machine is for design,
+  previews and returned records. A standalone project starts with `tsf init <dir>`.
 
 ## Steps
 
-1. Without finished configs, design first per [design](references/design.md): a
-   falsifiable comparison, fair baselines, seeds, and budget as inherited TOML.
-   Then preview and launch:
+1. With supplied configs, validate them directly. Otherwise use
+   [design](references/design.md) for controls, selection rule and fair baselines.
+   Read the named preset/card only. For parameter names/constraints, query
+   `tsf catalog show MODEL --params` once; fixed sizes need not be overridden.
+   For an admitted model, inspect source only for a failure or fidelity audit.
+   For a fully specified task, use [direct requests](references/request.md) to
+   avoid config authoring. Use [minimal TOML](references/config.md) for a saved study.
+2. Preserve the task's dataset identity and native row/window rules even when
+   supplied as a CSV; use `dataset.name=custom` for generic CSV tasks only. Check
+   data, split, horizons, seeds, output paths, budget, profiling and GPU
+   intent. Batch independent cells in one sweep; models with different schemas
+   use separate configs passed together (`tsf run A.toml B.toml ...`). For batching
+   comparisons, verify cells per request; single-cell full requests do not test batching. Search uses validation;
+   frozen finalists alone receive a separate explicit test evaluation.
+3. Execute once on the authorized run machine; run validates the whole matrix
+   before starting compute. Repair rejected fields using the named schema; a
+   prelaunch validation error does not finish the task. Preview only for handoff:
 
    ```bash
-   uv run tsf run configs/runs/<run>.toml --dry-run --json
-   uv run tsf run configs/runs/<run>.toml [--round <round-id>] [--jobs N] [--gpus 0,1]   # on the run machine
+   uv run tsf run <config.toml> [--round ID] [--jobs N] [--gpus 0,1] --json --compact --output results/completion.json
    ```
 
-   Attach a round only when one was supplied or the task needs persistent
-   research context. Use `--gpus` only after checking memory and device intent.
-   Hand a launch to the run machine as the previewed command; do not start it locally.
-2. Before long runs, verify data (fetch missing published presets with
-   `uv run tsf data download <preset>`), output location, seeds, horizons, evaluation
-   strategy, and profiling. Keep sweeps in TOML.
-3. For GIFT-Eval, read `uv run tsf data prepare --from gift-eval --help`, fetch only the
-   requested data, and preview `configs/runs/gift_eval_sweep.toml`; record dataset
-   versions, horizons, model compatibility, budget, and the missing-series policy.
-4. For budgets, GPU queueing, tracking, cancellation, or interrupted-run recovery,
-   read [execution controls](references/execution.md); ordinary one-off runs do
-   not need them.
+   A separate preview adds `--dry-run` to that same command.
+   On a multi-GPU run host, use `--gpus auto --jobs auto` for visible idle GPUs.
+   Busy visible cards are awaited within policy; do not retry with physical `0,1`.
+   Explicit GPU indices/UUIDs must remain inside `CUDA_VISIBLE_DEVICES`.
+   Set `--eval-split val` for search and `--eval-split test` for frozen evaluation.
+4. Run blocks and returns metrics, timings and artifact paths. Set the shell
+   tool's initial `yield_time_ms=30000`; for code-mode orchestration set the
+   outer exec yield to 30000 too. If it yields, wait on the same process with
+   a long wait; avoid repeated short waits. A detached run uses
+   `tsf run wait DIRECTORY --timeout 1800 --json`; timeout does not cancel it.
+   If the shell handle is lost, recover the original sweep directory from the
+   launch output or saved `work_dirs/_sweeps/*/sweep.json`, then wait on that
+   directory. Never repeat the launch command to recover its output. A missing
+   completion file does not mean the original process stopped.
+5. `--output` saves returned JSON directly, including checkpoint and record paths.
+   Its path identifies one matrix request: repeating it reuses the original sweep.
+   Use a new output path for a different matrix. Within a research round, an
+   identical matrix also reuses its sweep even if the output path changes.
+   Accept its native `runs` rows; do not re-read successful artifacts or reformat
+   them into a second report. Inspect failed runs only; healthy logs, GPU
+   status and process lists need no Agent polling. Use records for execution
+   checks and reports.
+6. Load [execution controls](references/execution.md) only for a policy setting
+   not covered here, queues, tracking or recovery. Ordinary exclusive auto-GPU
+   execution needs no extra reference. For GIFT-Eval, prepare only requested
+   data with `tsf data prepare --from gift-eval`, preview its sweep, and record
+   versions, compatibility and missing-series policy. Design-only machines
+   hand off the previewed command and report pending results.
 
 ## Chain
 
-- Module: Experiments.
-- Reads: dataset card (L1) and profile, model card (L1: Configure, `data_params`) and preset, `tsf result board` for baselines.
-- Produces: resolved configs; per run `work_dirs/<dataset>/<model>/records/<run_id>.json` plus `performance.csv`; optional round events in `work_dirs/_research/<id>/`.
-- Hands off to: `analyze-results` (board), `submit-results` (records), `diagnose-experiment`, `run-autoresearch`.
+- Experiments: reads cards/presets; saves records in `work_dirs/`; hands off to `analyze-results`, `submit-results`, `diagnose-experiment`, `run-autoresearch`.
 
 ## Success
 
-- Every config reported as succeeded or failed, with its `work_dirs/` artifacts.
+- Every requested cell has a returned status, metrics or error, and artifact path.
 
 ## Stop and hand off
 
-- Never silently restart or overwrite a costly run.
-- Failed, unstable, or suspect runs go to `diagnose-experiment`; complete,
-  compatible outputs go to `analyze-results`. Execution alone does not establish
-  a fair comparison.
+- Stop at the budget; preserve failures and never silently restart costly runs.
+- Diagnose failed/suspect outputs; analyze completed protocol-compatible results.

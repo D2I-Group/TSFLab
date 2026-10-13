@@ -56,11 +56,26 @@ def research_command(rest: list[str]) -> int:
     iteration.add_argument("round_id")
     iteration.add_argument("--operation", help="Stable ID for idempotent Agent-defined iteration claims")
 
+    reference = subparsers.add_parser("reference", help="Reuse saved validation baselines without new training claims")
+    reference.add_argument("round_id")
+    reference.add_argument("directories", nargs="+", metavar="RUN_DIR")
+
+    screen = subparsers.add_parser("screen", help="Check native matched validation runs before confirmation")
+    screen.add_argument("round_id")
+    screen.add_argument("--baseline", nargs="+", required=True, metavar="RUN_DIR")
+    screen.add_argument("--candidate", nargs="+", required=True, metavar="RUN_DIR")
+    screen.add_argument("--metric", choices=("mse", "mae"), default="mse")
+    screen.add_argument("--min-improvement", type=float, default=0.0, help="Required relative reduction, strict at every matched seed/horizon")
+    screen.add_argument("--stop-on-fail", action="store_true", help="Close the round when the task's stopping condition applies")
+
     args = parser.parse_args(rest)
     try:
         if args.action == "start":
             from tsflab.experiments.infra.policy import load_policy
-            budget = load_policy(args.policy).budget.model_dump(exclude_none=True) if args.policy else {}
+            policy = load_policy(args.policy) if args.policy else None
+            budget = policy.budget.model_dump(exclude_none=True, exclude_unset=True, exclude={"auto_parallel"}) if policy else {}
+            if policy and policy.budget.auto_parallel:
+                budget.pop("max_parallel_jobs", None)
             if args.max_iterations is not None:
                 if args.max_iterations < 1:
                     raise ValueError("--max-iterations must be positive")
@@ -74,6 +89,16 @@ def research_command(rest: list[str]) -> int:
                     budget=budget,
                 )
             )
+        elif args.action == "reference":
+            from tsflab.research.screening import register_references
+            _print(register_references(args.round_id, args.directories))
+        elif args.action == "screen":
+            from tsflab.research.screening import screen_candidate
+            result = screen_candidate(args.round_id, args.baseline, args.candidate,
+                                      metric=args.metric, min_improvement=args.min_improvement,
+                                      stop_on_fail=args.stop_on_fail)
+            _print(result)
+            return 0  # A valid no-winner screen is a scientific outcome, not a CLI error.
         elif args.action == "iteration":
             _print(claim_iteration(args.round_id, operation=args.operation))
         elif args.action == "list":

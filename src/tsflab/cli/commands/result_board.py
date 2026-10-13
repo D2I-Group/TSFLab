@@ -85,13 +85,16 @@ def local_runs(roots: list[Path], dataset: str) -> list[tuple[Path, dict]]:
     return runs
 
 
-def _local_rows(roots: list[Path], dataset: str) -> list[dict]:
+def _local_rows(roots: list[Path], dataset: str, split: str = "test") -> list[dict]:
     docs: list[dict] = []
     protocols: dict = {}
     for _, doc in local_runs(roots, dataset):
         snap = (doc.get("config") or {}).get("snapshot") or {}
+        if (snap.get("evaluation") or {}).get("split", "test") != split:
+            continue
         for result in doc["results"]:
             protocols[(doc["dataset_id"], str(result.get("horizon")), doc["model"])] = {
+                "split": split,
                 "seq": (doc.get("config") or {}).get("seq_len"),
                 "epochs": (snap.get("training") or {}).get("epochs"),
             }
@@ -117,15 +120,17 @@ def _line(rank: int, row: dict, metric: str) -> str:
 
 
 def board(dataset: str, *, horizon: str | None, top: int, metric: str, records: list[Path],
-          board_file: str | None, include_board: bool = True) -> dict:
+          board_file: str | None, include_board: bool = True, split: str = "test") -> dict:
     rows: list[dict] = []
-    path = _board_path(board_file) if include_board else None
+    if split not in {"val", "test"}:
+        raise ValueError("split must be val or test")
+    path = _board_path(board_file) if include_board and split == "test" else None
     generated = None
     if path is not None:
         doc = json.loads(path.read_text(encoding="utf-8"))
         generated = doc.get("generated_at")
         rows += _rows_from_tracks(doc.get("tracks") or {}, dataset, "board")
-    rows += _local_rows(records, dataset)
+    rows += _local_rows(records, dataset, split)
     horizons = sorted({r["horizon"] for r in rows}, key=lambda h: (not h.isdigit(), int(h) if h.isdigit() else h))
     if horizon is not None:
         horizons = [h for h in horizons if h == str(horizon)]
@@ -136,7 +141,7 @@ def board(dataset: str, *, horizon: str | None, top: int, metric: str, records: 
             key=lambda r: r[metric],
         )[:top]
         groups.append({"horizon": h, "rows": ranked})
-    return {"dataset": dataset, "metric": metric, "board_generated_at": generated, "horizons": groups}
+    return {"dataset": dataset, "metric": metric, "split": split, "board_generated_at": generated, "horizons": groups}
 
 
 def board_command(args: list[str]) -> int:
@@ -146,6 +151,8 @@ def board_command(args: list[str]) -> int:
     )
     parser.add_argument("--dataset", required=True, help="dataset id, e.g. ETTh1 (case-insensitive)")
     parser.add_argument("--horizon", default=None, help="prediction length; default all horizons found")
+    parser.add_argument("--split", choices=("val", "test"), default="test",
+                        help="Score split; val reads only local validation records, never the published test board")
     parser.add_argument("--top", type=int, default=5, help="rows per horizon (default 5)")
     parser.add_argument("--metric", default="mse", help="ranking metric, lower is better (default mse)")
     parser.add_argument("--records", action="append", default=None, help="work_dir to scan for local records (repeatable; default ./work_dirs)")
@@ -159,6 +166,7 @@ def board_command(args: list[str]) -> int:
         metric=parsed.metric,
         records=[Path(p) for p in (parsed.records or ["work_dirs"])],
         board_file=parsed.board_file,
+        split=parsed.split,
     )
     if parsed.json:
         print(json.dumps(result, indent=2))

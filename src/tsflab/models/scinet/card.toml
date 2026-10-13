@@ -4,7 +4,6 @@ name = "SCINet"
 tags = ["cnn", "multi-scale", "downsampling", "channel-mixing", "normalization"]
 fits = ["high-cross-correlation"]
 fidelity = "reference-checked"
-issues_checked = "the interaction equations, recursive tree, interleaving, and stacked forecast path were checked against the paper; the linked Time-Series-Library implementation is reference-only, and the card records no paper or code problem."
 
 [paper]
 title = "SCINet: Time Series Modeling and Forecasting with Sample Convolution and Interaction"
@@ -13,17 +12,17 @@ venue = "NeurIPS 2022"
 year = 2022
 
 [code]
-url = "https://github.com/thuml/Time-Series-Library"
-revision = "4e938a1767106324dd753b2a44832bf870a0252e"
-license = "MIT"
-reference_sources = []
+url = "https://github.com/cure-lab/SCINet"
+revision = "02e6b0af2d58243de09aaa1eac3840237b659847"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/cure-lab/SCINet/blob/02e6b0af2d58243de09aaa1eac3840237b659847/models/SCINet.py"]
 
 [data_params]
 enc_in = { from = "channels", rule = "equal to the dataset channel count" }
-num_levels = { from = "seq_len", rule = "seq_len >= 2**num_levels" }
+num_levels = { from = "seq_len", rule = "seq_len and any second-stack input must be divisible by 2**num_levels" }
 
 [composition]
-normalization = "local:instance-standardization"
+normalization = "local:optional-original-affine-rin"
 decomposition = "none"
 temporal = "local:sci-tree-downsample-convolve-interact"
 channel = "local:channel-mixing-convolutions"
@@ -32,8 +31,14 @@ loss = "loss:mse"
 
 [admission]
 status = "passed"
-date = "2026-10-03"
-commit = "ec1ae839"
+date = "2026-10-10"
+commit = "18b5c8a2"
 device = "cpu"
 reference = "official"
-note = "tsf model verify --all on UH_Public; pre-squash commit of the 1.0 consolidation"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "models/SCINet.py RIN forward"
+what = "In-place division after variance computation breaks input autograd when RIN is enabled."
+resolution = "Out-of-place normalization; output parity retained; default preset disables RIN."

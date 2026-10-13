@@ -128,7 +128,8 @@ class ModelSpec:
         unknown = sorted(set(params) - set(self.params_schema.model_fields))
         if unknown:
             raise ValueError(
-                f"Unknown parameters for {self.name}: {', '.join(unknown)}"
+                f"Unknown parameters for {self.name}: {', '.join(unknown)}. "
+                f"Read declared fields with `tsf catalog show {self.name} --params`; do not infer parameter names."
             )
         return self.params_schema.model_validate(params).model_dump()
 
@@ -175,6 +176,7 @@ class ModelCatalog:
 
 
 MODEL_CATALOG = ModelCatalog({
+    'StateFlow': 'tsflab.models.stateflow.spec',
     'ReFocus': 'tsflab.models.refocus.spec',
     'FreqMoE': 'tsflab.models.freqmoe.spec',
     'SWIFT': 'tsflab.models.swift.spec',
@@ -486,4 +488,6 @@ MODEL_CATALOG = ModelCatalog({
     "TALON": "tsflab.models.talon.spec",
     "DynGDiff": "tsflab.models.dyngdiff.spec",
     "StaTS": "tsflab.models.stats.spec",
+    "RhyMix": "tsflab.models.rhymix.spec",
+    "AdaRDiff": "tsflab.models.adardiff.spec",
 })

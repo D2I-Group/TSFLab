@@ -14,6 +14,7 @@ class StrictConfig(BaseModel):
 class Budget(StrictConfig):
     max_runs: int | None = Field(default=None, ge=1)
     max_parallel_jobs: int = Field(default=1, ge=1)
+    auto_parallel: bool = False
     max_wall_minutes: float | None = Field(default=None, gt=0)
     run_timeout_minutes: float | None = Field(default=None, gt=0)
     max_gpu_hours: float | None = Field(default=None, gt=0)
@@ -23,6 +24,7 @@ class Budget(StrictConfig):
 
 
 class Resources(StrictConfig):
+    auto_select: bool = False
     gpus: list[str] = Field(default_factory=list)
     sharing: bool = False
     max_processes_per_gpu: int = Field(default=2, ge=1)

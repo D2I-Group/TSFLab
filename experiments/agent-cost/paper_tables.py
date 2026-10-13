@@ -63,29 +63,30 @@ def session(run: Path) -> dict | None:
     errs = [abs(c["rel_err_mse"]) for c in vcells
             if c.get("rel_err_mse") is not None and (kind == "method" or c.get("variant") == "with")]
     st = defaultdict(float)
-    for k, v in (m.get("stage_tokens") or {}).items():
+    for k, v in (m.get("stage_tokens_by_call") or {}).items():
         st[STAGE_MAP.get(k, k)] += v
-    tok = sum(sum(v.values()) for v in (m.get("tokens_by_action") or {}).values())
+    usage = m.get("usage_total")
+    tok = sum(usage.values()) if isinstance(usage, dict) else None
     return {
         "name": run.name, "task": task.get("id"), "kind": kind, "arm": meta.get("arm"),
         "version": (meta.get("tsflab_commit") or "")[:8], "agent": meta.get("agent", "claude"),
         "model": meta.get("model"), "completion": len(ok) / required, "valid": len(vcells) / required,
         "errs": errs, "wall_h": (m.get("wall_seconds") or 0) / 3600, "gpu_h": (m.get("gpu_busy_seconds") or 0) / 3600,
-        "tokens_m": tok / 1e6, "cost": m.get("cost_usd_luna") or 0.0, "turns": m.get("turns") or 0,
-        "interventions": m.get("interventions") or 0, "stage_tokens_m": {k: st.get(k, 0.0) / 1e6 for k in STAGES},
+        "tokens_m": tok / 1e6 if tok is not None else None, "cost": m.get("cost_usd_luna"), "turns": m.get("turns") or 0,
+        "interventions": m.get("interventions") or 0, "stage_tokens_m": {k: st.get(k, 0.0) / 1e6 if m.get("stage_tokens_by_call") is not None else None for k in STAGES},
         "produced": produced,
     }
 
 
 def summarize(ss: list[dict]) -> dict:
-    mean = lambda k: statistics.mean(x[k] for x in ss)
+    mean = lambda k: statistics.mean(x[k] for x in ss) if all(x[k] is not None for x in ss) else None
     errs = [e for x in ss for e in x["errs"]]
     return {
         "n": len(ss), "completion": mean("completion"), "valid": mean("valid"),
         "within5": (sum(e <= 0.05 for e in errs) / len(errs)) if errs else None, "n_valid_cells": len(errs),
         "wall_h": mean("wall_h"), "gpu_h": mean("gpu_h"), "tokens_m": mean("tokens_m"), "cost": mean("cost"),
         "turns": mean("turns"), "interventions": mean("interventions"),
-        "stage_tokens_m": {k: statistics.mean(x["stage_tokens_m"][k] for x in ss) for k in STAGES},
+        "stage_tokens_m": {k: statistics.mean(x["stage_tokens_m"][k] for x in ss) if all(x["stage_tokens_m"][k] is not None for x in ss) else None for k in STAGES},
         "err_pct": sorted(round(100 * e, 2) for e in errs),
         "not_produced": sum(not x["produced"] for x in ss),
     }

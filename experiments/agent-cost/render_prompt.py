@@ -11,6 +11,10 @@ def main() -> None:
     task = json.loads(Path(sys.argv[1]).read_text())
     data_dir = sys.argv[2]
     template = (HERE / "prompts" / f"{task['task']}.md").read_text()
+    template += "\nExecution: batch independent runs. Use a blocking process wait or, in TSFLab, " \
+        "`tsf run wait <sweep-directory> --timeout 1800`. Do not poll healthy training " \
+        "logs or GPU/process status repeatedly. Inspect diagnostics after a failure. " \
+        "Stop at the session budget even if the task has no successful outcome.\n"
     if task["task"] == "reproduce":
         seen = []
         for c in task["cells"]:

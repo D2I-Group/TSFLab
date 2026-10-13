@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 
 class ResidualBlock(nn.Module):
@@ -106,21 +107,37 @@ class Model(nn.Module):
         scale = x_enc.var(dim=1, keepdim=True, unbiased=False).add(1e-5).sqrt()
         normalized = (x_enc - mean) / scale
 
+        history = normalized.transpose(1, 2)
+        chunk_size = self._channel_chunk_size(x_enc.shape[0], x_enc.shape[-1])
         channel_outputs = []
-        covariate_vector = projected.flatten(1)
-        future_projected = projected[:, self.seq_len :]
-        for channel in range(x_enc.shape[-1]):
-            encoded = self.encoder_input(torch.cat((normalized[:, :, channel], covariate_vector), dim=-1))
-            for block in self.encoder_blocks:
-                encoded = block(encoded)
-            decoded = encoded
-            for block in self.decoder_blocks:
-                decoded = block(decoded)
-            decoded = self.dense_decoder(decoded).reshape(
-                x_enc.shape[0], self.pred_len, self.decoder_output_dim
-            )
-            nonlinear = self.temporal_decoder(torch.cat((decoded, future_projected), dim=-1)).squeeze(-1)
-            forecast = nonlinear + self.global_residual(normalized[:, :, channel])
+        for start in range(0, x_enc.shape[-1], chunk_size):
+            chunk = history[:, start : start + chunk_size]
+            if self.training and torch.is_grad_enabled() and x_enc.shape[-1] > chunk_size:
+                forecast = checkpoint(self._forecast_channels, chunk, projected, use_reentrant=False)
+            else:
+                forecast = self._forecast_channels(chunk, projected)
             channel_outputs.append(forecast)
-        output = torch.stack(channel_outputs, dim=-1)
+        output = torch.cat(channel_outputs, dim=1).transpose(1, 2)
         return output * scale[:, :1] + mean[:, :1]
+
+    def _channel_chunk_size(self, batch: int, channels: int) -> int:
+        # Bound the largest temporal hidden activation to about 128 MiB in fp32.
+        # Checkpointing prevents retaining one such activation for every chunk.
+        per_channel = batch * self.pred_len * self.temporal_decoder.hidden.out_features
+        return max(1, min(channels, (32 * 1024 * 1024) // per_channel))
+
+    def _forecast_channels(self, history: torch.Tensor, projected: torch.Tensor) -> torch.Tensor:
+        batch, channels, _ = history.shape
+        covariate_vector = projected.flatten(1).unsqueeze(1).expand(-1, channels, -1)
+        encoded = self.encoder_input(torch.cat((history, covariate_vector), dim=-1))
+        for block in self.encoder_blocks:
+            encoded = block(encoded)
+        decoded = encoded
+        for block in self.decoder_blocks:
+            decoded = block(decoded)
+        decoded = self.dense_decoder(decoded).reshape(
+            batch, channels, self.pred_len, self.decoder_output_dim
+        )
+        future_projected = projected[:, self.seq_len :].unsqueeze(1).expand(-1, channels, -1, -1)
+        nonlinear = self.temporal_decoder(torch.cat((decoded, future_projected), dim=-1)).squeeze(-1)
+        return nonlinear + self.global_residual(history)

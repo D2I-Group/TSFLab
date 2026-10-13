@@ -18,5 +18,25 @@ for p in sys.stdin.buffer.read().decode().split("\0"):
 git diff --cached --numstat HEAD > "$RUN/diff.numstat"
 git diff --cached HEAD > "$RUN/diff.patch"
 cd - > /dev/null
+# Preserve only usage metadata, not credentials or the full private rollout.
+# Exports must include this small file to permit later per-call accounting.
+python3 - "$RUN" <<'PY'
+import json, sys
+from pathlib import Path
+run = Path(sys.argv[1])
+files = sorted((run / "codex" / "sessions").rglob("*.jsonl"))
+if files:
+    with (run / "usage-events.jsonl").open("w") as out:
+        for path in files:
+            for line in path.open():
+                if '"token_count"' not in line:
+                    continue
+                e = json.loads(line)
+                info = (e.get("payload") or {}).get("info") or {}
+                if info.get("total_token_usage"):
+                    out.write(json.dumps({"timestamp": e["timestamp"], "usage_chain": path.stem, "payload": {
+                        "type": "token_count", "info": {k: info[k] for k in
+                        ("total_token_usage", "last_token_usage") if k in info}}}) + "\n")
+PY
 python3 "$HERE/check_success.py" "$TASK" "$RUN/workspace" > "$RUN/success.json" || true
 python3 "$HERE/analyze.py" "$RUN" > "$RUN/metrics.json"

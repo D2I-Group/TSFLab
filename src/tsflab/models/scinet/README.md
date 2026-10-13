@@ -1,35 +1,36 @@
 ---
 name: "SCINet"
-description: "Recursive even/odd downsample-convolve-interact tree over the window, then a linear forecaster; convolutions mix all channels. Use for multi-resolution temporal structure that survives downsampling, on moderately many correlated channels; not for probabilistic output or windows shorter than 2**num_levels."
+description: "Original SCI recursive interaction tree with residual temporal projection and optional two-stack refinement. Use for multivariate temporal structure; lookbacks must divide evenly across tree levels."
 ---
 
 # SCINet
 
 ## Idea
 
-- Temporal relations are largely preserved after downsampling a series into two sub-sequences; SCINet models time series by recursively downsampling, convolving, and interacting.
-- `SCIInteraction` splits the sequence into even and odd subsequences and cross-scales each with `exp(phi(.))` and `exp(psi(.))` of a `TemporalOperator` convolution of the other, then updates with `rho` and `eta`.
-- `SCITree` applies this recursively for `num_levels` (default 3) and `interleave`s the leaves back into time order.
-- `SCINetStack` adds a residual, then `nn.Linear(seq_len, pred_len)`; up to three stacks are chained by feeding the prediction back into the history.
-- Inputs are standardized per window and given a sinusoidal position encoding; the convolutions mix all channels.
+- Recursively split even/odd observations; multiplicative scaling and additive/subtractive coupling exchange information.
+- Each coupling operator uses replication padding, a configurable convolution, LeakyReLU, dropout, a width-three convolution and Tanh.
+- Interleave the recursive outputs, add the input residual and project time to the prediction horizon.
+- The optional second stack receives the entire first-stack history plus its forecast.
 
 ## When to use
 
-- Series with structure at several temporal resolutions; the tree combines features from every downsampled level.
-- Correlated channels: the convolutions mix all channels, so width scales with the channel count; on many weakly correlated channels a channel-independent model is the simpler baseline.
-- Point forecasts only; the window must hold at least `2**num_levels` steps.
+- Multivariate forecasting with temporal dependencies at multiple resolutions.
+- Point forecasts; calendar marks are ignored.
+- Window lengths must be divisible by `2**num_levels`; for two stacks the concatenated history must also divide evenly.
 
 ## Configure
 
-- `enc_in` follows the dataset channel count; it must equal it exactly.
-- `num_levels` follows `seq_len`: `seq_len >= 2**num_levels`.
-- Other hyperparameters: preset defaults in `configs/models/SCINet.toml`; tune generically (`num_stacks <= 3`).
+- `enc_in`: channel count.
+- `num_levels`: number of recursive splitting levels.
+- `hidden_size`: absolute convolution hidden channels; unset means `enc_in` (official hid_size=1).
+- `positional_encoding` and `instance_norm`: optional original PE and RIN paths; preset leaves both off.
+- Other parameters: `configs/models/SCINet.toml`.
 
 ## Differences
 
-Clean-room implementation of the published interaction equations, recursive node count, interleaving, and stacked forecast path; the linked Time-Series-Library implementation is reference-only and no code was copied.
+Independent implementation aligned to cure-lab/SCINet at `02e6b0af`; see `reference.md`.
 
-- Inputs are `[B, seq_len, enc_in]`, outputs `[B, pred_len, enc_in]`; time marks are ignored.
-- Intermediate supervision of stacked outputs is left to the trainer (not built in).
-
-Citation: Liu, Zeng, Chen, Xu, Lai, Ma, Xu, "SCINet: Time Series Modeling and Forecasting with Sample Convolution and Interaction", NeurIPS 2022, arXiv:2106.09305.
+- Supports the original standard decoder, groups=1, modified interaction and full-history concatenation; segmented decoder and partial concat variants are not exposed.
+- A temporal Linear without bias equals the official kernel-one Conv1d. Two-stack API returns the final forecast; intermediate supervised training is not exposed.
+- RIN avoids the official in-place division that breaks input autograd.
+- Legacy kernel-five second convolutions, reversed coupling signs, forced PE/normalization and biased projection were corrected; old records are not official-aligned results.

@@ -57,7 +57,7 @@ def cudnn(run: Path):
 def summarize(ss):
     if not ss:
         return None
-    mean = lambda k, xs=ss: statistics.mean(x[k] for x in xs) if xs else None
+    mean = lambda k, xs=ss: statistics.mean(x[k] for x in xs) if xs and all(x[k] is not None for x in xs) else None
     errs = [e for x in ss for e in x["errs"]]
     excl = [x for x in ss if x["shared"] == 0]
     return {
@@ -65,7 +65,7 @@ def summarize(ss):
         "completion": mean("completion"), "valid": mean("valid"),
         "within5": (sum(e <= 0.05 for e in errs) / len(errs)) if errs else None, "n_valid_cells": len(errs),
         "tokens_m": mean("tokens_m"), "cost": mean("cost"), "turns": mean("turns"), "interventions": mean("interventions"),
-        "stage_tokens_m": {k: statistics.mean(x["stage_tokens_m"][k] for x in ss) for k in STAGES},
+        "stage_tokens_m": {k: statistics.mean(x["stage_tokens_m"][k] for x in ss) if all(x["stage_tokens_m"][k] is not None for x in ss) else None for k in STAGES},
         "n_exclusive": len(excl), "wall_h_exclusive": mean("wall_h", excl), "gpu_h_exclusive": mean("gpu_h", excl),
         "wall_h_all": mean("wall_h"), "not_produced": sum(not x["produced"] for x in ss),
         "err_pct": sorted(round(100 * e, 2) for e in errs),

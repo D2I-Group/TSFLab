@@ -67,6 +67,7 @@ _EXPORTS = {
     "prepare_sweep": "execution",
     "execute": "execution",
     "status": "execution",
+    "wait": "execution",
     "cancel": "execution",
 }
 

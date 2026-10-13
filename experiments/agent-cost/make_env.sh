@@ -45,8 +45,24 @@ if [[ -e "$WS" ]]; then echo "workspace exists: $WS" >&2; exit 1; fi
 mkdir -p "$(dirname "$WS")"
 
 clone_tsflab() {
-  git clone --quiet --no-hardlinks "$TSFLAB_SRC" "$WS"
-  git -C "$WS" checkout --quiet "$TSFLAB_COMMIT"
+  if [[ -n "${TSFLAB_SNAPSHOT:-}" ]]; then
+    : "${TSFLAB_SNAPSHOT_SHA256:?a frozen source archive requires its expected SHA256}"
+    python3 - "$TSFLAB_SNAPSHOT" "$TSFLAB_SNAPSHOT_SHA256" "$WS" <<'PYTHON'
+import hashlib, pathlib, sys, tarfile
+archive, expected, destination = sys.argv[1:]
+if hashlib.sha256(pathlib.Path(archive).read_bytes()).hexdigest() != expected:
+    raise SystemExit("source snapshot hash mismatch")
+with tarfile.open(archive) as tar:
+    for member in tar.getmembers():
+        name = pathlib.PurePosixPath(member.name)
+        if name.is_absolute() or ".." in name.parts or member.issym() or member.islnk():
+            raise SystemExit("unsafe source archive member")
+    tar.extractall(destination)
+PYTHON
+  else
+    git clone --quiet --no-hardlinks "$TSFLAB_SRC" "$WS"
+    git -C "$WS" checkout --quiet "$TSFLAB_COMMIT"
+  fi
   rm -rf "$WS/.git" "$WS/.claude/worktrees" "$WS/.claude/settings.local.json"
 }
 
@@ -137,7 +153,11 @@ esac
 # installing is part of the session (benchmarking on new methods, 2026-10-09) or for tests.
 TORCH=()
 [[ "$INSTALL" == server ]] && TORCH=(--torch-backend cu126)
-[[ "${SKIP_INSTALL:-0}" == 1 ]] || case "$ARM" in
+if [[ -n "${SHARED_VENV:-}" ]]; then
+  [[ -x "$SHARED_VENV/bin/python" ]] || { echo "invalid shared environment" >&2; exit 2; }
+  ln -s "$SHARED_VENV" "$WS/.venv"
+fi
+[[ "${SKIP_INSTALL:-0}" == 1 || -n "${SHARED_VENV:-}" ]] || case "$ARM" in
   tsflab*)
     if [[ "$INSTALL" == server ]]; then
       # Locked torch is the CUDA 13 build; on driver 570 install with the cu126 backend.

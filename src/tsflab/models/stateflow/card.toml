@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "StateFlow"
+tags = ["rnn", "dual-state", "two-stage-training", "channel-independent"]
+fits = ["long-horizon"]
+fidelity = "inferred"
+issues_checked = "Default parameters preserve the archived 2026-10-09 StateFlow reproduction; nondefault structural parameters are explicit derived variants. No official-code parity is claimed."
+
+[paper]
+title = "StateFlow: Dual-State Recurrent Modeling for Long-Horizon Time Series Forecasting"
+url = "https://arxiv.org/abs/2607.00197"
+venue = "arXiv"
+year = 2026
+
+[composition]
+normalization = "local:per-window-instance-normalization"
+decomposition = "none"
+temporal = "local:hidden-and-residual-memory-recurrence"
+channel = "local:channel-independent-shared-weights"
+head = "local:chunk-summarizers-and-linear-horizon-decoder"
+loss = "loss:mse+local:shifted-history-encoder-pretraining"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-10"
+commit = "18b5c8a2"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "archived reproduction decisions"
+what = "Optimizer, epochs and checkpoint policy were chosen by the reproduction; they are not established paper settings."
+resolution = "Expose encoder epochs and learning rate; ordinary runner controls decoder training and validation checkpoint selection."

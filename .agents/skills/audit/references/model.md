@@ -15,6 +15,10 @@ uv run tsf model audit <Name>
    output semantics. Confirm the code is local, the official revision was inspected
    when available, nothing was copied or imported, and every defining operation has
    a justified component decision.
+   Close each defining equation against its source symbol, tensor/reduction axes,
+   residual operands, branch gates and normalization scope. Distinguish a finite
+   admission result from mathematical fidelity; missing residuals and accidental
+   channel averaging require implementation repair, not tuning against test scores.
 3. For runtime artifacts: every required asset is checksum-pinned and fetched
    explicitly, the artifact factory receives only verified local paths, offline
    absence fails before construction, and the card claims no checkpoint behavior

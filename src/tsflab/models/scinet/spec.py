@@ -8,10 +8,12 @@ from tsflab.models.scinet.model import Model
 
 class ModelParameterConfig(BaseModel):
     enc_in: int = Field(gt=0)
-    num_stacks: int = Field(default=1, ge=1, le=3)
+    num_stacks: int = Field(default=1, ge=1, le=2)
     num_levels: int = Field(default=3, gt=0)
     hidden_size: int | None = Field(default=None, gt=0)
     kernel_size: int = Field(default=5, gt=0)
+    positional_encoding: bool = False
+    instance_norm: bool = False
     dropout: float = Field(default=0.0, ge=0, lt=1)
 
 

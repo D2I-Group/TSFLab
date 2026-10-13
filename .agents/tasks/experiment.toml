@@ -19,7 +19,10 @@ failures narrowly, and analyze only compatible completed cells. For a paper
 reproduction, map its protocol first and stop for a decision when missing data or
 protocol ambiguity changes the claim. Do not change model code, publish, push, or
 dispatch additional tasks. Training and sweeps run on GPU machines or CI, not locally:
-preview, hand off the exact command, and analyze the records that come back.
+preview the whole sweep, execute on the authorized run machine, and wait on the
+original process or `tsf run wait DIRECTORY --json` for metrics. Inspect logs only
+for returned failures. On a design-only local machine, hand off the exact command
+and report pending results.
 """
 
 [inputs.question]

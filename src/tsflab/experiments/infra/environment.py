@@ -121,6 +121,7 @@ def validate_experiment(config) -> None:
     data.resolve_location(config.dataset.path, config.dataset.id)
     if config.dataset.path and not Path(config.dataset.path).expanduser().exists():
         raise ValueError(f"dataset path does not exist: {config.dataset.path}")
+    _validate_csv_channels(config, data)
     if spec.artifacts:
         from tsflab.catalog.model_artifacts import require_artifacts
 
@@ -150,3 +151,33 @@ def validate_experiment(config) -> None:
                 "quantile_levels", list(config.evaluation.quantile_levels)
             )
         get_loss(config.training.loss, **params)
+
+
+def _validate_csv_channels(config, data):
+    """Inspect known flat-CSV headers without constructing loaders or models."""
+    if config.task.mode != "time_series" or "enc_in" not in config.model.params:
+        return
+    from tsflab.data.datasets.custom import Dataset_Custom
+    from tsflab.data.datasets.ett import Dataset_ETT_hour, Dataset_ETT_minute
+
+    if getattr(data, "dataset_class", None) not in (Dataset_Custom, Dataset_ETT_hour, Dataset_ETT_minute):
+        return
+    import csv
+
+    path = Path(config.dataset.path).expanduser()
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        columns = next(csv.reader(stream), [])
+    params = config.dataset.params
+    if hasattr(params, "model_dump"):
+        params = params.model_dump()
+    target = params.get("target", "OT")
+    if len(columns) < 2 or target not in columns[1:]:
+        raise ValueError(f"dataset CSV must contain timestamp and target column {target!r}: {path}")
+    channels = 1 if config.task.features == "S" else len(columns) - 1
+    configured = config.model.params["enc_in"]
+    if configured != channels:
+        raise ValueError(
+            f"{config.model.name}: model.params.enc_in={configured} does not match "
+            f"{channels} dataset input channels (features={config.task.features}); "
+            f"set model.params.enc_in={channels} and compatible model channel fields"
+        )

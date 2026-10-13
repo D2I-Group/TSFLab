@@ -23,7 +23,8 @@ numbers match.
    mode, lookback and horizons, covariates, loss, optimizer and schedule, batch
    size, epochs and stopping, seeds, checkpoint selection, metric formula and
    aggregation, baselines, and hardware-sensitive settings. Label every field
-   `aligned`, `adapted`, `unknown`, or `blocked`; never fill gaps with defaults.
+   `aligned`, `adapted`, `unknown`, or `blocked`; never silently fill gaps with defaults.
+   Document justified assumptions as adaptations, including their effect on the claim.
 3. Encode aligned settings in dedicated inherited run configs, keep faithful
    replication separate from controlled adaptations, and inspect the matrix:
 
@@ -31,10 +32,22 @@ numbers match.
    uv run tsf run <paper-run.toml> --dry-run
    ```
 
+   Bind each dataset to its own explicit path and channel/target settings. Before
+   training, check the resolved cells against that binding; changing a sweep's
+   dataset name must not retain another dataset's path. Resolve optimizer, loss,
+   schedule and model dimensions before launching the full matrix.
+
 4. When authorized, execute through `run-experiment` on a GPU machine or CI (no local
-   training); for multi-run work open a round (`tsf agent task start experiment --set
-   question=...`) and pass it with `tsf run --round`. Preserve raw outputs, resolved
+   training). Reuse a supplied round; create one with `tsf research start --goal ...
+   --max-runs N` only when persistent memory/budgets are needed, then pass its ID
+   with `tsf run --round`. Batch cells and wait for metrics as in `run-experiment`.
+   Preserve raw outputs, resolved
    configs, environment facts, seeds, and failed runs returned from that machine.
+   Use blocking completion returns, not healthy-log polling. Keep overlapping
+   windows lazy or batch-gathered rather than materializing the full matrix.
+   Reuse a frozen encoder across horizons only when the paper's training stages
+   permit it; never reuse checkpoints from another measured attempt. Preserve
+   required epochs and seeds when improving throughput.
 5. Aggregate compatible cells with `analyze-results`, then report per cell: paper
    value, local value, absolute and relative difference, run count, uncertainty,
    and every protocol deviation. Missing or failed cells stay visible.

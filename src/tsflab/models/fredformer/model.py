@@ -1,99 +1,84 @@
-"""Clean-room Fredformer based only on the KDD paper.
-
-The forecast path transforms each variable to the frequency domain, forms
-contiguous bands, removes per-band energy imbalance, and applies the same
-channel-wise Transformer to every band before reconstructing a history signal.
-No source from the unlicensed reference repository is copied or reused here.
-"""
+"""Independent full-FFT Fredformer forecasting path; see reference.md."""
 from __future__ import annotations
 
 import torch
 from torch import nn
-
 from tsflab.models._components.revin import RevIN
 
 
-class FrequencyEqualization(nn.Module):
-    """Normalize each complex frequency band to unit RMS energy."""
-    def __init__(self, eps: float = 1e-5):
+class ChannelBlock(nn.Module):
+    """Pre-normalized channel attention and residual feed-forward block."""
+
+    def __init__(self, width, heads, head_dim, feedforward, dropout):
         super().__init__()
-        self.eps = eps
+        self.heads, self.head_dim = heads, head_dim
+        self.norm_attention = nn.LayerNorm(width)
+        self.qkv = nn.Linear(width, 3 * heads * head_dim)
+        self.attention_out = nn.Sequential(nn.Linear(heads * head_dim, width), nn.Dropout(dropout))
+        self.norm_feedforward = nn.LayerNorm(width)
+        self.feedforward = nn.Sequential(nn.Linear(width, feedforward), nn.GELU(),
+            nn.Dropout(dropout), nn.Linear(feedforward, width), nn.Dropout(dropout))
 
-    def forward(self, bands: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        energy = bands.abs().square().mean((-1, -2), keepdim=True).add(self.eps).sqrt()
-        return bands / energy, energy
+    def forward(self, tokens):
+        batch, channels, _ = tokens.shape
+        q, k, v = self.qkv(self.norm_attention(tokens)).chunk(3, dim=-1)
+        q, k, v = [t.reshape(batch, channels, self.heads, self.head_dim).transpose(1, 2) for t in (q, k, v)]
+        weights = (q @ k.transpose(-2, -1) / self.head_dim ** 0.5).softmax(-1)
+        mixed = (weights @ v).transpose(1, 2).reshape(batch, channels, -1)
+        tokens = tokens + self.attention_out(mixed)
+        return tokens + self.feedforward(self.norm_feedforward(tokens))
 
 
-class FrequencyBandAttention(nn.Module):
-    """Shared channel-wise self-attention independently applied per band."""
-    def __init__(self, band_width: int, model_width: int, depth: int, heads: int,
-                 feedforward: int, dropout: float):
+class ForecastHead(nn.Module):
+    def __init__(self, width, horizon):
         super().__init__()
-        self.input = nn.Linear(2 * band_width, model_width)
-        layer = nn.TransformerEncoderLayer(
-            model_width, heads, feedforward, dropout, activation="gelu",
-            batch_first=True, norm_first=True,
-        )
-        self.encoder = nn.TransformerEncoder(layer, depth)
-        self.output = nn.Linear(model_width, 2 * band_width)
+        self.residual_layers = nn.ModuleList([nn.Linear(width, width) for _ in range(3)])
+        self.project = nn.Linear(width, horizon)
 
-    def forward(self, bands: torch.Tensor) -> torch.Tensor:
-        batch, count, channels, width = bands.shape
-        features = torch.cat((bands.real, bands.imag), -1).reshape(batch * count, channels, 2 * width)
-        encoded = self.output(self.encoder(self.input(features))).reshape(batch, count, channels, 2 * width)
-        real, imag = encoded.chunk(2, -1)
-        return torch.complex(real, imag)
-
-
-def split_frequency_bands(spectrum: torch.Tensor, band_width: int) -> tuple[torch.Tensor, int]:
-    """Pad and split ``(B,C,F)`` complex spectra into contiguous bands."""
-    bins = spectrum.shape[-1]
-    padded_bins = ((bins + band_width - 1) // band_width) * band_width
-    if padded_bins != bins:
-        spectrum = torch.nn.functional.pad(spectrum, (0, padded_bins - bins))
-    bands = spectrum.unfold(-1, band_width, band_width).permute(0, 2, 1, 3)
-    return bands, bins
+    def forward(self, patches):
+        values = patches.flatten(-2)
+        for layer in self.residual_layers:
+            values = values + layer(values).relu()
+        return self.project(values)
 
 
 class Model(nn.Module):
     def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M",
                  band_width=16, model_width=48, depth=2, heads=6,
                  feedforward=128, dropout=0.2, revin=True, affine=True,
-                 subtract_last=False, head_dropout=0.0):
+                 subtract_last=False, head_dropout=0.0, stride=16, head_dim=64):
         super().__init__()
-        if band_width < 1 or model_width % heads:
-            raise ValueError("band width must be positive and model_width divisible by heads")
+        if band_width > seq_len or min(band_width, stride, head_dim) < 1:
+            raise ValueError("frequency patch width must fit the lookback; stride/head_dim must be positive")
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
-        self.band_width = band_width
+        self.band_width, self.stride = band_width, stride
         self.revin = RevIN(enc_in, affine=affine, subtract_last=subtract_last, enabled=revin)
-        self.equalize = FrequencyEqualization()
-        self.band_transformer = FrequencyBandAttention(
-            band_width, model_width, depth, heads, feedforward, dropout
-        )
-        self.band_gate = nn.Sequential(nn.Linear(2 * band_width, model_width), nn.GELU(), nn.Linear(model_width, 1))
-        self.head = nn.Sequential(nn.Dropout(head_dropout), nn.Linear(seq_len, pred_len))
+        self.input_projection = nn.Sequential(nn.Linear(2 * band_width, model_width), nn.Dropout(dropout))
+        self.blocks = nn.ModuleList([ChannelBlock(model_width, heads, head_dim, feedforward, dropout) for _ in range(depth)])
+        self.output_projection = nn.Sequential(nn.Dropout(dropout), nn.Linear(model_width, 2 * model_width))
+        self.real_projection = nn.Linear(2 * model_width, 2 * model_width)
+        self.imag_projection = nn.Linear(2 * model_width, 2 * model_width)
+        patch_count = (seq_len - band_width) // stride + 1
+        self.real_head = ForecastHead(2 * model_width * patch_count, pred_len)
+        self.imag_head = ForecastHead(2 * model_width * patch_count, pred_len)
+        self.inverse_projection = nn.Linear(2 * pred_len, pred_len)
+        # Shared official head does not apply its declared head_dropout.
 
-    def frequency_debias(self, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        spectrum = torch.fft.rfft(values.transpose(1, 2), dim=-1)
-        bands, bins = split_frequency_bands(spectrum, self.band_width)
-        normalized, energy = self.equalize(bands)
-        transformed = self.band_transformer(normalized)
-        features = torch.cat((normalized.real, normalized.imag), -1).mean(2)
-        gate = torch.sigmoid(self.band_gate(features)).unsqueeze(-1)
-        debiased = (normalized + gate * transformed) * energy
-        merged = debiased.permute(0, 2, 1, 3).flatten(-2)[..., :bins]
-        return torch.fft.irfft(merged, n=self.seq_len, dim=-1), energy.squeeze(-1).squeeze(-1)
-
-    def forward(
-        self,
-        x_enc,
-        x_mark_enc=None,
-        x_dec=None,
-        x_mark_dec=None,
-    ):
+    def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.shape[1:] != (self.seq_len, self.enc_in):
             raise ValueError(f"expected (*,{self.seq_len},{self.enc_in})")
         normalized = self.revin(x_enc, "norm")
-        reconstructed, _ = self.frequency_debias(normalized)
-        forecast = self.head(reconstructed).transpose(1, 2)
+        spectrum = torch.fft.fft(normalized.transpose(1, 2), dim=-1)
+        patches = torch.cat((spectrum.real.unfold(-1, self.band_width, self.stride),
+                             spectrum.imag.unfold(-1, self.band_width, self.stride)), dim=-1)
+        batch, channels, count, _ = patches.shape
+        tokens = patches.permute(0, 2, 1, 3).reshape(batch * count, channels, -1)
+        tokens = self.input_projection(tokens)
+        for block in self.blocks:
+            tokens = block(tokens)
+        tokens = self.output_projection(tokens).reshape(batch, count, channels, -1).permute(0, 2, 1, 3)
+        real = self.real_head(self.real_projection(tokens))
+        imag = self.imag_head(self.imag_projection(tokens))
+        signal = torch.fft.ifft(torch.complex(real, imag), dim=-1)
+        forecast = self.inverse_projection(torch.cat((signal.real, signal.imag), dim=-1)).transpose(1, 2)
         return self.revin(forecast, "denorm")

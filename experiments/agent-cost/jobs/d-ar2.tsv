@@ -1,0 +1,5 @@
+# 2026-10-09 (v2): task 3 TSFLab arm on beb5f503.
+ar-etth1	tsflab@beb5f503	1	codex	gpt-6-luna	TIMEOUT_H=10
+ar-etth1	tsflab@beb5f503	2	codex	gpt-6-luna	TIMEOUT_H=10
+ar-weather	tsflab@beb5f503	1	codex	gpt-6-luna	TIMEOUT_H=10
+ar-weather	tsflab@beb5f503	2	codex	gpt-6-luna	TIMEOUT_H=10

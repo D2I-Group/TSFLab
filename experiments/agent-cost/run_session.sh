@@ -14,7 +14,7 @@
 #
 # Environment: AGENT (claude|codex), TSFLAB_COMMIT (version for tsflab* arms),
 # DATA_DIR (raw data, read-only), TIMEOUT_H (default 8),
-# MAX_RESUMES (default 2), MAX_BUDGET_USD (optional), GPU_SAMPLE_S (default 5).
+# MAX_RESUMES (default 0; search always 0), MAX_BUDGET_USD (Claude only), GPU_SAMPLE_S (default 5).
 set -euo pipefail
 
 TASK="$(realpath "${1:?usage: run_session.sh <task.json> <arm> <run-dir> [model]}")"
@@ -25,10 +25,21 @@ if [[ "$AGENT" == codex || "$AGENT" == pi ]]; then MODEL="${4:-gpt-6-luna}"; els
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="${DATA_DIR:?set DATA_DIR to the raw data directory}"
 TIMEOUT_H="${TIMEOUT_H:-8}"
-MAX_RESUMES="${MAX_RESUMES:-2}"
+MAX_RESUMES="${MAX_RESUMES:-0}"
 GPU_SAMPLE_S="${GPU_SAMPLE_S:-5}"
 
 mkdir -p "$RUN"
+KIND="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task"])' "$TASK")"
+if [[ "$KIND" == autoresearch && ( -z "${TRAIN_GPU:-}" || "${TRAIN_GPU}" == *,* ) ]]; then
+  echo "Search requires one explicitly assigned TRAIN_GPU for the session GPU budget." >&2
+  exit 2
+fi
+python3 "$HERE/session_control.py" limits "$TASK" "$TIMEOUT_H" "$MAX_RESUMES" > "$RUN/limits.json"
+read -r SESSION_LIMIT_S MAX_RESUMES < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["wall_seconds"], d["max_resumes"])' "$RUN/limits.json")
+if [[ -n "${MAX_BUDGET_USD:-}" && "$AGENT" != claude ]]; then
+  echo "MAX_BUDGET_USD is unsupported for $AGENT; use the enforced session time budget." >&2
+  exit 2
+fi
 "$HERE/make_env.sh" "$ARM" "$RUN/workspace" ${TSFLAB_COMMIT:+"$TSFLAB_COMMIT"}
 
 # Isolated agent configuration.
@@ -70,13 +81,13 @@ fi
 # The agent sees one training GPU (TRAIN_GPU), if given.
 if [[ -n "${TRAIN_GPU:-}" ]]; then export CUDA_VISIBLE_DEVICES="$TRAIN_GPU"; fi
 
-KIND="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task"])' "$TASK")"
+if [[ "$KIND" == autoresearch ]]; then export TSFLAB_EVAL_SPLIT=val; fi
 PROMPT="$(python3 "$HERE/render_prompt.py" "$TASK" "$DATA_DIR")"
 printf '%s\n' "$PROMPT" > "$RUN/prompt.txt"
 cat > "$RUN/meta.json" <<EOF
 {"task": "$(basename "$TASK")", "kind": "$KIND", "arm": "$ARM", "agent": "$AGENT", "model": "$MODEL",
  "started": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "host": "$(uname -n)", "gpu_sample_s": $GPU_SAMPLE_S,
- "tsflab_commit": "${TSFLAB_COMMIT:-$(git -C "$HERE/../.." rev-parse dev)}", "agent_version": "$AGENT_VERSION", "reasoning_effort": "${REASONING_EFFORT:-default}",
+ "tsflab_commit": "${TSFLAB_COMMIT:-$(git -C "$HERE/../.." rev-parse dev)}", "source_snapshot_sha256": "${TSFLAB_SNAPSHOT_SHA256:-}", "shared_environment": "${SHARED_VENV:-}", "agent_version": "$AGENT_VERSION", "reasoning_effort": "${REASONING_EFFORT:-default}",
  "base_url": "${CODEX_BASE_URL:-${ANTHROPIC_BASE_URL:-default}}", "train_gpu": "${TRAIN_GPU:-all}"}
 EOF
 
@@ -97,14 +108,17 @@ reap_workspace() {
   done
   return 0
 }
-trap 'kill $GPU_PID 2>/dev/null || true; reap_workspace; rm -rf "$TMPDIR"' EXIT
+SESSION_TMPDIR=""
+trap 'kill $GPU_PID 2>/dev/null || true; reap_workspace; if [[ -n "$SESSION_TMPDIR" ]]; then rm -rf "$SESSION_TMPDIR"; fi; rm -f "$RUN/config/.credentials.json" "$RUN/codex/auth.json"' EXIT
 
 export AGENT_COST_DIR="$RUN"
 # Each session gets its own temporary directory, so sessions cannot see each other's files.
 # A short private temporary directory: multiprocessing sockets live there, and AF_UNIX paths are limited to
 # 108 bytes, so a directory under the run path makes data-loader workers fail to start.
-export TMPDIR="$(mktemp -d /tmp/ac.XXXXXX)"; echo "$TMPDIR" > "$RUN/tmpdir.txt"
+SESSION_TMPDIR="$(mktemp -d /tmp/ac.XXXXXX)"
+export TMPDIR="$SESSION_TMPDIR"; echo "$TMPDIR" > "$RUN/tmpdir.txt"
 export PATH="$HERE/bin:$PATH"
+if [[ -n "${SHARED_VENV:-}" ]]; then export PYTHONPATH="$RUN/workspace/src:$RUN/workspace${PYTHONPATH:+:$PYTHONPATH}" UV_NO_SYNC=1; fi
 # TSFLab arms use the preinstalled environment as is: no re-sync to the lockfile (whose torch is the
 # CUDA 13 build) and no `uv sync`. Other arms install their own environments in make_env.sh.
 if [[ "$ARM" == tsflab* ]]; then export UV_NO_SYNC=1 PATH="$HERE/bin-tsflab:$PATH"; fi
@@ -130,7 +144,12 @@ for line in sys.stdin:
 }
 
 session_id=""
+# One deadline for the whole measured session, including optional resumes.
+SESSION_DEADLINE=$(( $(date +%s) + SESSION_LIMIT_S ))
 for attempt in $(seq 0 "$MAX_RESUMES"); do
+  ATTEMPT_EXIT=0
+  REMAINING_S=$(( SESSION_DEADLINE - $(date +%s) ))
+  [[ $REMAINING_S -gt 0 ]] || break
   if [[ $attempt -eq 0 ]]; then
     MSG="$PROMPT"
   else
@@ -140,9 +159,9 @@ for attempt in $(seq 0 "$MAX_RESUMES"); do
   if [[ "$AGENT" == pi ]]; then
     CONT=()
     [[ $attempt -gt 0 ]] && CONT=(--continue)
-    (cd "$RUN/workspace" && timeout "${TIMEOUT_H}h" pi -p --mode json --provider openai --model "$MODEL" \
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" pi -p --mode json --provider openai --model "$MODEL" \
         --thinking "${REASONING_EFFORT:-medium}" --session-dir "$RUN/pi" "${CONT[@]}" "$MSG" \
-        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || true
+        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
     session_id="$(python3 -c '
 import json, sys
 sid = ""
@@ -153,10 +172,10 @@ for l in open(sys.argv[1]):
 print(sid)' "$RUN/stream.$attempt.jsonl")"
   elif [[ "$AGENT" == codex ]]; then
     if [[ $attempt -eq 0 ]]; then CMD=(codex exec); else CMD=(codex exec resume "$session_id"); fi
-    (cd "$RUN/workspace" && timeout "${TIMEOUT_H}h" "${CMD[@]}" --json -m "$MODEL" \
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" "${CMD[@]}" --json -m "$MODEL" \
         -c model_reasoning_effort="${REASONING_EFFORT:-medium}" \
         --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$MSG" \
-        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || true
+        < /dev/null 2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
     session_id="$(python3 -c '
 import json, sys
 sid = ""
@@ -168,10 +187,10 @@ print(sid)' "$RUN/stream.$attempt.jsonl")"
   else
     RESUME_ARGS=()
     [[ $attempt -gt 0 ]] && RESUME_ARGS=(--resume "$session_id")
-    (cd "$RUN/workspace" && timeout "${TIMEOUT_H}h" claude -p "$MSG" "${RESUME_ARGS[@]}" \
+    (cd "$RUN/workspace" && timeout "${REMAINING_S}s" claude -p "$MSG" "${RESUME_ARGS[@]}" \
         --model "$MODEL" --output-format stream-json --verbose \
         --dangerously-skip-permissions --strict-mcp-config "${BUDGET_ARGS[@]}" \
-        2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || true
+        2> "$RUN/stderr.$attempt.txt" | stamp > "$RUN/stream.$attempt.jsonl") || ATTEMPT_EXIT=$?
     session_id="$(python3 -c '
 import json, sys
 sid = ""
@@ -180,11 +199,15 @@ for l in open(sys.argv[1]):
     sid = d.get("session_id", sid)
 print(sid)' "$RUN/stream.$attempt.jsonl")"
   fi
+  python3 "$HERE/session_control.py" snapshot "$RUN" "$TASK" "$attempt" "$ATTEMPT_EXIT"
   if python3 "$HERE/check_success.py" "$TASK" "$RUN/workspace" --quiet; then break; fi
+  # A bounded search can legitimately end without a winner. Never supervise it
+  # into a different, longer experiment after its first attempt.
+  [[ "$KIND" == autoresearch ]] && break
   [[ -z "$session_id" ]] && break
 done
 
 # Package: diff (including hidden code files), success, metrics.
-"$HERE/package.sh" "$TASK" "$RUN" || true
+"$HERE/package.sh" "$TASK" "$RUN"
 rm -f "$RUN/config/.credentials.json" "$RUN/codex/auth.json" 2>/dev/null || true
 echo "done: $RUN/metrics.json"

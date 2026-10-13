@@ -14,6 +14,8 @@ class ModelParameterConfig(BaseModel):
     revin: bool = True
     affine: bool = True
     subtract_last: bool = False
+    stride: int = Field(default=16, gt=0)
+    head_dim: int = Field(default=64, gt=0)
     head_dropout: float = Field(default=0.0, ge=0, lt=1)
     @model_validator(mode="after")
     def architecture(self):

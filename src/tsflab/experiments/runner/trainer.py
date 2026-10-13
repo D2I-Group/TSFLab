@@ -41,6 +41,7 @@ class TrainResult:
 
     best_model_path: str
     train_time_sec: float
+    epochs_run: int = 0
 
 
 def _collect_aux_loss(model: nn.Module) -> torch.Tensor | None:
@@ -164,6 +165,7 @@ def train(
     resume: bool = False,
     tracker=None,
     checkpoint_every_batches: int = 0,
+    min_lr: float = 0.0,
 ) -> TrainResult:
     """Train a model with early stopping and checkpointing.
 
@@ -277,6 +279,7 @@ def train(
         start_epoch, prior_elapsed, completed = state["epoch"], state["elapsed"], state["completed"]
         progress = state.get("progress")
     start_time = time.perf_counter()
+    epochs_run = start_epoch
     for epoch in range(start_epoch, epochs if not completed else start_epoch):
         epoch_losses = list(progress["losses"]) if progress else []
         skip = progress["next_batch"] if progress else 0
@@ -370,8 +373,10 @@ def train(
 
         progress = None
 
+        validation_metrics = {} if tracker else None
         vali_loss = validate(
-            model, vali_loader, device, criterion, label_len, pred_len, features
+            model, vali_loader, device, criterion, label_len, pred_len, features,
+            metrics=validation_metrics,
         )
         train_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
         current_lr = optimizer.param_groups[0].get("lr", base_lr)
@@ -386,9 +391,10 @@ def train(
         checkpoint_manager.save(model, epoch + 1, vali_loss, is_best)
         for cb in callbacks:
             cb.on_epoch_end(ctx)
+        epochs_run = epoch + 1
         completed = early_stopping.early_stop or epoch + 1 >= epochs
         if not early_stopping.early_stop:
-            adjust_learning_rate(optimizer, epoch + 1, lradj, base_lr, total_epochs)
+            adjust_learning_rate(optimizer, epoch + 1, lradj, base_lr, total_epochs, min_lr=min_lr)
         save_checkpoint(
             latest, model=model, optimizer=optimizer, scaler=scaler,
             early_stopping=early_stopping, manager=checkpoint_manager,
@@ -398,6 +404,7 @@ def train(
         )
         if tracker:
             tracker.log({"train/loss": train_loss, "validation/loss": vali_loss,
+                         **{f"validation/{key}": value for key, value in validation_metrics.items()},
                          "train/lr": current_lr, "train/elapsed_sec": prior_elapsed + time.perf_counter() - start_time}, epoch + 1)
         if early_stopping.early_stop:
             break
@@ -405,7 +412,7 @@ def train(
     train_time = prior_elapsed + time.perf_counter() - start_time
     best_model_path = f"{checkpoint_dir}/best_checkpoint.pth"
     model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
-    return TrainResult(best_model_path=best_model_path, train_time_sec=train_time)
+    return TrainResult(best_model_path=best_model_path, train_time_sec=train_time, epochs_run=epochs_run)
 
 
 def _run_compute_loss_hooks(callbacks, ctx, criterion):
@@ -546,8 +553,14 @@ def validate(
     label_len: int,
     pred_len: int,
     features: str,
+    *,
+    metrics: dict[str, float] | None = None,
 ) -> float:
-    """Evaluate validation loss for early stopping.
+    """Evaluate selection loss and optional forecast metrics in one forward pass.
+
+    When supplied, ``metrics`` receives global-element MSE and MAE. These are
+    diagnostic records; the configured criterion still controls early stopping.
+
 
     Parameters
     ----------
@@ -572,7 +585,10 @@ def validate(
         Mean validation loss.
     """
     model.eval()
-    losses = []
+    weighted_loss = 0.0
+    samples = 0
+    squared_error = absolute_error = 0.0
+    elements = 0
     with torch.no_grad():
         for batch_x, batch_y, batch_x_mark, batch_y_mark in data_loader:
             batch_x = batch_x.float().to(device)
@@ -588,6 +604,16 @@ def validate(
                 outputs, batch_y, pred_len, features
             )
             loss = criterion(outputs, batch_y_sliced)
-            losses.append(loss.item())
+            count = batch_x.shape[0]
+            weighted_loss += loss.item() * count
+            samples += count
+            if metrics is not None:
+                error = outputs - batch_y_sliced
+                squared_error += error.square().sum().item()
+                absolute_error += error.abs().sum().item()
+                elements += error.numel()
+    if metrics is not None:
+        metrics.update(mse=squared_error / elements if elements else float("nan"),
+                       mae=absolute_error / elements if elements else float("nan"))
     model.train()
-    return float(np.mean(losses))
+    return weighted_loss / samples if samples else float("nan")

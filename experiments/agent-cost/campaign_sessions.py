@@ -88,12 +88,13 @@ def record(run: Path):
         gain, reads = ar_gain(run, task, s)
         rec.update(completion=float(succ), valid=float(succ and session_valid), gain=gain, test_reads=reads,
                    final_method=s.get("method"))
-    tok = sum(sum(v.values()) for v in (m.get("tokens_by_action") or {}).values())
-    disc = (m.get("discovery") or {}).get("token_share")
-    rec.update(tokens_m=tok / 1e6, read_share=disc, cost=m.get("cost_usd_luna") or 0.0,
+    usage = m.get("usage_total")
+    tok = sum(usage.values()) if isinstance(usage, dict) else None
+    disc = None
+    rec.update(tokens_m=tok / 1e6 if tok is not None else None, read_share=disc, cost=m.get("cost_usd_luna"),
                wall_h=(m.get("wall_seconds") or 0) / 3600, gpu_h=(m.get("gpu_busy_seconds") or 0) / 3600,
                turns=m.get("turns") or 0, interventions=m.get("interventions") or 0,
-               stage_tokens=m.get("stage_tokens") or {})
+               stage_tokens=m.get("stage_tokens_by_call"))
     rec["cudnn"] = any("CUDNN_STATUS_NOT_INITIALIZED" in p.read_text(errors="ignore") for p in run.glob("stream.*.jsonl"))
     rec.update(load(run / "process.json") or {})
     q = load(run / "quality.json") or {}

@@ -1,0 +1,6 @@
+[model]
+name = "StateFlow"
+[model.params]
+enc_in = 7
+encoder_epochs = 10
+encoder_lr = 0.001

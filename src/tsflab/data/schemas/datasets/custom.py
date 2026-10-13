@@ -16,3 +16,8 @@ class DatasetParameterConfig(DatasetParameters):
     # are imputed causally (forward fill, then back fill only at the series
     # start) before scaling. Empty keeps the file as-is.
     missing_sentinels: list[float] = Field(default_factory=list)
+
+
+class WeatherParameterConfig(DatasetParameterConfig):
+    """Native Weather defaults match its supplied preset; custom CSVs stay opt-in."""
+    missing_sentinels: list[float] = Field(default_factory=lambda: [-9999.0])

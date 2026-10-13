@@ -17,7 +17,8 @@ spending compute. Design in the current Agent; no design command is required.
    frequency, channels, nodes, seq_len, pred_len, graph, train-split) and the dataset
    profile; other hyperparameters keep preset defaults or form a small, budgeted grid.
 4. Keep ablations one factor at a time unless interactions are the question. Match
-   preprocessing, training budget, evaluation strategy, and metric direction across
+   preprocessing, metric units (standardized or original), optimizer weight decay,
+   final training-batch policy, training budget, evaluation strategy and direction across
    models; disclose unavoidable capability differences.
 5. Verify the resolved matrix, run count, and parameter variation through the config
    loader and preflight (`uv run tsf run <run.toml> --dry-run --json`).

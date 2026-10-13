@@ -116,12 +116,22 @@ def _model_impl(args: list[str]) -> int:
         from tsflab.catalog.cards.show import existing, parse_show, show_card
         from tsflab.catalog.registry.models import MODEL_CATALOG
 
-        parsed = parse_show("tsf catalog show --kind model", "public model name", rest)
+        parameters_only = "--params" in rest
+        parsed = parse_show("tsf catalog show --kind model", "public model name", [arg for arg in rest if arg != "--params"])
+        lookup = parsed.name
+        if lookup not in MODEL_CATALOG.names():
+            matches = [name for name in MODEL_CATALOG.names() if name.casefold() == lookup.casefold()]
+            if len(matches) == 1:
+                lookup = matches[0]
         try:
-            spec = MODEL_CATALOG.get(parsed.name)
+            spec = MODEL_CATALOG.get(lookup)
         except KeyError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        if parameters_only:
+            print(json.dumps({"name": spec.name, "config": spec.config_path,
+                              "parameters": spec.params_schema.model_json_schema()}, separators=(",", ":")))
+            return 0
         fields = next(
             record for record in model_records(ROOT) if record["name"] == spec.name
         )
@@ -541,7 +551,7 @@ def _kinds_of(name: str) -> list[str]:
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
     found = []
-    if name in MODEL_CATALOG.names():
+    if any(candidate.casefold() == name.casefold() for candidate in MODEL_CATALOG.names()):
         found.append("model")
     if name in COMPONENT_CATALOG.names():
         found.append("component")
@@ -569,7 +579,7 @@ CATALOG_USAGE = (
     "       tsf catalog search <terms...> [--kind model|component|dataset] [--capability C] "
     "[--limit N] [--json]\n"
     "       tsf catalog list [--kind model|component|dataset] [--json]\n"
-    "       tsf catalog show <name> [--kind model|component|dataset] [--depth {0,1,2,3}] [--json]\n"
+    "       tsf catalog show <name> [--kind model|component|dataset] [--depth {0,1,2,3}] [--json] [--params: model schema only]\n"
     "       tsf catalog match <dataset> [--extra TERM...] [--top N] [--json]   models/components whose fits match\n"
     "Each search result is one L0 line: name, kind, summary, tags. `show` opens L1 by default;\n"
     "--kind is needed only when a name exists in more than one catalog."
@@ -619,6 +629,8 @@ def catalog_command(args: list[str]) -> int:
     if not names:
         print("usage: tsf catalog show <name> [--kind K] [--depth N] [--json]", file=sys.stderr)
         return 2
+    if kind is None and "--params" in rest:
+        kind = "model"
     if kind is None:
         kinds = _kinds_of(names[0])
         if not kinds:

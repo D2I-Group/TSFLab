@@ -25,6 +25,8 @@ class RollingConfig(BaseModel):
 class EvaluationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    split: Literal["val", "test"] = "test"
+
     metrics: list[str] = Field(
         default_factory=lambda: ["mae", "mse", "rmse", "mape", "mspe"]
     )
@@ -54,6 +56,9 @@ class EvaluationConfig(BaseModel):
             )
         return v
 
+    # A frozen checkpoint evaluates without pretraining or optimizer steps.
+    checkpoint_path: str | None = None
+    checkpoint_sha256: str | None = None
     enable_profile: bool = False
     # Evaluation strategy. "fixed" (default) keeps the historical fixed-window
     # evaluation untouched. "rolling" opts into a TFB-style rolling forecast.

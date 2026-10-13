@@ -11,7 +11,9 @@ Every tool call is classified by action type:
   write   writing or editing files
   run     executing code (installs, training, scripts, git, ...)
   other   bookkeeping (todo lists, stage markers, subagent launches)
-Discovery cost is the time and tokens of `read` calls. Tokens of a model turn
+Discovery time is measured for `read` calls; exact action tokens are unknown.
+Content-based token attribution is retained only in explicitly estimated fields.
+Legacy diagnostic: tokens of `read` calls were estimated. Tokens of a model turn
 are split equally over the tool calls it makes; a turn without tool calls
 counts as `reason`. Time is split into model time (from the previous event to
 the turn) and tool time (from the call to its result).
@@ -123,7 +125,9 @@ def codex_rollout_usage(run: Path, stages):
     which it happened. Returns (usage, stage_tokens) or None if there is no log.
     """
     files = sorted((run / "codex" / "sessions").rglob("*.jsonl")) if (run / "codex").exists() else []
-    points = []
+    if not files and (run / "usage-events.jsonl").exists():
+        files = [run / "usage-events.jsonl"]
+    points = defaultdict(list)
     for f in files:
         for line in f.read_text().splitlines():
             if '"token_count"' not in line:
@@ -133,29 +137,33 @@ def codex_rollout_usage(run: Path, stages):
             tu = info.get("total_token_usage")
             if not tu:
                 continue
-            points.append((parse_ts(e["timestamp"]), tu))
+            points[e.get("usage_chain", f.stem)].append((parse_ts(e["timestamp"]), tu))
     if not points:
         return None
-    points.sort(key=lambda x: (x[0], x[1].get("total_tokens", 0)))
     def split(u):
         cached = u.get("cached_input_tokens", 0) or 0
         cw = u.get("cache_write_input_tokens", 0) or 0
         return {"input": max(0, (u.get("input_tokens", 0) or 0) - cached - cw), "cache_read": cached,
                 "cache_write": cw, "output": u.get("output_tokens", 0) or 0}
-    prev = {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
-    prev_total = 0
+    usage = {"input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
     stage_tokens = defaultdict(float)
-    for t, tu in points:
-        total = tu.get("total_tokens", 0) or 0
-        if total <= prev_total:
-            continue  # repeated event, no new model call
-        cur = split(tu)
-        stage_tokens[stage_of(t, stages)] += sum(max(0, cur[k] - prev[k]) for k in cur)
-        prev, prev_total = cur, total
-    return prev, dict(stage_tokens)
+    for chain in points.values():
+        chain.sort(key=lambda x: (x[0], x[1].get("total_tokens", 0)))
+        prev = dict.fromkeys(usage, 0)
+        prev_total = 0
+        for t, tu in chain:
+            cur = split(tu)
+            total = tu.get("total_tokens") or sum(cur.values())
+            if total <= prev_total:
+                continue  # repeated event within the same conversation
+            stage_tokens[stage_of(t, stages)] += sum(max(0, cur[k] - prev[k]) for k in cur)
+            prev, prev_total = cur, total
+        for k in usage:
+            usage[k] += prev[k]
+    return usage, dict(stage_tokens)
 
 
-def analyze_codex(events, stages, run=None):
+def analyze_codex(events, stages, run=None, rollout_usage=None):
     """Token, time, and call counts of a Codex `exec --json` stream.
 
     Codex reports token usage per user turn, not per model call, so tokens are
@@ -168,16 +176,24 @@ def analyze_codex(events, stages, run=None):
     stage_chars = defaultdict(float)
     started: dict[str, float] = {}
     steps = 0
+    thread_id = "main"
+    thread_usage = {}
     for t, d in events:
         typ = d.get("type")
-        if typ == "turn.completed":
+        if typ == "thread.started":
+            thread_id = d.get("thread_id") or thread_id
+        elif typ == "turn.completed":
             u = d.get("usage") or {}
             cached = u.get("cached_input_tokens", 0) or 0
             cw = u.get("cache_write_input_tokens", 0) or 0
-            usage["input"] += max(0, (u.get("input_tokens", 0) or 0) - cached - cw)
-            usage["cache_read"] += cached
-            usage["cache_write"] += cw
-            usage["output"] += u.get("output_tokens", 0) or 0
+            # Resumed turns report conversation totals, not independent usage.
+            # Keep the largest complete snapshot; rollout logs, when present,
+            # remain authoritative and include interrupted attempts below.
+            snapshot = {"input": max(0, (u.get("input_tokens", 0) or 0) - cached - cw),
+                        "cache_read": cached, "cache_write": cw,
+                        "output": u.get("output_tokens", 0) or 0}
+            if sum(snapshot.values()) > sum(thread_usage.get(thread_id, {}).values()):
+                thread_usage[thread_id] = snapshot
         elif typ == "item.started":
             started[(d.get("item") or {}).get("id", "")] = t
         elif typ == "item.completed":
@@ -204,10 +220,13 @@ def analyze_codex(events, stages, run=None):
                 secs[c] += t - started.pop(it.get("id", ""), t)
             chars[c] += n
             stage_chars[stage_of(t, stages)] += n
-    rollout = codex_rollout_usage(run, stages) if run is not None else None
+    usage = {k: sum(u.get(k, 0) for u in thread_usage.values()) for k in usage}
+    rollout = rollout_usage if rollout_usage is not None else (codex_rollout_usage(run, stages) if run is not None else None)
     if rollout is not None:
         usage = rollout[0]
     total = sum(usage.values())
+    if not chars:
+        chars["unattributed"] = 1
     all_chars = sum(chars.values()) or 1
     tokens = {c: {k: v * n / all_chars for k, v in usage.items()} for c, n in chars.items()}
     luna = sum(usage[k] * LUNA[k] for k in usage) / 1e6
@@ -268,11 +287,32 @@ def analyze_pi(events, stages):
             chars[c] += n
             stage_chars[stage_of(t, stages)] += n
     total = sum(usage.values())
+    if not chars:
+        chars["unattributed"] = 1
     all_chars = sum(chars.values()) or 1
     tokens = {c: {k: v * n / all_chars for k, v in usage.items()} for c, n in chars.items()}
     luna = sum(usage[k] * LUNA[k] for k in usage) / 1e6
     stage_tokens = {s: total * n / all_chars for s, n in stage_chars.items()}
     return tokens, secs, calls, luna, steps, stage_tokens, usage
+
+
+def claude_native_usage(events):
+    """Deduplicate native Claude result/message usage, without output-size estimates."""
+    results, messages = {}, {}
+    for _, event in events:
+        if event.get("type") == "result" and isinstance(event.get("usage"), dict):
+            key = event.get("uuid") or json.dumps({"session_id": event.get("session_id"), "usage": event["usage"], "duration_ms": event.get("duration_ms")}, sort_keys=True)
+            results[key] = event["usage"]
+        elif event.get("type") == "assistant":
+            message = event.get("message") or {}
+            if message.get("usage") and message.get("id"):
+                messages[message["id"]] = message["usage"]
+    rows = list((results or messages).values())
+    if not rows:
+        return None
+    fields = {"input": "input_tokens", "cache_read": "cache_read_input_tokens",
+              "cache_write": "cache_creation_input_tokens", "output": "output_tokens"}
+    return {key: sum(row.get(native, 0) or 0 for row in rows) for key, native in fields.items()}
 
 
 def main() -> None:
@@ -292,6 +332,7 @@ def main() -> None:
     calls = defaultdict(int)
     tool_start: dict[str, tuple[float, str]] = {}
     cost = 0.0
+    reported_cost_by_session = {}
     turns = 0
     asks = 0
     out_total = 0
@@ -330,7 +371,12 @@ def main() -> None:
                     t0, c = tool_start.pop(b["tool_use_id"])
                     secs[c] += t - t0
         elif typ == "result":
-            cost += d.get("total_cost_usd", 0) or 0
+            # Claude resume reports a cumulative conversation estimate.
+            chain = d.get("session_id") or "unknown-session"
+            reported_cost_by_session[chain] = max(
+                reported_cost_by_session.get(chain, 0), d.get("total_cost_usd", 0) or 0
+            )
+            cost = sum(reported_cost_by_session.values())
             turns += d.get("num_turns", 0) or 0
             out_total += (d.get("usage") or {}).get("output_tokens", 0) or 0
             results.append({k: d.get(k) for k in ("subtype", "is_error", "duration_ms", "num_turns")})
@@ -366,12 +412,25 @@ def main() -> None:
         stage_tokens[stage_of(g["t1"], stages)] += sum(parts.values())
 
     usage_total = None
+    rollout_usage = codex_rollout_usage(run, stages) if is_codex else None
     if is_codex:
-        tokens, secs, calls, luna, turns, stage_tokens, usage_total = analyze_codex(events, stages, run)
+        tokens, secs, calls, luna, turns, stage_tokens, usage_total = analyze_codex(events, stages, rollout_usage=rollout_usage)
         tokens = defaultdict(dict, tokens)
     elif is_pi:
         tokens, secs, calls, luna, turns, stage_tokens, usage_total = analyze_pi(events, stages)
         tokens = defaultdict(dict, tokens)
+
+    if not is_codex and not is_pi:
+        usage_total = claude_native_usage(events)
+        luna = sum(usage_total[k] * LUNA[k] for k in usage_total) / 1e6 if usage_total is not None else None
+
+    if is_pi and not any(d.get("type") == "message_end" and
+                         (d.get("message") or {}).get("role") == "assistant" and
+                         (d.get("message") or {}).get("usage") for _, d in events):
+        usage_total, luna = None, None
+    if is_codex and rollout_usage is None and not any(
+            d.get("type") == "turn.completed" and d.get("usage") for _, d in events):
+        usage_total, luna = None, None
 
     wall = (events[-1][0] - events[0][0]) if events else 0.0
     total_tok = {c: sum(v.values()) for c, v in tokens.items()}
@@ -439,27 +498,44 @@ def main() -> None:
         "wall_seconds": wall,
         "cost_usd_reported": cost,
         "cost_usd_luna": luna,
+        "cost_usd_luna_basis": "normalized_api_list_price_estimate_not_actual_bill",
+        "cost_usd_reported_basis": "cli_reported_estimate_not_verified_bill",
+        "actual_billed_usd": None,
+        "authentication_mode": meta.get("authentication_mode", "unknown"),
         "usage_total": usage_total,
+        "action_token_attribution": "unknown; content-share estimates are separate diagnostics",
+        "exact_core_tokens": None,
+        "usage_source": ("codex_usage_events" if is_codex and rollout_usage is not None
+                         else "codex_complete_turn_maximum_lower_bound" if is_codex
+                         else "pi_message_usage" if is_pi else "claude_stream"),
+        "terminal": json.loads((run / "terminal.json").read_text()) if (run / "terminal.json").exists() else None,
+        "limits": json.loads((run / "limits.json").read_text()) if (run / "limits.json").exists() else None,
         "turns": turns,
         "interventions": interventions,
         "agent_questions": asks,
         "tool_calls": dict(calls),
-        "tokens_by_action": {c: {k: round(v) for k, v in t.items()} for c, t in tokens.items()},
-        "token_share_by_action": {c: v / all_tok for c, v in total_tok.items()},
+        "tokens_by_action": None,
+        "estimated_tokens_by_action": {c: {k: round(v) for k, v in t.items()} for c, t in tokens.items()},
+        "token_share_by_action": None,
+        "estimated_token_share_by_action": {c: v / all_tok for c, v in total_tok.items()},
         "seconds_by_action": dict(secs),
         "discovery": {
-            "tokens": round(total_tok.get("read", 0)),
-            "token_share": total_tok.get("read", 0) / all_tok,
+            "tokens": None,
+            "token_share": None,
+            "estimated_tokens": round(total_tok.get("read", 0)),
+            "estimated_token_share": total_tok.get("read", 0) / all_tok,
             "seconds": secs.get("read", 0.0),
             "calls": calls.get("read", 0),
         },
         "stage_seconds": stage_secs,
-        "stage_tokens": {k: round(v) for k, v in stage_tokens.items()},
+        "stage_tokens": ({k: round(v) for k, v in rollout_usage[1].items()} if rollout_usage is not None else None),
+        "stage_tokens_basis": "native call-time usage deltas" if rollout_usage is not None else "unknown",
+        "estimated_stage_tokens": {k: round(v) for k, v in stage_tokens.items()},
         # Tokens of each model call, by the stage in which the call happened (Codex only).
         # stage_tokens instead splits the session total by the content each stage brought
         # into the context, which is what the discovery cost measures.
-        "stage_tokens_by_call": ({k: round(v) for k, v in r[1].items()}
-                                 if is_codex and (r := codex_rollout_usage(run, stages)) else None),
+        "stage_tokens_by_call": ({k: round(v) for k, v in rollout_usage[1].items()}
+                                 if rollout_usage is not None else None),
         "gpu_busy_seconds": gpu_busy,
         "code_changes": dict(code),
         "sessions": results,

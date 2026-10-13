@@ -3,12 +3,13 @@
 ```bash
 uv run tsf data analyze <preset>                 # configs/datasets/<preset>.toml
 uv run tsf data analyze --path <file|store-dir> [--split-ratio 0.7 0.1 0.2] [--freq 10min]
-uv run tsf data analyze <preset> --json          # print JSON instead of markdown
+uv run tsf data analyze <preset> --json --compact          # print JSON instead of markdown
 uv run tsf data analyze <preset> --write-card    # record fired data terms in the dataset card
 ```
 
 Outputs `work_dirs/profiles/<name>/profile.json` and `profile.md` (`--out DIR` to move).
-Profiles read the preset's own chronological split with unscaled values. Presets whose
+Profiles use unscaled values and omit test statistics by default. `--include-test`
+is an explicit diagnostic option after decisions are frozen; never use it in search. Presets whose
 loader has no date column need `--freq` for period tags (for example `solar` is `10min`).
 `tsf data inspect` is the older per-split TFB characteristics table; use `analyze`
 for decisions.

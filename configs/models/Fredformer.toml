@@ -13,3 +13,5 @@ revin = true
 affine = true
 subtract_last = false
 head_dropout = 0.0
+stride = 16
+head_dim = 64

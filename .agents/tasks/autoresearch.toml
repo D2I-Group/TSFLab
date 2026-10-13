@@ -5,7 +5,7 @@ skills = ["run-autoresearch"]
 acceptance = [
   "Profile every approved dataset with the dataset analyzer before choosing models, and retrieve candidates with `tsf catalog match` on its characteristics.",
   "State falsifiable hypotheses tied to profile facts and a fixed validation-based selection rule before execution.",
-  "Evaluate a baseline panel first; preview every resolved run matrix and stay within the declared run budget.",
+  "Evaluate a baseline panel first; validate each matrix through the runner and stay within the declared run budget.",
   "Change one experimental factor per iteration; preserve failed runs; never select on test metrics.",
   "Confirm finalists with multiple seeds and return evidence, uncertainty, limitations, and a stop/continue recommendation.",
   "Register a recombined winner as a catalog model only when separately authorized, with composition provenance and a passed admission (`tsf model add --verify`).",
@@ -18,12 +18,20 @@ against dataset characteristics), then the catalog shortest card level first,
 run the baseline panel, and search from the best baseline by changing one slot
 (normalization, decomposition, temporal backbone, channel strategy, head, loss) per
 iteration. Set data-dependent parameters from card [data_params] and the profile;
-tune generic hyperparameters yourself within the run budget. Choose by validation behavior only, confirm finalists over seeds, record
+tune generic hyperparameters yourself within the run budget. Read local validation
+results with `tsf result board --dataset <dataset> --split val`; never rank search
+candidates against published test metrics. Keep the strongest baseline eligible as
+the final incumbent; select across baseline and derived candidates by validation,
+and report no discovery gain when a baseline wins. Confirm finalists over seeds, record
 hypotheses, decisions, runs, and conclusions in the research round, never overwrite
 outputs, and stop on budget exhaustion, repeated infrastructure failure, or lack of
-measurable progress. Heavy runs execute on GPU machines or CI: preview each matrix,
-hand off the exact command, and continue from the returned records and round events;
-never train locally.
+measurable progress. Heavy runs execute on GPU machines or CI: the runner validates each matrix,
+then executes on the authorized run machine and wait on the original process (or use
+`tsf run wait DIRECTORY --json`); do not repeatedly inspect healthy logs or GPUs.
+Baseline, screening and seed confirmation use `--eval-split val`; evaluate frozen
+finalists using `tsf run evaluate RUN_DIRECTORY... --eval-split test` without
+retraining, only after selection. On a design-only local
+machine, hand off the exact command and report pending results; never train locally.
 """
 
 [inputs.question]

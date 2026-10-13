@@ -36,7 +36,8 @@ def row(run: Path) -> dict:
     va, vb, vc = ra.get("valid"), rb.get("valid"), rc.get("valid")
     gains = [g for g in (s.get("gains") or []) if "gain" in g]
     pg = [g for g in (s.get("gains") or []) if "paper_gain" in g]
-    tok = sum(sum(v.values()) for v in (m.get("tokens_by_action") or {}).values())
+    usage = m.get("usage_total")
+    tok = sum(usage.values()) if isinstance(usage, dict) else None
     calls = m.get("tool_calls") or {}
     code = (m.get("code_changes") or {}).get("code", {})
     errs = (ra.get("discovery_errors") or []) if isinstance(ra.get("discovery_errors"), list) else []
@@ -53,8 +54,8 @@ def row(run: Path) -> dict:
         "gain": round(sum(g["gain"] for g in gains) / len(gains), 4) if gains else None,
         "paper_gain": round(sum(g["paper_gain"] for g in pg) / len(pg), 4) if pg else None,
         "wall_h": round((m.get("wall_seconds") or 0) / 3600, 3), "gpu_busy_h": round((m.get("gpu_busy_seconds") or 0) / 3600, 3),
-        "tokens_m": round(tok / 1e6, 3), "cost_usd_luna": round(m.get("cost_usd_luna") or 0, 4),
-        "discovery_share": round((m.get("discovery") or {}).get("token_share") or 0, 3),
+        "tokens_m": round(tok / 1e6, 3) if tok is not None else None, "cost_usd_luna": round(m["cost_usd_luna"], 4) if m.get("cost_usd_luna") is not None else None,
+        "discovery_share": None,
         "read_calls": calls.get("read", 0), "write_calls": calls.get("write", 0), "run_calls": calls.get("run", 0),
         "interventions": m.get("interventions"), "code_lines_added": code.get("added", 0),
         "discovery_errors": len(errs),
