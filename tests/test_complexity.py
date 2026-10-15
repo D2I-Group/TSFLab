@@ -38,3 +38,19 @@ def test_code_lines_skip_blank_lines_comments_and_docstrings():
 
 def test_repository_passes_complexity_audit():
     assert ca.audit_complexity() == []
+
+
+def test_functions_nested_in_blocks_are_measured(tmp_path: Path):
+    path = tmp_path / "nested.py"
+    branches = "\n".join(f"            if x == {i}:\n                return {i}" for i in range(3))
+    path.write_text(f"def outer():\n    with open('f'):\n        def inner(x):\n{branches}\n")
+    assert [name for name, _, _ in ca.function_complexities(path)] == ["outer", "outer.inner"]
+
+
+def test_audit_covers_framework_modules(tmp_path: Path):
+    pkg = tmp_path / "src" / "tsflab" / "cli"
+    pkg.mkdir(parents=True)
+    (tmp_path / "src" / "tsflab" / "models").mkdir()
+    branches = "\n".join(f"    if x == {i}:\n        return {i}" for i in range(ca.MAX_FUNCTION_COMPLEXITY + 1))
+    (pkg / "command.py").write_text(f"def f(x):\n{branches}\n")
+    assert any("src/tsflab/cli/command.py" in e for e in ca.audit_complexity(tmp_path))

@@ -1,19 +1,20 @@
-"""Static audit of code complexity in the method layer.
+"""Static audit of code complexity.
 
-Two limits keep the codebase from growing more complex as methods are added:
+Two limits keep the codebase from growing more complex as methods and features are added:
 
-* every function in ``src/tsflab/models`` has a cyclomatic complexity of at most
-  ``MAX_FUNCTION_COMPLEXITY`` (one plus the branch points, as in McCabe's measure);
+* every function in ``src/tsflab``, nested functions included, has a cyclomatic
+  complexity of at most ``MAX_FUNCTION_COMPLEXITY`` (one plus the branch points, as in
+  McCabe's measure);
 * every method package (``src/tsflab/models/<method>/``) has at most
   ``MAX_METHOD_LINES`` lines of code (blank lines, comments, and docstrings are not
   counted, so the limit does not depend on formatting).
 
-The limits sit just above the code after the 2026-10 refactor (functions up to 9,
-method packages up to 440 lines of code), so the existing methods pass and a change that adds
+The limits sit just above the code after the 2026-10 refactors (functions up to 10,
+method packages up to 440 lines of code), so the existing code passes and a change that adds
 a more complex function or a larger method is asked to split it, to reuse shared
 components, or to move parameter checks into the params schema. Shared components
-(``_components``) and other private
-packages follow the function limit only.
+(``_components``), other private model packages, and the framework outside
+``src/tsflab/models`` follow the function limit only.
 """
 
 from __future__ import annotations
@@ -77,6 +78,8 @@ def function_complexities(path: Path) -> list[tuple[str, int, int]]:
                 visit(child, f"{name}.")
             elif isinstance(child, ast.ClassDef):
                 visit(child, f"{prefix}{child.name}.")
+            else:
+                visit(child, prefix)
 
     visit(tree, "")
     return out
@@ -104,9 +107,9 @@ def code_lines(source: str) -> int:
     return len(lines - _docstring_lines(ast.parse(source)))
 
 
-def _function_errors(root: Path, models: Path) -> list[str]:
+def _function_errors(root: Path, package: Path) -> list[str]:
     errors: list[str] = []
-    for path in sorted(models.rglob("*.py")):
+    for path in sorted(package.rglob("*.py")):
         rel = path.relative_to(root)
         for name, line, cc in function_complexities(path):
             if cc > MAX_FUNCTION_COMPLEXITY:
@@ -131,8 +134,8 @@ def _method_size_errors(root: Path, models: Path) -> list[str]:
 
 def audit_complexity(root: Path | None = None) -> list[str]:
     root = root or repository_root()
-    models = root / "src" / "tsflab" / "models"
-    return _function_errors(root, models) + _method_size_errors(root, models)
+    package = root / "src" / "tsflab"
+    return _function_errors(root, package) + _method_size_errors(root, package / "models")
 
 
 def main() -> int:
