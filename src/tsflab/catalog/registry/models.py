@@ -27,6 +27,11 @@ class ModelArtifact:
             raise ValueError("artifact name, revision, and filename must be non-empty")
         if len(self.sha256) != 64 or any(c not in "0123456789abcdef" for c in self.sha256):
             raise ValueError(f"artifact {self.name!r} needs a lowercase SHA-256 digest")
+        self._check_url()
+        if "/" in self.filename or "\\" in self.filename:
+            raise ValueError(f"artifact {self.name!r} filename must be a basename")
+
+    def _check_url(self) -> None:
         if not self.url.startswith(("hf://", "https://", "file://")):
             raise ValueError(f"artifact {self.name!r} URL must use hf://, https://, or file://")
         if self.url.startswith("hf://"):
@@ -36,8 +41,6 @@ class ModelArtifact:
                 raise ValueError(f"artifact {self.name!r} hf:// URI must be pinned to its revision")
         elif self.url.startswith("https://") and self.revision not in self.url:
             raise ValueError(f"artifact {self.name!r} URL must contain its pinned revision")
-        if "/" in self.filename or "\\" in self.filename:
-            raise ValueError(f"artifact {self.name!r} filename must be a basename")
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,10 @@ class ModelSpec:
             raise ValueError(f"model {self.name!r} declares no supported task mode")
         if len(set(self.components)) != len(self.components):
             raise ValueError(f"model {self.name!r} declares duplicate components")
+        self._check_training()
+        self._check_artifacts()
+
+    def _check_training(self) -> None:
         if self.training_objective is not None and not callable(self.training_objective):
             raise TypeError(f"model {self.name!r} training_objective must be callable")
         if self.training_setup is not None:
@@ -93,6 +100,8 @@ class ModelSpec:
                 raise ValueError(f"model {self.name!r} cannot be inference-only and pretraining-stage")
             if self.training_objective is not None:
                 raise ValueError(f"model {self.name!r} cannot be inference-only with a training objective")
+
+    def _check_artifacts(self) -> None:
         artifact_names = [artifact.name for artifact in self.artifacts]
         if len(set(artifact_names)) != len(artifact_names):
             raise ValueError(f"model {self.name!r} declares duplicate artifacts")

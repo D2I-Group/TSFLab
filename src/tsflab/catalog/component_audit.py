@@ -60,16 +60,8 @@ def component_dependency_closure(names: set[str]) -> tuple[str, ...]:
     return tuple(sorted(resolved))
 
 
-def audit_components() -> list[str]:
-    """Return component-package and consumer-import inconsistencies.
-
-    The catalog is derived from the packages, so names and modules cannot drift;
-    what remains is what a package or card can get wrong.
-    """
-    errors: list[str] = list(COMPONENT_CATALOG.problems())
-    catalog_names = set(COMPONENT_CATALOG.names())
-    ignored = {"__init__"}
-
+def _source_claim_problems() -> list[str]:
+    errors: list[str] = []
     derived_source_claim = re.compile(r"\b(?:ported|copied)\s+from\b", re.IGNORECASE)
     for path in sorted(COMPONENTS.glob("*/__init__.py")):
         text = path.read_text(encoding="utf-8")
@@ -78,7 +70,11 @@ def audit_components() -> list[str]:
                 f"{path.relative_to(ROOT)} claims copied or ported source; "
                 "shared components must be independently implemented or carry audited provenance"
             )
+    return errors
 
+
+def _spec_problems() -> list[str]:
+    errors: list[str] = []
     for spec in COMPONENT_CATALOG.specs():
         if not spec.contract:
             errors.append(f"component {spec.name!r} has no card role (its semantic contract)")
@@ -88,7 +84,13 @@ def audit_components() -> list[str]:
             errors.append(f"component {spec.name!r} has duplicate card tags")
         if not spec.public_symbols:
             errors.append(f"component {spec.name!r} exports no public symbols")
+    return errors
 
+
+def _consumer_problems(catalog_names: set[str]) -> tuple[list[str], set[str]]:
+    """Imports of uncataloged components, and the set of components that are imported."""
+    errors: list[str] = []
+    ignored = {"__init__"}
     consumers = list((ROOT / "src" / "tsflab" / "models").rglob("*.py"))
     consumers += list(COMPONENTS.glob("*/__init__.py"))
     used: set[str] = set()
@@ -99,7 +101,21 @@ def audit_components() -> list[str]:
             used.add(name)
             if name not in catalog_names:
                 errors.append(f"{path.relative_to(ROOT)} imports uncataloged component {name!r}")
+    return errors, used
 
+
+def audit_components() -> list[str]:
+    """Return component-package and consumer-import inconsistencies.
+
+    The catalog is derived from the packages, so names and modules cannot drift;
+    what remains is what a package or card can get wrong.
+    """
+    errors: list[str] = list(COMPONENT_CATALOG.problems())
+    catalog_names = set(COMPONENT_CATALOG.names())
+    errors += _source_claim_problems()
+    errors += _spec_problems()
+    consumer_errors, used = _consumer_problems(catalog_names)
+    errors += consumer_errors
     for name in sorted(catalog_names - used):
         errors.append(f"component {name!r} has no model or component consumer")
     return errors

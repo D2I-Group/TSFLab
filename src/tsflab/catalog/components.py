@@ -48,6 +48,10 @@ class ComponentMatch:
     matched_terms: tuple[str, ...]
 
 
+def _assignment_targets(node: ast.stmt) -> list[ast.expr]:
+    return node.targets if isinstance(node, ast.Assign) else ([node.target] if isinstance(node, ast.AnnAssign) else [])
+
+
 def public_symbols(init_file: Path) -> tuple[str, ...]:
     """Return ``__all__`` or the public top-level names of a module, read statically."""
     tree = ast.parse(init_file.read_text(encoding="utf-8"))
@@ -56,10 +60,7 @@ def public_symbols(init_file: Path) -> tuple[str, ...]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names.append(node.name)
             continue
-        targets = (
-            node.targets if isinstance(node, ast.Assign) else ([node.target] if isinstance(node, ast.AnnAssign) else [])
-        )
-        for target in targets:
+        for target in _assignment_targets(node):
             if not isinstance(target, ast.Name):
                 continue
             if target.id == "__all__" and node.value is not None:

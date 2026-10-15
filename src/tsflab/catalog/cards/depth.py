@@ -183,19 +183,27 @@ def render_text(
         parts.append("Runtime facts:\n" + "\n".join(f"- {key}: {_format_fact(value)}" for key, value in facts.items()))
     parts.append(front_matter_text(card))
     parts.append(card.body.rstrip())
+    tail = _reference_part(card, depth)
+    if tail is not None:
+        parts.append(tail)
+    return "\n\n".join(parts) + "\n"
+
+
+def _reference_part(card: Card, depth: int) -> str | None:
+    """The reference at L2, or at L1 the hint of what the next depths add."""
     if depth == 2 and card.reference:
-        parts.append(card.reference.rstrip())
-    elif depth == 1 and card.reference:
+        return card.reference.rstrip()
+    if depth == 1 and card.reference:
         from tsflab.catalog.cards.store import split_sections as _split
 
         titles = ", ".join(title for title, _ in _split(card.reference))
-        parts.append(
+        return (
             f"Next: --depth 2 adds reference.md ({titles}; ~{approx_tokens(card.reference)} tokens); "
             "--depth 3 lists the files to open."
         )
-    elif depth == 1:
-        parts.append("Next: --depth 3 lists the files to open (this card has no reference.md).")
-    return "\n\n".join(parts) + "\n"
+    if depth == 1:
+        return "Next: --depth 3 lists the files to open (this card has no reference.md)."
+    return None
 
 
 def _format_fact(value: object) -> str:

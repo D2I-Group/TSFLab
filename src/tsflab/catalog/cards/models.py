@@ -43,12 +43,17 @@ def _composition_problems(entries: list[object], where: str) -> list[str]:
         if value == "none":
             continue
         for part in value.split("+"):
-            if not _PART.match(part):
-                problems.append(f"{where} composition {slot}: {part!r} is not component:/local:/loss: or none")
-                continue
-            kind, name = part.split(":", 1)
-            if kind == "component" and name not in components:
-                problems.append(f"{where} composition {slot}: unknown component {name!r}")
-            if kind == "loss" and (slot != "loss" or name not in losses):
-                problems.append(f"{where} composition {slot}: {part!r} is not a registered loss in the loss slot")
+            problems += _part_problems(where, slot, part, components, losses)
+    return problems
+
+
+def _part_problems(where: str, slot: str, part: str, components: set[str], losses: set[str]) -> list[str]:
+    if not _PART.match(part):
+        return [f"{where} composition {slot}: {part!r} is not component:/local:/loss: or none"]
+    problems: list[str] = []
+    kind, name = part.split(":", 1)
+    if kind == "component" and name not in components:
+        problems.append(f"{where} composition {slot}: unknown component {name!r}")
+    if kind == "loss" and (slot != "loss" or name not in losses):
+        problems.append(f"{where} composition {slot}: {part!r} is not a registered loss in the loss slot")
     return problems

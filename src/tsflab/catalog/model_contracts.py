@@ -102,12 +102,23 @@ def _forward_contract(
         output = call_forecaster(model, x, x_mark, dec, dec_mark)
     if isinstance(output, tuple):
         output = output[0]
+    _check_output(output, task, batch)
+    _check_output_type(model, spec, output)
+    if backward and "inference-only" not in spec.capabilities:
+        _check_backward(model, spec, task, output, x, channels=channels, batch=batch)
+    return output.detach()
+
+
+def _check_output(output, task, batch: int) -> None:
     if not torch.is_tensor(output):
         raise TypeError(f"forward returned {type(output).__name__}, expected Tensor")
     if output.shape[0] != batch or output.shape[1] != task.pred_len:
         raise ValueError(f"output shape {tuple(output.shape)} violates (B, pred_len, ...) contract")
     if not torch.isfinite(output).all():
         raise ValueError("forward output contains NaN or Inf")
+
+
+def _check_output_type(model, spec: ModelSpec, output: torch.Tensor) -> None:
     output_type = getattr(model, "output_type", spec.output_type)
     if output_type != spec.output_type:
         raise ValueError(f"model output_type={output_type!r} disagrees with ModelSpec output_type={spec.output_type!r}")
@@ -118,28 +129,41 @@ def _forward_contract(
     if output_type == "distribution":
         if output.ndim != 4 or output.shape[-1] != 2:
             raise ValueError(f"distribution model must return (B, T, C, 2), got {tuple(output.shape)}")
-    if backward and "inference-only" not in spec.capabilities:
-        if spec.training_objective is not None:
-            # Training goes through the declared objective (for example a
-            # diffusion loss while ``forward`` samples without gradients), so
-            # back-propagate its loss rather than the forward output.
-            loss, x = _objective_loss(model, spec, task, channels, batch=batch)
-            loss.backward()
-        else:
-            if not output.requires_grad:
-                raise ValueError("forward output is detached; training cannot backpropagate")
-            output.float().mean().backward()
-        trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
-        gradients = [parameter.grad for parameter in trainable_parameters if parameter.grad is not None]
-        if trainable_parameters and not gradients:
-            raise ValueError("backward produced no parameter gradients")
-        if not trainable_parameters:
-            if x.grad is None:
-                raise ValueError("parameter-free backward produced no input gradient")
-            gradients = [x.grad]
-        if not all(torch.isfinite(gradient).all() for gradient in gradients):
-            raise ValueError("backward produced NaN or Inf gradients")
-    return output.detach()
+
+
+def _check_backward(
+    model, spec: ModelSpec, task, output: torch.Tensor, x: torch.Tensor, *, channels: int, batch: int
+) -> None:
+    if spec.training_objective is not None:
+        # Training goes through the declared objective (for example a
+        # diffusion loss while ``forward`` samples without gradients), so
+        # back-propagate its loss rather than the forward output.
+        loss, x = _objective_loss(model, spec, task, channels, batch=batch)
+        loss.backward()
+    else:
+        if not output.requires_grad:
+            raise ValueError("forward output is detached; training cannot backpropagate")
+        output.float().mean().backward()
+    _check_gradients(model, x)
+
+
+def _backward_gradients(model, x: torch.Tensor) -> list[torch.Tensor]:
+    """Parameter gradients, or the input gradient of a parameter-free model."""
+    trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    gradients = [parameter.grad for parameter in trainable_parameters if parameter.grad is not None]
+    if trainable_parameters and not gradients:
+        raise ValueError("backward produced no parameter gradients")
+    if not trainable_parameters:
+        if x.grad is None:
+            raise ValueError("parameter-free backward produced no input gradient")
+        gradients = [x.grad]
+    return gradients
+
+
+def _check_gradients(model, x: torch.Tensor) -> None:
+    gradients = _backward_gradients(model, x)
+    if not all(torch.isfinite(gradient).all() for gradient in gradients):
+        raise ValueError("backward produced NaN or Inf gradients")
 
 
 class _SyntheticWindows(torch.utils.data.Dataset):
@@ -248,6 +272,44 @@ def _state_dict_round_trip(
     torch.testing.assert_close(actual, expected)
 
 
+def _contract_stages(spec: ModelSpec, cfg, task, params: dict, *, forward: bool, backward: bool, strict: bool):
+    """Construct the model for each contract seed and run the requested checks.
+
+    Yields the name of each check stage just before it runs, so a caller that
+    catches a failure knows the stage it happened in.
+    """
+    execute_forward = forward or backward or strict
+    for seed in spec.contract_seeds if execute_forward else spec.contract_seeds[:1]:
+        torch.manual_seed(seed)
+        with contextlib.redirect_stdout(io.StringIO()):
+            model = _build_model(spec, cfg, params)
+        if execute_forward:
+            yield from _executed_stages(model, spec, cfg, task, params, seed, backward=backward, strict=strict)
+        del model
+
+
+def _executed_stages(model, spec: ModelSpec, cfg, task, params: dict, seed: int, *, backward: bool, strict: bool):
+    yield f"{'backward' if backward else 'forward'}(seed={seed})"
+    with contextlib.redirect_stdout(io.StringIO()):
+        _forward_contract(
+            model,
+            spec,
+            task,
+            spec.validate_params(params),
+            backward=backward or strict,
+        )
+    if strict:
+        yield f"strict-round-trip(seed={seed})"
+        with contextlib.redirect_stdout(io.StringIO()):
+            _state_dict_round_trip(
+                model,
+                spec,
+                cfg,
+                task,
+                spec.validate_params(params),
+            )
+
+
 def audit_model_contracts(
     names: list[str] | None = None,
     *,
@@ -269,32 +331,8 @@ def audit_model_contracts(
             cfg = SimpleNamespace(task=task, evaluation=EvaluationConfig())
             params = _params_for(spec)
             stage = "construct"
-            execute_forward = forward or backward or strict
-            for seed in spec.contract_seeds if execute_forward else spec.contract_seeds[:1]:
-                torch.manual_seed(seed)
-                with contextlib.redirect_stdout(io.StringIO()):
-                    model = _build_model(spec, cfg, params)
-                if execute_forward:
-                    stage = f"{'backward' if backward else 'forward'}(seed={seed})"
-                    with contextlib.redirect_stdout(io.StringIO()):
-                        _forward_contract(
-                            model,
-                            spec,
-                            task,
-                            spec.validate_params(params),
-                            backward=backward or strict,
-                        )
-                    if strict:
-                        stage = f"strict-round-trip(seed={seed})"
-                        with contextlib.redirect_stdout(io.StringIO()):
-                            _state_dict_round_trip(
-                                model,
-                                spec,
-                                cfg,
-                                task,
-                                spec.validate_params(params),
-                            )
-                del model
+            for stage in _contract_stages(spec, cfg, task, params, forward=forward, backward=backward, strict=strict):
+                pass
         except Exception as exc:
             failures.append(ContractFailure(name, stage, f"{type(exc).__name__}: {exc}"))
         finally:

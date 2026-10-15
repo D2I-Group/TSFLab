@@ -86,15 +86,23 @@ def _import_aliases(tree: ast.Module) -> dict[str, str]:
     aliases: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                root = alias.name.split(".")[0]
-                if root in _LIBRARIES:
-                    aliases[alias.asname or root] = alias.name if alias.asname else root
+            _add_import(aliases, node)
         elif isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.split(".")[0] in _LIBRARIES:
-                for alias in node.names:
-                    aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+            _add_import_from(aliases, node)
     return aliases
+
+
+def _add_import(aliases: dict[str, str], node: ast.Import) -> None:
+    for alias in node.names:
+        root = alias.name.split(".")[0]
+        if root in _LIBRARIES:
+            aliases[alias.asname or root] = alias.name if alias.asname else root
+
+
+def _add_import_from(aliases: dict[str, str], node: ast.ImportFrom) -> None:
+    if node.module.split(".")[0] in _LIBRARIES:
+        for alias in node.names:
+            aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
 
 
 def _dotted(node: ast.AST) -> list[str] | None:
@@ -129,68 +137,19 @@ class _Canonicalizer:
 
     def visit(self, node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            self.tokens.append(type(node).__name__)
-            body = node.body
-            if (
-                body
-                and isinstance(body[0], ast.Expr)
-                and isinstance(getattr(body[0], "value", None), ast.Constant)
-                and isinstance(body[0].value.value, str)
-            ):
-                body = body[1:]  # docstring
-            if isinstance(node, ast.ClassDef):
-                for base in node.bases:
-                    self.visit(base)
-            else:
-                self.visit(node.args)
-            for child in body:
-                self.visit(child)
+            self._visit_definition(node)
             return
         if isinstance(node, (ast.Attribute, ast.Name)):
-            chain = _dotted(node)
-            if chain is not None:
-                library = self._library(chain)
-                if library is not None:
-                    self.tokens.append(library)
-                    return
-                if chain[0] == "self":
-                    self.tokens.append("self." + ".".join(self._rename(p, "a") for p in chain[1:]))
-                    return
-                if len(chain) == 1 and chain[0] in _BUILTINS:
-                    self.tokens.append(chain[0])
-                    return
-                if not (len(chain) > 1 and chain[-1] in _TENSOR_METHODS):
-                    # An opaque operand: `config.n_embd` and `GPT2_WIDTH` both become one name.
-                    self.tokens.append(self._rename(".".join(chain)))
-                    return
-            if isinstance(node, ast.Attribute):
-                self.visit(node.value)
-                self.tokens.append("." + node.attr if node.attr in _TENSOR_METHODS else ".attr")
-                return
-            self.tokens.append(self._rename(node.id))
+            self._visit_name(node)
             return
         if isinstance(node, ast.arg):
             self.tokens.append("arg:" + ("self" if node.arg == "self" else self._rename(node.arg)))
             return
         if isinstance(node, ast.Constant):
-            value = node.value
-            if isinstance(value, bool) or value is None:
-                self.tokens.append(repr(value))
-            elif isinstance(value, int) and value in _SMALL_INTS:
-                self.tokens.append(str(value))
-            elif isinstance(value, (int, float, complex)):
-                self.tokens.append("NUM")
-            else:
-                self.tokens.append("STR")
+            self.tokens.append(_constant_token(node.value))
             return
         if isinstance(node, ast.Call):
-            chain = _dotted(node.func)
-            if chain is not None:
-                library = self._library(chain)
-                if library is not None:
-                    self.calls[library] += 1
-                elif len(chain) > 1 and chain[-1] in _TENSOR_METHODS:
-                    self.calls["." + chain[-1]] += 1
+            self._count_call(node)
         if isinstance(node, (ast.operator, ast.cmpop, ast.unaryop, ast.boolop)):
             self.tokens.append(type(node).__name__)
             return
@@ -199,6 +158,72 @@ class _Canonicalizer:
         self.tokens.append(type(node).__name__)
         for child in ast.iter_child_nodes(node):
             self.visit(child)
+
+    def _visit_definition(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
+        self.tokens.append(type(node).__name__)
+        body = node.body
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(getattr(body[0], "value", None), ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            body = body[1:]  # docstring
+        if isinstance(node, ast.ClassDef):
+            for base in node.bases:
+                self.visit(base)
+        else:
+            self.visit(node.args)
+        for child in body:
+            self.visit(child)
+
+    def _visit_name(self, node: ast.Attribute | ast.Name) -> None:
+        chain = _dotted(node)
+        if chain is not None and self._visit_chain(chain):
+            return
+        if isinstance(node, ast.Attribute):
+            self.visit(node.value)
+            self.tokens.append("." + node.attr if node.attr in _TENSOR_METHODS else ".attr")
+            return
+        self.tokens.append(self._rename(node.id))
+
+    def _visit_chain(self, chain: list[str]) -> bool:
+        """Emit the token of a dotted operand; ``False`` leaves a tensor-method chain to the caller."""
+        library = self._library(chain)
+        if library is not None:
+            self.tokens.append(library)
+            return True
+        if chain[0] == "self":
+            self.tokens.append("self." + ".".join(self._rename(p, "a") for p in chain[1:]))
+            return True
+        if len(chain) == 1 and chain[0] in _BUILTINS:
+            self.tokens.append(chain[0])
+            return True
+        if not (len(chain) > 1 and chain[-1] in _TENSOR_METHODS):
+            # An opaque operand: `config.n_embd` and `GPT2_WIDTH` both become one name.
+            self.tokens.append(self._rename(".".join(chain)))
+            return True
+        return False
+
+    def _count_call(self, node: ast.Call) -> None:
+        chain = _dotted(node.func)
+        if chain is None:
+            return
+        library = self._library(chain)
+        if library is not None:
+            self.calls[library] += 1
+        elif len(chain) > 1 and chain[-1] in _TENSOR_METHODS:
+            self.calls["." + chain[-1]] += 1
+
+
+def _constant_token(value: object) -> str:
+    if isinstance(value, bool) or value is None:
+        return repr(value)
+    if isinstance(value, int) and value in _SMALL_INTS:
+        return str(value)
+    if isinstance(value, (int, float, complex)):
+        return "NUM"
+    return "STR"
 
 
 # Tensor methods whose names carry semantics even on alpha-renamed receivers.
@@ -286,16 +311,28 @@ def collect_units(root: Path, models: set[str] | None = None) -> list[Unit]:
     units: list[Unit] = []
     for package in sorted(p for p in base.iterdir() if p.is_dir()):
         if package.name == "_components":
-            for component in sorted(p for p in package.iterdir() if p.is_dir() and not p.name.startswith("_")):
-                for path in sorted(component.rglob("*.py")):
-                    units.extend(_units_from_file(path, f"component:{component.name}", root))
+            units.extend(_component_units(package, root))
             continue
         if package.name.startswith("_") or (models is not None and package.name not in models):
             continue
-        for path in sorted(package.rglob("*.py")):
-            if path.name in {"spec.py", "__init__.py"}:
-                continue
-            units.extend(_units_from_file(path, package.name, root))
+        units.extend(_model_units(package, root))
+    return units
+
+
+def _component_units(package: Path, root: Path) -> list[Unit]:
+    units: list[Unit] = []
+    for component in sorted(p for p in package.iterdir() if p.is_dir() and not p.name.startswith("_")):
+        for path in sorted(component.rglob("*.py")):
+            units.extend(_units_from_file(path, f"component:{component.name}", root))
+    return units
+
+
+def _model_units(package: Path, root: Path) -> list[Unit]:
+    units: list[Unit] = []
+    for path in sorted(package.rglob("*.py")):
+        if path.name in {"spec.py", "__init__.py"}:
+            continue
+        units.extend(_units_from_file(path, package.name, root))
     return units
 
 
@@ -342,11 +379,8 @@ class Pair:
         return 1.0 if self.exact else 0.7 * self.structure + 0.3 * self.calls
 
 
-def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int = 40) -> list[Pair]:
-    """Return cross-owner unit pairs scoring at least ``threshold``."""
-    pool = [u for u in units if len(u.tokens) >= min_tokens]
-    for unit in pool:
-        unit.shingles = _shingles(unit.tokens)
+def _lsh_buckets(pool: list[Unit]) -> tuple[dict[tuple, list[int]], dict[str, list[int]]]:
+    """MinHash band buckets and exact-key groups of ``pool`` indices."""
     rng = np.random.default_rng(0)
     a = rng.integers(0, 1 << 63, size=PERMUTATIONS, dtype=np.uint64) * np.uint64(2) + np.uint64(1)
     b = rng.integers(0, 1 << 63, size=PERMUTATIONS, dtype=np.uint64)
@@ -358,29 +392,32 @@ def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int 
         for band in range(BANDS):
             key = (band, signature[band * _ROWS : (band + 1) * _ROWS].tobytes())
             buckets[key].append(index)
+    return buckets, exact
+
+
+def _candidate_pairs(groups: list[list[int]]) -> set[tuple[int, int]]:
     candidates: set[tuple[int, int]] = set()
-    for members in list(buckets.values()) + list(exact.values()):
+    for members in groups:
         if 1 < len(members) <= 200:
             for i, left in enumerate(members):
                 for right in members[i + 1 :]:
                     candidates.add((min(left, right), max(left, right)))
-    exact_ids = {frozenset(m) for m in exact.values() if len(m) > 1}
-    pairs: list[Pair] = []
-    for i, j in sorted(candidates):
-        left, right = pool[i], pool[j]
-        if left.owner == right.owner:
-            continue
-        is_exact = any(i in group and j in group for group in exact_ids)
-        library = {name for name in left.calls | right.calls if not name.startswith(".")}
-        if not is_exact and len(library) < 2:
-            continue  # glue (reshapes and calls into sub-modules) is not an operator
-        if not is_exact and left.qualname.endswith(".__init__") and right.qualname.endswith(".__init__"):
-            continue  # similar layer declarations alone say nothing about the computation
-        pair = Pair(
-            left, right, _jaccard(left.shingles, right.shingles), _counter_jaccard(left.calls, right.calls), is_exact
-        )
-        if pair.score >= threshold:
-            pairs.append(pair)
+    return candidates
+
+
+def _scored_pair(left: Unit, right: Unit, is_exact: bool) -> Pair | None:
+    """The pair of two units of different owners, or ``None`` when it is glue or layer declarations."""
+    library = {name for name in left.calls | right.calls if not name.startswith(".")}
+    if not is_exact and len(library) < 2:
+        return None  # glue (reshapes and calls into sub-modules) is not an operator
+    if not is_exact and left.qualname.endswith(".__init__") and right.qualname.endswith(".__init__"):
+        return None  # similar layer declarations alone say nothing about the computation
+    return Pair(
+        left, right, _jaccard(left.shingles, right.shingles), _counter_jaccard(left.calls, right.calls), is_exact
+    )
+
+
+def _without_nested_methods(pairs: list[Pair]) -> list[Pair]:
     # A method pair inside an already-reported class pair adds no information.
     class_pairs = {
         frozenset({(p.left.owner, p.left.qualname), (p.right.owner, p.right.qualname)})
@@ -396,6 +433,61 @@ def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int 
             and frozenset({(p.left.owner, p.left.parent), (p.right.owner, p.right.parent)}) in class_pairs
         )
     ]
+
+
+def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int = 40) -> list[Pair]:
+    """Return cross-owner unit pairs scoring at least ``threshold``."""
+    pool = [u for u in units if len(u.tokens) >= min_tokens]
+    for unit in pool:
+        unit.shingles = _shingles(unit.tokens)
+    buckets, exact = _lsh_buckets(pool)
+    candidates = _candidate_pairs(list(buckets.values()) + list(exact.values()))
+    exact_ids = {frozenset(m) for m in exact.values() if len(m) > 1}
+    return _without_nested_methods(_cross_owner_pairs(pool, candidates, exact_ids, threshold))
+
+
+def _cross_owner_pairs(
+    pool: list[Unit], candidates: set[tuple[int, int]], exact_ids: set[frozenset[int]], threshold: float
+) -> list[Pair]:
+    pairs: list[Pair] = []
+    for i, j in sorted(candidates):
+        left, right = pool[i], pool[j]
+        if left.owner == right.owner:
+            continue
+        is_exact = any(i in group and j in group for group in exact_ids)
+        pair = _scored_pair(left, right, is_exact)
+        if pair is not None and pair.score >= threshold:
+            pairs.append(pair)
+    return pairs
+
+
+def _decision(components: list[str], models: list[str]) -> str:
+    if components:
+        return f"reuse-existing candidate: {', '.join(components)}"
+    if len(models) >= 2:
+        return "extract-new candidate"
+    return "review"
+
+
+def _cluster(refs: list[str], units: dict[str, Unit], scores: list[float]) -> dict:
+    members = sorted((units[r] for r in refs), key=lambda u: (u.is_component, u.owner, u.qualname))
+    components = sorted({u.owner.split(":", 1)[1] for u in members if u.is_component})
+    models = sorted({u.owner for u in members if not u.is_component})
+    calls = Counter()
+    for unit in members:
+        calls.update(unit.calls)
+    return {
+        "decision": _decision(components, models),
+        "models": models,
+        "components": components,
+        "max_score": round(max(scores), 3),
+        "mean_score": round(sum(scores) / len(scores), 3),
+        "library_calls": [name for name, _ in calls.most_common(8)],
+        "members": [
+            {"owner": u.owner, "unit": u.qualname, "location": f"{u.path}:{u.line}", "tokens": len(u.tokens)}
+            for u in members
+        ],
+    }
 
 
 def clusters(pairs: list[Pair]) -> list[dict]:
@@ -419,34 +511,7 @@ def clusters(pairs: list[Pair]) -> list[dict]:
     scores: dict[str, list[float]] = defaultdict(list)
     for pair in pairs:
         scores[find(pair.left.ref)].append(pair.score)
-    out = []
-    for root_ref, refs in groups.items():
-        members = sorted((units[r] for r in refs), key=lambda u: (u.is_component, u.owner, u.qualname))
-        components = sorted({u.owner.split(":", 1)[1] for u in members if u.is_component})
-        models = sorted({u.owner for u in members if not u.is_component})
-        calls = Counter()
-        for unit in members:
-            calls.update(unit.calls)
-        if components:
-            decision = f"reuse-existing candidate: {', '.join(components)}"
-        elif len(models) >= 2:
-            decision = "extract-new candidate"
-        else:
-            decision = "review"
-        out.append(
-            {
-                "decision": decision,
-                "models": models,
-                "components": components,
-                "max_score": round(max(scores[root_ref]), 3),
-                "mean_score": round(sum(scores[root_ref]) / len(scores[root_ref]), 3),
-                "library_calls": [name for name, _ in calls.most_common(8)],
-                "members": [
-                    {"owner": u.owner, "unit": u.qualname, "location": f"{u.path}:{u.line}", "tokens": len(u.tokens)}
-                    for u in members
-                ],
-            }
-        )
+    out = [_cluster(refs, units, scores[root_ref]) for root_ref, refs in groups.items()]
     # Breadth times agreement: a cluster spanning more models ranks higher, but
     # only as far as its members actually agree.
     out.sort(key=lambda c: (-(len(c["models"]) + len(c["components"])) * c["mean_score"], -c["max_score"]))

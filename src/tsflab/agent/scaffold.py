@@ -196,6 +196,22 @@ def _link(target: Path, link: Path, destination: str) -> None:
             shutil.copy2(source, link)
 
 
+def _write_templates(target: Path, generated: dict[str, str], name: str) -> list[Path]:
+    written = []
+    for rel, template in generated.items():
+        path = target / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(template.replace("{name}", name), encoding="utf-8")
+        written.append(path)
+    return written
+
+
+def _unlink_harness_links(target: Path) -> None:
+    for stale in (target / "CLAUDE.md", target / ".claude" / "skills"):
+        if stale.is_symlink():
+            stale.unlink()
+
+
 def init_project(
     target: Path,
     name: str | None = None,
@@ -214,17 +230,10 @@ def init_project(
     existing = [target / rel for rel in generated if (target / rel).exists()]
     if existing and not force:
         raise FileExistsError("refusing to overwrite: " + ", ".join(str(path) for path in existing))
-    written = []
-    for rel, template in generated.items():
-        path = target / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(template.replace("{name}", name), encoding="utf-8")
-        written.append(path)
+    written = _write_templates(target, generated, name)
     written += [target / rel for rel in sync_agent_assets(target, modules)]
     if force:
-        for stale in (target / "CLAUDE.md", target / ".claude" / "skills"):
-            if stale.is_symlink():
-                stale.unlink()
+        _unlink_harness_links(target)
     _link(target, target / "CLAUDE.md", "AGENTS.md")
     _link(target, target / ".claude" / "skills", "../.agents/skills")
     written += [target / "CLAUDE.md", target / ".claude" / "skills"]
