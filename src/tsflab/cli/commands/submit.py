@@ -322,7 +322,7 @@ def _next_steps(out_root: Path, path_in_repo: str | None = None) -> None:
     print("  (exact steps + accepted formats: apps/web/SUBMITTING.md in that repo)")
 
 
-def main(argv: list[str] | None = None) -> int:
+def _parse_args(argv: list[str] | None) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     ap = argparse.ArgumentParser(
         prog="tsf result submit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -346,47 +346,48 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
     resolve_name(ap, args, "dataset", required=False)
+    return ap, args
 
-    submitter = args.submitter or _git_user() or "anonymous"
-    out_root = Path(args.out_dir) if args.out_dir else args.work_dir / "_submissions"
 
-    if args.all:
-        records = find_records(args.work_dir, args.dataset, args.model)
-        if not records:
-            sys.exit(f"error: no records under {args.work_dir}/<dataset>/<model>/records/")
-        index, profiles = trajectory_index(), {}
-        built = skipped = 0
-        failures: list[str] = []
-        for number, rec_path in enumerate(records, start=1):
-            try:
-                _, info = build_submission(
-                    rec_path,
-                    submitter=submitter,
-                    out_root=out_root,
-                    track=args.track,
-                    dataset_version=args.dataset_version,
-                    index=index,
-                    profiles=profiles,
-                    skip_existing=args.skip_existing,
-                )
-            except (ValueError, OSError, json.JSONDecodeError) as exc:
-                failures.append(str(exc).splitlines()[0])
-                continue
-            if info is None:
-                skipped += 1
-            else:
-                built += 1
-            if number % 500 == 0:
-                print(f"  {number}/{len(records)} records ...", flush=True)
-        print(
-            f"Submission Reports under {out_root}: {built} built, {skipped} kept, {len(failures)} failed "
-            f"(of {len(records)} records)"
-        )
-        for message in failures[:20]:
-            print(f"  failed: {message}", file=sys.stderr)
-        _next_steps(out_root)
-        return 1 if failures else 0
+def _submit_all(args: argparse.Namespace, submitter: str, out_root: Path) -> int:
+    records = find_records(args.work_dir, args.dataset, args.model)
+    if not records:
+        sys.exit(f"error: no records under {args.work_dir}/<dataset>/<model>/records/")
+    index, profiles = trajectory_index(), {}
+    built = skipped = 0
+    failures: list[str] = []
+    for number, rec_path in enumerate(records, start=1):
+        try:
+            _, info = build_submission(
+                rec_path,
+                submitter=submitter,
+                out_root=out_root,
+                track=args.track,
+                dataset_version=args.dataset_version,
+                index=index,
+                profiles=profiles,
+                skip_existing=args.skip_existing,
+            )
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            failures.append(str(exc).splitlines()[0])
+            continue
+        if info is None:
+            skipped += 1
+        else:
+            built += 1
+        if number % 500 == 0:
+            print(f"  {number}/{len(records)} records ...", flush=True)
+    print(
+        f"Submission Reports under {out_root}: {built} built, {skipped} kept, {len(failures)} failed "
+        f"(of {len(records)} records)"
+    )
+    for message in failures[:20]:
+        print(f"  failed: {message}", file=sys.stderr)
+    _next_steps(out_root)
+    return 1 if failures else 0
 
+
+def _submit_one(ap: argparse.ArgumentParser, args: argparse.Namespace, submitter: str, out_root: Path) -> int:
     if not args.dataset or not args.model:
         ap.error("--dataset and --model are required unless --all is given")
     rec_path = _find_record(args.dataset, args.model, args.run_id, args.work_dir)
@@ -408,6 +409,17 @@ def main(argv: list[str] | None = None) -> int:
     print("  files         : submission.json, trajectory.jsonl, report.md")
     _next_steps(out_root, info["path_in_repo"])
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap, args = _parse_args(argv)
+
+    submitter = args.submitter or _git_user() or "anonymous"
+    out_root = Path(args.out_dir) if args.out_dir else args.work_dir / "_submissions"
+
+    if args.all:
+        return _submit_all(args, submitter, out_root)
+    return _submit_one(ap, args, submitter, out_root)
 
 
 if __name__ == "__main__":

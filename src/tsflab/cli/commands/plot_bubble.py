@@ -46,7 +46,7 @@ def _default_output_path(csv_path: str) -> str:
     return os.path.join("work_dirs", "plots", f"bubble_{base}.svg")
 
 
-def main() -> None:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="tsf result plot", description="Plot a bubble chart from CSV")
     parser.add_argument("--csv", required=True, type=str, help="Path to CSV file")
     parser.add_argument("--x", required=True, type=str, help="Field for x axis")
@@ -115,12 +115,19 @@ def main() -> None:
         default=None,
         help="Optional plot title",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    if not args.show:
-        matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
 
+# (scale attribute, scale value, column attribute, keep-row predicate, message when nothing is left)
+_SCALE_FILTERS = (
+    ("x_scale", "log", "x", lambda v: v > 0, "No rows with positive x values for log scale"),
+    ("y_scale", "log", "y", lambda v: v > 0, "No rows with positive y values for log scale"),
+    ("size_scale", "log", "size", lambda v: v > 0, "No rows with positive size values for log scale"),
+    ("size_scale", "sqrt", "size", lambda v: v >= 0, "No rows with non-negative size values for sqrt scale"),
+)
+
+
+def _load_data(args: argparse.Namespace) -> pd.DataFrame:
     df = cast(pd.DataFrame, pd.read_csv(args.csv))
     required = [args.x, args.y, args.size, args.color_by]
     if not args.no_labels and args.label_by not in required:
@@ -141,54 +148,28 @@ def main() -> None:
     data = data.dropna(subset=subset)
     if data.empty:
         raise SystemExit("No valid rows after filtering non-numeric values")
+    return data
 
-    if args.x_scale == "log":
-        data = cast(pd.DataFrame, data[data[args.x] > 0])
-        if data.empty:
-            raise SystemExit("No rows with positive x values for log scale")
-    if args.y_scale == "log":
-        data = cast(pd.DataFrame, data[data[args.y] > 0])
-        if data.empty:
-            raise SystemExit("No rows with positive y values for log scale")
-    if args.size_scale == "log":
-        data = cast(pd.DataFrame, data[data[args.size] > 0])
-        if data.empty:
-            raise SystemExit("No rows with positive size values for log scale")
-    if args.size_scale == "sqrt":
-        data = cast(pd.DataFrame, data[data[args.size] >= 0])
-        if data.empty:
-            raise SystemExit("No rows with non-negative size values for sqrt scale")
 
-    scaled_size = _apply_size_scale(data[args.size], args.size_scale)
-    sizes = _normalize_sizes(scaled_size, min_size=30.0, max_size=300.0)
-    data = data.assign(_size=sizes)
+def _filter_scales(data: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
+    for scale_attr, scale, column_attr, keep, message in _SCALE_FILTERS:
+        if getattr(args, scale_attr) == scale:
+            column = getattr(args, column_attr)
+            data = cast(pd.DataFrame, data[keep(data[column])])
+            if data.empty:
+                raise SystemExit(message)
+    return data
 
-    categories = sorted(data[args.color_by].dropna().unique())
-    if not categories:
-        raise SystemExit("No categories found for color grouping")
 
-    if len(categories) <= 20:
-        cmap = plt.get_cmap("tab20", len(categories))
-    elif len(categories) <= 60:
-        cmap = plt.get_cmap("turbo", len(categories))
-    else:
-        cmap = plt.get_cmap("hsv", len(categories))
-    fig, ax = plt.subplots(figsize=(10, 6))
+def _colormap(plt, count: int):
+    if count <= 20:
+        return plt.get_cmap("tab20", count)
+    if count <= 60:
+        return plt.get_cmap("turbo", count)
+    return plt.get_cmap("hsv", count)
 
-    for idx, category in enumerate(categories):
-        subset = data[data[args.color_by] == category]
-        color = cmap(idx)
-        ax.scatter(
-            subset[args.x],
-            subset[args.y],
-            s=subset["_size"],
-            alpha=0.85,
-            edgecolors="#1a1a1a",
-            linewidths=0.6,
-            label=str(category),
-            color=color,
-        )
 
+def _style_axes(ax, data: pd.DataFrame, args: argparse.Namespace) -> None:
     ax.set_xlabel(args.x)
     ax.set_ylabel(args.y)
     ax.set_xscale(args.x_scale)
@@ -212,6 +193,43 @@ def main() -> None:
             )
     if args.legend:
         ax.legend(title=args.color_by, loc="best", fontsize=8)
+
+
+def main() -> None:
+    args = _parse_args()
+
+    if not args.show:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    data = _filter_scales(_load_data(args), args)
+
+    scaled_size = _apply_size_scale(data[args.size], args.size_scale)
+    sizes = _normalize_sizes(scaled_size, min_size=30.0, max_size=300.0)
+    data = data.assign(_size=sizes)
+
+    categories = sorted(data[args.color_by].dropna().unique())
+    if not categories:
+        raise SystemExit("No categories found for color grouping")
+
+    cmap = _colormap(plt, len(categories))
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for idx, category in enumerate(categories):
+        subset = data[data[args.color_by] == category]
+        color = cmap(idx)
+        ax.scatter(
+            subset[args.x],
+            subset[args.y],
+            s=subset["_size"],
+            alpha=0.85,
+            edgecolors="#1a1a1a",
+            linewidths=0.6,
+            label=str(category),
+            color=color,
+        )
+
+    _style_axes(ax, data, args)
     fig.tight_layout()
 
     output_path = args.output or _default_output_path(args.csv)

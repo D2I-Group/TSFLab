@@ -17,16 +17,7 @@ import sys
 from tsflab.core.paths import repository_root
 
 
-def verification_command(argv: list[str]) -> int:
-    from tsflab.catalog.admission import (
-        card_path,
-        changed_models,
-        run_contracts,
-        unfinished_files,
-        write_admission,
-    )
-    from tsflab.catalog.registry.models import MODEL_CATALOG
-
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tsf model verify", description=__doc__.splitlines()[0])
     parser.add_argument("names", nargs="*")
     mode = parser.add_mutually_exclusive_group()
@@ -37,22 +28,32 @@ def verification_command(argv: list[str]) -> int:
     parser.add_argument("--base", default="origin/dev", help="git ref for --changed (default origin/dev)")
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--json", action="store_true")
-    args = parser.parse_args(argv)
-    if args.jobs < 1:
-        parser.error("--jobs must be positive")
-    root = repository_root()
+    return parser
+
+
+def _requested(args: argparse.Namespace, root) -> list[str]:
+    from tsflab.catalog.admission import changed_models
+    from tsflab.catalog.registry.models import MODEL_CATALOG
+
     if args.all:
-        names = list(MODEL_CATALOG.names())
-    elif args.changed:
-        names = changed_models(root, args.base)
-    else:
-        names = list(args.names)
-    if not names:
-        print(
-            "no models to verify" if args.changed else "give model names, --all, or --changed",
-            file=sys.stderr if not args.changed else sys.stdout,
-        )
-        return 0 if args.changed else 2
+        return list(MODEL_CATALOG.names())
+    if args.changed:
+        return changed_models(root, args.base)
+    return list(args.names)
+
+
+def _no_models(args: argparse.Namespace) -> int:
+    print(
+        "no models to verify" if args.changed else "give model names, --all, or --changed",
+        file=sys.stderr if not args.changed else sys.stdout,
+    )
+    return 0 if args.changed else 2
+
+
+def _admissible(parser: argparse.ArgumentParser, args: argparse.Namespace, root, names: list[str]) -> list[str]:
+    from tsflab.catalog.admission import card_path, unfinished_files
+    from tsflab.catalog.registry.models import MODEL_CATALOG
+
     unknown = sorted(set(names) - set(MODEL_CATALOG.names()))
     if unknown:
         parser.error(f"unknown model(s): {', '.join(unknown)}")
@@ -63,6 +64,27 @@ def verification_command(argv: list[str]) -> int:
     if unfinished:
         print(f"skipping unfinished scaffold(s): {', '.join(unfinished)}", file=sys.stderr)
         names = [name for name in names if name not in unfinished]
+    return names
+
+
+def _print_summary(records: dict, failed: list[str]) -> None:
+    for name in failed:
+        print(f"FAILED {name}  {records[name]['note']}")
+    print(f"{len(records) - len(failed)}/{len(records)} passed; results written to each card's [admission]")
+
+
+def verification_command(argv: list[str]) -> int:
+    from tsflab.catalog.admission import run_contracts, write_admission
+
+    parser = _parser()
+    args = parser.parse_args(argv)
+    if args.jobs < 1:
+        parser.error("--jobs must be positive")
+    root = repository_root()
+    names = _requested(args, root)
+    if not names:
+        return _no_models(args)
+    names = _admissible(parser, args, root, names)
 
     def progress(name: str, failure: dict[str, str] | None) -> None:
         if not args.json:  # stream, so a long run shows where it is
@@ -74,7 +96,5 @@ def verification_command(argv: list[str]) -> int:
     if args.json:
         print(json.dumps(records, indent=2))
     else:
-        for name in failed:
-            print(f"FAILED {name}  {records[name]['note']}")
-        print(f"{len(records) - len(failed)}/{len(records)} passed; results written to each card's [admission]")
+        _print_summary(records, failed)
     return 1 if failed else 0

@@ -287,7 +287,7 @@ enc_in = {8 if graph else 6}
 '''
 
 
-def main() -> None:
+def _parse_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser = argparse.ArgumentParser(prog="tsf model scaffold", description=__doc__)
     add_name(parser, "name", flag="--name", help="public model name, e.g. MyModel")
     parser.add_argument("--module")
@@ -308,15 +308,17 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     resolve_name(parser, args, "name")
-    try:
-        require_checkout("tsf model scaffold")
-    except RuntimeError as exc:
-        raise SystemExit(f"error: {exc}") from None
+    return parser, args
 
+
+def _codebase(parser: argparse.ArgumentParser, args: argparse.Namespace) -> tuple | None:
     source_values = (args.code_url, args.revision, args.license)
     if any(source_values) and not all(source_values):
         parser.error("--code-url, --revision, and --license must be supplied together")
-    codebase = source_values if all(source_values) else None
+    return source_values if all(source_values) else None
+
+
+def _components(parser: argparse.ArgumentParser, args: argparse.Namespace) -> tuple[str, ...]:
     components = (
         ()
         if args.components.strip().lower() == "none"
@@ -335,6 +337,30 @@ def main() -> None:
         )
     if args.task_mode != "time_series" and "marks" not in components:
         parser.error("node/covariate scaffold uses the shared 'marks' component")
+    return components
+
+
+def _write_targets(targets: dict, package, force: bool) -> None:
+    existing = [path for path in targets if path.exists()]
+    if existing and not force:
+        print("Refusing to overwrite existing files:", file=sys.stderr)
+        for path in existing:
+            print(f"  {path.relative_to(ROOT)}", file=sys.stderr)
+        raise SystemExit(1)
+    package.mkdir(parents=True, exist_ok=True)
+    for path, content in targets.items():
+        path.write_text(content, encoding="utf-8")
+
+
+def main() -> None:
+    parser, args = _parse_args()
+    try:
+        require_checkout("tsf model scaffold")
+    except RuntimeError as exc:
+        raise SystemExit(f"error: {exc}") from None
+
+    codebase = _codebase(parser, args)
+    components = _components(parser, args)
 
     name = args.name
     module = args.module or _module_slug(name)
@@ -360,15 +386,7 @@ def main() -> None:
         MODEL_CONFIG_DIR / f"{name}.toml": _model_config(name, params, graph),
         RUN_CONFIG_DIR / f"smoke_{module}.toml": _smoke(name, module, args.task_mode),
     }
-    existing = [path for path in targets if path.exists()]
-    if existing and not args.force:
-        print("Refusing to overwrite existing files:", file=sys.stderr)
-        for path in existing:
-            print(f"  {path.relative_to(ROOT)}", file=sys.stderr)
-        raise SystemExit(1)
-    package.mkdir(parents=True, exist_ok=True)
-    for path, content in targets.items():
-        path.write_text(content, encoding="utf-8")
+    _write_targets(targets, package, args.force)
 
     print(f"Created model workspace {name!r} ({module}); it is discovered from spec.py, no registry edit needed")
     for path in targets:

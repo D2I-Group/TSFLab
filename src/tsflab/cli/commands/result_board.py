@@ -120,6 +120,20 @@ def _line(rank: int, row: dict, metric: str) -> str:
     return "  ".join(parts)
 
 
+def _ranked_groups(rows: list[dict], horizon: str | None, top: int, metric: str) -> list[dict]:
+    horizons = sorted({r["horizon"] for r in rows}, key=lambda h: (not h.isdigit(), int(h) if h.isdigit() else h))
+    if horizon is not None:
+        horizons = [h for h in horizons if h == str(horizon)]
+    groups = []
+    for h in horizons:
+        ranked = sorted(
+            (r for r in rows if r["horizon"] == h and isinstance(r.get(metric), (int, float))),
+            key=lambda r: r[metric],
+        )[:top]
+        groups.append({"horizon": h, "rows": ranked})
+    return groups
+
+
 def board(
     dataset: str,
     *,
@@ -141,16 +155,7 @@ def board(
         generated = doc.get("generated_at")
         rows += _rows_from_tracks(doc.get("tracks") or {}, dataset, "board")
     rows += _local_rows(records, dataset, split)
-    horizons = sorted({r["horizon"] for r in rows}, key=lambda h: (not h.isdigit(), int(h) if h.isdigit() else h))
-    if horizon is not None:
-        horizons = [h for h in horizons if h == str(horizon)]
-    groups = []
-    for h in horizons:
-        ranked = sorted(
-            (r for r in rows if r["horizon"] == h and isinstance(r.get(metric), (int, float))),
-            key=lambda r: r[metric],
-        )[:top]
-        groups.append({"horizon": h, "rows": ranked})
+    groups = _ranked_groups(rows, horizon, top, metric)
     return {"dataset": dataset, "metric": metric, "split": split, "board_generated_at": generated, "horizons": groups}
 
 

@@ -27,6 +27,16 @@ def _flatten_params(params: dict, prefix: str = "") -> dict:
     return flat
 
 
+def _sweep_values(configs, sweep_keys) -> dict:
+    sweep_values = {key: set() for key in sweep_keys}
+    for cfg in configs:
+        flattened = _flatten_params(cfg.raw)
+        for key in sweep_keys:
+            if key in flattened:
+                sweep_values[key].add(flattened[key])
+    return sweep_values
+
+
 def summarize(configs) -> None:
     """Print the resolved sweep coverage of loaded run configurations."""
     print(f"Total runs: {len(configs)}")
@@ -45,13 +55,7 @@ def summarize(configs) -> None:
     if not sweep_keys:
         return
 
-    sweep_values = {key: set() for key in sweep_keys}
-    for cfg in configs:
-        flattened = _flatten_params(cfg.raw)
-        for key in sweep_keys:
-            if key in flattened:
-                sweep_values[key].add(flattened[key])
-
+    sweep_values = _sweep_values(configs, sweep_keys)
     print("Sweep values:")
     for key in sweep_keys:
         print(f"  {key}: {_format_values(sweep_values[key])}")
