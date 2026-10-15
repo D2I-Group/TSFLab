@@ -49,9 +49,7 @@ def cosine_death_rate(step: int, total: float, initial: float) -> float:
     """Annealed pruning rate of Eq. (3): floor + (alpha - floor) (1 + cos(pi t / T)) / 2."""
     if total <= 0:
         return initial
-    return DEATH_RATE_FLOOR + (initial - DEATH_RATE_FLOOR) * 0.5 * (
-        1.0 + math.cos(math.pi * step / total)
-    )
+    return DEATH_RATE_FLOOR + (initial - DEATH_RATE_FLOOR) * 0.5 * (1.0 + math.cos(math.pi * step / total))
 
 
 def _uniform(shape, generator: torch.Generator | None, like: torch.Tensor) -> torch.Tensor:
@@ -101,9 +99,7 @@ class DynamicSparseLinear(nn.Module):
         return F.linear(patches, self.masked_weight(), self.bias)
 
     @torch.no_grad()
-    def prune_and_regrow(
-        self, death_rate: float, generator: torch.Generator | None = None
-    ) -> tuple[int, int]:
+    def prune_and_regrow(self, death_rate: float, generator: torch.Generator | None = None) -> tuple[int, int]:
         """One indicator update of Algorithm 1 (lines 6-9), group by group.
 
         Per group, the ``n = ceil(death_rate * active)`` active weights with the
@@ -178,9 +174,7 @@ class GroupAwareRoPEAttention(nn.Module):
         theta = 10000.0 ** (-torch.arange(0, head_dim, 2, dtype=torch.float64) / head_dim)  # Eq. (8)
         base = group_lengths[0]
         intra = torch.cat([torch.arange(n, dtype=torch.float64) * base / n for n in group_lengths])
-        inter = torch.cat(
-            [torch.full((n,), float(i), dtype=torch.float64) for i, n in enumerate(group_lengths)]
-        )
+        inter = torch.cat([torch.full((n,), float(i), dtype=torch.float64) for i, n in enumerate(group_lengths)])
         for name, position in (("intra", intra), ("inter", inter)):
             angle = position[:, None] * theta[None, :]
             self.register_buffer(f"{name}_cos", angle.cos().float(), persistent=False)
@@ -257,14 +251,22 @@ class Model(nn.Module):
         )
         self.deconvs = nn.ModuleList(
             nn.ConvTranspose1d(
-                d_model, d_model, kernel_size=k, stride=k, padding=p,
-                output_padding=op, bias=False,
+                d_model,
+                d_model,
+                kernel_size=k,
+                stride=k,
+                padding=p,
+                output_padding=op,
+                bias=False,
             )
             for k, (p, _, op) in zip(self.kernels, geometry)
         )
         self.head = FlattenForecastHead(
-            individual=False, n_vars=enc_in, nf=d_model * self.num_patches,
-            target_window=pred_len, head_dropout=dropout,
+            individual=False,
+            n_vars=enc_in,
+            nf=d_model * self.num_patches,
+            target_window=pred_len,
+            head_dropout=dropout,
         )
         # Dynamic-sparse-training schedule state (spec.training_setup / training_objective).
         self.register_buffer("steps_per_epoch", torch.zeros((), dtype=torch.long))
@@ -280,8 +282,7 @@ class Model(nn.Module):
         """Concatenate the base tokens with hierarchical max-pooled groups ``K = 2, 4, ...`` (Eqs. 4-5)."""
         seq = tokens.transpose(1, 2)
         pooled = [
-            F.max_pool1d(seq, k, stride=k, padding=p).transpose(1, 2)
-            for k, p in zip(self.kernels, self.paddings)
+            F.max_pool1d(seq, k, stride=k, padding=p).transpose(1, 2) for k, p in zip(self.kernels, self.paddings)
         ]
         return torch.cat([tokens, *pooled], dim=1)
 

@@ -23,7 +23,7 @@ class ModelParameterConfig(BaseModel):
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         return self

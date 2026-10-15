@@ -21,9 +21,7 @@ def _check_patch_counts(seq_len: int, d_model: int, patch_len: list[int]) -> Non
     scale_width = d_model // 4
     patch_counts = [int((seq_len - patch) / (patch // 2) + 1) for patch in patch_len]
     if any(scale_width < count for count in patch_counts):
-        raise ValueError(
-            "d_model / 4 must be at least the patch count of every scale"
-        )
+        raise ValueError("d_model / 4 must be at least the patch count of every scale")
 
 
 class PatchMLPModel(nn.Module):
@@ -48,12 +46,8 @@ class PatchMLPModel(nn.Module):
         _check_patches(seq_len, pred_len, patch_len)
         _check_patch_counts(seq_len, d_model, patch_len)
         self.emb = Emb(seq_len, d_model, patch_len)
-        self.residual_layers = nn.ModuleList(
-            [Encoder(d_model, enc_in, channel_mixing=False) for _ in range(e_layers)]
-        )
-        self.smooth_layers = nn.ModuleList(
-            [Encoder(d_model, enc_in, channel_mixing=True) for _ in range(e_layers)]
-        )
+        self.residual_layers = nn.ModuleList([Encoder(d_model, enc_in, channel_mixing=False) for _ in range(e_layers)])
+        self.smooth_layers = nn.ModuleList([Encoder(d_model, enc_in, channel_mixing=True) for _ in range(e_layers)])
         self.projector = nn.Linear(d_model, pred_len, bias=True)
 
     def forecast(self, x_enc: torch.Tensor) -> torch.Tensor:

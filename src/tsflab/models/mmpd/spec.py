@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from tsflab.experiments.runner.objective import TrainingBatch
+from pydantic import BaseModel, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
+from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.models.mmpd.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     diffusion_weight: float = Field(default=0.99, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
-    def _check_heads(self) -> "ModelParameterConfig":
+    def _check_heads(self) -> ModelParameterConfig:
         if self.d_model % self.num_heads:
             raise ValueError("d_model must be divisible by num_heads")
         return self

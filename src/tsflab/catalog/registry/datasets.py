@@ -5,10 +5,9 @@ from __future__ import annotations
 import importlib
 import os
 from dataclasses import dataclass
-from typing import Literal, Type
+from typing import Literal
 
 from pydantic import BaseModel
-
 
 TaskMode = Literal["time_series", "spatiotemporal", "covariate"]
 StorageMode = Literal["file", "directory", "selector"]
@@ -32,8 +31,8 @@ class DatasetSpec:
     """Executable dataset contract kept separate from dataset cards and files."""
 
     name: str
-    dataset_class: Type
-    params_schema: Type[BaseModel] | None
+    dataset_class: type
+    params_schema: type[BaseModel] | None
     task_modes: frozenset[TaskMode]
     storage: StorageMode = "file"
 
@@ -44,9 +43,7 @@ class DatasetSpec:
                 raise ValueError(f"dataset {self.name!r} requires dataset.id")
             return path, dataset_id
         if dataset_id is not None:
-            raise ValueError(
-                f"dataset {self.name!r} does not accept dataset.id; put the full location in dataset.path"
-            )
+            raise ValueError(f"dataset {self.name!r} does not accept dataset.id; put the full location in dataset.path")
         if self.storage == "directory":
             return path, ""
         expanded = os.path.expanduser(path)
@@ -62,8 +59,8 @@ class DatasetRegistry:
     def register(
         self,
         name: str,
-        dataset_cls: Type,
-        schema: Type[BaseModel] | None = None,
+        dataset_cls: type,
+        schema: type[BaseModel] | None = None,
         *,
         task_modes: frozenset[TaskMode],
         storage: StorageMode = "file",
@@ -163,20 +160,12 @@ def register_dataset_by_name(name: str) -> None:
     except ModuleNotFoundError as exc:
         if exc.name == module_name:
             raise ModuleNotFoundError(
-                f"Dataset registry module not found: {module_name}. "
-                "Expected module path in DATASET_NAME_MAP"
+                f"Dataset registry module not found: {module_name}. Expected module path in DATASET_NAME_MAP"
             ) from exc
-        raise ImportError(
-            f"Failed to import '{module_name}' due to missing dependency: {exc}"
-        ) from exc
+        raise ImportError(f"Failed to import '{module_name}' due to missing dependency: {exc}") from exc
 
     register_fn = getattr(module, "register", None)
     if register_fn is None:
-        raise AttributeError(
-            f"Dataset registry '{module_name}' must define a register() function"
-        )
+        raise AttributeError(f"Dataset registry '{module_name}' must define a register() function")
     register_fn()
-    _REGISTERED_DATASETS.update(
-        key for key, mapped_module in DATASET_NAME_MAP.items()
-        if mapped_module == module_name
-    )
+    _REGISTERED_DATASETS.update(key for key, mapped_module in DATASET_NAME_MAP.items() if mapped_module == module_name)

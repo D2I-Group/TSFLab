@@ -205,7 +205,9 @@ class Model(nn.Module):
         """Pseudo labels ``g(y; phi)``: ``[B, H, C] -> [B, C, N, H]``."""
         return self.decoder(self.embedding(target.transpose(1, 2)))
 
-    def training_loss(self, x_enc: torch.Tensor, target: torch.Tensor, channels: slice) -> tuple[torch.Tensor, torch.Tensor]:
+    def training_loss(
+        self, x_enc: torch.Tensor, target: torch.Tensor, channels: slice
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Co-training step: (ensemble-mean forecast ``[B, H, C]``, SCAM loss).
 
         ``target`` holds the supervised channels selected by ``channels``.

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -45,8 +46,9 @@ class ChronosRuntime:
         device: str = "cpu",
         torch_dtype: torch.dtype = torch.float32,
         loader: Any | None = None,
-    ) -> "ChronosRuntime":
+    ) -> ChronosRuntime:
         if loader is None:
+
             def import_loader():
                 from chronos import BaseChronosPipeline
 
@@ -75,9 +77,7 @@ class ChronosRuntime:
         mean = _stacked_tensor(mean)
         quantiles = _squeeze_axis1(quantiles, 4)
         mean = _squeeze_axis1(mean, 3)
-        normalized_quantiles = (
-            quantiles if quantile_levels else None
-        )
+        normalized_quantiles = quantiles if quantile_levels else None
         return FoundationForecast(mean, normalized_quantiles)
 
 
@@ -112,8 +112,9 @@ class TimesFMRuntime:
         max_horizon: int,
         loader: Any | None = None,
         config_factory: Callable[..., Any] | None = None,
-    ) -> "TimesFMRuntime":
+    ) -> TimesFMRuntime:
         if loader is None or config_factory is None:
+
             def import_timesfm():
                 import timesfm
 
@@ -190,12 +191,8 @@ class MoiraiRuntime:
         """Official ``[batch, quantile, horizon]`` forecast after the horizon check."""
         configured = int(self.model.hparams.prediction_length)
         if prediction_length != configured:
-            raise ValueError(
-                f"Moirai runtime horizon is {configured}, requested {prediction_length}"
-            )
-        raw = np.asarray(
-            self.model.predict([row for row in context.detach().cpu().numpy()])
-        )
+            raise ValueError(f"Moirai runtime horizon is {configured}, requested {prediction_length}")
+        raw = np.asarray(self.model.predict([row for row in context.detach().cpu().numpy()]))
         if raw.ndim == 4 and raw.shape[-1] == 1:
             raw = raw[..., 0]
         if raw.ndim != 3:

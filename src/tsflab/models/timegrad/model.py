@@ -168,11 +168,20 @@ class Model(nn.Module):
         self.embedding = nn.Embedding(enc_in, embed_dim)
         input_size = enc_in * len(lags) + enc_in * embed_dim + 2 * len(self.time_features)
         rnn = {"LSTM": nn.LSTM, "GRU": nn.GRU}[cell_type]
-        self.rnn = rnn(input_size, num_cells, num_layers=num_layers, dropout=dropout if num_layers > 1 else 0.0,
-                       batch_first=True)
+        self.rnn = rnn(
+            input_size, num_cells, num_layers=num_layers, dropout=dropout if num_layers > 1 else 0.0, batch_first=True
+        )
         self.condition = nn.Linear(num_cells, conditioning_length)
-        self.denoiser = _EpsilonNetwork(enc_in, conditioning_length, step_emb_dim, residual_layers,
-                                        residual_channels, dilation_cycle_length, residual_hidden, max(500, diff_steps))
+        self.denoiser = _EpsilonNetwork(
+            enc_in,
+            conditioning_length,
+            step_emb_dim,
+            residual_layers,
+            residual_channels,
+            dilation_cycle_length,
+            residual_hidden,
+            max(500, diff_steps),
+        )
         self.diffusion = GaussianDDPM(diff_steps, beta_start, beta_end, beta_schedule)
 
     # ----------------------------------------------------------------- inputs
@@ -193,7 +202,7 @@ class Model(nn.Module):
         """``[B, 1, D]`` mean absolute value over the context; batch mean where a series is all zero."""
         if not self.scaling:
             return x_enc.new_ones(x_enc.shape[0], 1, self.enc_in)
-        context = x_enc[:, -self.context:].abs()
+        context = x_enc[:, -self.context :].abs()
         scale = context.mean(dim=1, keepdim=True)
         fallback = context.mean(dim=(0, 1), keepdim=True).expand_as(scale)
         scale = torch.where(context.sum(dim=1, keepdim=True) > 0, scale, fallback)
@@ -211,7 +220,7 @@ class Model(nn.Module):
         return lambda x, n: self.denoiser(x, n, condition)
 
     def _marks(self, x_mark_enc, x_mark_dec, batch, ref):
-        future = None if x_mark_dec is None else x_mark_dec[:, -self.pred_len:]
+        future = None if x_mark_dec is None else x_mark_dec[:, -self.pred_len :]
         if x_mark_enc is None or future is None:
             return self._calendar(None, batch, self.seq_len + self.pred_len, ref)
         return self._calendar(torch.cat((x_mark_enc, future), dim=1), batch, self.seq_len + self.pred_len, ref)
@@ -229,7 +238,7 @@ class Model(nn.Module):
         outputs, _ = self.rnn(self._rnn_inputs(sequence, positions, calendar, scale))
         target = sequence[:, start:] / scale
         if not self.context_loss:
-            outputs, target = outputs[:, self.context:], target[:, self.context:]
+            outputs, target = outputs[:, self.context :], target[:, self.context :]
         condition = self.condition(outputs).reshape(-1, 1, self.condition.out_features)
         x0 = target.reshape(-1, 1, self.enc_in)
         return self.diffusion.loss(self._denoise(condition), x0)
@@ -249,7 +258,7 @@ class Model(nn.Module):
         start = self.seq_len - self.context
         calendar = self._marks(x_mark_enc, x_mark_dec, batch, x_enc)
         positions = torch.arange(start, self.seq_len, device=x_enc.device)
-        _, state = self.rnn(self._rnn_inputs(x_enc, positions, calendar[:, start:self.seq_len], scale))
+        _, state = self.rnn(self._rnn_inputs(x_enc, positions, calendar[:, start : self.seq_len], scale))
         total = num_samples or self.num_samples
         draws = []
         for offset in range(0, total, self.sample_batch_size):
@@ -260,13 +269,19 @@ class Model(nn.Module):
             state_r = self._repeat_state(state, count)
             for k in range(self.pred_len):
                 position = torch.tensor([self.seq_len + k], device=x_enc.device)
-                inputs = self._rnn_inputs(sequence, position, calendar_r[:, self.seq_len + k : self.seq_len + k + 1], scale_r)
+                inputs = self._rnn_inputs(
+                    sequence, position, calendar_r[:, self.seq_len + k : self.seq_len + k + 1], scale_r
+                )
                 output, state_r = self.rnn(inputs, state_r)
                 condition = self.condition(output).reshape(-1, 1, self.condition.out_features)
-                x = self.diffusion.sample(self._denoise(condition), (condition.shape[0], 1, self.enc_in),
-                                          device=x_enc.device, dtype=x_enc.dtype)
+                x = self.diffusion.sample(
+                    self._denoise(condition),
+                    (condition.shape[0], 1, self.enc_in),
+                    device=x_enc.device,
+                    dtype=x_enc.dtype,
+                )
                 sequence = torch.cat((sequence, x.reshape(-1, 1, self.enc_in) * scale_r), dim=1)
-            draws.append(sequence[:, self.seq_len:].reshape(batch, count, self.pred_len, self.enc_in))
+            draws.append(sequence[:, self.seq_len :].reshape(batch, count, self.pred_len, self.enc_in))
         return torch.cat(draws, dim=1).permute(1, 0, 2, 3)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):

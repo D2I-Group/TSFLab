@@ -91,8 +91,11 @@ def _check(out_dir: Path) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tsf repo schema", description="Export TSF-Core models to JSON Schema.")
     parser.add_argument(
-        "--out", dest="out_dir", metavar="DIR", default=str(DEFAULT_SCHEMA_DIR),
-        help="Output directory (default: package schema/)."
+        "--out",
+        dest="out_dir",
+        metavar="DIR",
+        default=str(DEFAULT_SCHEMA_DIR),
+        help="Output directory (default: package schema/).",
     )
     parser.add_argument(  # former spelling
         "--out-dir", dest="out_dir", default=argparse.SUPPRESS, help=argparse.SUPPRESS

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stop.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -22,7 +22,7 @@ class ModelParameterConfig(BaseModel):
     head: int = Field(default=4, gt=0)
 
     @model_validator(mode="after")
-    def _heads(self) -> "ModelParameterConfig":
+    def _heads(self) -> ModelParameterConfig:
         if (self.model_dim + 2 * self.prompt_dim) % self.head:
             raise ValueError("STOP model_dim + 2*prompt_dim must be divisible by head")
         return self

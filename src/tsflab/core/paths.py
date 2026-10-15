@@ -27,9 +27,7 @@ def require_checkout(operation: str) -> Path:
     """Reject repository-mutating operations from an installed wheel."""
     root = repository_root()
     if is_packaged_root(root):
-        raise RuntimeError(
-            f"{operation} modifies the catalog and requires a TSFLab git checkout"
-        )
+        raise RuntimeError(f"{operation} modifies the catalog and requires a TSFLab git checkout")
     return root
 
 

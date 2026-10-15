@@ -1,11 +1,9 @@
 """Runtime specification for Sensorformer."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sensorformer.model import Model
-
-"""Validated parameters for Sensorformer."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

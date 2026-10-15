@@ -16,9 +16,7 @@ import torch.nn.functional as F
 from tsflab.models._inputs import check_window
 
 
-def observed_statistics(
-    values: torch.Tensor, observed: torch.Tensor
-) -> tuple[torch.Tensor, torch.Tensor]:
+def observed_statistics(values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Per-sample/channel statistics over observed values only."""
     weights = observed.to(values.dtype)
     count = weights.sum(dim=1, keepdim=True).clamp_min(1.0)
@@ -30,10 +28,7 @@ def observed_statistics(
 def temporal_encoding(length: int, width: int) -> torch.Tensor:
     """Sinusoidal temporal embedding from paper Eq. 3."""
     positions = torch.arange(length, dtype=torch.float32).unsqueeze(1)
-    frequencies = torch.exp(
-        torch.arange(0, width, 2, dtype=torch.float32)
-        * (-math.log(10000.0) / width)
-    )
+    frequencies = torch.exp(torch.arange(0, width, 2, dtype=torch.float32) * (-math.log(10000.0) / width))
     encoding = torch.zeros(length, width)
     encoding[:, 0::2] = torch.sin(positions * frequencies)
     encoding[:, 1::2] = torch.cos(positions * frequencies[: encoding[:, 1::2].shape[1]])
@@ -57,9 +52,7 @@ class PatchEmbedding(nn.Module):
     def forward(self, values: torch.Tensor, observed: torch.Tensor) -> torch.Tensor:
         batch, length, channels = values.shape
         patches = length // self.patch_len
-        value_patches = values.transpose(1, 2).reshape(
-            batch, channels, patches, self.patch_len
-        )
+        value_patches = values.transpose(1, 2).reshape(batch, channels, patches, self.patch_len)
         mask_patches = observed.transpose(1, 2).reshape_as(value_patches)
         pair = torch.stack((value_patches, mask_patches.to(values.dtype)), dim=3)
         pair = pair.reshape(batch * channels * patches, 2, self.patch_len)
@@ -145,16 +138,12 @@ class Model(nn.Module):
         )
         self.aux_loss: torch.Tensor | None = None
 
-    def _encode(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _encode(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         tokens = self.patch_embedding(values, observed)
         refined = self.unified_attention(tokens)
         return self.location(refined), self.log_scale(refined).clamp(-8.0, 8.0)
 
-    def _augment(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _augment(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         keep = torch.rand_like(values) >= self.augmentation_rate
         augmented_observed = observed & keep
         noise = torch.randn_like(values) * 0.01
@@ -180,9 +169,7 @@ class Model(nn.Module):
             latent = location + log_scale.exp() * torch.randn_like(location)
             augmented, augmented_observed = self._augment(normalized, finite)
             augmented_location, _ = self._encode(augmented, augmented_observed)
-            compactness = 0.5 * (
-                location.square() + torch.exp(2.0 * log_scale) - 1.0 - 2.0 * log_scale
-            ).mean()
+            compactness = 0.5 * (location.square() + torch.exp(2.0 * log_scale) - 1.0 - 2.0 * log_scale).mean()
             consistency = F.mse_loss(location, augmented_location)
             self.aux_loss = self.kl_weight * compactness + self.consis_weight * consistency
         else:

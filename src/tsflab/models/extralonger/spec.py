@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.extralonger.model import Model
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -34,7 +34,7 @@ class ModelParameterConfig(BaseModel):
     dropout: float = 0.0
 
     @model_validator(mode="after")
-    def _heads_divide_width(self) -> "ModelParameterConfig":
+    def _heads_divide_width(self) -> ModelParameterConfig:
         model_dim = self.input_embedding_dim + self.tod_embedding_dim + self.dow_embedding_dim
         if model_dim % self.num_heads:
             raise ValueError("Extralonger model_dim must be divisible by num_heads")

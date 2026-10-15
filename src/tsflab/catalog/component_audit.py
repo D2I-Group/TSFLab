@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
-
 import re
+from pathlib import Path
 
 from tsflab.catalog.components import COMPONENT_CATALOG
 from tsflab.core.paths import repository_root
-
 
 ROOT = repository_root()
 COMPONENTS = ROOT / "src" / "tsflab" / "models" / "_components"
@@ -100,9 +98,7 @@ def audit_components() -> list[str]:
                 continue
             used.add(name)
             if name not in catalog_names:
-                errors.append(
-                    f"{path.relative_to(ROOT)} imports uncataloged component {name!r}"
-                )
+                errors.append(f"{path.relative_to(ROOT)} imports uncataloged component {name!r}")
 
     for name in sorted(catalog_names - used):
         errors.append(f"component {name!r} has no model or component consumer")

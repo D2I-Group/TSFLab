@@ -1,6 +1,7 @@
 """Runtime specification for LatentTSF."""
 
 from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.latenttsf.model import Model
 

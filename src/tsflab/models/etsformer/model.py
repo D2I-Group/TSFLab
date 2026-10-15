@@ -32,8 +32,7 @@ class FrequencyAttention(nn.Module):
             return (2.0 / length) * waves.real.sum(dim=2)
 
         history = synthesize(torch.arange(length, device=values.device, dtype=values.dtype))
-        future = synthesize(torch.arange(length, length + horizon, device=values.device,
-                                          dtype=values.dtype))
+        future = synthesize(torch.arange(length, length + horizon, device=values.device, dtype=values.dtype))
         return history, future
 
 
@@ -61,8 +60,7 @@ class ExponentialSmoothing(nn.Module):
 
 
 class ETSLayer(nn.Module):
-    def __init__(self, width: int, heads: int, hidden: int, top_k: int, dropout: float,
-                 activation: str) -> None:
+    def __init__(self, width: int, heads: int, hidden: int, top_k: int, dropout: float, activation: str) -> None:
         super().__init__()
         self.head_width = width // heads
         self.frequency = FrequencyAttention(top_k)
@@ -71,8 +69,11 @@ class ETSLayer(nn.Module):
         self.growth_output = nn.Linear(width, width)
         nonlinearity: nn.Module = nn.Sigmoid() if activation == "sigmoid" else nn.GELU()
         self.feed_forward = nn.Sequential(
-            nn.Linear(width, hidden), nonlinearity, nn.Dropout(dropout),
-            nn.Linear(hidden, width), nn.Dropout(dropout),
+            nn.Linear(width, hidden),
+            nonlinearity,
+            nn.Dropout(dropout),
+            nn.Linear(hidden, width),
+            nn.Dropout(dropout),
         )
         self.norm_growth = nn.LayerNorm(width)
         self.norm_feed_forward = nn.LayerNorm(width)
@@ -87,8 +88,7 @@ class ETSLayer(nn.Module):
         residual = self.norm_growth(deseasonalized - growth)
         residual = self.norm_feed_forward(residual + self.feed_forward(residual))
         gamma = self.damping_logit.sigmoid().repeat_interleave(self.head_width)
-        powers = torch.arange(1, horizon + 1, device=residual.device,
-                              dtype=residual.dtype).view(-1, 1)
+        powers = torch.arange(1, horizon + 1, device=residual.device, dtype=residual.dtype).view(-1, 1)
         damping = gamma.view(1, -1).pow(powers).cumsum(dim=0)
         future_growth = growth[:, -1:, :] * damping.unsqueeze(0)
         return residual, season, growth, future_season, future_growth
@@ -98,19 +98,25 @@ class Model(nn.Module):
     """Level, growth, and seasonality decomposition forecaster."""
 
     def __init__(
-        self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 128,
-        n_heads: int = 8, e_layers: int = 2, d_ff: int = 256, top_k: int = 3,
-        dropout: float = 0.1, activation: str = "sigmoid",
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 128,
+        n_heads: int = 8,
+        e_layers: int = 2,
+        d_ff: int = 256,
+        top_k: int = 3,
+        dropout: float = 0.1,
+        activation: str = "sigmoid",
     ) -> None:
         super().__init__()
         del seq_len
         self.pred_len = pred_len
-        self.embedding = nn.Conv1d(enc_in, d_model, kernel_size=3,
-                                   padding=1, padding_mode="circular")
-        self.layers = nn.ModuleList([
-            ETSLayer(d_model, n_heads, d_ff, top_k, dropout, activation)
-            for _ in range(e_layers)
-        ])
+        self.embedding = nn.Conv1d(enc_in, d_model, kernel_size=3, padding=1, padding_mode="circular")
+        self.layers = nn.ModuleList(
+            [ETSLayer(d_model, n_heads, d_ff, top_k, dropout, activation) for _ in range(e_layers)]
+        )
         self.season_projection = nn.ModuleList([nn.Linear(d_model, enc_in) for _ in range(e_layers)])
         self.growth_projection = nn.ModuleList([nn.Linear(d_model, enc_in) for _ in range(e_layers)])
         self.component_projection = nn.Linear(d_model, enc_in)
@@ -121,10 +127,10 @@ class Model(nn.Module):
         level = observations[:, 0]
         outputs = []
         for index in range(observations.shape[1]):
-            season = sum(projection(values[:, index])
-                         for projection, values in zip(self.season_projection, seasons))
-            previous_growth = sum(projection(values[:, max(index - 1, 0)])
-                                  for projection, values in zip(self.growth_projection, growths))
+            season = sum(projection(values[:, index]) for projection, values in zip(self.season_projection, seasons))
+            previous_growth = sum(
+                projection(values[:, max(index - 1, 0)]) for projection, values in zip(self.growth_projection, growths)
+            )
             level = alpha * (observations[:, index] - season) + (1 - alpha) * (level + previous_growth)
             outputs.append(level)
         return torch.stack(outputs, dim=1)

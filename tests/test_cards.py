@@ -47,23 +47,49 @@ MODEL = {
     "fidelity": "reference-checked",
     "paper": {"title": "Toy", "url": "https://example.com/paper", "venue": "Test", "year": 2026},
     "code": {"url": "https://example.com/code", "revision": "abc123", "license": "MIT"},
-    "composition": {"normalization": "component:revin", "decomposition": "none", "temporal": "local:linear",
-                    "channel": "local:independent", "head": "local:linear", "loss": "loss:mse"},
+    "composition": {
+        "normalization": "component:revin",
+        "decomposition": "none",
+        "temporal": "local:linear",
+        "channel": "local:independent",
+        "head": "local:linear",
+        "loss": "loss:mse",
+    },
     "data_params": {"period": {"from": "period", "rule": "dominant period of the training split"}},
     "issues": [{"kind": "code-bug", "where": "`model.py`", "what": "noise is zero", "resolution": "Eq. 2"}],
-    "admission": {"status": "passed", "date": "2026-10-03", "commit": "abcdef12", "device": "cpu",
-                  "reference": "official"},
+    "admission": {
+        "status": "passed",
+        "date": "2026-10-03",
+        "commit": "abcdef12",
+        "device": "cpu",
+        "reference": "official",
+    },
 }
 COMPONENT = {
-    "name": "toy_block", "role": "Mixes time steps with one linear map.", "slot": "temporal",
-    "fits": ["any"], "category": "mixer", "tags": ["linear", "mixer", "time"],
-    "input": "[batch, time, channels]", "output": "[batch, horizon, channels]", "origin": "fixture",
+    "name": "toy_block",
+    "role": "Mixes time steps with one linear map.",
+    "slot": "temporal",
+    "fits": ["any"],
+    "category": "mixer",
+    "tags": ["linear", "mixer", "time"],
+    "input": "[batch, time, channels]",
+    "output": "[batch, horizon, channels]",
+    "origin": "fixture",
 }
 DATASET = {
-    "name": "toy_data", "domain": "energy", "topic": "toy load", "benchmarks": ["ltsf"],
+    "name": "toy_data",
+    "domain": "energy",
+    "topic": "toy load",
+    "benchmarks": ["ltsf"],
     "tags": ["toy", "hourly", "fixture"],
-    "source": {"name": "Toy", "url": "https://example.com", "citation": "Toy (2026)",
-               "citation_url": "https://example.com/cite", "license": "CC-BY-4.0", "redistribution": "hosted"},
+    "source": {
+        "name": "Toy",
+        "url": "https://example.com",
+        "citation": "Toy (2026)",
+        "citation_url": "https://example.com/cite",
+        "license": "CC-BY-4.0",
+        "redistribution": "hosted",
+    },
     "shape": {"frequency": "1h", "length": 100, "channels": 3, "channel_kind": "channels", "stats_basis": "measured"},
     "protocol": {"protocol": "70/10/20 chronological split", "seq_lens": [96], "pred_lens": [24]},
 }
@@ -74,8 +100,15 @@ def _sections(kind: str, lines: int = 2) -> dict[str, str]:
     return {title: "\n".join(f"{title} detail {i}." for i in range(lines)) for title in README_SECTIONS[kind]}
 
 
-def _write(directory: Path, kind: str, facts: dict | None = None, *, description: str = "A toy card.",
-           sections: dict[str, str] | None = None, reference: str | None = None) -> Path:
+def _write(
+    directory: Path,
+    kind: str,
+    facts: dict | None = None,
+    *,
+    description: str = "A toy card.",
+    sections: dict[str, str] | None = None,
+    reference: str | None = None,
+) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     files = card_files(kind, dict(facts or FACTS[kind]), description, sections or _sections(kind))
     for name, text in files.items():
@@ -102,8 +135,10 @@ def test_rendered_cards_load_validate_and_pass_the_format_check(tmp_path, kind) 
     assert [title for title, _ in card.sections] == list(README_SECTIONS[kind])
     assert card.reference is None
     assert store.problems(card, curated=True) == []
-    assert type(store.validated(card)).__name__ == {"model": "ModelCard", "component": "ComponentCard",
-                                                     "dataset": "DatasetCard"}[kind]
+    assert (
+        type(store.validated(card)).__name__
+        == {"model": "ModelCard", "component": "ComponentCard", "dataset": "DatasetCard"}[kind]
+    )
 
 
 def test_model_schema_enforces_slots_issues_and_fidelity() -> None:
@@ -140,8 +175,13 @@ def test_component_and_dataset_schemas() -> None:
         return DatasetCard.model_validate({"schema": SCHEMA, "kind": "dataset", **DATASET, **over})
 
     assert component().fits == ["any"]
-    for bad in ({"slot": "middle"}, {"category": "magic"}, {"fits": []}, {"role": "x" * 161},
-                {"fits": ["any", "many-channels"]}):
+    for bad in (
+        {"slot": "middle"},
+        {"category": "magic"},
+        {"fits": []},
+        {"role": "x" * 161},
+        {"fits": ["any", "many-channels"]},
+    ):
         with pytest.raises(ValidationError):
             component(**bad)
     assert dataset(kind="dataset-family").kind == "dataset-family"
@@ -155,10 +195,16 @@ def test_component_and_dataset_schemas() -> None:
             dataset(source={**DATASET["source"], "redistribution": retired})
     for klass in ("hosted", "upstream", "script"):
         assert dataset(source={**DATASET["source"], "redistribution": klass}).source.redistribution == klass
-    assert dataset(source={**DATASET["source"], "redistribution": "hosted",
-                           "conditions": "verbatim copies only"}).source.conditions
-    for bad in ({"domain": "Energy / power"}, {"domain": "weather"}, {"domain": "mixed"},
-                {"benchmarks": ["m4"]}, {"benchmarks": ["ltsf", "ltsf"]}):
+    assert dataset(
+        source={**DATASET["source"], "redistribution": "hosted", "conditions": "verbatim copies only"}
+    ).source.conditions
+    for bad in (
+        {"domain": "Energy / power"},
+        {"domain": "weather"},
+        {"domain": "mixed"},
+        {"benchmarks": ["m4"]},
+        {"benchmarks": ["ltsf", "ltsf"]},
+    ):
         with pytest.raises(ValidationError):
             dataset(**bad)
     assert dataset(kind="dataset-family", domain="mixed").domain == "mixed"
@@ -192,7 +238,10 @@ def test_problems_report_identity_and_section_mismatches(tmp_path) -> None:
     assert "schema must be" in found
     assert "README name 'Other' differs" in found
     assert "description must be one line" in found
-    assert "sections must be exactly Idea, When to use, Configure, Differences (got Idea, When to use, Configure, Notes)" in found
+    assert (
+        "sections must be exactly Idea, When to use, Configure, Differences (got Idea, When to use, Configure, Notes)"
+        in found
+    )
 
 
 def test_split_sections_ignores_headings_in_code_fences() -> None:
@@ -249,8 +298,12 @@ def test_card_directories_find_each_kind_and_skip_private_packages(tmp_path) -> 
 
 
 def test_render_orders_sections_and_rejects_unknown_ones() -> None:
-    files = card_files("dataset-family", {**DATASET, "kind": "ignored"}, "  A   family\n card. ",
-                       {"Protocol and pitfalls": "p", "Overview": "o"})
+    files = card_files(
+        "dataset-family",
+        {**DATASET, "kind": "ignored"},
+        "  A   family\n card. ",
+        {"Protocol and pitfalls": "p", "Overview": "o"},
+    )
     readme = files["README.md"]
     assert readme.index("## Overview") < readme.index("## Protocol and pitfalls")
     assert 'description: "A family card."' in readme
@@ -261,9 +314,17 @@ def test_render_orders_sections_and_rejects_unknown_ones() -> None:
 
 
 def test_toml_writer_round_trips_and_keeps_inline_tables() -> None:
-    data = {"name": "x", "flag": True, "ratio": 0.5, "items": [1, 2], "key with space": "v",
-            "table": {"a": 1, "nested": {"b": "c"}}, "params": {"p": {"from": "period", "rule": "r"}},
-            "rows": [{"k": 1}, {"k": 2}], "skipped": None}
+    data = {
+        "name": "x",
+        "flag": True,
+        "ratio": 0.5,
+        "items": [1, 2],
+        "key with space": "v",
+        "table": {"a": 1, "nested": {"b": "c"}},
+        "params": {"p": {"from": "period", "rule": "r"}},
+        "rows": [{"k": 1}, {"k": 2}],
+        "skipped": None,
+    }
     text = dumps(data, inline=("params",))
     assert tomllib.loads(text) == {k: v for k, v in data.items() if k != "skipped"}
     assert 'p = { from = "period", rule = "r" }' in text
@@ -279,9 +340,18 @@ def test_toml_writer_round_trips_and_keeps_inline_tables() -> None:
 # ---------------------------------------------------------------------------
 
 
-CODE_AGREEMENT = ("orphan", "card name", "spec name", "does not import", "origin model",
-                  "architecture family", "admitted model", "needs card.toml",
-                  "composition", "its directory")
+CODE_AGREEMENT = (
+    "orphan",
+    "card name",
+    "spec name",
+    "does not import",
+    "origin model",
+    "architecture family",
+    "admitted model",
+    "needs card.toml",
+    "composition",
+    "its directory",
+)
 
 
 def test_repository_cards_agree_with_code() -> None:

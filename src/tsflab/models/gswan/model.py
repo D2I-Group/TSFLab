@@ -216,8 +216,17 @@ class Model(nn.Module):
         last = len(dilations) - 1
         self.layers = nn.ModuleList(
             GSWaNLayer(
-                hidden_channels, skip_channels, kernel_size, dilation, length, support_len,
-                num_heads, order, dropout, softmax_temp, spatial=index < last,
+                hidden_channels,
+                skip_channels,
+                kernel_size,
+                dilation,
+                length,
+                support_len,
+                num_heads,
+                order,
+                dropout,
+                softmax_temp,
+                spatial=index < last,
             )
             for index, (dilation, length) in enumerate(zip(dilations, lengths))
         )

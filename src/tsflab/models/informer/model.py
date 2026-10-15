@@ -18,12 +18,25 @@ class Model(nn.Module):
     """ProbSparse encoder-decoder for long-sequence forecasting."""
 
     def __init__(
-        self, seq_len: int, pred_len: int, label_len: int, features: str,
-        enc_in: int, dec_in: int | None = None, c_out: int | None = None,
-        d_model: int = 128, n_heads: int = 8, e_layers: int = 2,
-        d_layers: int = 1, d_ff: int = 256, dropout: float = 0.1,
-        factor: int = 3, activation: str = "gelu", distil: bool = True,
-        embed: str = "timeF", freq: str = "h",
+        self,
+        seq_len: int,
+        pred_len: int,
+        label_len: int,
+        features: str,
+        enc_in: int,
+        dec_in: int | None = None,
+        c_out: int | None = None,
+        d_model: int = 128,
+        n_heads: int = 8,
+        e_layers: int = 2,
+        d_layers: int = 1,
+        d_ff: int = 256,
+        dropout: float = 0.1,
+        factor: int = 3,
+        activation: str = "gelu",
+        distil: bool = True,
+        embed: str = "timeF",
+        freq: str = "h",
     ) -> None:
         super().__init__()
         del seq_len, label_len, features
@@ -35,8 +48,7 @@ class Model(nn.Module):
 
         def sparse(*, causal: bool) -> AttentionLayer:
             return AttentionLayer(
-                ProbAttention(mask_flag=causal, factor=factor,
-                              attention_dropout=dropout),
+                ProbAttention(mask_flag=causal, factor=factor, attention_dropout=dropout),
                 d_model,
                 n_heads,
             )
@@ -48,15 +60,11 @@ class Model(nn.Module):
                 n_heads,
             )
 
-        layers = [EncoderLayer(sparse(causal=False), d_model, d_ff, dropout, activation)
-                  for _ in range(e_layers)]
-        distillers = ([ConvLayer(d_model) for _ in range(e_layers - 1)]
-                      if distil and e_layers > 1 else None)
-        self.encoder = Encoder(layers, conv_layers=distillers,
-                               norm_layer=nn.LayerNorm(d_model))
+        layers = [EncoderLayer(sparse(causal=False), d_model, d_ff, dropout, activation) for _ in range(e_layers)]
+        distillers = [ConvLayer(d_model) for _ in range(e_layers - 1)] if distil and e_layers > 1 else None
+        self.encoder = Encoder(layers, conv_layers=distillers, norm_layer=nn.LayerNorm(d_model))
         self.decoder = Decoder(
-            [DecoderLayer(sparse(causal=True), full(), d_model, d_ff, dropout, activation)
-             for _ in range(d_layers)],
+            [DecoderLayer(sparse(causal=True), full(), d_model, d_ff, dropout, activation) for _ in range(d_layers)],
             norm_layer=nn.LayerNorm(d_model),
             projection=nn.Linear(d_model, c_out),
         )

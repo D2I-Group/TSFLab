@@ -48,8 +48,10 @@ class Model(nn.Module):
         )
         self.temporal_encoder = nn.TransformerEncoder(layer, num_layers=num_layers)
         self.visual_encoder = nn.Sequential(
-            nn.Conv1d(4, d_model, kernel_size=5, padding=2), nn.GELU(),
-            nn.Conv1d(d_model, d_model, kernel_size=3, padding=1), nn.GELU(),
+            nn.Conv1d(4, d_model, kernel_size=5, padding=2),
+            nn.GELU(),
+            nn.Conv1d(d_model, d_model, kernel_size=3, padding=1),
+            nn.GELU(),
         )
         self.cross_modal = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.fusion_norm = nn.LayerNorm(d_model)

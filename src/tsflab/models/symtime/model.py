@@ -70,9 +70,7 @@ class Model(nn.Module):
         patches = self.patch_series(periodic)
         batch, channels, count, width = patches.shape
         tokens = self.patch_projection(patches.reshape(batch * channels, count, width))
-        return self.series_encoder(tokens + self.position).reshape(
-            batch, channels, count, -1
-        )
+        return self.series_encoder(tokens + self.position).reshape(batch, channels, count, -1)
 
     def forward(
         self,

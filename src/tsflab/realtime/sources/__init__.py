@@ -18,9 +18,7 @@ from tsflab.realtime.tracks import TrackSpec
 def require_env(names: list[str]) -> dict[str, str]:
     missing = [name for name in names if not os.environ.get(name)]
     if missing:
-        raise RuntimeError(
-            "missing credentials: set " + ", ".join(missing) + " in the environment"
-        )
+        raise RuntimeError("missing credentials: set " + ", ".join(missing) + " in the environment")
     return {name: os.environ[name] for name in names}
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import numpy as np
 import torch
 from torch import nn
@@ -14,12 +15,24 @@ from tsflab.models._inputs import check_window, square_adjacency
 class Model(nn.Module):
     """Single-stage BigST with positive random-feature spatial attention."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int,
-                 adj_mx: np.ndarray | None = None, input_dim: int = 3,
-                 hid_dim: int = 16, node_dim: int = 8, time_dim: int = 8,
-                 tod_size: int = 24, dow_size: int = 7, tau: float = 1.0,
-                 random_feature_dim: int = 16, dropout: float = 0.1,
-                 use_residual: bool = True, use_bn: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        input_dim: int = 3,
+        hid_dim: int = 16,
+        node_dim: int = 8,
+        time_dim: int = 8,
+        tod_size: int = 24,
+        dow_size: int = 7,
+        tau: float = 1.0,
+        random_feature_dim: int = 16,
+        dropout: float = 0.1,
+        use_residual: bool = True,
+        use_bn: bool = True,
+    ) -> None:
         super().__init__()
         if num_nodes < 1:
             raise ValueError("lengths and nodes must be positive")
@@ -33,7 +46,9 @@ class Model(nn.Module):
         context_dim = hid_dim + node_dim + 2 * time_dim
         self.query, self.key = nn.Linear(context_dim, random_feature_dim), nn.Linear(context_dim, random_feature_dim)
         self.value = nn.Linear(context_dim, hid_dim)
-        self.random_projection = nn.Parameter(torch.randn(random_feature_dim, random_feature_dim) / math.sqrt(random_feature_dim))
+        self.random_projection = nn.Parameter(
+            torch.randn(random_feature_dim, random_feature_dim) / math.sqrt(random_feature_dim)
+        )
         self.prior_scale = nn.Parameter(torch.tensor(0.1))
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.BatchNorm1d(hid_dim) if use_bn else nn.Identity()
@@ -57,15 +72,26 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.num_nodes)
         st = to_spatiotemporal(x_enc, x_mark_enc)
         if st.shape[-1] < self.input_dim:
-            st = torch.cat((st, st.new_zeros(*st.shape[:-1], self.input_dim-st.shape[-1])), -1)
-        base = torch.tanh(self.value_projection(st[..., :self.input_dim].transpose(1, 2).flatten(2)))
+            st = torch.cat((st, st.new_zeros(*st.shape[:-1], self.input_dim - st.shape[-1])), -1)
+        base = torch.tanh(self.value_projection(st[..., : self.input_dim].transpose(1, 2).flatten(2)))
         if x_mark_enc is None:
             tod = torch.zeros(x_enc.shape[0], self.num_nodes, dtype=torch.long, device=x_enc.device)
             dow = tod
         else:
             last = st[:, -1, :, 1:]
-            tod = ((last[..., 0] * self.time_of_day.num_embeddings).long() % self.time_of_day.num_embeddings) if last.shape[-1] else torch.zeros_like(x_enc[:, 0], dtype=torch.long)
-            dow = ((last[..., min(1, last.shape[-1]-1)] * self.day_of_week.num_embeddings).long() % self.day_of_week.num_embeddings) if last.shape[-1] else torch.zeros_like(tod)
+            tod = (
+                ((last[..., 0] * self.time_of_day.num_embeddings).long() % self.time_of_day.num_embeddings)
+                if last.shape[-1]
+                else torch.zeros_like(x_enc[:, 0], dtype=torch.long)
+            )
+            dow = (
+                (
+                    (last[..., min(1, last.shape[-1] - 1)] * self.day_of_week.num_embeddings).long()
+                    % self.day_of_week.num_embeddings
+                )
+                if last.shape[-1]
+                else torch.zeros_like(tod)
+            )
         source_node = self.node_source.unsqueeze(0).expand(x_enc.shape[0], -1, -1)
         target_node = self.node_target.unsqueeze(0).expand_as(source_node)
         time_context = (self.time_of_day(tod), self.day_of_week(dow))
@@ -76,7 +102,9 @@ class Model(nn.Module):
         k = self._positive_features(self.key(target) @ projection)
         v = self.value(source)
         kv = torch.einsum("bnr,bnh->brh", k, v)
-        message = torch.einsum("bnr,brh->bnh", q, kv) / torch.einsum("bnr,br->bn", q, k.sum(1)).clamp_min(1e-6).unsqueeze(-1)
+        message = torch.einsum("bnr,brh->bnh", q, kv) / torch.einsum("bnr,br->bn", q, k.sum(1)).clamp_min(
+            1e-6
+        ).unsqueeze(-1)
         message = message + self.prior_scale * torch.einsum("nm,bmh->bnh", self.graph_prior, v)
         if self.use_residual:
             message = message + base

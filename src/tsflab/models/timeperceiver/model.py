@@ -1,7 +1,9 @@
 """Clean-room TimePerceiver latent encoder/query decoder."""
+
 from __future__ import annotations
 
 import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -16,7 +18,9 @@ class CrossAttentionBlock(nn.Module):
         self.context = nn.Linear(context_dim, query_dim)
         self.attention = nn.MultiheadAttention(query_dim, heads, dropout=dropout, batch_first=True)
         self.norm1 = nn.LayerNorm(query_dim)
-        self.feedforward = nn.Sequential(nn.Linear(query_dim, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, query_dim))
+        self.feedforward = nn.Sequential(
+            nn.Linear(query_dim, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, query_dim)
+        )
         self.norm2 = nn.LayerNorm(query_dim)
 
     def forward(self, queries, context):
@@ -27,10 +31,23 @@ class CrossAttentionBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M",
-                 d_model=32, n_heads=2, patch_len=16, dropout=0.1,
-                 num_latents=8, latent_dim=128, latent_d_ff=256,
-                 num_latent_blocks=1, query_share=True):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        label_len=0,
+        features="M",
+        d_model=32,
+        n_heads=2,
+        patch_len=16,
+        dropout=0.1,
+        num_latents=8,
+        latent_dim=128,
+        latent_d_ff=256,
+        num_latent_blocks=1,
+        query_share=True,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
@@ -42,7 +59,9 @@ class Model(nn.Module):
         self.input_position = nn.Parameter(torch.randn(self.patch_count, d_model) * 0.02)
         self.latents = nn.Parameter(torch.randn(num_latents, latent_dim) * 0.02)
         self.encoder = CrossAttentionBlock(latent_dim, d_model, n_heads, latent_d_ff, dropout)
-        encoder_layer = nn.TransformerEncoderLayer(latent_dim, n_heads, latent_d_ff, dropout, activation="gelu", batch_first=True, norm_first=True)
+        encoder_layer = nn.TransformerEncoderLayer(
+            latent_dim, n_heads, latent_d_ff, dropout, activation="gelu", batch_first=True, norm_first=True
+        )
         self.latent_blocks = nn.TransformerEncoder(encoder_layer, num_latent_blocks)
         query_count = pred_len if query_share else pred_len * enc_in
         self.target_queries = nn.Parameter(torch.randn(query_count, latent_dim) * 0.02)
@@ -56,12 +75,17 @@ class Model(nn.Module):
     def _time_features(marks, batch, steps, device, dtype):
         if marks is None:
             position = torch.linspace(0, 1, steps, device=device, dtype=dtype)
-            return torch.stack((position, position.square(), torch.sin(2*torch.pi*position), torch.cos(2*torch.pi*position)), -1).expand(batch, -1, -1)
+            return torch.stack(
+                (position, position.square(), torch.sin(2 * torch.pi * position), torch.cos(2 * torch.pi * position)),
+                -1,
+            ).expand(batch, -1, -1)
         selected = marks[:, -steps:]
         if selected.shape[-1] >= 6:
-            return torch.stack((selected[..., 1]/12, selected[..., 2]/31, selected[..., 3]/7, selected[..., 4]/24), -1).to(dtype)
+            return torch.stack(
+                (selected[..., 1] / 12, selected[..., 2] / 31, selected[..., 3] / 7, selected[..., 4] / 24), -1
+            ).to(dtype)
         selected = selected[..., :4].to(dtype)
-        return F.pad(selected, (0, 4-selected.shape[-1]))
+        return F.pad(selected, (0, 4 - selected.shape[-1]))
 
     def forward(
         self,
@@ -73,7 +97,7 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         normalized = self.revin(x_enc, "norm").transpose(1, 2)
-        padded = F.pad(normalized, (0, self.patch_count*self.patch_len-self.seq_len))
+        padded = F.pad(normalized, (0, self.patch_count * self.patch_len - self.seq_len))
         patches = self.patch_embedding(padded.unfold(-1, self.patch_len, self.patch_len))
         tokens = patches + self.channel_embedding[:, None, :] + self.input_position[None, :, :]
         tokens = tokens.flatten(1, 2)

@@ -1,10 +1,10 @@
 """Progressively disclosed environment and interface discovery commands."""
 
 import argparse
-
-from tsflab.cli.output import publish
 import json
 import sys
+
+from tsflab.cli.output import publish
 
 
 def infrastructure_command(args):
@@ -13,14 +13,12 @@ def infrastructure_command(args):
     parser = argparse.ArgumentParser(
         prog="tsf env" if args[0] == "env" else "tsf agent interface",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=group_usage("env") if args[0] == "env"
-        else "Execution recipes (show), the execution-policy schema (schema), and the Python API "
-             "modules (api).",
+        description=group_usage("env")
+        if args[0] == "env"
+        else "Execution recipes (show), the execution-policy schema (schema), and the Python API modules (api).",
         epilog="Before TSFLab is installed: python3 scripts/setup_env.py." if args[0] == "env" else None,
     )
-    parser.add_argument(
-        "action", nargs="?", default="audit" if args[0] == "env" else "show"
-    )
+    parser.add_argument("action", nargs="?", default="audit" if args[0] == "env" else "show")
     parser.add_argument(
         "--module",
         choices=["budget", "resources", "recovery", "storage", "tracking"],
@@ -44,9 +42,7 @@ def infrastructure_command(args):
                 print(json.dumps(payload, indent=2))
             else:
                 for module in payload["modules"]:
-                    print(
-                        f"{module['name']}: {', '.join(module['exports'])}\n  {module['requirements']}"
-                    )
+                    print(f"{module['name']}: {', '.join(module['exports'])}\n  {module['requirements']}")
             return 0
         if parsed.module and (args[0] != "interface" or parsed.action != "schema"):
             raise ValueError("--module is only valid for tsf agent interface schema")
@@ -68,9 +64,7 @@ def infrastructure_command(args):
                 raise ValueError("usage: tsf agent interface [show|schema|api] [--module SECTION] [--json]")
             payload = (
                 (
-                    ExecutionPolicy.model_fields[
-                        parsed.module
-                    ].annotation.model_json_schema()
+                    ExecutionPolicy.model_fields[parsed.module].annotation.model_json_schema()
                     if parsed.module
                     else ExecutionPolicy.model_json_schema()
                 )
@@ -110,17 +104,13 @@ def infrastructure_command(args):
             )
         else:
             if parsed.action != "audit":
-                raise ValueError(
-                    "usage: tsf env [audit|doctor|setup] [--config <toml>] [--policy <toml>] [--json]"
-                )
+                raise ValueError("usage: tsf env [audit|doctor|setup] [--config <toml>] [--policy <toml>] [--json]")
             policy = load_policy(parsed.policy)
             if parsed.config:
                 from tsflab.experiments.config.loader import load_config
                 from tsflab.experiments.infra.execution import preflight
 
-                payload = preflight(
-                    [item.config for item in load_config(parsed.config)], policy
-                )
+                payload = preflight([item.config for item in load_config(parsed.config)], policy)
             else:
                 from tsflab.experiments.infra.environment import audit_environment
 
@@ -134,12 +124,8 @@ def infrastructure_command(args):
                 for name, command in payload[group].items():
                     print(f"  {name}: {command}")
         elif "checks" in payload:
-            print(
-                "Environment ready" if payload["ok"] else "Environment needs attention"
-            )
-            print(
-                f"  Python {payload['checks'][0]['detail']}; {len(payload['packages'])} runtime packages found"
-            )
+            print("Environment ready" if payload["ok"] else "Environment needs attention")
+            print(f"  Python {payload['checks'][0]['detail']}; {len(payload['packages'])} runtime packages found")
             for check in payload["checks"]:
                 if check["status"] == "failed" or check["name"] in {
                     "torch",
@@ -150,9 +136,7 @@ def infrastructure_command(args):
                     print(f"  {check['status']}: {check['name']} — {check['detail']}")
             print("  Use --json for all checks and GPU inventory")
         else:
-            print(
-                f"{payload['total_runs']} resolved runs: {'ready' if payload['ok'] else 'not ready'}"
-            )
+            print(f"{payload['total_runs']} resolved runs: {'ready' if payload['ok'] else 'not ready'}")
             for run in payload["runs"]:
                 for error in run["errors"]:
                     print(f"  {run['model']}: {error}")

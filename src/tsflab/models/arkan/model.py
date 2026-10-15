@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from tsflab.models._components.bspline_basis import bspline_basis
 from tsflab.models._inputs import check_window
 
+
 class BSplineKANLayer(nn.Module):
     """KAN layer ``y_j = sum_i phi_ij(x_i) + b_j`` with ``phi = w_b silu + w_s sum_k c_k B_k``.
 
@@ -45,9 +46,7 @@ class BSplineKANLayer(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         base = F.silu(x) @ self.base_weight.T
-        spline = torch.einsum(
-            "nik,oik->no", self.basis(x), self.coefficients * self.spline_weight.unsqueeze(-1)
-        )
+        spline = torch.einsum("nik,oik->no", self.basis(x), self.coefficients * self.spline_weight.unsqueeze(-1))
         return base + spline + self.bias
 
 
@@ -71,9 +70,7 @@ def autocorrelation_sums(segments: torch.Tensor, lag: int) -> tuple[torch.Tensor
         [(segments[:, i:] * segments[:, : length - i]).sum(dim=(0, 1)) for i in range(lag + 1)],
         dim=-1,
     )
-    counts = torch.tensor(
-        [segments.shape[0] * (length - i) for i in range(lag + 1)], dtype=segments.dtype
-    )
+    counts = torch.tensor([segments.shape[0] * (length - i) for i in range(lag + 1)], dtype=segments.dtype)
     return sums, counts
 
 

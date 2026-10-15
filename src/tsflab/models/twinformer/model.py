@@ -111,7 +111,7 @@ class Model(nn.Module):
         batch = x_enc.shape[0]
         tokens = self.embedding(x_enc)
         tokens = self.position_dropout(tokens + self.position(tokens))
-        tokens = tokens[:, x_enc.shape[1] - self.num_patches * self.patch_len:]
+        tokens = tokens[:, x_enc.shape[1] - self.num_patches * self.patch_len :]
         patches = tokens.reshape(batch * self.num_patches, self.patch_len, -1)  # Eq. (7)
         for block in self.local_blocks:
             patches = block(patches)

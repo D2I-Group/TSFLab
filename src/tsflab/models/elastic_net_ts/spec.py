@@ -1,8 +1,9 @@
 """Runtime specification for ElasticNetTS."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.elastic_net_ts.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -12,9 +13,7 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(
-        cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params["penalty"], params["l1_ratio"]
-    )
+    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params["penalty"], params["l1_ratio"])
 
 
 SPEC = ModelSpec(

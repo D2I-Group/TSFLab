@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_option
 import os
+from typing import cast
 
 import matplotlib
 import numpy as np
 import pandas as pd
-from typing import cast
+
+from tsflab.cli.args import add_option
 
 
 def _apply_size_scale(values, scale: str):
@@ -95,8 +95,15 @@ def main() -> None:
         action="store_true",
         help="Show legend",
     )
-    add_option(parser, "--out", "output", "--output", type=str, default=None,
-               help="output image path (default: work_dirs/plots/bubble_<csv>.png)")
+    add_option(
+        parser,
+        "--out",
+        "output",
+        "--output",
+        type=str,
+        default=None,
+        help="output image path (default: work_dirs/plots/bubble_<csv>.png)",
+    )
     parser.add_argument(
         "--show",
         action="store_true",

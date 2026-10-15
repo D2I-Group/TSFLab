@@ -10,6 +10,7 @@ silently confused.
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
 
@@ -41,9 +42,7 @@ class DomainKnowledgeAttention(nn.Module):
         self.value = nn.Linear(d_model, d_model)
         self.adaptive_left = nn.Parameter(torch.randn(axis_length, adaptive_dim) * 0.02)
         self.adaptive_right = nn.Parameter(torch.randn(axis_length, adaptive_dim) * 0.02)
-        self.intervention_logits = nn.Parameter(
-            torch.zeros(environments, axis_length, axis_length)
-        )
+        self.intervention_logits = nn.Parameter(torch.zeros(environments, axis_length, axis_length))
         self.output = nn.Linear(d_model * 4, d_model)
         self.gated = gated
         if gated:
@@ -54,7 +53,10 @@ class DomainKnowledgeAttention(nn.Module):
         batch, length, width = query.shape
         if key.shape[:2] != (batch, length) or value.shape[:2] != (batch, length):
             raise ValueError("DK-MSA query, key, and value axes must match")
-        reshape = lambda item: item.reshape(batch, length, self.heads, self.head_dim).transpose(1, 2)
+
+        def reshape(item):
+            return item.reshape(batch, length, self.heads, self.head_dim).transpose(1, 2)
+
         q, k, v = map(reshape, (self.query(query), self.key(key), self.value(value)))
         direct = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.head_dim)
         inverse = torch.matmul(k, q.transpose(-1, -2)) / math.sqrt(self.head_dim)
@@ -82,15 +84,11 @@ class CausalLayer(nn.Module):
         super().__init__()
         self.attention = attention
         self.attention_norm = nn.LayerNorm(d_model)
-        self.feed_forward = nn.Sequential(
-            nn.Linear(d_model, d_model * 2), nn.GELU(), nn.Linear(d_model * 2, d_model)
-        )
+        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_model * 2), nn.GELU(), nn.Linear(d_model * 2, d_model))
         self.output_norm = nn.LayerNorm(d_model)
 
     def forward(self, meteorology: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-        value = self.attention_norm(
-            value + self.attention(meteorology, meteorology, value)
-        )
+        value = self.attention_norm(value + self.attention(meteorology, meteorology, value))
         return self.output_norm(value + self.feed_forward(value))
 
 
@@ -125,28 +123,20 @@ class Model(nn.Module):
         self.station_prompt = nn.Parameter(torch.randn(enc_in, prompt_dim) * 0.02)
 
         def attention(length: int, gated: bool) -> DomainKnowledgeAttention:
-            return DomainKnowledgeAttention(
-                d_model, num_heads, length, adaptive_dim, environments, gated
-            )
+            return DomainKnowledgeAttention(d_model, num_heads, length, adaptive_dim, environments, gated)
 
         self.temporal_cade = nn.ModuleList(
             CausalLayer(attention(seq_len, True), d_model) for _ in range(temporal_layers)
         )
-        self.spatial_cade = nn.ModuleList(
-            CausalLayer(attention(enc_in, False), d_model) for _ in range(spatial_layers)
-        )
+        self.spatial_cade = nn.ModuleList(CausalLayer(attention(enc_in, False), d_model) for _ in range(spatial_layers))
         self.history_to_future = nn.Linear(seq_len, pred_len)
         self.temporal_cadi = nn.ModuleList(
             CausalLayer(attention(pred_len, True), d_model) for _ in range(temporal_layers)
         )
-        self.spatial_cadi = nn.ModuleList(
-            CausalLayer(attention(enc_in, False), d_model) for _ in range(spatial_layers)
-        )
+        self.spatial_cadi = nn.ModuleList(CausalLayer(attention(enc_in, False), d_model) for _ in range(spatial_layers))
         self.predictor = nn.Linear(d_model, 1)
 
-    def _prompted(
-        self, embedding: torch.Tensor, time_prompt: torch.Tensor
-    ) -> torch.Tensor:
+    def _prompted(self, embedding: torch.Tensor, time_prompt: torch.Tensor) -> torch.Tensor:
         batch, steps, nodes, _ = embedding.shape
         time = time_prompt.view(1, steps, 1, -1).expand(batch, steps, nodes, -1)
         station = self.station_prompt.view(1, 1, nodes, -1).expand(batch, steps, nodes, -1)
@@ -155,7 +145,10 @@ class Model(nn.Module):
     @staticmethod
     def _temporal(layer: CausalLayer, weather: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
         batch, steps, nodes, width = value.shape
-        flatten = lambda item: item.permute(0, 2, 1, 3).reshape(batch * nodes, steps, width)
+
+        def flatten(item):
+            return item.permute(0, 2, 1, 3).reshape(batch * nodes, steps, width)
+
         result = layer(flatten(weather), flatten(value))
         return result.reshape(batch, nodes, steps, width).permute(0, 2, 1, 3)
 
@@ -206,14 +199,10 @@ class Model(nn.Module):
         history, future = self._covariates(x_enc, x_mark_enc, x_mark_dec)
 
         value = self._prompted(self.value_embedding(history[..., :1]), self.past_time_prompt)
-        past_weather = self._prompted(
-            self.past_weather_embedding(history[..., 1:]), self.past_time_prompt
-        )
+        past_weather = self._prompted(self.past_weather_embedding(history[..., 1:]), self.past_time_prompt)
         value = self._causal_stack(self.temporal_cade, self.spatial_cade, past_weather, value)
 
         value = self.history_to_future(value.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
-        future_weather = self._prompted(
-            self.future_weather_embedding(future), self.future_time_prompt
-        )
+        future_weather = self._prompted(self.future_weather_embedding(future), self.future_time_prompt)
         value = self._causal_stack(self.temporal_cadi, self.spatial_cadi, future_weather, value)
         return self.predictor(value).squeeze(-1)

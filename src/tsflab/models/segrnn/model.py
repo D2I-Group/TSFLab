@@ -5,8 +5,8 @@ from __future__ import annotations
 import math
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from tsflab.models._components.last_value_center import center_on_last_value, restore_last_value
 from tsflab.models._inputs import check_window
@@ -15,8 +15,9 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Encode history segments recurrently and decode future segments in parallel."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 dropout: float = 0.1, seg_len: int = 24) -> None:
+    def __init__(
+        self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64, dropout: float = 0.1, seg_len: int = 24
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in, self.seg_len = seq_len, pred_len, enc_in, seg_len
         self.history_segments = math.ceil(seq_len / seg_len)

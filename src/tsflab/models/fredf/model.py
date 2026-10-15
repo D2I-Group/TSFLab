@@ -23,7 +23,6 @@ from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
 
-
 class _ContiguousGrad(torch.autograd.Function):
     """Identity whose backward hands a contiguous gradient to the preceding FFT.
 
@@ -61,9 +60,7 @@ class FrequencyDynamicFusionBlock(nn.Module):
         self.bins = length // 2 + 1
         bound = 1.0 / math.sqrt(d_model)
         # Per-frequency complex transfer matrices stored as real (re, im) pairs.
-        self.transfer = nn.Parameter(
-            torch.empty(self.bins, d_model, d_model, 2).uniform_(-bound, bound)
-        )
+        self.transfer = nn.Parameter(torch.empty(self.bins, d_model, d_model, 2).uniform_(-bound, bound))
         # Frequency importance logits (eq. 14); the fusion weights are the softmax of
         # these, recomputed in every forward as in the official code.
         self.frequency_weight = nn.Parameter(torch.randn(self.bins))
@@ -88,8 +85,7 @@ class FrequencyDynamicFusionBlock(nn.Module):
         for m in range(self.bins):
             single = torch.zeros_like(spectrum)
             single[:, m] = spectrum[:, m] @ transfer[m].transpose(0, 1)
-            total = total + _irfft_time(single, self.length
-            ) * weights[m]
+            total = total + _irfft_time(single, self.length) * weights[m]
         return total
 
 
@@ -111,9 +107,7 @@ class Model(nn.Module):
         self.freq = freq
         length = seq_len + pred_len
         self.revin = RevIN(enc_in, affine=False)
-        self.history_mlp = nn.Sequential(
-            nn.Linear(seq_len, seq_len), nn.ReLU(), nn.Dropout(dropout)
-        )
+        self.history_mlp = nn.Sequential(nn.Linear(seq_len, seq_len), nn.ReLU(), nn.Dropout(dropout))
         self.embedding = DataEmbedding(
             enc_in,
             d_model,
@@ -126,9 +120,7 @@ class Model(nn.Module):
         # One block reused by every layer, as in the official code.
         self.e_layers = e_layers
         self.blocks = nn.ModuleList([FrequencyDynamicFusionBlock(length, d_model)])
-        self.horizon_mlp = nn.Sequential(
-            nn.Linear(pred_len, pred_len), nn.ReLU(), nn.Dropout(dropout)
-        )
+        self.horizon_mlp = nn.Sequential(nn.Linear(pred_len, pred_len), nn.ReLU(), nn.Dropout(dropout))
         self.projection = nn.Linear(d_model, enc_in)
 
     def _joint_marks(self, x_mark_enc, x_mark_dec):

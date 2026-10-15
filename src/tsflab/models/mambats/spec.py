@@ -52,10 +52,7 @@ def training_objective(model, batch: TrainingBatch, criterion):
     if model.vpt_mode == 1:
         with torch.no_grad():
             per_sample = torch.stack(
-                [
-                    criterion(prediction[i : i + 1], target[i : i + 1])
-                    for i in range(prediction.shape[0])
-                ]
+                [criterion(prediction[i : i + 1], target[i : i + 1]) for i in range(prediction.shape[0])]
             )
         model.update_scan_costs(per_sample)
     return forecast, loss

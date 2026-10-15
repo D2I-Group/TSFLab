@@ -39,9 +39,7 @@ class ChannelWiseAttention(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """``x``: ``[batch, channels, seq_len]``; returns the same shape."""
-        weights = torch.softmax(
-            self.query(x) @ self.key(x).transpose(-2, -1) * self.scale, dim=-1
-        )
+        weights = torch.softmax(self.query(x) @ self.key(x).transpose(-2, -1) * self.scale, dim=-1)
         return weights @ self.value(x)
 
 

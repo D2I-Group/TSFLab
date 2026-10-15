@@ -83,9 +83,7 @@ class Model(nn.Module):
         # With one or two real-valued channels every rFFT bin is real, so the
         # complex channel map is degenerate and is intentionally not created.
         self.channel_learner = (
-            None
-            if channel_independence or enc_in < 3
-            else FrequencyChannelLearner(embed_size, sparsity_threshold)
+            None if channel_independence or enc_in < 3 else FrequencyChannelLearner(embed_size, sparsity_threshold)
         )
         self.temporal_learner = FrequencyTemporalLearner(embed_size, sparsity_threshold)
         self.forecast_head = nn.Sequential(

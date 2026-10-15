@@ -19,9 +19,7 @@ def parse_show(prog: str, noun: str, args: list[str]) -> argparse.Namespace:
     """Parse ``<name> [--depth N] [--json]`` for any resource kind."""
     parser = argparse.ArgumentParser(prog=prog)
     parser.add_argument("name", help=noun)
-    parser.add_argument(
-        "--depth", type=int, choices=DEPTHS, default=1, help=f"{DEPTH_HELP} (default 1)"
-    )
+    parser.add_argument("--depth", type=int, choices=DEPTHS, default=1, help=f"{DEPTH_HELP} (default 1)")
     parser.add_argument("--json", action="store_true", help="structured output")
     return parser.parse_args(args)
 

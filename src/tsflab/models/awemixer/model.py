@@ -1,4 +1,5 @@
 """Clean-room Adaptive Wavelet-Enhanced Mixer (arXiv:2511.04722)."""
+
 from __future__ import annotations
 
 import torch
@@ -71,10 +72,7 @@ class FrequencyRouter(nn.Module):
         total_energy = (amplitude**2).sum(-1, keepdim=True) + 1e-8
         band_edges = torch.linspace(0, num_freqs, num_bands + 1).round().long()
         fft_energy = torch.stack(
-            [
-                (amplitude[:, band_edges[j] : band_edges[j + 1]] ** 2).sum(-1)
-                for j in range(num_bands)
-            ],
+            [(amplitude[:, band_edges[j] : band_edges[j + 1]] ** 2).sum(-1) for j in range(num_bands)],
             dim=1,
         ) / total_energy.squeeze(-1).unsqueeze(1)
 
@@ -177,9 +175,7 @@ class Model(nn.Module):
         self.wavelet = UndecimatedWaveletTransform(wavelet, wavelet_level)
         self.band_embedding = nn.ModuleList(nn.Linear(seq_len, d_model) for _ in range(self.num_bands))
         self.router = FrequencyRouter(self.num_bands)
-        self.fusion_layers = nn.ModuleList(
-            CoherentGatedFusion(d_model, dropout) for _ in range(num_fusion_layers)
-        )
+        self.fusion_layers = nn.ModuleList(CoherentGatedFusion(d_model, dropout) for _ in range(num_fusion_layers))
         self.cross_scale_mixer = CrossScaleMixer(num_scales, d_model, dropout)
         self.head = nn.Linear(d_model, pred_len)
 
@@ -202,9 +198,7 @@ class Model(nn.Module):
 
         subbands = [band.squeeze(1) for band in self.wavelet(flat.unsqueeze(1))]
         subband_stack = torch.stack(subbands, dim=1)
-        frequency = torch.stack(
-            [embed(subbands[i]) for i, embed in enumerate(self.band_embedding)], dim=1
-        )
+        frequency = torch.stack([embed(subbands[i]) for i, embed in enumerate(self.band_embedding)], dim=1)
 
         weights = self.router(flat, subband_stack)
         self.last_router_weights = weights

@@ -1,13 +1,11 @@
 """Runtime specification for PatchTSMixer."""
 
-from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.patchtsmixer.model import Model
-
-"""Validated parameters for PatchTSMixer."""
-
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.models.patchtsmixer.model import Model
 
 
 class ModelParameterConfig(BaseModel):

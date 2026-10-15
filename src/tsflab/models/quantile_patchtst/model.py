@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch.nn as nn
 
 from tsflab.models._components.patchtst import PatchTSTBackbone
@@ -19,12 +17,12 @@ class Model(nn.Module):
         features: str = "M",
         patch_len: int = 16,
         stride: int = 8,
-        padding_patch: Optional[str] = "end",
+        padding_patch: str | None = "end",
         e_layers: int = 3,
         d_model: int = 512,
         n_heads: int = 8,
-        d_k: Optional[int] = None,
-        d_v: Optional[int] = None,
+        d_k: int | None = None,
+        d_v: int | None = None,
         d_ff: int = 2048,
         activation: str = "gelu",
         norm: str = "BatchNorm",
@@ -90,8 +88,8 @@ class Model(nn.Module):
     ):
         if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len:
             raise ValueError(f"expected [batch, {self.seq_len}, channels], got {tuple(x_enc.shape)}")
-        base = self.backbone(x_enc)               # (B, pred_len, enc_in)
+        base = self.backbone(x_enc)  # (B, pred_len, enc_in)
         if self.features == "MS":
             base = base[:, :, -1:]
-        base = base[:, -self.pred_len:, :]     # (B, pred_len, c_out)
+        base = base[:, -self.pred_len :, :]  # (B, pred_len, c_out)
         return self.quantile_head(base.unsqueeze(-1))  # (B, pred_len, c_out, Q)

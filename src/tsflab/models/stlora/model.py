@@ -84,8 +84,7 @@ class NodeSpecificPredictor(nn.Module):
         super().__init__()
         self.start = nn.Conv2d(in_features, hidden, kernel_size=(1, 1))
         self.layers = nn.ModuleList(
-            NodeAdaptiveLowRankLayer(num_nodes, hidden, hidden, rank, alpha, dropout)
-            for _ in range(num_layers)
+            NodeAdaptiveLowRankLayer(num_nodes, hidden, hidden, rank, alpha, dropout) for _ in range(num_layers)
         )
         self.norms = nn.ModuleList(nn.RMSNorm(hidden) for _ in range(num_layers))
         self.dropout = nn.Dropout(dropout)
@@ -167,8 +166,7 @@ class Model(nn.Module):
         super().__init__()
         if seq_len != pred_len:
             raise ValueError(
-                "ST-LoRA concatenates history and adapter outputs step by step "
-                "(Eq. 4), so seq_len must equal pred_len"
+                "ST-LoRA concatenates history and adapter outputs step by step (Eq. 4), so seq_len must equal pred_len"
             )
         self.seq_len = seq_len
         self.pred_len = pred_len

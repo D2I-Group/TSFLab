@@ -15,13 +15,10 @@ class InceptionBlock2d(nn.Module):
     ``nn.Conv2d`` default initialization is kept.
     """
 
-    def __init__(
-        self, in_channels: int, out_channels: int, num_kernels: int, init_weight: bool = True
-    ) -> None:
+    def __init__(self, in_channels: int, out_channels: int, num_kernels: int, init_weight: bool = True) -> None:
         super().__init__()
         self.kernels = nn.ModuleList(
-            nn.Conv2d(in_channels, out_channels, kernel_size=2 * i + 1, padding=i)
-            for i in range(num_kernels)
+            nn.Conv2d(in_channels, out_channels, kernel_size=2 * i + 1, padding=i) for i in range(num_kernels)
         )
         if init_weight:
             for conv in self.kernels:

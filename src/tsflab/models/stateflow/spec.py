@@ -23,10 +23,17 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     if cfg.task.seq_len < max(6, params["chunk_width"] + 1):
         raise ValueError("StateFlow needs seq_len >= 6 and seq_len > chunk_width")
-    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"],
-                 encoder_epochs=params["encoder_epochs"], encoder_lr=params["encoder_lr"],
-                 hidden_size=params["hidden_size"], memory_size=params["memory_size"],
-                 chunk_width=params["chunk_width"], chunk_stride=params["chunk_stride"])
+    return Model(
+        cfg.task.seq_len,
+        cfg.task.pred_len,
+        params["enc_in"],
+        encoder_epochs=params["encoder_epochs"],
+        encoder_lr=params["encoder_lr"],
+        hidden_size=params["hidden_size"],
+        memory_size=params["memory_size"],
+        chunk_width=params["chunk_width"],
+        chunk_stride=params["chunk_stride"],
+    )
 
 
 SPEC = ModelSpec(

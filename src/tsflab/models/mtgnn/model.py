@@ -1,9 +1,11 @@
 """Independent MTGNN implementation: graph learning and mix-hop propagation."""
 
 from __future__ import annotations
+
 import numpy as np
 import torch
 from torch import nn
+
 from tsflab.models._components.gated_dilated_conv import gated_dilated_conv
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._inputs import check_window, square_adjacency
@@ -42,17 +44,13 @@ class MixHop(nn.Module):
     def forward(self, x: torch.Tensor, graph: torch.Tensor) -> torch.Tensor:
         states, current = [x], x
         for _ in range(self.depth):
-            current = self.alpha * x + (1 - self.alpha) * torch.einsum(
-                "nm,btmd->btnd", graph, current
-            )
+            current = self.alpha * x + (1 - self.alpha) * torch.einsum("nm,btmd->btnd", graph, current)
             states.append(current)
         return self.project(torch.cat(states, -1))
 
 
 class MTGNNLayer(nn.Module):
-    def __init__(
-        self, width: int, graph_width: int, depth: int, alpha: float, dilation: int, dropout: float
-    ) -> None:
+    def __init__(self, width: int, graph_width: int, depth: int, alpha: float, dilation: int, dropout: float) -> None:
         super().__init__()
         self.dilation = dilation
         self.filter, self.gate = (
@@ -108,11 +106,7 @@ class Model(nn.Module):
             input_dim,
             build_adj,
         )
-        adj = (
-            np.eye(num_nodes, dtype=np.float32)
-            if adj_mx is None
-            else square_adjacency(adj_mx, num_nodes)
-        )
+        adj = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         adj = adj + np.eye(num_nodes, dtype=np.float32)
         adj /= np.maximum(adj.sum(-1, keepdims=True), 1e-6)
         self.register_buffer("predefined_graph", torch.from_numpy(adj))

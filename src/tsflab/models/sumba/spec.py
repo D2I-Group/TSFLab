@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.sumba.model import Model
 

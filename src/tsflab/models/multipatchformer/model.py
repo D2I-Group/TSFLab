@@ -1,5 +1,7 @@
 """Independent MultiPatchFormer with multi-scale patches and SAR decoding."""
+
 from __future__ import annotations
+
 import torch
 from torch import nn
 
@@ -20,6 +22,7 @@ class PatchScale(nn.Module):
 
 class SemiAutoregressiveHead(nn.Module):
     """Predict horizon groups while conditioning each group on earlier groups."""
+
     def __init__(self, width, horizon, groups=8):
         super().__init__()
         groups = min(groups, horizon)
@@ -38,17 +41,34 @@ class SemiAutoregressiveHead(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", label_len=0, d_model=64,
-                 n_heads=4, e_layers=2, d_ff=128, dropout=0.1):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        label_len=0,
+        d_model=64,
+        n_heads=4,
+        e_layers=2,
+        d_ff=128,
+        dropout=0.1,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         scale_width = d_model // 4
-        self.scales = nn.ModuleList([PatchScale(seq_len, p, s, scale_width) for p, s in ((8, 8), (16, 8), (24, 7), (32, 6))])
-        self.temporal_layers = nn.ModuleList([
-            nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, batch_first=True, norm_first=True)
-            for _ in range(e_layers)
-        ])
-        self.channel_layer = nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, batch_first=True, norm_first=True)
+        self.scales = nn.ModuleList(
+            [PatchScale(seq_len, p, s, scale_width) for p, s in ((8, 8), (16, 8), (24, 7), (32, 6))]
+        )
+        self.temporal_layers = nn.ModuleList(
+            [
+                nn.TransformerEncoderLayer(d_model, n_heads, d_ff, dropout, batch_first=True, norm_first=True)
+                for _ in range(e_layers)
+            ]
+        )
+        self.channel_layer = nn.TransformerEncoderLayer(
+            d_model, n_heads, d_ff, dropout, batch_first=True, norm_first=True
+        )
         self.channel_projection = nn.Linear(d_model, d_model)
         self.head = SemiAutoregressiveHead(d_model, pred_len)
 
@@ -68,10 +88,16 @@ class Model(nn.Module):
         for scale in self.scales:
             tokens = scale(series)
             token_count, scale_width = tokens.shape[2:]
-            tokens = torch.nn.functional.interpolate(
-                tokens.reshape(batch * channels, token_count, scale_width).transpose(1, 2),
-                size=target_tokens, mode="linear", align_corners=False,
-            ).transpose(1, 2).reshape(batch, channels, target_tokens, scale_width)
+            tokens = (
+                torch.nn.functional.interpolate(
+                    tokens.reshape(batch * channels, token_count, scale_width).transpose(1, 2),
+                    size=target_tokens,
+                    mode="linear",
+                    align_corners=False,
+                )
+                .transpose(1, 2)
+                .reshape(batch, channels, target_tokens, scale_width)
+            )
             embeddings.append(tokens)
         tokens = torch.cat(embeddings, -1)
         batch, channels, patches, width = tokens.shape

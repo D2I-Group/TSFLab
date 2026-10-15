@@ -1,4 +1,5 @@
 """Clean-room Sumba from the NeurIPS 2024 structured-basis formulation."""
+
 from __future__ import annotations
 
 import torch
@@ -10,6 +11,7 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 
 class StructuredMatrixBasis(nn.Module):
     """Low-rank, row-stochastic basis matrices with convex dynamic mixing."""
+
     def __init__(self, nodes: int, features: int, basis_count: int, basis_rank: int) -> None:
         super().__init__()
         self.left = nn.Parameter(torch.randn(basis_count, nodes, basis_rank) * 0.1)
@@ -34,6 +36,7 @@ class StructuredMatrixBasis(nn.Module):
 
 class MultiScaleTemporalConv(nn.Module):
     """Parallel causal temporal filters for multi-scale temporal dependence."""
+
     def __init__(self, features: int, kernels: tuple[int, ...], dropout: float) -> None:
         super().__init__()
         self.kernels = kernels
@@ -54,6 +57,7 @@ class MultiScaleTemporalConv(nn.Module):
 
 class DynamicBasisGraphConv(nn.Module):
     """Diffuse node features over a convex mixture of structured bases."""
+
     def __init__(self, features: int, steps: int, mix: float, dropout: float) -> None:
         super().__init__()
         self.steps, self.mix = steps, float(mix)
@@ -70,8 +74,17 @@ class DynamicBasisGraphConv(nn.Module):
 
 
 class SumbaBlock(nn.Module):
-    def __init__(self, nodes: int, features: int, basis_count: int, basis_rank: int,
-                 kernels: tuple[int, ...], diffusion_steps: int, mix: float, dropout: float) -> None:
+    def __init__(
+        self,
+        nodes: int,
+        features: int,
+        basis_count: int,
+        basis_rank: int,
+        kernels: tuple[int, ...],
+        diffusion_steps: int,
+        mix: float,
+        dropout: float,
+    ) -> None:
         super().__init__()
         self.norm_t = nn.LayerNorm(features)
         self.temporal = MultiScaleTemporalConv(features, kernels, dropout)
@@ -86,15 +99,29 @@ class SumbaBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, label_len: int = 0,
-                 features: str = "M", d_model: int = 32, basis_count: int = 4,
-                 basis_rank: int = 8, temporal_kernels: tuple[int, ...] = (2, 3, 5),
-                 depth: int = 2, diffusion_steps: int = 2, mix: float = 0.1,
-                 dropout: float = 0.1) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        label_len: int = 0,
+        features: str = "M",
+        d_model: int = 32,
+        basis_count: int = 4,
+        basis_rank: int = 8,
+        temporal_kernels: tuple[int, ...] = (2, 3, 5),
+        depth: int = 2,
+        diffusion_steps: int = 2,
+        mix: float = 0.1,
+        dropout: float = 0.1,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len = seq_len, pred_len
         self.input_projection = nn.Linear(1, d_model)
-        self.blocks = nn.ModuleList(SumbaBlock(enc_in, d_model, basis_count, basis_rank, temporal_kernels, diffusion_steps, mix, dropout) for _ in range(depth))
+        self.blocks = nn.ModuleList(
+            SumbaBlock(enc_in, d_model, basis_count, basis_rank, temporal_kernels, diffusion_steps, mix, dropout)
+            for _ in range(depth)
+        )
         self.temporal_head = nn.Linear(seq_len * d_model, pred_len)
 
     def forward(

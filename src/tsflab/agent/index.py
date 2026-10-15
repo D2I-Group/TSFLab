@@ -8,9 +8,9 @@ a project copy (chosen modules only) is written by ``tsf init`` and ``tsf agent 
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import tomllib
+from pathlib import Path
 
 from tsflab.agent.modules import ALL_MODULES, CHAIN, MODULES
 
@@ -53,7 +53,14 @@ def render_index(source: Path, modules: list[str] | None = None, *, project: boo
         info = MODULES[name]
         role = "chain" if name in CHAIN else "beside the chain; opt-in, needs a TSFLab checkout"
         purpose = str(info["purpose"])
-        lines += ["", f"## {TITLES.get(name, name.capitalize())}", "", f"{purpose[0].upper()}{purpose[1:]} ({role}).", "", "Skills:"]
+        lines += [
+            "",
+            f"## {TITLES.get(name, name.capitalize())}",
+            "",
+            f"{purpose[0].upper()}{purpose[1:]} ({role}).",
+            "",
+            "Skills:",
+        ]
         for skill in info["skills"]:  # type: ignore[union-attr]
             description = one_line(skill_description(source / "skills" / skill / "SKILL.md"))
             lines.append(f"- [`{skill}`](skills/{skill}/SKILL.md): {description}")

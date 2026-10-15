@@ -13,10 +13,10 @@ round remains reproducible from the release it was opened on.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -72,7 +72,9 @@ class PanelStore:
         if new.empty:
             raise ValueError("refusing to record an empty release")
         new = new.copy()
-        new.index = pd.DatetimeIndex(new.index).tz_localize(None) if new.index.tz is not None else pd.DatetimeIndex(new.index)
+        new.index = (
+            pd.DatetimeIndex(new.index).tz_localize(None) if new.index.tz is not None else pd.DatetimeIndex(new.index)
+        )
         new.columns = [str(c) for c in new.columns]
         manifest = self.manifest()
         channels = manifest["channels"] or sorted(new.columns)
@@ -92,10 +94,14 @@ class PanelStore:
             else:
                 merged = chunk
             merged.sort_index().to_parquet(path)
-        last = max(pd.Timestamp(manifest["last_timestamp"]), new.index.max()) if manifest["last_timestamp"] else new.index.max()
+        last = (
+            max(pd.Timestamp(manifest["last_timestamp"]), new.index.max())
+            if manifest["last_timestamp"]
+            else new.index.max()
+        )
         release = {
-            "version": datetime.now(timezone.utc).strftime("%Y.%m.%d-%H%M"),
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "version": datetime.now(UTC).strftime("%Y.%m.%d-%H%M"),
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "rows_added": int(len(new)),
             "last_timestamp": last.isoformat(),
             "content_sha256": self.content_hash(),

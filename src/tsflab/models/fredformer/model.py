@@ -1,4 +1,5 @@
 """Independent full-FFT Fredformer forecasting path; see reference.md."""
+
 from __future__ import annotations
 
 import torch
@@ -18,14 +19,19 @@ class ChannelBlock(nn.Module):
         self.qkv = nn.Linear(width, 3 * heads * head_dim)
         self.attention_out = nn.Sequential(nn.Linear(heads * head_dim, width), nn.Dropout(dropout))
         self.norm_feedforward = nn.LayerNorm(width)
-        self.feedforward = nn.Sequential(nn.Linear(width, feedforward), nn.GELU(),
-            nn.Dropout(dropout), nn.Linear(feedforward, width), nn.Dropout(dropout))
+        self.feedforward = nn.Sequential(
+            nn.Linear(width, feedforward),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(feedforward, width),
+            nn.Dropout(dropout),
+        )
 
     def forward(self, tokens):
         batch, channels, _ = tokens.shape
         q, k, v = self.qkv(self.norm_attention(tokens)).chunk(3, dim=-1)
         q, k, v = [t.reshape(batch, channels, self.heads, self.head_dim).transpose(1, 2) for t in (q, k, v)]
-        weights = (q @ k.transpose(-2, -1) / self.head_dim ** 0.5).softmax(-1)
+        weights = (q @ k.transpose(-2, -1) / self.head_dim**0.5).softmax(-1)
         mixed = (weights @ v).transpose(1, 2).reshape(batch, channels, -1)
         tokens = tokens + self.attention_out(mixed)
         return tokens + self.feedforward(self.norm_feedforward(tokens))
@@ -45,16 +51,34 @@ class ForecastHead(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M",
-                 band_width=16, model_width=48, depth=2, heads=6,
-                 feedforward=128, dropout=0.2, revin=True, affine=True,
-                 subtract_last=False, head_dropout=0.0, stride=16, head_dim=64):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        label_len=0,
+        features="M",
+        band_width=16,
+        model_width=48,
+        depth=2,
+        heads=6,
+        feedforward=128,
+        dropout=0.2,
+        revin=True,
+        affine=True,
+        subtract_last=False,
+        head_dropout=0.0,
+        stride=16,
+        head_dim=64,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.band_width, self.stride = band_width, stride
         self.revin = RevIN(enc_in, affine=affine, subtract_last=subtract_last, enabled=revin)
         self.input_projection = nn.Sequential(nn.Linear(2 * band_width, model_width), nn.Dropout(dropout))
-        self.blocks = nn.ModuleList([ChannelBlock(model_width, heads, head_dim, feedforward, dropout) for _ in range(depth)])
+        self.blocks = nn.ModuleList(
+            [ChannelBlock(model_width, heads, head_dim, feedforward, dropout) for _ in range(depth)]
+        )
         self.output_projection = nn.Sequential(nn.Dropout(dropout), nn.Linear(model_width, 2 * model_width))
         self.real_projection = nn.Linear(2 * model_width, 2 * model_width)
         self.imag_projection = nn.Linear(2 * model_width, 2 * model_width)
@@ -68,8 +92,13 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
         spectrum = torch.fft.fft(normalized.transpose(1, 2), dim=-1)
-        patches = torch.cat((spectrum.real.unfold(-1, self.band_width, self.stride),
-                             spectrum.imag.unfold(-1, self.band_width, self.stride)), dim=-1)
+        patches = torch.cat(
+            (
+                spectrum.real.unfold(-1, self.band_width, self.stride),
+                spectrum.imag.unfold(-1, self.band_width, self.stride),
+            ),
+            dim=-1,
+        )
         batch, channels, count, _ = patches.shape
         tokens = patches.permute(0, 2, 1, 3).reshape(batch * count, channels, -1)
         tokens = self.input_projection(tokens)

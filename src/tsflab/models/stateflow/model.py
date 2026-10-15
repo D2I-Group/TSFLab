@@ -1,4 +1,5 @@
 """Two-stage adapter of the archived StateFlow reproduction, with archived defaults and explicit structural search factors."""
+
 import torch
 from torch import nn
 
@@ -6,8 +7,7 @@ from tsflab.models._inputs import check_window
 
 
 class StateFlowCore(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, hidden_size=32, memory_size=16,
-                 chunk_width=5, chunk_stride=2):
+    def __init__(self, seq_len: int, pred_len: int, hidden_size=32, memory_size=16, chunk_width=5, chunk_stride=2):
         super().__init__()
         self.hidden_size, self.memory_size = hidden_size, memory_size
         self.chunk_width, self.chunk_stride = chunk_width, chunk_stride
@@ -17,7 +17,7 @@ class StateFlowCore(nn.Module):
         self.chunk_h = nn.Linear(chunk_width * hidden_size, hidden_size)
         self.chunk_e = nn.Linear(chunk_width * memory_size, memory_size)
         self.head = nn.Linear((hidden_size + memory_size) * ((seq_len - 1 - chunk_width) // chunk_stride + 1), pred_len)
-        self.chunks = ((seq_len - 1 - chunk_width) // chunk_stride + 1)
+        self.chunks = (seq_len - 1 - chunk_width) // chunk_stride + 1
 
     def encode(self, x: torch.Tensor):
         # x: [batch, lookback], instance-normalized
@@ -26,9 +26,9 @@ class StateFlowCore(nn.Module):
         e = x.new_zeros(b, self.memory_size)
         hs, es, base_preds = [], [], []
         for t in range(length - 1):
-            h = torch.relu(self.hidden(torch.cat((x[:, t:t+1], h, e), dim=-1)))
+            h = torch.relu(self.hidden(torch.cat((x[:, t : t + 1], h, e), dim=-1)))
             pred = self.base(h)
-            residual = x[:, t+1:t+2] - pred
+            residual = x[:, t + 1 : t + 2] - pred
             e = torch.tanh(self.memory(torch.cat((residual, e), dim=-1)))
             hs.append(h)
             es.append(e)
@@ -69,8 +69,18 @@ class _EncoderStage(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, encoder_epochs=10, encoder_lr=0.001,
-                 hidden_size=32, memory_size=16, chunk_width=5, chunk_stride=2):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        encoder_epochs=10,
+        encoder_lr=0.001,
+        hidden_size=32,
+        memory_size=16,
+        chunk_width=5,
+        chunk_stride=2,
+    ):
         super().__init__()
         self.core = StateFlowCore(seq_len, pred_len, hidden_size, memory_size, chunk_width, chunk_stride)
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -81,12 +91,11 @@ class Model(nn.Module):
         if self._encoder_frozen:
             return
         from tsflab.experiments.infra.stages import reconstruction_stage
+
         stage = _EncoderStage(self.core).to(device)
-        parameters = [p for module in (self.core.hidden, self.core.base, self.core.memory)
-                      for p in module.parameters()]
+        parameters = [p for module in (self.core.hidden, self.core.base, self.core.memory) for p in module.parameters()]
         optimizer = torch.optim.Adam(parameters, lr=self.encoder_lr)
-        (stage_runner or reconstruction_stage)(stage, train_loader, device, optimizer,
-                                                stage.loss, self.encoder_epochs)
+        (stage_runner or reconstruction_stage)(stage, train_loader, device, optimizer, stage.loss, self.encoder_epochs)
         for parameter in parameters:
             parameter.requires_grad_(False)
         self._encoder_frozen = True

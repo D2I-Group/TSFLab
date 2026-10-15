@@ -3,9 +3,11 @@
 It retains multiple patch resolutions, local/global dual attention, and an
 input-dependent resolution router. No reference source code is reused.
 """
+
 from __future__ import annotations
 
 import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -21,13 +23,16 @@ _ATTENTION_CHUNK = 32768
 
 class DualScaleAttention(nn.Module):
     """Local sample attention followed by global patch attention."""
+
     def __init__(self, patch_size, width, heads, feedforward, dropout):
         super().__init__()
         self.patch_size = patch_size
         self.sample_embedding = nn.Linear(1, width)
         self.local_attention = nn.MultiheadAttention(width, heads, dropout=dropout, batch_first=True)
         self.global_attention = nn.MultiheadAttention(width, heads, dropout=dropout, batch_first=True)
-        self.feedforward = nn.Sequential(nn.Linear(width, feedforward), nn.GELU(), nn.Dropout(dropout), nn.Linear(feedforward, width))
+        self.feedforward = nn.Sequential(
+            nn.Linear(width, feedforward), nn.GELU(), nn.Dropout(dropout), nn.Linear(feedforward, width)
+        )
         self.local_norm = nn.LayerNorm(width)
         self.global_norm = nn.LayerNorm(width)
 
@@ -38,8 +43,13 @@ class DualScaleAttention(nn.Module):
         samples = padded.reshape(batch * channels * patches, self.patch_size, 1)
         local = self.sample_embedding(samples)
         # Independent sequences, no masks: chunking gives the same result.
-        attended = torch.cat([self.local_attention(chunk, chunk, chunk, need_weights=False)[0]
-                              for chunk in local.split(_ATTENTION_CHUNK)], dim=0)
+        attended = torch.cat(
+            [
+                self.local_attention(chunk, chunk, chunk, need_weights=False)[0]
+                for chunk in local.split(_ATTENTION_CHUNK)
+            ],
+            dim=0,
+        )
         local = self.local_norm(local + attended).mean(1)
         tokens = local.reshape(batch * channels, patches, -1)
         context, _ = self.global_attention(tokens, tokens, tokens, need_weights=False)
@@ -50,6 +60,7 @@ class DualScaleAttention(nn.Module):
 
 class AdaptivePathway(nn.Module):
     """Route every sample/variable between temporal-resolution experts."""
+
     def __init__(self, patch_sizes, width, heads, feedforward, dropout, top_k):
         super().__init__()
         self.patch_sizes = tuple(patch_sizes)
@@ -79,17 +90,30 @@ class AdaptivePathway(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", layer_nums=2,
-                 k=2, num_experts=4, patch_size_list=None, d_model=16,
-                 d_ff=64, residual_connection=1, revin=True, n_heads=4,
-                 dropout=0.1):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        layer_nums=2,
+        k=2,
+        num_experts=4,
+        patch_size_list=None,
+        d_model=16,
+        d_ff=64,
+        residual_connection=1,
+        revin=True,
+        n_heads=4,
+        dropout=0.1,
+    ):
         super().__init__()
         sizes = patch_size_list or [16, 12, 8, 6] * layer_nums
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.residual_connection = bool(residual_connection)
         self.revin = RevIN(enc_in, enabled=revin)
         self.layers = nn.ModuleList(
-            AdaptivePathway(sizes[i*num_experts:(i+1)*num_experts], d_model, n_heads, d_ff, dropout, k)
+            AdaptivePathway(sizes[i * num_experts : (i + 1) * num_experts], d_model, n_heads, d_ff, dropout, k)
             for i in range(layer_nums)
         )
         self.norms = nn.ModuleList(nn.LayerNorm(seq_len) for _ in range(layer_nums))

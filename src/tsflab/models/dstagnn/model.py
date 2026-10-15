@@ -63,12 +63,10 @@ class MultiScaleGatedTemporalConvolution(nn.Module):
     def __init__(self, model_dim: int) -> None:
         super().__init__()
         self.filters = nn.ModuleList(
-            nn.Conv2d(model_dim, model_dim, (1, kernel), padding=(0, kernel // 2))
-            for kernel in (3, 5, 7)
+            nn.Conv2d(model_dim, model_dim, (1, kernel), padding=(0, kernel // 2)) for kernel in (3, 5, 7)
         )
         self.gates = nn.ModuleList(
-            nn.Conv2d(model_dim, model_dim, (1, kernel), padding=(0, kernel // 2))
-            for kernel in (3, 5, 7)
+            nn.Conv2d(model_dim, model_dim, (1, kernel), padding=(0, kernel // 2)) for kernel in (3, 5, 7)
         )
         self.fusion = nn.Conv2d(3 * model_dim, model_dim, 1)
 

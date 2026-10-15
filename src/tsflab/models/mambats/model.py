@@ -47,9 +47,7 @@ def greedy_scan_path(cost: np.ndarray, start: int) -> np.ndarray:
     return np.asarray(path, dtype=np.int64)
 
 
-def anneal_scan_path(
-    cost: np.ndarray, start: int, steps: int, seed: int
-) -> np.ndarray:
+def anneal_scan_path(cost: np.ndarray, start: int, steps: int, seed: int) -> np.ndarray:
     """Cheapest Hamiltonian path from ``start`` by simulated annealing.
 
     The path cost is the sum of ``cost[a, b]`` over consecutive pairs (returning to
@@ -164,12 +162,8 @@ class Model(nn.Module):
 
         self.norm = RevIN(enc_in, eps=1e-5, affine=False)
         self.value_embedding = nn.Linear(patch_len, d_model, bias=False)
-        self.encoder = TemporalMambaStack(
-            d_model, e_layers, d_state, d_conv, expand, dropout, use_causal_conv
-        )
-        self.head = FlattenForecastHead(
-            False, enc_in, d_model * self.num_patches, pred_len
-        )
+        self.encoder = TemporalMambaStack(d_model, e_layers, d_state, d_conv, expand, dropout, use_causal_conv)
+        self.head = FlattenForecastHead(False, enc_in, d_model * self.num_patches, pred_len)
 
         # VAST statistics: summed per-sample loss and visit count of every ordered
         # variable pair; the diagonal holds the cost of starting a scan at a variable.
@@ -209,9 +203,7 @@ class Model(nn.Module):
         flat = index.reshape(-1)
         weights = losses.unsqueeze(1).expand_as(index).reshape(-1)
         self.scan_cost_sum.view(-1).index_add_(0, flat, weights.to(self.scan_cost_sum))
-        self.scan_cost_count.view(-1).index_add_(
-            0, flat, torch.ones_like(weights).to(self.scan_cost_count)
-        )
+        self.scan_cost_count.view(-1).index_add_(0, flat, torch.ones_like(weights).to(self.scan_cost_count))
         self.scan_updates += 1
         self._transitions = None
 

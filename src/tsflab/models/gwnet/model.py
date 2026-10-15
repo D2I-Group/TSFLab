@@ -38,7 +38,22 @@ class WaveNetGraphLayer(nn.Module):
 class Model(nn.Module):
     """Causal WaveNet backbone with predefined and learned graph supports."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        input_dim: int = 3,
+        dropout: float = 0.3,
+        residual_channels: int = 16,
+        dilation_channels: int = 16,
+        skip_channels: int = 64,
+        end_channels: int = 128,
+        kernel_size: int = 2,
+        blocks: int = 2,
+        layers: int = 2,
+    ) -> None:
         super().__init__()
         if num_nodes < 1:
             raise ValueError("GWNet dimensions must be positive")
@@ -56,7 +71,9 @@ class Model(nn.Module):
             for _ in range(blocks)
             for layer in range(layers)
         )
-        self.output = nn.Sequential(nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1))
+        self.output = nn.Sequential(
+            nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1)
+        )
         nn.init.xavier_uniform_(self.source_nodes)
         nn.init.xavier_uniform_(self.target_nodes)
 

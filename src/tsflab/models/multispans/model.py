@@ -166,8 +166,7 @@ class _GreedyTreeSearch:
             g_new = g[:, None] + g[None, :] - 2.0 * between
             term = -g / volume * np.log2(v / v_parent)
             shift = (inner / volume)[:, None] * np.log2(v_pair / v[:, None])
-            merge = (-g_new / volume * np.log2(v_pair / v_parent)
-                     - term[:, None] - term[None, :] + shift + shift.T)
+            merge = -g_new / volume * np.log2(v_pair / v_parent) - term[:, None] - term[None, :] + shift + shift.T
             usable = ((h[:, None] > 0) | (h[None, :] > 0)) & (v[:, None] > 0) & (v[None, :] > 0)
             merge = np.where(off_diagonal & usable, merge, np.inf)
         return combine, merge
@@ -263,11 +262,11 @@ def laplacian_eigenvectors(adj: np.ndarray, dim: int) -> torch.Tensor:
     degree = a.sum(axis=1)
     isolated = int((degree == 0).sum())
     with np.errstate(divide="ignore"):
-        inv_sqrt = np.where(degree > 0, degree ** -0.5, 0.0)
+        inv_sqrt = np.where(degree > 0, degree**-0.5, 0.0)
     laplacian = np.eye(a.shape[0]) - (a * inv_sqrt[None, :]).T * inv_sqrt[None, :]
     values, vectors = np.linalg.eig(laplacian)
     order = np.argsort(values.real, kind="stable")
-    vectors = np.real(vectors[:, order])[:, isolated + 1: isolated + 1 + dim]
+    vectors = np.real(vectors[:, order])[:, isolated + 1 : isolated + 1 + dim]
     out = np.zeros((a.shape[0], dim))
     out[:, : vectors.shape[1]] = vectors
     return torch.from_numpy(out).float()
@@ -288,8 +287,9 @@ class BatchNormChannels(nn.Module):
 class MultiFilterConv(nn.Module):
     """MFCL (Eqs. 4-5): replicate-padded temporal filters, then multi-hop ``D^-1 (A + I)`` propagation."""
 
-    def __init__(self, in_dim: int, embed_dim: int, kernels: tuple[int, ...], stride: int, hops: int,
-                 alpha: float) -> None:
+    def __init__(
+        self, in_dim: int, embed_dim: int, kernels: tuple[int, ...], stride: int, hops: int, alpha: float
+    ) -> None:
         super().__init__()
         width = embed_dim // (len(kernels) * (hops + 1))
         self.pads = [(round((k - 1) / 2), (k - 1) - round((k - 1) / 2)) for k in kernels]
@@ -299,8 +299,7 @@ class MultiFilterConv(nn.Module):
     def forward(self, x: torch.Tensor, propagation: torch.Tensor) -> torch.Tensor:
         b, n, t, c = x.shape
         flat = x.reshape(b * n, t, c).transpose(1, 2)
-        parts = [conv(F.pad(flat, pad, mode="replicate")).transpose(1, 2)
-                 for pad, conv in zip(self.pads, self.convs)]
+        parts = [conv(F.pad(flat, pad, mode="replicate")).transpose(1, 2) for pad, conv in zip(self.pads, self.convs)]
         h0 = torch.cat(parts, dim=-1).reshape(b, n, -1, parts[0].shape[-1] * len(parts))
         hops, h = [h0], h0
         for _ in range(self.hops):
@@ -339,14 +338,15 @@ class STAttention(nn.Module):
 class STTransformer(nn.Module):
     """Post-norm Transformer layer; the attention residual adds the (position-encoded) query."""
 
-    def __init__(self, kind: str, embed_dim: int, num_heads: int, att_dropout: float,
-                 ffn_dropout: float) -> None:
+    def __init__(self, kind: str, embed_dim: int, num_heads: int, att_dropout: float, ffn_dropout: float) -> None:
         super().__init__()
         self.attention = STAttention(kind, embed_dim, num_heads, att_dropout)
         self.drop_attention = nn.Dropout(ffn_dropout)
         self.norm_attention = BatchNormChannels(embed_dim)
         self.ffn = nn.Sequential(
-            nn.Linear(embed_dim, 4 * embed_dim), nn.Dropout(ffn_dropout), nn.ReLU(),
+            nn.Linear(embed_dim, 4 * embed_dim),
+            nn.Dropout(ffn_dropout),
+            nn.ReLU(),
             nn.Linear(4 * embed_dim, embed_dim),
         )
         self.drop_ffn = nn.Dropout(ffn_dropout)
@@ -387,7 +387,7 @@ class TransposedConvDecoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         b, n, t, d = x.shape
         y = self.tconv(F.pad(x.reshape(b * n, t, d).transpose(1, 2), self.pad, mode="replicate"))
-        y = torch.tanh(y[..., self.trim: self.trim + self.kernel * t])
+        y = torch.tanh(y[..., self.trim : self.trim + self.kernel * t])
         y = self.channel(self.time(y).transpose(1, 2))
         return y.reshape(b, n, -1, y.shape[-1])
 
@@ -429,12 +429,12 @@ class Model(nn.Module):
         self.register_buffer("laplacian", laplacian_eigenvectors(adjacency, lape_dim))
         self.node_pe = nn.Linear(lape_dim, embed_dim)
 
-        self.encoder = MultiFilterConv(1 + mark_features, embed_dim, tuple(conv_kernels), conv_stride,
-                                       gconv_hops, gconv_alpha)
+        self.encoder = MultiFilterConv(
+            1 + mark_features, embed_dim, tuple(conv_kernels), conv_stride, gconv_hops, gconv_alpha
+        )
         self.hid_len = math.ceil(seq_len / conv_stride)
         self.time_pe = positional_encoding("sincos", False, self.hid_len, embed_dim)
-        self.blocks = nn.ModuleList(STBlock(embed_dim, num_heads, att_dropout, ffn_dropout)
-                                    for _ in range(num_layers))
+        self.blocks = nn.ModuleList(STBlock(embed_dim, num_heads, att_dropout, ffn_dropout) for _ in range(num_layers))
         self.dropout = nn.Dropout(ffn_dropout)
         self.decoder = TransposedConvDecoder(embed_dim, embed_dim // 2, 1, self.hid_len, pred_len)
 
@@ -461,6 +461,10 @@ class Model(nn.Module):
 
 
 __all__ = [
-    "EncodingTree", "Model", "build_encoding_tree",
-    "laplacian_eigenvectors", "multilevel_masks", "structural_entropy",
+    "EncodingTree",
+    "Model",
+    "build_encoding_tree",
+    "laplacian_eigenvectors",
+    "multilevel_masks",
+    "structural_entropy",
 ]

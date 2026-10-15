@@ -7,8 +7,6 @@ this one implementation. Everything here is deterministic and numpy-only
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 try:  # optional; never a hard dependency
@@ -20,7 +18,7 @@ except Exception:  # pragma: no cover - import guard
     _HAS_STATSMODELS = False
 
 
-def dominant_period(x: np.ndarray, max_period: Optional[int] = None) -> int:
+def dominant_period(x: np.ndarray, max_period: int | None = None) -> int:
     """Estimate the dominant seasonal period via the FFT power spectrum.
 
     Returns an integer period >= 2. Falls back to 2 when no clear peak exists.

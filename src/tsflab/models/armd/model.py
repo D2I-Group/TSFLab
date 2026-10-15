@@ -67,16 +67,17 @@ class Model(nn.Module):
         betas = (linear_beta_schedule if beta_schedule == "linear" else cosine_beta_schedule)(steps)
         alphas = 1.0 - betas
         cumulative = torch.cumprod(alphas, dim=0)
-        floats = lambda value: value.to(torch.float32)
+
+        def floats(value):
+            return value.to(torch.float32)
+
         self.register_buffer("alphas_cumprod", floats(cumulative))
         self.register_buffer("sqrt_alphas_cumprod", floats(cumulative.sqrt()))
         self.register_buffer("sqrt_one_minus_alphas_cumprod", floats((1 - cumulative).sqrt()))
         self.register_buffer("sqrt_recip_alphas_cumprod", floats(cumulative.rsqrt()))
         self.register_buffer("sqrt_recipm1_alphas_cumprod", floats((1 / cumulative - 1).sqrt()))
         # loss re-weighting of the reference training loop (per diffusion step)
-        self.register_buffer(
-            "loss_weight", floats(alphas.sqrt() * (1 - cumulative).sqrt() / betas / 100)
-        )
+        self.register_buffer("loss_weight", floats(alphas.sqrt() * (1 - cumulative).sqrt() / betas / 100))
 
         # devolution network: one linear map over the time axis shared by channels,
         # a learnable step weight W(t), and the fixed input-deviation scale per step
@@ -124,9 +125,7 @@ class Model(nn.Module):
         predicted = self.devolve(state, step, perturb=True)
         true_trend = self._trend(state, future, step)
         predicted_trend = self._trend(state, predicted, step)
-        distance = (F.l1_loss if self.loss_type == "l1" else F.mse_loss)(
-            predicted_trend, true_trend, reduction="none"
-        )
+        distance = (F.l1_loss if self.loss_type == "l1" else F.mse_loss)(predicted_trend, true_trend, reduction="none")
         return (distance.flatten(1).mean(dim=1) * self.loss_weight[step]).mean()
 
     # ------------------------------------------------------------------ forecast

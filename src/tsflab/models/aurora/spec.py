@@ -1,8 +1,9 @@
 """Model specification for Aurora."""
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.aurora.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

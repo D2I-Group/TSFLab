@@ -16,12 +16,13 @@ is resolved.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import json
 import os
-from pathlib import Path
 import tomllib
-from typing import Any, Sequence
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -31,9 +32,7 @@ SPLITS = ("train", "val", "test")
 KINDS = ("chronological", "window-index", "loader-defined")
 
 
-def split_borders(
-    num_rows: int, split_ratio: Sequence[float], seq_len: int = 0
-) -> dict[str, tuple[int, int]]:
+def split_borders(num_rows: int, split_ratio: Sequence[float], seq_len: int = 0) -> dict[str, tuple[int, int]]:
     """Return the ``(start, end)`` rows each split reads.
 
     The ratio is normalized by its sum. Validation and test start ``seq_len``
@@ -96,11 +95,15 @@ class SplitProtocol:
             return "loader-defined"
         own = ", ".join(f"{flag} [{r.own_start}, {r.end})" for flag, r in self.splits.items())
         if self.kind == "window-index":
-            return (f"{own} (target rows of the window centres); inputs start {self.seq_len - 1} rows "
-                    f"before each centre (seq_len {self.seq_len})")
+            return (
+                f"{own} (target rows of the window centres); inputs start {self.seq_len - 1} rows "
+                f"before each centre (seq_len {self.seq_len})"
+            )
         val, test = self.splits["val"], self.splits["test"]
-        return (f"{own}; val/test inputs start seq_len rows earlier "
-                f"(seq_len {self.seq_len}: val {val.start}, test {test.start})")
+        return (
+            f"{own}; val/test inputs start seq_len rows earlier "
+            f"(seq_len {self.seq_len}: val {val.start}, test {test.start})"
+        )
 
     def rows_text(self) -> str:
         if self.rows_used is None:
@@ -126,8 +129,7 @@ class SplitProtocol:
 
     def render(self) -> str:
         """Human-readable report printed by ``tsf data splits``."""
-        lines = [f"dataset:     {self.dataset} (loader {self.loader}, {self.kind} split)",
-                 f"file:        {self.file}"]
+        lines = [f"dataset:     {self.dataset} (loader {self.loader}, {self.kind} split)", f"file:        {self.file}"]
         if self.card_protocol:
             lines.append(f"card:        {self.card_protocol}")
         if self.kind == "loader-defined":
@@ -139,8 +141,9 @@ class SplitProtocol:
         lines.append("")
         lines.append(f"{'split':<7}{'rows read (inputs)':<22}{'own rows (targets)':<22}rows")
         for flag, r in self.splits.items():
-            lines.append(f"{flag:<7}{f'[{r.start}, {r.end})':<22}{f'[{r.own_start}, {r.end})':<22}"
-                         f"{r.end - r.own_start}")
+            lines.append(
+                f"{flag:<7}{f'[{r.start}, {r.end})':<22}{f'[{r.own_start}, {r.end})':<22}{r.end - r.own_start}"
+            )
         lines.append("")
         lines.append(f"scaling:     {self.scaling}")
         lines += [f"note:        {note}" for note in self.notes]
@@ -164,8 +167,9 @@ def _root(root: Path | None) -> Path:
 def _preset(dataset: str, root: Path) -> tuple[str, dict[str, Any]]:
     """Return ``(preset name, [dataset] table)`` for a preset name (case-insensitive)."""
     config_root = root / "configs" / "datasets"
-    candidates = {path.relative_to(config_root).with_suffix("").as_posix(): path
-                  for path in config_root.rglob("*.toml")}
+    candidates = {
+        path.relative_to(config_root).with_suffix("").as_posix(): path for path in config_root.rglob("*.toml")
+    }
     name = next((key for key in candidates if key.lower() == dataset.lower()), None)
     if name is None:
         # Accept the loader's registered name (for example ``ETTh1``) as well.
@@ -237,10 +241,15 @@ def _default_pred_len(card: dict[str, Any]) -> int:
 def _scaling_text(params: dict[str, Any], fit_rows: int) -> str:
     if not params.get("scale", True):
         return "none (scale = false); metrics use raw values"
-    rule = ("per-channel mean/std (zero std set to 1)" if params.get("norm_each_channel")
-            else "per-channel z-score (sklearn StandardScaler)")
-    return (f"{rule} fitted on train rows [0, {fit_rows}) of the rows used and applied to every "
-            "split; metrics use scaled values unless task.inverse = true")
+    rule = (
+        "per-channel mean/std (zero std set to 1)"
+        if params.get("norm_each_channel")
+        else "per-channel z-score (sklearn StandardScaler)"
+    )
+    return (
+        f"{rule} fitted on train rows [0, {fit_rows}) of the rows used and applied to every "
+        "split; metrics use scaled values unless task.inverse = true"
+    )
 
 
 def split_protocol(
@@ -276,8 +285,13 @@ def split_protocol(
     spec = _spec(loader)
     params = _params(spec, table)
     location = _resolve_path(path if path is not None else str(table.get("path", "")))
-    common = dict(dataset=name, loader=loader, file=_display(location), seq_len=seq_len,
-                  card_protocol=str(card.get("protocol", {}).get("protocol", "")))
+    common = dict(
+        dataset=name,
+        loader=loader,
+        file=_display(location),
+        seq_len=seq_len,
+        card_protocol=str(card.get("protocol", {}).get("protocol", "")),
+    )
 
     from tsflab.data.datasets.base import ForecastingDataset
 
@@ -287,9 +301,14 @@ def split_protocol(
     if spec.storage == "directory" and all((location / f"idx_{flag}.npy").is_file() for flag in SPLITS):
         horizon = _default_pred_len(card) if pred_len is None else int(pred_len)
         return _window_index(location, params, seq_len, horizon, common)
-    return SplitProtocol(kind="loader-defined", **common, notes=(
-        "this loader computes its split itself (rolling windows or a frozen store); "
-        "read the card [protocol] and build splits with tsflab.data.build_data_loader",))
+    return SplitProtocol(
+        kind="loader-defined",
+        **common,
+        notes=(
+            "this loader computes its split itself (rolling windows or a frozen store); "
+            "read the card [protocol] and build splits with tsflab.data.build_data_loader",
+        ),
+    )
 
 
 def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
@@ -305,8 +324,9 @@ def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
     else:
         length = card.get("shape", {}).get("length")
         if not isinstance(length, int):
-            raise FileNotFoundError(f"{location} not found; download it with `tsf data download "
-                                    f"{common['dataset']}` or pass --path")
+            raise FileNotFoundError(
+                f"{location} not found; download it with `tsf data download {common['dataset']}` or pass --path"
+            )
         file_rows, basis = None, "file absent; card [shape].length"
         rows_used = length if limit is None else min(length, limit)
     if file_rows is not None:
@@ -321,15 +341,22 @@ def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
         notes.append("the file has no header row; row 0 is its first line")
     sentinels = params.get("missing_sentinels") or []
     if sentinels:
-        notes.append(f"values {sentinels} are missing; filled causally (forward fill; a leading "
-                     "gap becomes zero) before scaling")
+        notes.append(
+            f"values {sentinels} are missing; filled causally (forward fill; a leading gap becomes zero) before scaling"
+        )
     if splits["val"].start < 0:
-        notes.append(f"seq_len {common['seq_len']} is longer than the train split; inputs would start "
-                     "before row 0")
+        notes.append(f"seq_len {common['seq_len']} is longer than the train split; inputs would start before row 0")
     return SplitProtocol(
-        kind="chronological", **common, file_rows=file_rows, rows_used=rows_used, row_limit=limit,
-        rows_basis=basis, split_ratio=ratio, splits=splits,
-        scaling=_scaling_text(params, train_rows(rows_used, ratio)), notes=tuple(notes),
+        kind="chronological",
+        **common,
+        file_rows=file_rows,
+        rows_used=rows_used,
+        row_limit=limit,
+        rows_basis=basis,
+        split_ratio=ratio,
+        splits=splits,
+        scaling=_scaling_text(params, train_rows(rows_used, ratio)),
+        notes=tuple(notes),
     )
 
 
@@ -339,33 +366,40 @@ def _npz_shape(bundle: Path, key: str = "data") -> tuple[int, ...]:
 
     with zipfile.ZipFile(bundle) as archive, archive.open(f"{key}.npy") as handle:
         version = np.lib.format.read_magic(handle)
-        reader = (np.lib.format.read_array_header_1_0 if version == (1, 0)
-                  else np.lib.format.read_array_header_2_0)
+        reader = np.lib.format.read_array_header_1_0 if version == (1, 0) else np.lib.format.read_array_header_2_0
         shape, _, _ = reader(handle)
     return tuple(shape)
 
 
 def _window_index(location: Path, params, seq_len: int, pred_len: int, common) -> SplitProtocol:
     centres = {flag: np.load(location / f"idx_{flag}.npy").reshape(-1) for flag in SPLITS}
-    splits = {flag: SplitRange(int(c.min()) - seq_len + 1, int(c.min()) + 1, int(c.max()) + 1 + pred_len)
-              for flag, c in centres.items()}
+    splits = {
+        flag: SplitRange(int(c.min()) - seq_len + 1, int(c.min()) + 1, int(c.max()) + 1 + pred_len)
+        for flag, c in centres.items()
+    }
     bundle = location / str(params.get("npz_name", "his.npz"))
     rows = _npz_shape(bundle)[0] if bundle.is_file() else None
     built = {}
     if (location / "split.json").is_file():
         built = json.loads((location / "split.json").read_text(encoding="utf-8"))
     ratio = tuple(float(value) for value in built.get("splits", ())) or None
-    notes = [f"window centres are fixed in idx_*.npy; a centre c reads rows [c - seq_len + 1, c] "
-             f"and predicts [c + 1, c + pred_len] (pred_len {pred_len} here)"]
+    notes = [
+        f"window centres are fixed in idx_*.npy; a centre c reads rows [c - seq_len + 1, c] "
+        f"and predicts [c + 1, c + pred_len] (pred_len {pred_len} here)"
+    ]
     if built:
-        notes.append(f"the centres were built for seq_len {built.get('seq_len')} and pred_len "
-                     f"{built.get('pred_len')}; other lengths keep the same centres")
+        notes.append(
+            f"the centres were built for seq_len {built.get('seq_len')} and pred_len "
+            f"{built.get('pred_len')}; other lengths keep the same centres"
+        )
     if splits["train"].start < 0:
         notes.append(f"seq_len {seq_len} reaches before row 0 for the first train windows")
     shared = splits["train"].end - splits["val"].own_start
     if shared > 0:
-        notes.append(f"the ratio splits windows, not rows: adjacent splits share up to {shared} target rows "
-                     "(the last train targets overlap the first val targets)")
+        notes.append(
+            f"the ratio splits windows, not rows: adjacent splits share up to {shared} target rows "
+            "(the last train targets overlap the first val targets)"
+        )
     if params.get("scale", True):
         train_end = built.get("train_end")
         fit = f" fitted on rows [0, {train_end})" if train_end is not None else ""
@@ -373,8 +407,16 @@ def _window_index(location: Path, params, seq_len: int, pred_len: int, common) -
     else:
         scaling = "none (scale = false): values and calendar covariates stay raw; metrics use raw values"
     return SplitProtocol(
-        kind="window-index", **common, file_rows=rows, rows_used=rows, rows_basis="bundle data shape",
-        split_ratio=ratio, ratio_of="windows", splits=splits, scaling=scaling, notes=tuple(notes),
+        kind="window-index",
+        **common,
+        file_rows=rows,
+        rows_used=rows,
+        rows_basis="bundle data shape",
+        split_ratio=ratio,
+        ratio_of="windows",
+        splits=splits,
+        scaling=scaling,
+        notes=tuple(notes),
     )
 
 
@@ -416,8 +458,7 @@ def load_splits(
     """
     protocol = split_protocol(dataset, seq_len, path=path, pred_len=pred_len, root=root)
     if protocol.kind == "loader-defined":
-        raise ValueError(f"{protocol.dataset} has a loader-defined split; build it with "
-                         "tsflab.data.build_data_loader")
+        raise ValueError(f"{protocol.dataset} has a loader-defined split; build it with tsflab.data.build_data_loader")
     root = _root(root)
     _, table = _preset(protocol.dataset, root)
     spec = _spec(protocol.loader)
@@ -428,14 +469,19 @@ def load_splits(
     arrays: dict[str, np.ndarray] = {}
     dataset_obj = None
     for flag in SPLITS:
-        dataset_obj = spec.dataset_class(root_path=root_path, data_path=data_file,
-                                         size=(protocol.seq_len, 0, horizon), flag=flag,
-                                         features=features, **params)
+        dataset_obj = spec.dataset_class(
+            root_path=root_path,
+            data_path=data_file,
+            size=(protocol.seq_len, 0, horizon),
+            flag=flag,
+            features=features,
+            **params,
+        )
         if protocol.kind == "chronological":
             arrays[flag] = np.asarray(dataset_obj.data)
         else:
             r = protocol.splits[flag]
-            arrays[flag] = np.asarray(dataset_obj.data[max(r.start, 0):r.end])
+            arrays[flag] = np.asarray(dataset_obj.data[max(r.start, 0) : r.end])
     mean = getattr(dataset_obj, "_mean", None)
     std = getattr(dataset_obj, "_std", None)
     if protocol.kind == "window-index" and getattr(dataset_obj, "value_mean", None) is not None:

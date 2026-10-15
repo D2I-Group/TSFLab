@@ -25,7 +25,7 @@ class ModelParameterConfig(BaseModel):
     activation: Literal["gelu", "relu"] = "gelu"
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if self.moving_avg % 2 == 0:

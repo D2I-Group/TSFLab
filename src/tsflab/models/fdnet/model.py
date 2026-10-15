@@ -110,9 +110,7 @@ class DecomposedBranch(nn.Module):
         super().__init__()
         self.embedding = nn.Conv2d(1, d_model, kernel_size=1)
         self.dropout = nn.Dropout(dropout)
-        self.layers = nn.ModuleList(
-            DecomposedFeatureExtractor(d_model, kernel_size, dropout) for _ in range(depth)
-        )
+        self.layers = nn.ModuleList(DecomposedFeatureExtractor(d_model, kernel_size, dropout) for _ in range(depth))
         self.projection = nn.Linear(length * d_model, pred_len)
 
     def features(self, x: torch.Tensor) -> torch.Tensor:
@@ -149,9 +147,7 @@ class Model(nn.Module):
     ) -> None:
         super().__init__()
         if seq_len % 2 ** (focal_parts - 1) != 0:
-            raise ValueError(
-                f"seq_len={seq_len} must be divisible by 2**(focal_parts - 1)={2 ** (focal_parts - 1)}"
-            )
+            raise ValueError(f"seq_len={seq_len} must be divisible by 2**(focal_parts - 1)={2 ** (focal_parts - 1)}")
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
@@ -165,9 +161,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(
-                f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+            raise ValueError(f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
         parts = focal_split(x_enc, self.focal_parts)
         outputs = [branch(part) for branch, part in zip(self.branches, parts)]
         return torch.stack(outputs, dim=0).mean(dim=0)

@@ -17,14 +17,14 @@ Examples
     uv run tsf data add my_special --pattern single \
         --path ./dataset/my_special/my_special.csv --target OT
 """
+
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_name, resolve_name
 import sys
 from pathlib import Path
 
+from tsflab.cli.args import add_name, resolve_name
 from tsflab.core.paths import repository_root, require_checkout
 
 ROOT = repository_root()
@@ -169,8 +169,13 @@ def _profile(name: str) -> bool:
     """Measure the new dataset's characteristics into its card (``tsf data analyze --write-card``)."""
     import subprocess
 
-    done = subprocess.run([sys.executable, "-m", "tsflab.cli.main", "data", "analyze", name, "--write-card"],
-                          cwd=ROOT, check=False, capture_output=True, text=True)
+    done = subprocess.run(
+        [sys.executable, "-m", "tsflab.cli.main", "data", "analyze", name, "--write-card"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     if done.returncode:
         tail = (done.stderr or done.stdout).strip().splitlines()[-1:]
         print(f"  ! profiling failed ({tail}); run `tsf data analyze {name} --write-card` after fixing the data")
@@ -180,13 +185,17 @@ def _profile(name: str) -> bool:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="tsf data add", description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        prog="tsf data add", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     add_name(ap, "name", flag="--name", metavar="dataset", help="dataset key / file name (snake_case)")
     ap.add_argument("--pattern", required=True, choices=["custom", "single"])
     ap.add_argument("--path", default=None, help="Dataset file (default: ./dataset/<name>/<name>.csv)")
-    ap.add_argument("--target", default=None,
-                    help="Target column name (default: OT if the file has it, else its last non-date column)")
+    ap.add_argument(
+        "--target",
+        default=None,
+        help="Target column name (default: OT if the file has it, else its last non-date column)",
+    )
     ap.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = ap.parse_args()
     resolve_name(ap, args, "name")
@@ -230,20 +239,31 @@ def main() -> None:
         from tsflab.catalog.cards.render import card_files
 
         todo = "TODO(card-v1)"
-        files = card_files("dataset", {
-            "name": name,
-            "domain": todo,
-            "benchmarks": [],
-            "tags": [todo, "dataset", name],
-            # script until the source terms are verified: never re-host unchecked data.
-            "source": {"name": todo, "url": todo, "citation": todo, "citation_url": todo,
-                       "license": todo, "redistribution": "script"},
-            "shape": {"frequency": todo, "target": args.target or todo, "stats_basis": "measured"},
-            "protocol": {"protocol": todo},
-        }, f"{todo}: what the data is. Use for ...; not for ...", {
-            "Overview": f"{todo}: what it is, domain, scale, and why it is used.",
-            "Protocol and pitfalls": f"{todo}: split, scaling, lookbacks/horizons, and known pitfalls.",
-        })
+        files = card_files(
+            "dataset",
+            {
+                "name": name,
+                "domain": todo,
+                "benchmarks": [],
+                "tags": [todo, "dataset", name],
+                # script until the source terms are verified: never re-host unchecked data.
+                "source": {
+                    "name": todo,
+                    "url": todo,
+                    "citation": todo,
+                    "citation_url": todo,
+                    "license": todo,
+                    "redistribution": "script",
+                },
+                "shape": {"frequency": todo, "target": args.target or todo, "stats_basis": "measured"},
+                "protocol": {"protocol": todo},
+            },
+            f"{todo}: what the data is. Use for ...; not for ...",
+            {
+                "Overview": f"{todo}: what it is, domain, scale, and why it is used.",
+                "Protocol and pitfalls": f"{todo}: split, scaling, lookbacks/horizons, and known pitfalls.",
+            },
+        )
         card_dir.mkdir(parents=True, exist_ok=True)
         for filename, text in files.items():
             (card_dir / filename).write_text(text, encoding="utf-8")
@@ -262,7 +282,7 @@ def main() -> None:
     print(f"  - Check the split: `tsf data splits {name} --seq-len <L>`; set split_ratio in the preset if")
     print("    the task states another split.")
     print("  - Run experiments now: reference the preset from a run config via")
-    print(f"    `extends = [..., \"../datasets/{name}.toml\", ...]` or `[sweep.extend] datasets = [...]`;")
+    print(f'    `extends = [..., "../datasets/{name}.toml", ...]` or `[sweep.extend] datasets = [...]`;')
     print("    the stub card is enough for experiments.")
     print(f"  - Before contributing the dataset, fill every TODO in catalog/datasets/{name}/card.toml and")
     print("    README.md with verified facts (`tsf repo check --audit` fails until done).")

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 SLOTS = ("normalization", "decomposition", "temporal", "channel", "head", "loss")
 
+
 #: Components imported by the adapters, per option (card-documented interfaces).
 @dataclass(frozen=True)
 class SlotOption:
@@ -39,67 +40,153 @@ def _o(*args, **kwargs) -> SlotOption:
 
 
 OPTIONS: dict[str, dict[str, SlotOption]] = {
-    "normalization": {o.name: o for o in (
-        _o("normalization", "none", (), "identity"),
-        _o("normalization", "revin", ("revin",),
-           "RevIN(C, affine=False): norm/denorm on [B, T, C]; denorm of [B, H, Q, ...] per slice",
-           aliases=("component:revin",)),
-        _o("normalization", "last_value_center", ("last_value_center",),
-           "center_on_last_value(x)->(x, level [B,1,C]); restore_last_value(y, level)",
-           aliases=("component:last_value_center",)),
-    )},
-    "decomposition": {o.name: o for o in (
-        _o("decomposition", "none", (), "single branch"),
-        _o("decomposition", "series_decomposition", ("series_decomposition",),
-           "SeriesDecomposition(kernel)(x [B,L,C]) -> (residual, trend); two branches",
-           aliases=("component:series_decomposition",)),
-        _o("decomposition", "wavelet", ("wavelet",), "",
-           aliases=("component:wavelet",),
-           unsupported="the wavelet component works on [B, C, L] and returns subbands whose length changes per level "
-                       "(decimated) or that have no inverse (undecimated); no uniform [B, L, C] branch interface exists"),
-    )},
-    "temporal": {o.name: o for o in (
-        _o("temporal", "linear", (),
-           "no encoder: z = history as [B, C, 1, L]; the head's linear map is the temporal model",
-           aliases=("local:linear",)),
-        _o("temporal", "channel_wise_linear", ("channel_wise_linear",),
-           "ChannelWiseLinear(L, hidden, C, individual)([B, C, L]) -> z [B, C, 1, hidden]",
-           aliases=("component:channel_wise_linear",)),
-        _o("temporal", "tst_transformer", ("tst_transformer", "positional_encoding"),
-           "patches [B*C, P, patch_len] -> Linear -> +positional_encoding -> TSTEncoder([B*C, P, d_model]) -> z [B, C, d_model, P]",
-           aliases=("component:tst_transformer", "component:patchtst", "patchtst")),
-        _o("temporal", "mamba", ("mamba",),
-           "patches [B*C, P, patch_len] -> Linear -> MambaResidualBlock x n_layers ([B*C, P, d_model]) -> z [B, C, d_model, P]",
-           aliases=("component:mamba",)),
-        _o("temporal", "gated_dilated_conv", ("gated_dilated_conv",),
-           "Conv1d lift [B*C, 1, L] -> hidden; gated_dilated_conv(x, filter_conv, gate_conv) with dilations 1,2,4..; z [B, C, hidden, L]",
-           aliases=("component:gated_dilated_conv",)),
-        _o("temporal", "mixer_block", ("mixer_block",),
-           "MixerBlock(L, C, hidden, dropout) x n_layers ([B, L, C]) -> z [B, C, 1, L]; mixes channels",
-           aliases=("component:mixer_block",)),
-    )},
-    "channel": {o.name: o for o in (
-        _o("channel", "independent", (),
-           "channel-independent: weights shared across channels",
-           aliases=("local:independent", "local:channel-independent-shared-weights", "component:channel_wise_linear")),
-        _o("channel", "individual", (),
-           "per-channel head weights (individual=True on FlattenForecastHead / ChannelWiseLinear)",
-           aliases=("local:individual",)),
-        _o("channel", "mixing", ("mixer_block",),
-           "cross-channel mixing, only through mixer_block's feature MLP",
-           aliases=("local:mixing", "component:mixer_block")),
-    )},
-    "head": {o.name: o for o in (
-        _o("head", "flatten_forecast_head", ("flatten_forecast_head",),
-           "FlattenForecastHead(individual, C, nf, H)(z [B,C,D,P]) -> [B,C,H] -> [B,H,C]",
-           aliases=("component:flatten_forecast_head",)),
-        _o("head", "quantile_head", ("flatten_forecast_head", "quantile_head"),
-           "FlattenForecastHead point base [B,H,C] -> unsqueeze(-1) -> QuantileHead -> [B,H,C,Q]",
-           aliases=("component:quantile_head",), output="quantile"),
-        _o("head", "gaussian_parameter_head", ("gaussian_parameter_head",),
-           "GaussianParameterHead(D*P, H)(z flattened [B,C,D*P]) -> (loc, scale) [B,C,H] -> [B,H,C,2]",
-           aliases=("component:gaussian_parameter_head",), output="distribution"),
-    )},
+    "normalization": {
+        o.name: o
+        for o in (
+            _o("normalization", "none", (), "identity"),
+            _o(
+                "normalization",
+                "revin",
+                ("revin",),
+                "RevIN(C, affine=False): norm/denorm on [B, T, C]; denorm of [B, H, Q, ...] per slice",
+                aliases=("component:revin",),
+            ),
+            _o(
+                "normalization",
+                "last_value_center",
+                ("last_value_center",),
+                "center_on_last_value(x)->(x, level [B,1,C]); restore_last_value(y, level)",
+                aliases=("component:last_value_center",),
+            ),
+        )
+    },
+    "decomposition": {
+        o.name: o
+        for o in (
+            _o("decomposition", "none", (), "single branch"),
+            _o(
+                "decomposition",
+                "series_decomposition",
+                ("series_decomposition",),
+                "SeriesDecomposition(kernel)(x [B,L,C]) -> (residual, trend); two branches",
+                aliases=("component:series_decomposition",),
+            ),
+            _o(
+                "decomposition",
+                "wavelet",
+                ("wavelet",),
+                "",
+                aliases=("component:wavelet",),
+                unsupported="the wavelet component works on [B, C, L] and returns subbands whose length changes per level "
+                "(decimated) or that have no inverse (undecimated); no uniform [B, L, C] branch interface exists",
+            ),
+        )
+    },
+    "temporal": {
+        o.name: o
+        for o in (
+            _o(
+                "temporal",
+                "linear",
+                (),
+                "no encoder: z = history as [B, C, 1, L]; the head's linear map is the temporal model",
+                aliases=("local:linear",),
+            ),
+            _o(
+                "temporal",
+                "channel_wise_linear",
+                ("channel_wise_linear",),
+                "ChannelWiseLinear(L, hidden, C, individual)([B, C, L]) -> z [B, C, 1, hidden]",
+                aliases=("component:channel_wise_linear",),
+            ),
+            _o(
+                "temporal",
+                "tst_transformer",
+                ("tst_transformer", "positional_encoding"),
+                "patches [B*C, P, patch_len] -> Linear -> +positional_encoding -> TSTEncoder([B*C, P, d_model]) -> z [B, C, d_model, P]",
+                aliases=("component:tst_transformer", "component:patchtst", "patchtst"),
+            ),
+            _o(
+                "temporal",
+                "mamba",
+                ("mamba",),
+                "patches [B*C, P, patch_len] -> Linear -> MambaResidualBlock x n_layers ([B*C, P, d_model]) -> z [B, C, d_model, P]",
+                aliases=("component:mamba",),
+            ),
+            _o(
+                "temporal",
+                "gated_dilated_conv",
+                ("gated_dilated_conv",),
+                "Conv1d lift [B*C, 1, L] -> hidden; gated_dilated_conv(x, filter_conv, gate_conv) with dilations 1,2,4..; z [B, C, hidden, L]",
+                aliases=("component:gated_dilated_conv",),
+            ),
+            _o(
+                "temporal",
+                "mixer_block",
+                ("mixer_block",),
+                "MixerBlock(L, C, hidden, dropout) x n_layers ([B, L, C]) -> z [B, C, 1, L]; mixes channels",
+                aliases=("component:mixer_block",),
+            ),
+        )
+    },
+    "channel": {
+        o.name: o
+        for o in (
+            _o(
+                "channel",
+                "independent",
+                (),
+                "channel-independent: weights shared across channels",
+                aliases=(
+                    "local:independent",
+                    "local:channel-independent-shared-weights",
+                    "component:channel_wise_linear",
+                ),
+            ),
+            _o(
+                "channel",
+                "individual",
+                (),
+                "per-channel head weights (individual=True on FlattenForecastHead / ChannelWiseLinear)",
+                aliases=("local:individual",),
+            ),
+            _o(
+                "channel",
+                "mixing",
+                ("mixer_block",),
+                "cross-channel mixing, only through mixer_block's feature MLP",
+                aliases=("local:mixing", "component:mixer_block"),
+            ),
+        )
+    },
+    "head": {
+        o.name: o
+        for o in (
+            _o(
+                "head",
+                "flatten_forecast_head",
+                ("flatten_forecast_head",),
+                "FlattenForecastHead(individual, C, nf, H)(z [B,C,D,P]) -> [B,C,H] -> [B,H,C]",
+                aliases=("component:flatten_forecast_head",),
+            ),
+            _o(
+                "head",
+                "quantile_head",
+                ("flatten_forecast_head", "quantile_head"),
+                "FlattenForecastHead point base [B,H,C] -> unsqueeze(-1) -> QuantileHead -> [B,H,C,Q]",
+                aliases=("component:quantile_head",),
+                output="quantile",
+            ),
+            _o(
+                "head",
+                "gaussian_parameter_head",
+                ("gaussian_parameter_head",),
+                "GaussianParameterHead(D*P, H)(z flattened [B,C,D*P]) -> (loc, scale) [B,C,H] -> [B,H,C,2]",
+                aliases=("component:gaussian_parameter_head",),
+                output="distribution",
+            ),
+        )
+    },
 }
 
 DEFAULTS = {
@@ -144,7 +231,9 @@ def assignment_components(assignment: dict[str, str]) -> tuple[str, ...]:
 
 
 def all_components() -> tuple[str, ...]:
-    return tuple(sorted({c for opts in OPTIONS.values() for o in opts.values() if not o.unsupported for c in o.components}))
+    return tuple(
+        sorted({c for opts in OPTIONS.values() for o in opts.values() if not o.unsupported for c in o.components})
+    )
 
 
 def check_assignment(assignment: dict[str, str]) -> list[str]:
@@ -174,11 +263,17 @@ def _option_problems(assignment: dict[str, str]) -> list[str]:
 def _pairing_problems(temporal: str, channel: str, head: str) -> list[str]:
     problems: list[str] = []
     if temporal == "mixer_block" and channel != "mixing":
-        problems.append("temporal mixer_block mixes channels in its feature MLP; set channel to mixing (it cannot be channel-independent)")
+        problems.append(
+            "temporal mixer_block mixes channels in its feature MLP; set channel to mixing (it cannot be channel-independent)"
+        )
     if channel == "mixing" and temporal != "mixer_block":
-        problems.append(f"channel mixing is only provided by mixer_block; temporal {temporal} is channel-independent (use channel independent or individual)")
+        problems.append(
+            f"channel mixing is only provided by mixer_block; temporal {temporal} is channel-independent (use channel independent or individual)"
+        )
     if head == "gaussian_parameter_head" and channel == "individual":
-        problems.append("GaussianParameterHead has shared weights only; per-channel (individual) weights are unsupported with it")
+        problems.append(
+            "GaussianParameterHead has shared weights only; per-channel (individual) weights are unsupported with it"
+        )
     return problems
 
 
@@ -187,7 +282,9 @@ def _loss_problems(assignment: dict[str, str], head: str) -> list[str]:
     loss = assignment.get("loss", DEFAULTS["loss"])
     required = OUTPUT_LOSS[OPTIONS["head"][head].output]
     if required is not None and loss != required:
-        problems.append(f"head {head} emits {OPTIONS['head'][head].output} output and needs loss {required!r}, got {loss!r}")
+        problems.append(
+            f"head {head} emits {OPTIONS['head'][head].output} output and needs loss {required!r}, got {loss!r}"
+        )
     if required is None and loss in _PROBABILISTIC_LOSSES:
         problems.append(f"loss {loss!r} needs a quantile_head or gaussian_parameter_head, got {head}")
     return problems
@@ -242,6 +339,7 @@ _CARD_TEMPORAL_PARTS = {"linear": "local:linear", "tst_transformer": "component:
 
 def card_composition(assignment: dict[str, str]) -> list[str]:
     """Six-slot ``composition`` list for a model card from a canonical assignment."""
+
     def part(slot: str) -> str:
         name = assignment[slot]
         if slot == "loss":
@@ -255,4 +353,5 @@ def card_composition(assignment: dict[str, str]) -> list[str]:
             return f"{slot}={_CARD_TEMPORAL_PARTS[name]}"
         del opt
         return f"{slot}=component:{name}"
+
     return [part(slot) for slot in SLOTS]

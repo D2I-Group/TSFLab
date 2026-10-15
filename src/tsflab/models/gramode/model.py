@@ -59,8 +59,8 @@ def dtw_distances(profiles: torch.Tensor, chunk: int = 65536) -> torch.Tensor:
     result = profiles.new_zeros(nodes, nodes)
     index = torch.arange(length + 1)  # position i on a diagonal, i = 0..S
     for start in range(0, rows.numel(), chunk):
-        a = profiles[rows[start:start + chunk]]
-        b = profiles[cols[start:start + chunk]]
+        a = profiles[rows[start : start + chunk]]
+        b = profiles[cols[start : start + chunk]]
         pairs = a.shape[0]
         inf = torch.full((pairs, length + 1), math.inf, dtype=profiles.dtype)
         before_last, last = inf.clone(), inf.clone()
@@ -74,7 +74,7 @@ def dtw_distances(profiles: torch.Tensor, chunk: int = 65536) -> torch.Tensor:
             best = torch.minimum(torch.minimum(up, last), diagonal)  # last[i] is D[i, j-1]
             current = torch.where(valid, cost + best, inf)
             before_last, last = last, current
-        result[rows[start:start + chunk], cols[start:start + chunk]] = last[:, length]
+        result[rows[start : start + chunk], cols[start : start + chunk]] = last[:, length]
     return result + result.transpose(0, 1)
 
 
@@ -162,8 +162,9 @@ class NodeODE(nn.Module):
 
     def forward(self, h, h0, support, mask, time_gate: TemporalGate) -> torch.Tensor:
         alpha = torch.sigmoid(self.alpha).view(1, -1, 1, 1)
-        return (alpha / 2 * graph_message(h, support, mask) - h + time_gate.node(h) - h
-                + h @ self.channel_weight() - h + h0)
+        return (
+            alpha / 2 * graph_message(h, support, mask) - h + time_gate.node(h) - h + h @ self.channel_weight() - h + h0
+        )
 
 
 class EdgeODE(nn.Module):
@@ -215,8 +216,9 @@ class HeadAttention(nn.Module):
 class MultiODEBlock(nn.Module):
     """Multi ODE-GNN block (Fig. 3, Algorithm 1 lines 4-26) on ``[B, N, T, C]``."""
 
-    def __init__(self, num_nodes: int, seq_len: int, width: int, local_chunks: int,
-                 local_heads: int, beta: float) -> None:
+    def __init__(
+        self, num_nodes: int, seq_len: int, width: int, local_chunks: int, local_heads: int, beta: float
+    ) -> None:
         super().__init__()
         self.local_chunks = local_chunks
         self.local_steps = seq_len // local_chunks
@@ -226,8 +228,9 @@ class MultiODEBlock(nn.Module):
         self.global_ode = NodeODE(num_nodes, width, beta)
         self.edge_ode = EdgeODE(num_nodes)
         self.local_odes = nn.ModuleList(NodeODE(num_nodes, width, beta) for _ in range(local_chunks))
-        self.local_attention = HeadAttention(seq_len * width, 2 * local_chunks * width,
-                                             local_chunks * width, local_heads)
+        self.local_attention = HeadAttention(
+            seq_len * width, 2 * local_chunks * width, local_chunks * width, local_heads
+        )
         self.local_proj = nn.Linear(width, width)
         self.global_proj = nn.Linear(width, width)
         self.edge_proj = nn.Linear(num_nodes, width)
@@ -248,7 +251,7 @@ class MultiODEBlock(nn.Module):
         tokens = tokens.view(batch, nodes, self.local_chunks, width)
         chunks = []
         for i, ode in enumerate(self.local_odes):
-            states = euler(ode, tokens[:, :, i:i + 1], self.local_steps, support, mask, self.local_time)
+            states = euler(ode, tokens[:, :, i : i + 1], self.local_steps, support, mask, self.local_time)
             chunks.append(torch.cat(states, dim=2))
         return torch.cat(chunks, dim=2)
 
@@ -270,8 +273,9 @@ class MultiODEBlock(nn.Module):
         global_ = euler(self.global_ode, h, 1, support, mask, self.global_time)[-1]
         edge = euler(self.edge_ode, self.edge_features(h), 1, support, mask, self.global_time)[-1]
         local = self.message_filter(self.local_message(h, support, mask), global_, self.clip[0])
-        fused = self.aggregate(self.local_proj(local), self.global_proj(global_),
-                               self.edge_proj(edge.permute(0, 2, 3, 1)))
+        fused = self.aggregate(
+            self.local_proj(local), self.global_proj(global_), self.edge_proj(edge.permute(0, 2, 3, 1))
+        )
         # Eq. (20): gated residual from the block input, learnable weights.
         return F.relu(self.mix[0] * torch.sigmoid(self.residual_proj(h)) + self.mix[1] * fused)
 
@@ -279,9 +283,19 @@ class MultiODEBlock(nn.Module):
 class GRAMODELayer(nn.Module):
     """TCN -> multi ODE-GNN block -> TCN, then BatchNorm with nodes as channels."""
 
-    def __init__(self, in_dim: int, num_nodes: int, seq_len: int, width: int, tcn_mid_dim: int,
-                 kernel_size: int, dropout: float, local_chunks: int, local_heads: int,
-                 beta: float) -> None:
+    def __init__(
+        self,
+        in_dim: int,
+        num_nodes: int,
+        seq_len: int,
+        width: int,
+        tcn_mid_dim: int,
+        kernel_size: int,
+        dropout: float,
+        local_chunks: int,
+        local_heads: int,
+        beta: float,
+    ) -> None:
         super().__init__()
         channels = (width, tcn_mid_dim, width)
         self.tcn_in = TemporalConvNet(in_dim, channels, kernel_size, dropout)
@@ -331,7 +345,11 @@ class Model(nn.Module):
         self.semantic_sigma, self.semantic_threshold = semantic_sigma, semantic_threshold
         self.huber_delta = huber_delta  # read by the training objective (Eq. 24)
 
-        adj = np.zeros((num_nodes, num_nodes)) if adj_mx is None else square_adjacency(adj_mx, num_nodes, dtype=np.float64)
+        adj = (
+            np.zeros((num_nodes, num_nodes))
+            if adj_mx is None
+            else square_adjacency(adj_mx, num_nodes, dtype=np.float64)
+        )
         support = torch.as_tensor(normalized_support(adj, graph_alpha), dtype=torch.float32)
         self.register_buffer("spatial_support", support)
         # Filled from the training split by ``fit_semantic_graph``; no edges until then.
@@ -341,9 +359,18 @@ class Model(nn.Module):
         def stream() -> nn.ModuleList:
             return nn.ModuleList(
                 nn.ModuleList(
-                    GRAMODELayer(input_dim if layer == 0 else hidden_dim, num_nodes, seq_len,
-                                 hidden_dim, tcn_mid_dim, kernel_size, dropout, local_chunks,
-                                 local_heads, ode_beta)
+                    GRAMODELayer(
+                        input_dim if layer == 0 else hidden_dim,
+                        num_nodes,
+                        seq_len,
+                        hidden_dim,
+                        tcn_mid_dim,
+                        kernel_size,
+                        dropout,
+                        local_chunks,
+                        local_heads,
+                        ode_beta,
+                    )
                     for layer in range(layers)
                 )
                 for _ in range(channels)
@@ -352,8 +379,9 @@ class Model(nn.Module):
         self.spatial_stream = stream()
         self.semantic_stream = stream()
         streams = 2 * channels
-        self.output_attention = HeadAttention(seq_len * hidden_dim * streams, streams * hidden_dim,
-                                              pred_len, output_heads)
+        self.output_attention = HeadAttention(
+            seq_len * hidden_dim * streams, streams * hidden_dim, pred_len, output_heads
+        )
 
     @torch.no_grad()
     def fit_semantic_graph(self, series: torch.Tensor) -> torch.Tensor:
@@ -382,8 +410,10 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.num_nodes)
         x = self.node_features(x_enc, x_mark_enc)
         outputs = []
-        for stream, support in ((self.spatial_stream, self.spatial_support),
-                                (self.semantic_stream, self.semantic_support)):
+        for stream, support in (
+            (self.spatial_stream, self.spatial_support),
+            (self.semantic_stream, self.semantic_support),
+        ):
             for channel in stream:
                 h = x
                 for layer in channel:
@@ -410,7 +440,7 @@ def training_series(dataset, num_nodes: int) -> torch.Tensor | None:
     if idx is not None and len(idx):
         ends = np.asarray(idx).reshape(-1)
         start = max(int(ends.min()) - int(getattr(dataset, "seq_len", 1)) + 1, 0)
-        values = values[start: int(ends.max()) + 1]
+        values = values[start : int(ends.max()) + 1]
     if values.ndim != 2 or values.shape[1] != num_nodes or values.shape[0] < 2:
         return None
     return values
@@ -420,8 +450,7 @@ def fit_from_loader(model: Model, train_loader) -> bool:
     """Fit the DTW graph from the loader's training split; warn and keep no edges otherwise."""
     series = training_series(getattr(train_loader, "dataset", None), model.num_nodes)
     if series is None:
-        warnings.warn("GRAMODE: no ordered training series available; the DTW graph has no edges",
-                      stacklevel=2)
+        warnings.warn("GRAMODE: no ordered training series available; the DTW graph has no edges", stacklevel=2)
         return False
     model.fit_semantic_graph(series)
     return True

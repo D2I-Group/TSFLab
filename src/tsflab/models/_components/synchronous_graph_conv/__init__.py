@@ -57,9 +57,7 @@ def localized_adjacency(adj_mx, steps: int) -> torch.Tensor:
     return torch.from_numpy(local)
 
 
-def _check_filters(
-    filters: tuple[int, ...], num_nodes: int, steps: int, in_dim: int, num_modules: int
-) -> None:
+def _check_filters(filters: tuple[int, ...], num_nodes: int, steps: int, in_dim: int, num_modules: int) -> None:
     if not filters or min(filters) < 1 or min(num_nodes, steps, in_dim, num_modules) < 1:
         raise ValueError("num_nodes, steps, in_dim, num_modules and every filter must be positive")
     if len(set(filters)) != 1:

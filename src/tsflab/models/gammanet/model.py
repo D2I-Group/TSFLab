@@ -125,8 +125,13 @@ class AxisMamba(nn.Module):
         # PEMS08 at batch 64. The official mamba_ssm kernel never stores them,
         # so the scan is recomputed in backward instead.
         self.mixer = MambaBlock(
-            width, expand * width, math.ceil(width / 16), d_conv, d_state,
-            reference_dt_init=True, checkpoint_scan=True,
+            width,
+            expand * width,
+            math.ceil(width / 16),
+            d_conv,
+            d_state,
+            reference_dt_init=True,
+            checkpoint_scan=True,
         )
         self.norm = nn.LayerNorm(width)
 

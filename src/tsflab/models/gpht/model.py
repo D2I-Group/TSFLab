@@ -43,9 +43,7 @@ class HierarchicalStage(nn.Module):
         self.encoder = Encoder(
             [
                 EncoderLayer(
-                    AttentionLayer(
-                        FullAttention(True, attention_dropout=dropout), d_model, n_heads
-                    ),
+                    AttentionLayer(FullAttention(True, attention_dropout=dropout), d_model, n_heads),
                     d_model,
                     d_ff,
                     dropout=dropout,
@@ -91,9 +89,7 @@ class Model(nn.Module):
         self.token_len = token_len
         self.revin = RevIN(enc_in, affine=False)
         self.stages = nn.ModuleList(
-            HierarchicalStage(
-                token_len, rate, d_model, d_ff, n_heads, e_layers, dropout, activation
-            )
+            HierarchicalStage(token_len, rate, d_model, d_ff, n_heads, e_layers, dropout, activation)
             for rate in pooling_rates
         )
 
@@ -113,9 +109,7 @@ class Model(nn.Module):
             out = stage(residual)
             total = total + out
             # PadFirstToken: right-shift by one token so out predicts the same token.
-            shifted = torch.cat(
-                (torch.zeros_like(out[:, : self.token_len]), out[:, : -self.token_len]), dim=1
-            )
+            shifted = torch.cat((torch.zeros_like(out[:, : self.token_len]), out[:, : -self.token_len]), dim=1)
             residual = residual - shifted
         return self.revin(total, "denorm")
 
@@ -129,9 +123,7 @@ class Model(nn.Module):
             window = torch.cat((window, token), dim=1)[:, -self.seq_len :]
         return torch.cat(pieces, dim=1)[:, : self.pred_len]
 
-    def training_objective(
-        self, x: torch.Tensor, target: torch.Tensor
-    ) -> torch.Tensor:
+    def training_objective(self, x: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Next-token MSE on every position: targets are ``x[token_len:]`` plus the next token."""
         if target.shape[0] != x.shape[0] or target.shape[2] != x.shape[2]:
             raise ValueError("GPHT trains on all channels and needs a matching target")

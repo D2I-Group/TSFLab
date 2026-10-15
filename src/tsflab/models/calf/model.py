@@ -68,17 +68,24 @@ class CALFGPT2Backbone(GPT2Backbone):
     normalised state -- the features compared by the feature regularisation loss.
     """
 
-    def __init__(
-        self, num_layers: int, dropout: float, lora: tuple[int, float, float] | None = None
-    ) -> None:
+    def __init__(self, num_layers: int, dropout: float, lora: tuple[int, float, float] | None = None) -> None:
         rank, alpha, lora_dropout = lora if lora else (0, 1.0, 0.0)
-        super().__init__(GPT2Config(
-            n_layer=num_layers, n_embd=GPT2_WIDTH, n_head=GPT2_HEADS,
-            n_positions=GPT2_MAX_POSITIONS, embd_pdrop=dropout, attn_pdrop=dropout,
-            resid_pdrop=dropout, layer_norm_epsilon=GPT2_LN_EPS,
-            attn_implementation="sdpa", lora_rank=rank, lora_alpha=alpha,
-            lora_dropout=lora_dropout,
-        ))
+        super().__init__(
+            GPT2Config(
+                n_layer=num_layers,
+                n_embd=GPT2_WIDTH,
+                n_head=GPT2_HEADS,
+                n_positions=GPT2_MAX_POSITIONS,
+                embd_pdrop=dropout,
+                attn_pdrop=dropout,
+                resid_pdrop=dropout,
+                layer_norm_epsilon=GPT2_LN_EPS,
+                attn_implementation="sdpa",
+                lora_rank=rank,
+                lora_alpha=alpha,
+                lora_dropout=lora_dropout,
+            )
+        )
 
     def reset_parameters(self) -> None:
         """GPT-2 initialisation in parameter order (normal std 0.02, zero biases,
@@ -109,15 +116,16 @@ class CrossModalMatch(nn.Module):
         super().__init__()
         self.embed = nn.Linear(seq_len, GPT2_WIDTH)
         self.encoder = nn.TransformerEncoderLayer(
-            GPT2_WIDTH, GPT2_HEADS, dim_feedforward=MATCH_FF,
-            dropout=MATCH_DROPOUT, batch_first=True,
+            GPT2_WIDTH,
+            GPT2_HEADS,
+            dim_feedforward=MATCH_FF,
+            dropout=MATCH_DROPOUT,
+            batch_first=True,
         )
         self.cross_attention = nn.MultiheadAttention(GPT2_WIDTH, GPT2_HEADS, batch_first=True)
         # D_hat = PCA(D): fixed principal word embeddings [n_principal, 768];
         # a random stand-in until pretrained GPT-2 weights are loaded.
-        self.register_buffer(
-            "principal_embeddings", torch.randn(n_principal, GPT2_WIDTH) * 0.02
-        )
+        self.register_buffer("principal_embeddings", torch.randn(n_principal, GPT2_WIDTH) * 0.02)
 
     def forward(self, series: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x_time = self.encoder(self.embed(series))
@@ -172,12 +180,8 @@ class Model(nn.Module):
         # Both branches start from identical backbone weights.
         self.gpt2_text.load_state_dict(self.gpt2_time.state_dict(), strict=False)
         # phi_time^l and phi_text^l of Eq. (4), one per compared feature.
-        self.time_proj = nn.ModuleList(
-            nn.Linear(GPT2_WIDTH, GPT2_WIDTH, bias=False) for _ in range(gpt_layers + 1)
-        )
-        self.text_proj = nn.ModuleList(
-            nn.Linear(GPT2_WIDTH, GPT2_WIDTH, bias=False) for _ in range(gpt_layers + 1)
-        )
+        self.time_proj = nn.ModuleList(nn.Linear(GPT2_WIDTH, GPT2_WIDTH, bias=False) for _ in range(gpt_layers + 1))
+        self.text_proj = nn.ModuleList(nn.Linear(GPT2_WIDTH, GPT2_WIDTH, bias=False) for _ in range(gpt_layers + 1))
         # Forecast head shared by both branches.
         self.head = nn.Linear(GPT2_WIDTH, pred_len)
         self._freeze_backbones()
@@ -228,9 +232,7 @@ class Model(nn.Module):
             missing, unexpected = backbone.load_state_dict(state, strict=False)
             missing = [key for key in missing if "lora_" not in key]
             if missing or unexpected:
-                raise ValueError(
-                    f"GPT-2 weights mismatch: missing={missing}, unexpected={unexpected}"
-                )
+                raise ValueError(f"GPT-2 weights mismatch: missing={missing}, unexpected={unexpected}")
 
     @torch.no_grad()
     def load_gpt2(self, weights: dict[str, torch.Tensor]) -> None:

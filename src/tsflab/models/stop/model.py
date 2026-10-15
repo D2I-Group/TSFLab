@@ -1,7 +1,10 @@
 """Clean-room STOP implementation from the ICML 2025 equations."""
+
 from __future__ import annotations
+
 import torch
 from torch import nn
+
 from tsflab.models._components.marks import to_calendar_spatiotemporal
 from tsflab.models._components.series_decomposition import SeriesDecomposition
 from tsflab.models._inputs import check_window
@@ -10,8 +13,10 @@ from tsflab.models._inputs import check_window
 class ChannelMixer(nn.Module):
     def __init__(self, width: int, layers: int) -> None:
         super().__init__()
-        self.layers = nn.ModuleList(nn.Sequential(nn.Linear(width, 4 * width), nn.GELU(),
-                                                  nn.Linear(4 * width, width)) for _ in range(layers))
+        self.layers = nn.ModuleList(
+            nn.Sequential(nn.Linear(width, 4 * width), nn.GELU(), nn.Linear(4 * width, width)) for _ in range(layers)
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             x = x + layer(x)
@@ -20,6 +25,7 @@ class ChannelMixer(nn.Module):
 
 class CentralizedInteraction(nn.Module):
     """Equations (8)--(9): node↔ConAU low-rank attention, never node↔node."""
+
     def __init__(self, width: int, units: int, heads: int) -> None:
         super().__init__()
         self.heads, self.head_dim = heads, width // heads
@@ -33,7 +39,7 @@ class CentralizedInteraction(nn.Module):
         b, n, d = nodes.shape
         q = self.query(nodes).reshape(b, n, self.heads, self.head_dim).transpose(1, 2)
         k = self.context.reshape(1, -1, self.heads, self.head_dim).permute(0, 2, 1, 3)
-        logits = torch.einsum("bhnd,bhkd->bhnk", q, k) / self.head_dim ** 0.5
+        logits = torch.einsum("bhnd,bhkd->bhnk", q, k) / self.head_dim**0.5
         diffusion = logits.softmax(-1)
         aggregation_logits = logits.transpose(-1, -2)
         if perturbation is not None:
@@ -47,10 +53,21 @@ class CentralizedInteraction(nn.Module):
 
 class Model(nn.Module):
     """Spatio-Temporal OOD Processor with centralized context units."""
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, model_dim: int = 16,
-                 prompt_dim: int = 16, num_layer: int = 2, hid_dim: int = 64,
-                 tod_size: int = 24, kernel_size: int = 3, core: int = 4,
-                 head: int = 4) -> None:
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        model_dim: int = 16,
+        prompt_dim: int = 16,
+        num_layer: int = 2,
+        hid_dim: int = 64,
+        tod_size: int = 24,
+        kernel_size: int = 3,
+        core: int = 4,
+        head: int = 4,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.decomposition = SeriesDecomposition(kernel_size)
@@ -79,8 +96,7 @@ class Model(nn.Module):
         prompt = torch.cat((self.tod_prompt(tod).mean(1), self.dow_prompt(dow).mean(1)), -1)
         return torch.cat((values, prompt[:, None].expand(-1, self.enc_in, -1)), -1)
 
-    def _forecast(self, representation: torch.Tensor,
-                  perturbation: torch.Tensor | None = None) -> torch.Tensor:
+    def _forecast(self, representation: torch.Tensor, perturbation: torch.Tensor | None = None) -> torch.Tensor:
         temporal = self.temporal_mixer(representation)
         context = self.central(temporal, perturbation)
         personalized = temporal - context
@@ -98,8 +114,9 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         return self._forecast(self._representation(x_enc, x_mark_enc))
 
-    def environment_forecasts(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None = None,
-                              environments: int = 3) -> torch.Tensor:
+    def environment_forecasts(
+        self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None = None, environments: int = 3
+    ) -> torch.Tensor:
         """Generate bounded GenPU branches for an external worst-loss DRO step."""
         representation = self._representation(x_enc, x_mark_enc)
         outputs = []

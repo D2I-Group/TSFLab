@@ -13,9 +13,7 @@ from tsflab.models._inputs import check_window
 class TemporalSubsequenceMixer(nn.Module):
     """Equation (6): learn interleaved subsequences independently and merge."""
 
-    def __init__(
-        self, seq_len: int, sampling: int, hidden_dim: int, factorized: bool
-    ) -> None:
+    def __init__(self, seq_len: int, sampling: int, hidden_dim: int, factorized: bool) -> None:
         super().__init__()
         groups = sampling if factorized else 1
         if groups > seq_len:
@@ -68,9 +66,7 @@ class FactorizedMixerBlock(nn.Module):
         super().__init__()
         self.pre_time = nn.LayerNorm(channels) if normalize else nn.Identity()
         self.pre_channel = nn.LayerNorm(channels) if normalize else nn.Identity()
-        self.temporal = TemporalSubsequenceMixer(
-            seq_len, sampling, temporal_hidden, factorized_temporal
-        )
+        self.temporal = TemporalSubsequenceMixer(seq_len, sampling, temporal_hidden, factorized_temporal)
         channel_width = channel_hidden if factorized_channel else temporal_hidden
         self.channel = ChannelInteraction(channels, channel_width)
 

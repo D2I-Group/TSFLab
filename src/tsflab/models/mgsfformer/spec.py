@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mgsfformer.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

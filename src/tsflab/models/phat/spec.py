@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.phat.model import Model
-
-from typing import Optional
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,10 +19,10 @@ class ModelParameterConfig(BaseModel):
     ffn_dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
     ffn_expand_ratio: float = Field(default=2.66667, gt=0.0)
     period_topk: int = Field(default=1, gt=0)
-    period_list: Optional[list[int]] = None
+    period_list: list[int] | None = None
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if self.period_list is not None and any(period <= 0 for period in self.period_list):

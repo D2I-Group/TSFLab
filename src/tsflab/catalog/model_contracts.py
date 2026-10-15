@@ -8,18 +8,16 @@ import io
 import tomllib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-from tsflab.core.paths import repository_root
 from types import SimpleNamespace
 
 import numpy as np
 import torch
 
 from tsflab.catalog.registry.models import MODEL_CATALOG, ModelSpec
+from tsflab.core.paths import repository_root
+from tsflab.experiments.config.schema.evaluation import EvaluationConfig
 from tsflab.experiments.runner.model_io import call_forecaster
 from tsflab.experiments.runner.objective import TrainingBatch
-from tsflab.experiments.config.schema.evaluation import EvaluationConfig
-
 
 ROOT = repository_root()
 
@@ -94,9 +92,7 @@ def _forward_contract(
     # have a valid differentiable training path through their input.  Track the
     # input during backward checks instead of forcing such methods to carry a
     # semantically false dummy parameter.
-    x = torch.randn(
-        batch, task.seq_len, channels, requires_grad=backward
-    )
+    x = torch.randn(batch, task.seq_len, channels, requires_grad=backward)
     x_mark = torch.zeros(batch, task.seq_len, 6)
     dec = torch.zeros(batch, task.label_len + task.pred_len, channels)
     dec_mark = torch.zeros(batch, task.label_len + task.pred_len, 6)
@@ -109,26 +105,19 @@ def _forward_contract(
     if not torch.is_tensor(output):
         raise TypeError(f"forward returned {type(output).__name__}, expected Tensor")
     if output.shape[0] != batch or output.shape[1] != task.pred_len:
-        raise ValueError(
-            f"output shape {tuple(output.shape)} violates (B, pred_len, ...) contract"
-        )
+        raise ValueError(f"output shape {tuple(output.shape)} violates (B, pred_len, ...) contract")
     if not torch.isfinite(output).all():
         raise ValueError("forward output contains NaN or Inf")
     output_type = getattr(model, "output_type", spec.output_type)
     if output_type != spec.output_type:
-        raise ValueError(
-            f"model output_type={output_type!r} disagrees with ModelSpec "
-            f"output_type={spec.output_type!r}"
-        )
+        raise ValueError(f"model output_type={output_type!r} disagrees with ModelSpec output_type={spec.output_type!r}")
     if output_type == "point" and output.ndim != 3:
         raise ValueError(f"point model returned rank-{output.ndim} output")
     if output_type == "quantile" and output.ndim != 4:
         raise ValueError(f"quantile model returned rank-{output.ndim} output")
     if output_type == "distribution":
         if output.ndim != 4 or output.shape[-1] != 2:
-            raise ValueError(
-                f"distribution model must return (B, T, C, 2), got {tuple(output.shape)}"
-            )
+            raise ValueError(f"distribution model must return (B, T, C, 2), got {tuple(output.shape)}")
     if backward and "inference-only" not in spec.capabilities:
         if spec.training_objective is not None:
             # Training goes through the declared objective (for example a
@@ -140,14 +129,8 @@ def _forward_contract(
             if not output.requires_grad:
                 raise ValueError("forward output is detached; training cannot backpropagate")
             output.float().mean().backward()
-        trainable_parameters = [
-            parameter for parameter in model.parameters() if parameter.requires_grad
-        ]
-        gradients = [
-            parameter.grad
-            for parameter in trainable_parameters
-            if parameter.grad is not None
-        ]
+        trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+        gradients = [parameter.grad for parameter in trainable_parameters if parameter.grad is not None]
         if trainable_parameters and not gradients:
             raise ValueError("backward produced no parameter gradients")
         if not trainable_parameters:
@@ -195,9 +178,7 @@ class _SyntheticWindows(torch.utils.data.Dataset):
         )
 
 
-def _objective_loss(
-    model, spec: ModelSpec, task, channels: int, *, batch: int
-) -> tuple[torch.Tensor, torch.Tensor]:
+def _objective_loss(model, spec: ModelSpec, task, channels: int, *, batch: int) -> tuple[torch.Tensor, torch.Tensor]:
     """Loss of ``spec.training_objective`` on a synthetic training batch.
 
     Mirrors the start of training: ``training_setup`` (if declared) sees a
@@ -214,12 +195,15 @@ def _objective_loss(
         spec.training_setup(model, loader, pred_len=task.pred_len, features=task.features)
     x, y, x_mark, y_mark = next(iter(loader))
     x = x.clone().requires_grad_(True)
-    dec = torch.cat(
-        (y[:, : task.label_len], torch.zeros(batch, task.pred_len, channels)), dim=1
-    )
+    dec = torch.cat((y[:, : task.label_len], torch.zeros(batch, task.pred_len, channels)), dim=1)
     training_batch = TrainingBatch(
-        x=x, x_mark=x_mark, dec_inp=dec, y_mark=y_mark, y=y,
-        pred_len=task.pred_len, features=task.features,
+        x=x,
+        x_mark=x_mark,
+        dec_inp=dec,
+        y_mark=y_mark,
+        y=y,
+        pred_len=task.pred_len,
+        features=task.features,
     )
     model.zero_grad(set_to_none=True)
     forecast, loss = spec.training_objective(model, training_batch, torch.nn.functional.mse_loss)

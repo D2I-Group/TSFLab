@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
+from string import Formatter
+from typing import Any
 
 from tsflab.core.paths import repository_root
-from string import Formatter
-import tomllib
-from typing import Any
 
 
 def _assets_root() -> Path:
@@ -97,11 +97,7 @@ def validate_task(task: dict[str, Any], path: Path) -> list[str]:
                 errors.append(f"{label}: input {key!r} budget_key must name a budget field")
             elif "maximum" not in spec:
                 errors.append(f"{label}: input {key!r} budget_key requires maximum")
-    placeholders = {
-        field_name
-        for _, field_name, _, _ in Formatter().parse(str(task["prompt"]))
-        if field_name
-    }
+    placeholders = {field_name for _, field_name, _, _ in Formatter().parse(str(task["prompt"])) if field_name}
     unknown = placeholders - inputs.keys()
     if unknown:
         errors.append(f"{label}: undeclared prompt inputs {', '.join(sorted(unknown))}")
@@ -116,8 +112,10 @@ def validate_task(task: dict[str, Any], path: Path) -> list[str]:
             elif key in {"max_parallel_jobs", "max_parallel_workers", "max_wall_minutes"} and value == 0:
                 errors.append(f"{label}: budget {key!r} must be positive")
     acceptance = task["acceptance"]
-    if not isinstance(acceptance, list) or not acceptance or not all(
-        isinstance(item, str) and item.strip() for item in acceptance
+    if (
+        not isinstance(acceptance, list)
+        or not acceptance
+        or not all(isinstance(item, str) and item.strip() for item in acceptance)
     ):
         errors.append(f"{label}: acceptance must be a non-empty string list")
     return errors
@@ -175,9 +173,7 @@ def render_task(name: str, supplied: dict[str, str]) -> dict[str, Any]:
             except (TypeError, ValueError) as exc:
                 raise AgentTaskError(f"input {key!r} must be an integer") from exc
             if numeric < 1 or numeric > spec["maximum"]:
-                raise AgentTaskError(
-                    f"input {key!r} must be between 1 and {spec['maximum']}"
-                )
+                raise AgentTaskError(f"input {key!r} must be between 1 and {spec['maximum']}")
         values[key] = "" if value is None else str(value)
     if missing:
         raise AgentTaskError(f"missing required input(s): {', '.join(sorted(missing))}")

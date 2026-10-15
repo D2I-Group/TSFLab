@@ -98,10 +98,7 @@ class AutoCorrelationAttention(nn.Module):
         aggregated = torch.zeros_like(v)
         for rank in range(top_k):
             rolled = torch.stack(
-                [
-                    torch.roll(v[sample], shifts=-int(delays[sample, rank]), dims=-1)
-                    for sample in range(batch)
-                ],
+                [torch.roll(v[sample], shifts=-int(delays[sample, rank]), dims=-1) for sample in range(batch)],
                 dim=0,
             )
             aggregated = aggregated + rolled * weights[:, rank].view(batch, 1, 1, 1)

@@ -50,8 +50,8 @@ _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 def validate_composition(spec: dict[str, Any], root: Path) -> dict[str, Any]:
     """Return ``{"ok", "errors", "warnings", ...}`` for a parsed composition spec."""
-    from tsflab.catalog.components import COMPONENT_CATALOG
     from tsflab.catalog.cards.metadata import model_records
+    from tsflab.catalog.components import COMPONENT_CATALOG
     from tsflab.catalog.registry.losses import LOSS_NAME_MAP
 
     errors: list[str] = []
@@ -204,16 +204,26 @@ def compose_command(args: list[str], root: Path) -> int:
     parser.add_argument("spec", help="composition spec TOML")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--write-config", metavar="PATH", help="write a run config (extends base + dataset + Composed)")
-    parser.add_argument("--dataset", help="dataset config: a TOML path (e.g. configs/fixtures/smoke.toml) or a configs/datasets preset name")
+    parser.add_argument(
+        "--dataset",
+        help="dataset config: a TOML path (e.g. configs/fixtures/smoke.toml) or a configs/datasets preset name",
+    )
     parser.add_argument("--base", default="configs/base.toml", help="base config to extend (default configs/base.toml)")
     parser.add_argument("--enc-in", type=int, help="channel count of the dataset (or [params] enc_in in the spec)")
     parser.add_argument("--seq-len", type=int)
     add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, help="prediction length")
     parser.add_argument("--epochs", type=int)
-    add_option(parser, "--records", "work_dir", "--work-dir",
-               help="run-records root, experiment.work_dir (keeps a round's records together)")
+    add_option(
+        parser,
+        "--records",
+        "work_dir",
+        "--work-dir",
+        help="run-records root, experiment.work_dir (keeps a round's records together)",
+    )
     parser.add_argument("--smoke", action="store_true", help="CPU, 1 epoch, small batch (tiny fixture runs)")
-    parser.add_argument("--register", metavar="NAME", help="scaffold a dedicated catalog model named NAME from the spec")
+    parser.add_argument(
+        "--register", metavar="NAME", help="scaffold a dedicated catalog model named NAME from the spec"
+    )
     parser.add_argument("--dry-run", action="store_true", help="with --register: list the files without writing")
     parser.add_argument("--root", help="repository root to write into (default: this checkout)")
     parsed = parser.parse_args(args)
@@ -236,7 +246,9 @@ def compose_command(args: list[str], root: Path) -> int:
             if parsed.write_config:
                 written["config"] = str(build.write_config(spec, result, parsed, target))
             if parsed.register:
-                written["register"] = build.register_model(spec, result, parsed.register, target, dry_run=parsed.dry_run)
+                written["register"] = build.register_model(
+                    spec, result, parsed.register, target, dry_run=parsed.dry_run
+                )
         except ValueError as exc:
             result["errors"].append(str(exc))
             status = 1
@@ -259,7 +271,9 @@ def compose_command(args: list[str], root: Path) -> int:
             for reason in executable["errors"]:
                 print(f"NOT EXECUTABLE: {reason}")
         if not wants_build:
-            print("Validation only; add --write-config PATH to make it runnable or --register NAME to scaffold a model.")
+            print(
+                "Validation only; add --write-config PATH to make it runnable or --register NAME to scaffold a model."
+            )
     for key, value in written.items():
         print(f"{key}: {value}")
     return status

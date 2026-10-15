@@ -1,6 +1,7 @@
 """Runtime specification for DSFormer."""
 
 from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dsformer.model import Model
 

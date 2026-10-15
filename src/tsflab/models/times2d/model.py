@@ -65,9 +65,7 @@ class ResidualAttention(nn.Module):
         self.attn_dropout = nn.Dropout(attn_dropout)
         self.proj_dropout = nn.Dropout(proj_dropout)
 
-    def forward(
-        self, x: torch.Tensor, prev: torch.Tensor | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, prev: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         b, length, _ = x.shape
         q = self.query(x).view(b, length, self.n_heads, self.head_dim).transpose(1, 2)
         k = self.key(x).view(b, length, self.n_heads, self.head_dim).transpose(1, 2)
@@ -95,21 +93,15 @@ class TokenEncoderLayer(nn.Module):
     """Eqs. (6)-(9): post-norm layer, residual attention + BatchNorm, GELU
     feed-forward + BatchNorm, dropout on both residual branches."""
 
-    def __init__(
-        self, d_model: int, n_heads: int, d_ff: int, dropout: float, attn_dropout: float
-    ) -> None:
+    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float, attn_dropout: float) -> None:
         super().__init__()
         self.attention = ResidualAttention(d_model, n_heads, attn_dropout, dropout)
         self.norm_attn = BatchNormTokens(d_model)
-        self.ffn = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.ffn = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.norm_ffn = BatchNormTokens(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(
-        self, x: torch.Tensor, prev: torch.Tensor | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, prev: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         attended, scores = self.attention(x, prev)
         x = self.norm_attn(x + self.dropout(attended))
         x = self.norm_ffn(x + self.dropout(self.ffn(x)))

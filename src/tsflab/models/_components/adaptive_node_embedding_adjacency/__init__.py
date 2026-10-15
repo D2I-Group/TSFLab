@@ -15,9 +15,7 @@ from __future__ import annotations
 import torch
 
 
-def adaptive_node_embedding_adjacency(
-    source: torch.Tensor, target: torch.Tensor | None = None
-) -> torch.Tensor:
+def adaptive_node_embedding_adjacency(source: torch.Tensor, target: torch.Tensor | None = None) -> torch.Tensor:
     """Return ``softmax(relu(source @ target), dim=-1)``.
 
     When ``target`` is omitted, ``source`` is compared against

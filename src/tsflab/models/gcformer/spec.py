@@ -39,12 +39,8 @@ class ModelParameterConfig(BaseModel):
     norm_type: Literal["revin", "seq_last"] = "revin"
 
     @model_validator(mode="after")
-    def _contract(self) -> "ModelParameterConfig":
-        if (
-            self.d_model % self.n_heads
-            or self.h_channel % self.n_heads
-            or self.h_token % self.n_heads
-        ):
+    def _contract(self) -> ModelParameterConfig:
+        if self.d_model % self.n_heads or self.h_channel % self.n_heads or self.h_token % self.n_heads:
             raise ValueError("d_model, h_channel, and h_token must be divisible by n_heads")
         if self.context_len is not None and self.patch_len > self.context_len:
             raise ValueError("patch_len must not exceed context_len")

@@ -1,6 +1,7 @@
 """Runtime specification for NSTransformer."""
 
 from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.nstransformer.model import Model
 
@@ -20,9 +21,7 @@ class ModelParameterConfig(BaseModel):
     def valid(self):
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
-        if len(self.p_hidden_dims) < self.p_hidden_layers or any(
-            v <= 0 for v in self.p_hidden_dims
-        ):
+        if len(self.p_hidden_dims) < self.p_hidden_layers or any(v <= 0 for v in self.p_hidden_dims):
             raise ValueError("projector hidden dimensions are incomplete")
         return self
 

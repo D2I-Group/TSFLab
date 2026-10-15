@@ -50,18 +50,10 @@ class Model(nn.Module):
         self.text_queries = nn.Parameter(torch.empty(num_distill_tokens, d_model))
         self.image_queries = nn.Parameter(torch.empty(num_distill_tokens, d_model))
 
-        self.text_distiller = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
-        self.image_distiller = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
-        self.text_guider = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
-        self.image_guider = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
+        self.text_distiller = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
+        self.image_distiller = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
+        self.text_guider = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
+        self.image_guider = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.guide_gate = nn.Linear(3 * d_model, 3)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model,
@@ -75,9 +67,7 @@ class Model(nn.Module):
         self.temporal_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
 
         self.future_queries = nn.Parameter(torch.empty(pred_len, d_model))
-        self.condition_decoder = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
+        self.condition_decoder = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.condition_norm = nn.LayerNorm(d_model)
         self.prototype_bank = nn.Parameter(torch.empty(num_prototypes, d_model))
         self.prototype_retriever = nn.Linear(3 * d_model, num_prototypes)
@@ -117,9 +107,7 @@ class Model(nn.Module):
         patches = channel_history.unfold(-1, self.patch_len, self.patch_len)
         return self.patch_embedding(patches) + self.patch_position
 
-    def _dense_context(
-        self, context: torch.Tensor | None, batch: int, channels: int
-    ) -> torch.Tensor:
+    def _dense_context(self, context: torch.Tensor | None, batch: int, channels: int) -> torch.Tensor:
         if context is None:
             return self.domain_token.expand(batch * channels, -1, -1)
         if context.shape[-1] != self.d_model:
@@ -128,9 +116,7 @@ class Model(nn.Module):
             context = context.unsqueeze(1)
         if context.ndim != 3 or context.shape[0] != batch:
             raise ValueError("modality embeddings must have shape [batch, tokens, d_model]")
-        return context[:, None].expand(-1, channels, -1, -1).reshape(
-            batch * channels, context.shape[1], self.d_model
-        )
+        return context[:, None].expand(-1, channels, -1, -1).reshape(batch * channels, context.shape[1], self.d_model)
 
     def encode(
         self,
@@ -142,9 +128,7 @@ class Model(nn.Module):
         check_window(x, self.seq_len, self.enc_in)
         batch, _, channels = x.shape
         normalized = self.revin(x, "norm") if self.use_revin else x
-        temporal = self._patch_tokens(normalized).reshape(
-            batch * channels, self.num_patches, self.d_model
-        )
+        temporal = self._patch_tokens(normalized).reshape(batch * channels, self.num_patches, self.d_model)
 
         text_tokens = torch.cat(
             (
@@ -154,9 +138,7 @@ class Model(nn.Module):
             dim=1,
         )
         spectrum = torch.fft.rfft(normalized.transpose(1, 2), dim=-1).abs()
-        spectral_token = self.spectral_projection(spectrum).reshape(
-            batch * channels, 1, self.d_model
-        )
+        spectral_token = self.spectral_projection(spectrum).reshape(batch * channels, 1, self.d_model)
         if image_context is not None:
             image_tokens = torch.cat(
                 (spectral_token, self._dense_context(image_context, batch, channels)),
@@ -174,16 +156,10 @@ class Model(nn.Module):
         text_query = self.text_queries.unsqueeze(0).expand(batch * channels, -1, -1)
         image_query = self.image_queries.unsqueeze(0).expand(batch * channels, -1, -1)
         distilled_text, _ = self.text_distiller(text_query, text_tokens, text_tokens)
-        distilled_image, _ = self.image_distiller(
-            image_query, image_tokens, image_tokens
-        )
+        distilled_image, _ = self.image_distiller(image_query, image_tokens, image_tokens)
         guided_text, _ = self.text_guider(temporal, distilled_text, distilled_text)
-        guided_image, _ = self.image_guider(
-            temporal, distilled_image, distilled_image
-        )
-        pooled = torch.cat(
-            (temporal.mean(1), guided_text.mean(1), guided_image.mean(1)), dim=-1
-        )
+        guided_image, _ = self.image_guider(temporal, distilled_image, distilled_image)
+        pooled = torch.cat((temporal.mean(1), guided_text.mean(1), guided_image.mean(1)), dim=-1)
         weights = self.guide_gate(pooled).softmax(-1)
         fused = (
             temporal * weights[:, 0, None, None]
@@ -218,9 +194,7 @@ class Model(nn.Module):
         prototype_weights = self.prototype_retriever(multimodal_summary).softmax(-1)
         state = prototype_weights @ self.prototype_bank
         for step in range(self.flow_steps):
-            time = state.new_full(
-                (batch_channels, self.pred_len, 1), step / self.flow_steps
-            )
+            time = state.new_full((batch_channels, self.pred_len, 1), step / self.flow_steps)
             velocity = self.flow_network(torch.cat((state, condition, time), dim=-1))
             state = state + velocity / self.flow_steps
         forecast = self.output_projection(state).squeeze(-1)

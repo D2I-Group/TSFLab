@@ -223,8 +223,10 @@ def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
     if not (repository_root() / "dataset" / "ETT-small" / "ETTh1.csv").exists():
         pytest.skip("ETTh1 data is not available")
     out = tmp_path / "etth1"
-    assert dataset_analyze.main(["etth1", "--out", str(out), "--plot", "--per-channel",
-                                 "--num-samples", "1", "--json"]) == 0
+    assert (
+        dataset_analyze.main(["etth1", "--out", str(out), "--plot", "--per-channel", "--num-samples", "1", "--json"])
+        == 0
+    )
     report = json.loads((out / "profile.json").read_text())
     assert [row["scope"] for row in report["tfb_characteristics"]["rows"]][:2] == ["dataset", "ch0"]
     assert (out / "samples_train.png").stat().st_size > 0
@@ -233,8 +235,7 @@ def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
     assert dataset_analyze.main(["--dataset", "etth1", "--out", str(out)]) == 0
     capfd.readouterr()
     csv = tmp_path / "inspect.csv"
-    assert cli.main(["data", "inspect", "--config", "configs/datasets/etth1.toml",
-                     "--out", str(csv)]) == 0
+    assert cli.main(["data", "inspect", "--config", "configs/datasets/etth1.toml", "--out", str(csv)]) == 0
     assert "`tsf data inspect` is replaced by `tsf data analyze`; forwarding" in capfd.readouterr().err
     assert csv.read_text().startswith("scope,length")
 
@@ -246,11 +247,14 @@ def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
 
 def _csv(tmp_path):
     n = 200
-    frame = pd.DataFrame({
-        "date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str),
-        "OT": np.arange(n, dtype=float),          # target not in the last position
-        "a": np.ones(n), "b": np.full(n, 2.0),
-    })
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str),
+            "OT": np.arange(n, dtype=float),  # target not in the last position
+            "a": np.ones(n),
+            "b": np.full(n, 2.0),
+        }
+    )
     frame.to_csv(tmp_path / "data.csv", index=False)
     return str(tmp_path)
 
@@ -276,10 +280,18 @@ def test_missing_sentinels_are_imputed_causally_before_scaling(tmp_path) -> None
     n = 100
     ot = np.arange(1, n + 1, dtype=float)
     ot[[0, 1, 50, 51, 99]] = -9999  # leading, interior and trailing gaps
-    pd.DataFrame({"date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str),
-                  "OT": ot, "a": np.ones(n)}).to_csv(tmp_path / "data.csv", index=False)
-    kw = dict(root_path=str(tmp_path), data_path="data.csv", size=(8, 0, 4), features="S", target="OT",
-              split_ratio=(1.0, 0.0, 0.0), scale=False)
+    pd.DataFrame(
+        {"date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str), "OT": ot, "a": np.ones(n)}
+    ).to_csv(tmp_path / "data.csv", index=False)
+    kw = dict(
+        root_path=str(tmp_path),
+        data_path="data.csv",
+        size=(8, 0, 4),
+        features="S",
+        target="OT",
+        split_ratio=(1.0, 0.0, 0.0),
+        scale=False,
+    )
     raw = Dataset_Custom(**kw)
     clean = Dataset_Custom(**kw, missing_sentinels=[-9999])
     assert raw.data.min() == -9999
@@ -311,8 +323,7 @@ def test_default_marks_are_constant(tmp_path):
 
 def test_start_freq_synthesises_calendar(tmp_path):
     root, name = _solar_file(tmp_path)
-    ds = Dataset_Solar(root, name, (8, 4, 4), "train", "M", "0",
-                       start="2006-01-01 00:00", freq="10min")
+    ds = Dataset_Solar(root, name, (8, 4, 4), "train", "M", "0", start="2006-01-01 00:00", freq="10min")
     assert ds.time_stamp[0].tolist() == [2006, 1, 1, 6, 0, 0]
     assert ds.time_stamp[7].tolist()[-2:] == [1, 10]
 
@@ -352,9 +363,21 @@ def test_stored_frequencies_map_to_pandas3_aliases(stored, start, expected) -> N
 
 @pytest.mark.parametrize(
     ("freq", "code"),
-    [("H", "H"), ("h", "H"), ("5T", "T"), ("15min", "T"), ("10S", "S"), ("M", "M"),
-     ("ME", "M"), ("Q-DEC", "Q"), ("QE-DEC", "Q"), ("A-DEC", "A"), ("YE-DEC", "A"),
-     ("W-SUN", "W"), ("D", "D")],
+    [
+        ("H", "H"),
+        ("h", "H"),
+        ("5T", "T"),
+        ("15min", "T"),
+        ("10S", "S"),
+        ("M", "M"),
+        ("ME", "M"),
+        ("Q-DEC", "Q"),
+        ("QE-DEC", "Q"),
+        ("A-DEC", "A"),
+        ("YE-DEC", "A"),
+        ("W-SUN", "W"),
+        ("D", "D"),
+    ],
 )
 def test_norm_freq_keeps_the_legacy_short_codes(freq, code) -> None:
     assert _norm_freq(freq) == code
@@ -377,9 +400,15 @@ def test_short_series_restaurant_style_start_and_inspection(tmp_path: Path) -> N
     # Start stored as a one-element datetime64 array (as in GIFT-EVAL restaurant),
     # legacy hourly freq, and series much shorter than the base seq_len.
     rng = np.random.default_rng(0)
-    rows = [{"item_id": f"s{i}", "start": np.array(["2016-01-13T00:00:00"], dtype="datetime64[s]"),
-             "freq": "H", "target": rng.normal(size=120 + 10 * i).astype(np.float32)}
-            for i in range(3)]
+    rows = [
+        {
+            "item_id": f"s{i}",
+            "start": np.array(["2016-01-13T00:00:00"], dtype="datetime64[s]"),
+            "freq": "H",
+            "target": rng.normal(size=120 + 10 * i).astype(np.float32),
+        }
+        for i in range(3)
+    ]
     root = _gift_file(tmp_path, "tiny", rows)
     size = (512, 0, 12)
     train = Dataset_GiftEval(str(root), "tiny", size, flag="train")
@@ -389,16 +418,17 @@ def test_short_series_restaurant_style_start_and_inspection(tmp_path: Path) -> N
 
     config = dc._PartialConfig(
         dataset=dc._DatasetConfig(name="gift_eval", alias=None, path=str(root), id="tiny", params={}),
-        task=dc._TaskConfig(seq_len=512, label_len=0, pred_len=12, features="M",
-                            seq_len_from_preset=False),
+        task=dc._TaskConfig(seq_len=512, label_len=0, pred_len=12, features="M", seq_len_from_preset=False),
     )
     for split in ("train", "val", "test"):
         dataset, used = dc._build_dataset_for_inspect(config, split)
         assert used.task.seq_len == 12 and len(dataset) > 0
         assert dc._extract_series(dataset).shape[1] == 3
 
-    pinned = dc._PartialConfig(dataset=config.dataset, task=dc._TaskConfig(
-        seq_len=512, label_len=0, pred_len=12, features="M", seq_len_from_preset=True))
+    pinned = dc._PartialConfig(
+        dataset=config.dataset,
+        task=dc._TaskConfig(seq_len=512, label_len=0, pred_len=12, features="M", seq_len_from_preset=True),
+    )
     dataset, used = dc._build_dataset_for_inspect(pinned, "train")
     assert used.task.seq_len == 512 and len(dataset) == 0  # an explicit preset value is kept
 
@@ -425,8 +455,9 @@ def test_extract_series_reduces_and_caps_channels() -> None:
 def _year_csv(year: int, stations: list[str]) -> bytes:
     index = pd.date_range(f"{year}-01-01", periods=24 * 20, freq="h")
     t = np.arange(len(index))[:, None]
-    frame = pd.DataFrame(100 + 10 * np.sin(2 * np.pi * t / 24) + np.arange(len(stations))[None, :],
-                         index=index, columns=stations)
+    frame = pd.DataFrame(
+        100 + 10 * np.sin(2 * np.pi * t / 24) + np.arange(len(stations))[None, :], index=index, columns=stations
+    )
     frame.index.name = "date"
     return frame.to_csv().encode()
 
@@ -508,8 +539,7 @@ def test_default_horizon_is_pems_12(monkeypatch, tmp_path):
     from tsflab.cli.commands import convert_traffic
 
     np.save(tmp_path / "v.npy", np.random.rand(100, 4).astype(np.float32))
-    monkeypatch.setattr(sys, "argv", ["x", "--values", str(tmp_path / "v.npy"),
-                                      "--output-dir", str(tmp_path / "out")])
+    monkeypatch.setattr(sys, "argv", ["x", "--values", str(tmp_path / "v.npy"), "--output-dir", str(tmp_path / "out")])
     convert_traffic.main()
     bundle = np.load(tmp_path / "out" / "his.npz")
     assert int(bundle["seq_len"]) == 12 and int(bundle["pred_len"]) == 12
@@ -539,10 +569,14 @@ def test_dataset_storage_contract_resolves_path_and_optional_id() -> None:
     for name in ("weather", "synthetic_st", "gift_eval"):
         register_dataset_by_name(name)
     assert DATASET_REGISTRY.get("weather").resolve_location("./dataset/weather/weather.csv", None) == (
-        "./dataset/weather", "weather.csv")
+        "./dataset/weather",
+        "weather.csv",
+    )
     assert DATASET_REGISTRY.get("synthetic_st").resolve_location("", None) == ("", "")
     assert DATASET_REGISTRY.get("gift_eval").resolve_location("./dataset/gift_eval", "electricity/15T") == (
-        "./dataset/gift_eval", "electricity/15T")
+        "./dataset/gift_eval",
+        "electricity/15T",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -639,10 +673,13 @@ def _ranges(protocol):
 
 
 def _hourly_csv(path: Path, rows: int) -> Path:
-    frame = pd.DataFrame({
-        "date": pd.date_range("2016-07-01", periods=rows, freq="h").astype(str),
-        "a": np.sin(np.arange(rows) / 24.0), "OT": np.arange(rows, dtype=float),
-    })
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2016-07-01", periods=rows, freq="h").astype(str),
+            "a": np.sin(np.arange(rows) / 24.0),
+            "OT": np.arange(rows, dtype=float),
+        }
+    )
     frame.to_csv(path, index=False)
     return path
 
@@ -651,7 +688,10 @@ def test_split_borders_offset_val_and_test_by_seq_len() -> None:
     from tsflab.data.protocol import split_borders, train_rows
 
     assert split_borders(14400, (0.6, 0.2, 0.2), 96) == {
-        "train": (0, 8640), "val": (8544, 11520), "test": (11424, 14400)}
+        "train": (0, 8640),
+        "val": (8544, 11520),
+        "test": (11424, 14400),
+    }
     assert split_borders(14400, (12, 4, 4)) == split_borders(14400, (0.6, 0.2, 0.2))
     assert train_rows(100, (0.7, 0.1, 0.2)) == 70
 
@@ -663,8 +703,7 @@ def test_etth1_protocol_truncates_to_14400_rows() -> None:
     assert protocol.dataset == "etth1" and protocol.kind == "chronological"
     assert protocol.rows_used == 14400 and protocol.row_limit == 14400
     assert protocol.split_ratio == (0.6, 0.2, 0.2)
-    assert _ranges(protocol) == {"train": (0, 0, 8640), "val": (8544, 8640, 11520),
-                                 "test": (11424, 11520, 14400)}
+    assert _ranges(protocol) == {"train": (0, 0, 8640), "val": (8544, 8640, 11520), "test": (11424, 11520, 14400)}
     assert "[0, 8640)" in protocol.scaling
     facts = protocol.facts()
     assert "val [8640, 11520)" in facts["split borders"] and "tsf data splits etth1" in facts["protocol facts"]
@@ -675,8 +714,7 @@ def test_ettm1_protocol_truncates_to_57600_rows() -> None:
 
     protocol = split_protocol("ettm1", 336)
     assert protocol.rows_used == 57600
-    assert _ranges(protocol) == {"train": (0, 0, 34560), "val": (34224, 34560, 46080),
-                                 "test": (45744, 46080, 57600)}
+    assert _ranges(protocol) == {"train": (0, 0, 34560), "val": (34224, 34560, 46080), "test": (45744, 46080, 57600)}
 
 
 def test_custom_ratio_preset_on_an_explicit_file(tmp_path) -> None:
@@ -689,8 +727,16 @@ def test_custom_ratio_preset_on_an_explicit_file(tmp_path) -> None:
     assert _ranges(protocol) == {"train": (0, 0, 70), "val": (60, 70, 80), "test": (70, 80, 100)}
     assert any("-9999" in note for note in protocol.notes)
     arrays = load_splits("weather", 10, path=path, features="S")
-    loader = Dataset_Custom(str(tmp_path), "weather.csv", (10, 0, 4), flag="val", features="S",
-                            target="OT", split_ratio=(0.7, 0.1, 0.2), missing_sentinels=[-9999])
+    loader = Dataset_Custom(
+        str(tmp_path),
+        "weather.csv",
+        (10, 0, 4),
+        flag="val",
+        features="S",
+        target="OT",
+        split_ratio=(0.7, 0.1, 0.2),
+        missing_sentinels=[-9999],
+    )
     assert np.array_equal(arrays.val, loader.data)
     assert [len(arrays[flag]) for flag in ("train", "val", "test")] == [70, 20, 30]
 
@@ -716,8 +762,11 @@ def test_tsf_data_splits_cli(tmp_path, capsys) -> None:
     path = _hourly_csv(tmp_path / "ETTh1.csv", 15000)
     assert cli.main(["data", "splits", "etth1", "--path", str(path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["rows_used"] == 14400 and payload["splits"]["test"] == {"start": 11424, "own_start": 11520,
-                                                                           "end": 14400}
+    assert payload["rows_used"] == 14400 and payload["splits"]["test"] == {
+        "start": 11424,
+        "own_start": 11520,
+        "end": 14400,
+    }
     assert cli.main(["data", "splits", "etth1", "--seq-len", "336", "--path", str(path)]) == 0
     text = capsys.readouterr().out
     assert "val    [8304, 11520)" in text and "first 14400" in text
@@ -739,15 +788,18 @@ def test_new_dataset_target_defaults_to_the_file(tmp_path):
 def test_preset_profile_path_override_uses_native_ett_split(tmp_path, monkeypatch, include_test):
     # ETTh1's native loader caps 17,420 input rows at 14,400. Monotonic values
     # expose incorrect ratio splits and duplicated lookback context.
-    frame = pd.DataFrame({"date": pd.date_range("2021-01-01", periods=17420, freq="h"),
-                          "OT": np.arange(17420, dtype=float)})
+    frame = pd.DataFrame(
+        {"date": pd.date_range("2021-01-01", periods=17420, freq="h"), "OT": np.arange(17420, dtype=float)}
+    )
     path = tmp_path / "ETTh1.csv"
     frame.to_csv(path, index=False)
     built = []
     original = dc._build_dataset
+
     def build(config, flag):
         built.append(flag)
         return original(config, flag)
+
     monkeypatch.setattr(dc, "_build_dataset", build)
     splits, meta = dataset_analyze.load_preset("ETTh1", "1h", str(path), include_test)
     assert len(splits["train"]) == 8640 and len(splits["val"]) == 2880
@@ -768,14 +820,25 @@ def test_profile_path_override_requires_preset(tmp_path):
 
 def test_missing_training_values_cannot_be_filled_from_holdout(tmp_path):
     models = []
-    for holdout_value in (1., 10000.):
-        frame = pd.DataFrame({"date": pd.date_range("2020-01-01", periods=100, freq="h"),
-                              "OT": [-9999.] * 60 + [holdout_value] * 40})
+    for holdout_value in (1.0, 10000.0):
+        frame = pd.DataFrame(
+            {"date": pd.date_range("2020-01-01", periods=100, freq="h"), "OT": [-9999.0] * 60 + [holdout_value] * 40}
+        )
         path = tmp_path / f"data-{int(holdout_value)}.csv"
         frame.to_csv(path, index=False)
-        models.append(Dataset_Custom(root_path=str(tmp_path), data_path=path.name,
-            size=(8, 0, 4), flag="train", features="S", target="OT",
-            split_ratio=(.6, .2, .2), scale=True, missing_sentinels=[-9999]))
+        models.append(
+            Dataset_Custom(
+                root_path=str(tmp_path),
+                data_path=path.name,
+                size=(8, 0, 4),
+                flag="train",
+                features="S",
+                target="OT",
+                split_ratio=(0.6, 0.2, 0.2),
+                scale=True,
+                missing_sentinels=[-9999],
+            )
+        )
     np.testing.assert_array_equal(models[0].data, models[1].data)
     np.testing.assert_array_equal(models[0].scaler.mean_, models[1].scaler.mean_)
     np.testing.assert_array_equal(models[0].scaler.scale_, models[1].scaler.scale_)
@@ -784,11 +847,13 @@ def test_missing_training_values_cannot_be_filled_from_holdout(tmp_path):
 
 def test_native_weather_schema_matches_preset_missing_value_policy():
     from tsflab.experiments.config.loader import load_model_request
-    settings = ['dataset.path=./weather.csv', 'dataset.params.target=OT']
-    native = load_model_request('StateFlow', settings + ['dataset.name=weather'])[0].config
-    custom = load_model_request('StateFlow', settings + ['dataset.name=custom'])[0].config
-    explicit = load_model_request('StateFlow', settings + ['dataset.name=weather',
-        'dataset.params.missing_sentinels=[]'])[0].config
-    assert native.model_dump()['dataset']['params']['missing_sentinels'] == [-9999.0]
-    assert custom.model_dump()['dataset']['params']['missing_sentinels'] == []
-    assert explicit.model_dump()['dataset']['params']['missing_sentinels'] == []
+
+    settings = ["dataset.path=./weather.csv", "dataset.params.target=OT"]
+    native = load_model_request("StateFlow", settings + ["dataset.name=weather"])[0].config
+    custom = load_model_request("StateFlow", settings + ["dataset.name=custom"])[0].config
+    explicit = load_model_request(
+        "StateFlow", settings + ["dataset.name=weather", "dataset.params.missing_sentinels=[]"]
+    )[0].config
+    assert native.model_dump()["dataset"]["params"]["missing_sentinels"] == [-9999.0]
+    assert custom.model_dump()["dataset"]["params"]["missing_sentinels"] == []
+    assert explicit.model_dump()["dataset"]["params"]["missing_sentinels"] == []

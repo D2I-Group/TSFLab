@@ -15,14 +15,14 @@ publishing requires ``huggingface_hub`` and explicit authorization.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 
+from tsflab.core.paths import is_packaged_root, repository_root
 from tsflab.release.hub.fetch import download, sha256_file
 from tsflab.release.hub.uri import default_repo
-from tsflab.core.paths import is_packaged_root, repository_root
 
 DEFAULT_DATASETS_REPO = default_repo("TSFLab-Datasets")
 #: Backward-compatible name; the static files now live under ``static/`` of TSFLab-Datasets.
@@ -54,7 +54,7 @@ def selection(preset: str, root: Path | None = None) -> Selection:
     path = str(dataset.get("path", ""))
     if not path.startswith(_DATASET_PREFIX):
         raise ValueError(f"preset {preset!r} has no downloadable files (path={path!r})")
-    return Selection(preset=preset, base=path[len(_DATASET_PREFIX):].strip("/"))
+    return Selection(preset=preset, base=path[len(_DATASET_PREFIX) :].strip("/"))
 
 
 def manifest_path(root: Path | None = None) -> Path:
@@ -64,8 +64,12 @@ def manifest_path(root: Path | None = None) -> Path:
 def load_manifest(root: Path | None = None) -> dict:
     path = manifest_path(root)
     if not path.is_file():
-        return {"schema_version": MANIFEST_SCHEMA_VERSION, "repo": DEFAULT_DATASETS_REPO,
-                "prefix": STATIC_PREFIX, "files": {}}
+        return {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "repo": DEFAULT_DATASETS_REPO,
+            "prefix": STATIC_PREFIX,
+            "files": {},
+        }
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -83,11 +87,15 @@ def _not_published(preset: str, root: Path | None) -> str:
         config = (root or repository_root()) / "configs" / "datasets" / f"{preset}.toml"
         dataset = tomllib.loads(config.read_text(encoding="utf-8")).get("dataset", {})
         if dataset.get("name") == "gift_eval":
-            return (f"preset {preset!r} comes from Salesforce/GiftEval, not TSFLab; run "
-                    f"`tsf data prepare --from gift-eval --datasets {dataset.get('id', '')}`".rstrip())
+            return (
+                f"preset {preset!r} comes from Salesforce/GiftEval, not TSFLab; run "
+                f"`tsf data prepare --from gift-eval --datasets {dataset.get('id', '')}`".rstrip()
+            )
     if klass == "script":
-        return (f"preset {preset!r} may not be re-hosted; fetch it from the original source with the "
-                f"command in its card (`tsf catalog show {preset}`, Protocol and pitfalls)")
+        return (
+            f"preset {preset!r} may not be re-hosted; fetch it from the original source with the "
+            f"command in its card (`tsf catalog show {preset}`, Protocol and pitfalls)"
+        )
     return f"preset {preset!r} is not published; see `tsf data download --list`"
 
 
@@ -125,12 +133,12 @@ def _repo_path(manifest: dict, name: str) -> str:
 
 def _entry_url(manifest: dict, name: str, entry: dict) -> str:
     """An upstream entry's own URL, else the pinned TSFLab ``hf://`` URI."""
-    return entry.get("url") or (
-        f"hf://datasets/{manifest['repo']}@{entry['revision']}/{_repo_path(manifest, name)}")
+    return entry.get("url") or (f"hf://datasets/{manifest['repo']}@{entry['revision']}/{_repo_path(manifest, name)}")
 
 
-def local_files(preset: str, data_root: Path = Path("dataset"), root: Path | None = None,
-                *, chosen: Selection | None = None) -> list[str]:
+def local_files(
+    preset: str, data_root: Path = Path("dataset"), root: Path | None = None, *, chosen: Selection | None = None
+) -> list[str]:
     chosen = chosen or selection(preset, root)
     start = data_root / chosen.base
     candidates = [start] if start.is_file() else sorted(p for p in start.rglob("*") if p.is_file())
@@ -150,10 +158,16 @@ def redistribution(preset: str, root: Path | None = None) -> str:
     return str(tomllib.loads(card.read_text(encoding="utf-8")).get("source", {}).get("redistribution", "unknown"))
 
 
-def publish_presets(presets: list[str], data_root: Path = Path("dataset"),
-                    repo_id: str = DEFAULT_DATASETS_REPO, *, paths: tuple[str, ...] = (),
-                    create: bool = False, private: bool = False,
-                    root: Path | None = None) -> dict[str, str]:
+def publish_presets(
+    presets: list[str],
+    data_root: Path = Path("dataset"),
+    repo_id: str = DEFAULT_DATASETS_REPO,
+    *,
+    paths: tuple[str, ...] = (),
+    create: bool = False,
+    private: bool = False,
+    root: Path | None = None,
+) -> dict[str, str]:
     """Upload local files (one commit per preset or raw ``paths`` subtree) and pin them.
 
     ``paths`` are directories or files relative to ``data_root`` published in
@@ -162,11 +176,12 @@ def publish_presets(presets: list[str], data_root: Path = Path("dataset"),
     """
     if is_packaged_root(root or repository_root()):
         raise RuntimeError("publishing datasets requires a TSFLab checkout")
-    blocked = {preset: klass for preset in presets
-               if (klass := redistribution(preset, root)) not in REHOSTABLE}
+    blocked = {preset: klass for preset in presets if (klass := redistribution(preset, root)) not in REHOSTABLE}
     if blocked:
-        raise PermissionError("not re-hostable (card [source] redistribution): "
-                              + ", ".join(f"{p}={k}" for p, k in sorted(blocked.items())))
+        raise PermissionError(
+            "not re-hostable (card [source] redistribution): "
+            + ", ".join(f"{p}={k}" for p, k in sorted(blocked.items()))
+        )
     try:
         from huggingface_hub import HfApi
     except ImportError as exc:
@@ -176,8 +191,9 @@ def publish_presets(presets: list[str], data_root: Path = Path("dataset"),
         api.create_repo(repo_id, repo_type="dataset", private=private, exist_ok=True)
     manifest = load_manifest(root)
     if manifest["files"] and manifest["repo"] != repo_id:
-        raise ValueError(f"the manifest already pins files in {manifest['repo']}; "
-                         "publish to that repository or start a new manifest")
+        raise ValueError(
+            f"the manifest already pins files in {manifest['repo']}; publish to that repository or start a new manifest"
+        )
     manifest["repo"] = repo_id
     if not manifest["files"]:  # a new or reset manifest uses the current layout
         manifest["schema_version"] = MANIFEST_SCHEMA_VERSION
@@ -191,20 +207,22 @@ def publish_presets(presets: list[str], data_root: Path = Path("dataset"),
         if not names:
             raise FileNotFoundError(f"no local files for {preset!r} under {data_root}")
         digests = {name: sha256_file(data_root / name) for name in names}
-        pending = [
-            name for name in names
-            if manifest["files"].get(name, {}).get("sha256") != digests[name]
-        ]
+        pending = [name for name in names if manifest["files"].get(name, {}).get("sha256") != digests[name]]
         if not pending:
             revisions[preset] = "unchanged"
             continue
         commit = api.upload_folder(
-            repo_id=repo_id, repo_type="dataset", folder_path=str(data_root),
-            path_in_repo=prefix or None, allow_patterns=pending, commit_message=f"{preset}: {len(pending)} file(s)",
+            repo_id=repo_id,
+            repo_type="dataset",
+            folder_path=str(data_root),
+            path_in_repo=prefix or None,
+            allow_patterns=pending,
+            commit_message=f"{preset}: {len(pending)} file(s)",
         )
         for name in pending:
             manifest["files"][name] = {
-                "revision": commit.oid, "sha256": digests[name],
+                "revision": commit.oid,
+                "sha256": digests[name],
                 "size": (data_root / name).stat().st_size,
             }
         revisions[preset] = commit.oid
@@ -238,4 +256,3 @@ def check_manifest(root: Path | None = None) -> list[str]:
         if size is not None and int(size) != entry["size"]:
             problems.append(f"{name}: size {size} != pinned {entry['size']}")
     return problems
-

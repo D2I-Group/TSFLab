@@ -193,9 +193,7 @@ def test_artifact_factory_receives_validated_params_and_verified_paths(
     )
     cache = tmp_path / "cache"
     fetched = fetch_artifact(spec, spec.artifacts[0], cache)
-    model = spec.build_with_artifacts(
-        "config", {"width": 7}, require_artifacts(spec, cache)
-    )
+    model = spec.build_with_artifacts("config", {"width": 7}, require_artifacts(spec, cache))
     assert isinstance(model, nn.Identity)
     assert received == {
         "cfg": "config",
@@ -239,8 +237,10 @@ class _SamplingModel(nn.Module):
 
 def _contract_spec(training_objective=None, training_setup=None) -> SimpleNamespace:
     return SimpleNamespace(
-        output_type="point", capabilities=frozenset(),
-        training_objective=training_objective, training_setup=training_setup,
+        output_type="point",
+        capabilities=frozenset(),
+        training_objective=training_objective,
+        training_setup=training_setup,
     )
 
 
@@ -270,10 +270,16 @@ class ObjectiveBackwardTests(unittest.TestCase):
 
         model = _SamplingModel(8, 3)
         _forward_contract(model, _contract_spec(objective, setup), self.task, self.params, backward=True)
-        self.assertEqual(seen, {
-            "setup": [(2, 8, 2), (2, 7, 2), (2, 8, 6), (2, 7, 6)], "pred_len": 3,
-            "training": True, "y": (2, 7, 2), "target": (2, 3, 2),
-        })
+        self.assertEqual(
+            seen,
+            {
+                "setup": [(2, 8, 2), (2, 7, 2), (2, 8, 6), (2, 7, 6)],
+                "pred_len": 3,
+                "training": True,
+                "y": (2, 7, 2),
+                "target": (2, 3, 2),
+            },
+        )
         self.assertIsNotNone(model.head.weight.grad)
 
     def test_detached_objective_loss_fails(self) -> None:
@@ -308,9 +314,7 @@ class _Runtime:
         mean = context[:, -1:].repeat(1, prediction_length)
         quantiles = None
         if quantile_levels:
-            quantiles = torch.stack(
-                [mean + level for level in quantile_levels], dim=-1
-            )
+            quantiles = torch.stack([mean + level for level in quantile_levels], dim=-1)
         return FoundationForecast(mean, quantiles)
 
 
@@ -320,9 +324,7 @@ class FoundationRuntimeTests(unittest.TestCase):
         point = FoundationModel(_Runtime(), prediction_length=2)
         self.assertEqual(tuple(point(values).shape), (2, 2, 3))
 
-        quantile = FoundationModel(
-            _Runtime(), prediction_length=2, quantile_levels=(0.1, 0.5, 0.9)
-        )
+        quantile = FoundationModel(_Runtime(), prediction_length=2, quantile_levels=(0.1, 0.5, 0.9))
         output = quantile(values)
         self.assertEqual(tuple(output.shape), (2, 2, 3, 3))
         self.assertTrue(torch.all(output[..., 0] < output[..., 1]))
@@ -344,15 +346,11 @@ class FoundationRuntimeTests(unittest.TestCase):
 
             def predict_quantiles(self, *, inputs, prediction_length, quantile_levels):
                 mean = torch.zeros(inputs.shape[0], prediction_length)
-                quantiles = torch.zeros(
-                    inputs.shape[0], prediction_length, len(quantile_levels)
-                )
+                quantiles = torch.zeros(inputs.shape[0], prediction_length, len(quantile_levels))
                 return quantiles, mean
 
         with tempfile.TemporaryDirectory() as directory:
-            runtime = ChronosRuntime.from_local(
-                _source("Chronos"), directory, loader=Pipeline
-            )
+            runtime = ChronosRuntime.from_local(_source("Chronos"), directory, loader=Pipeline)
         result = runtime.predict(torch.ones(2, 8), 3, (0.1, 0.9))
         self.assertTrue(calls["local_files_only"])
         self.assertEqual(calls["revision"], "0123456789abcdef")
@@ -534,8 +532,9 @@ def test_glue_wrappers_are_not_operators(tmp_path: Path) -> None:
     _write_package(tmp_path, "alpha", glue)
     _write_package(tmp_path, "beta", glue.replace("hidden", "out"))
     _write_package(tmp_path, "gamma", glue.replace("backbone", "encoder"))
-    assert all(cluster["max_score"] == 1.0 for cluster in _clusters(tmp_path)), \
+    assert all(cluster["max_score"] == 1.0 for cluster in _clusters(tmp_path)), (
         "only exact copies of glue may be reported"
+    )
 
 
 def test_same_package_duplicates_are_not_cross_model_candidates(tmp_path: Path) -> None:
@@ -584,8 +583,9 @@ def test_match_ranks_by_overlap() -> None:
 # ---------------------------------------------------------------------------
 
 
-MODEL_PACKAGES = sorted(p.parent for p in (ROOT / "src/tsflab/models").glob("*/spec.py")
-                        if not p.parent.name.startswith("_"))
+MODEL_PACKAGES = sorted(
+    p.parent for p in (ROOT / "src/tsflab/models").glob("*/spec.py") if not p.parent.name.startswith("_")
+)
 
 
 def test_every_model_package_is_registered_explicit_and_carded() -> None:
@@ -643,7 +643,12 @@ def test_component_catalog_matches_packages_and_consumers() -> None:
     assert set(COMPONENT_CATALOG.names()) == packages
     assert all(COMPONENT_CATALOG.get(name).contract for name in COMPONENT_CATALOG.names())
     assert set(component_dependency_closure({"patchtst"})) == {
-        "flatten_forecast_head", "patchtst", "positional_encoding", "revin", "tst_transformer"}
+        "flatten_forecast_head",
+        "patchtst",
+        "positional_encoding",
+        "revin",
+        "tst_transformer",
+    }
     with pytest.raises(KeyError):
         component_dependency_closure({"no_such_component"})
 
@@ -661,12 +666,12 @@ def test_model_catalog_is_discovered_from_packages_and_reports_broken_ones(tmp_p
 
     package("alpha", 'from x import ModelSpec\nSPEC = ModelSpec(\n    name="Alpha",\n    factory=f,\n)\nX = 1\n')
     package("typed", 'SPEC: "ModelSpec" = ModelSpec(name="Typed")\n')
-    package("half", "SPEC = build_spec()\n")             # no literal name
-    package("broken", "SPEC = ModelSpec(name=\n")        # syntax error
+    package("half", "SPEC = build_spec()\n")  # no literal name
+    package("broken", "SPEC = ModelSpec(name=\n")  # syntax error
     package("dup_a", 'SPEC = ModelSpec(name="Dup")\n')
     package("dup_b", 'SPEC = ModelSpec(name="Dup")\n')
     package("nospec", None, "model.py")
-    package("stale", None)                                # e.g. only __pycache__ left
+    package("stale", None)  # e.g. only __pycache__ left
     package("_private", 'SPEC = ModelSpec(name="Private")\n')
 
     catalog = ModelCatalog(models_dir=tmp_path)
@@ -716,10 +721,16 @@ def test_component_specs_are_derived_from_package_and_card(tmp_path: Path) -> No
             (directory / "card.toml").write_text(card, encoding="utf-8")
 
     card = 'name = "{0}"\nrole = "Normalizes each window."\ntags = ["normalization", "instance", "reversible"]\n'
-    component("exported", 'import torch\n__all__ = ["B", "A"]\nclass A: ...\nclass B: ...\ndef helper(): ...\n',
-              card.format("exported"))
-    component("implicit", "import torch\nfrom x import y\nclass A: ...\ndef _hidden(): ...\nLEVELS = (1,)\n",
-              card.format("implicit"))
+    component(
+        "exported",
+        'import torch\n__all__ = ["B", "A"]\nclass A: ...\nclass B: ...\ndef helper(): ...\n',
+        card.format("exported"),
+    )
+    component(
+        "implicit",
+        "import torch\nfrom x import y\nclass A: ...\ndef _hidden(): ...\nLEVELS = (1,)\n",
+        card.format("implicit"),
+    )
     component("cardless", "class C: ...\n", None)
     catalog = ComponentCatalog(directory=tmp_path)
     exported = catalog.get("exported")
@@ -730,8 +741,7 @@ def test_component_specs_are_derived_from_package_and_card(tmp_path: Path) -> No
     assert catalog.get("implicit").public_symbols == ("A", "LEVELS")
     assert catalog.get("cardless").contract == "" and catalog.get("cardless").keywords == ()
     assert any("cardless/card.toml" in problem for problem in catalog.problems())
-    assert [match.spec.name for match in catalog.match("reversible normalization")][:2] == [
-        "exported", "implicit"]
+    assert [match.spec.name for match in catalog.match("reversible normalization")][:2] == ["exported", "implicit"]
 
 
 def test_component_catalog_public_symbols_exist_on_each_module() -> None:
@@ -771,8 +781,14 @@ ADMITTED_FACTS = {
     "name": "Fake",
     "tags": ["linear", "baseline", "lightweight"],
     "fidelity": "inferred",
-    "composition": {"normalization": "none", "decomposition": "none", "temporal": "local:linear",
-                    "channel": "local:independent", "head": "local:linear", "loss": "loss:mse"},
+    "composition": {
+        "normalization": "none",
+        "decomposition": "none",
+        "temporal": "local:linear",
+        "channel": "local:independent",
+        "head": "local:linear",
+        "loss": "loss:mse",
+    },
     "data_params": {"seq_len": {"from": "seq_len", "rule": "use the task lookback"}},
     "issues_checked": "fixture",
     "admission": {"status": "pending", "reference": "official"},
@@ -819,8 +835,13 @@ def test_isolated_contracts_turn_crashes_and_timeouts_into_failures(monkeypatch)
 
     monkeypatch.setattr(admission.subprocess, "run", fake_run)
     seen = []
-    results = admission.run_contracts(["Good", "Bad", "Oom", "Raise", "Slow"], jobs=2, isolated=True, timeout=5,
-                                      progress=lambda name, failure: seen.append(name))
+    results = admission.run_contracts(
+        ["Good", "Bad", "Oom", "Raise", "Slow"],
+        jobs=2,
+        isolated=True,
+        timeout=5,
+        progress=lambda name, failure: seen.append(name),
+    )
     assert list(results) == ["Good", "Bad", "Oom", "Raise", "Slow"] and sorted(seen) == sorted(results)
     assert results["Good"] is None and results["Bad"] == {"stage": "forward", "error": "boom"}
     assert results["Oom"]["error"].startswith("killed by signal 9")
@@ -836,17 +857,23 @@ def test_write_admission_records_result_and_keeps_other_facts(fake_card) -> None
     from tsflab.catalog.cards.schema import ModelCard
 
     record = admission.write_admission(Path("."), "Fake", None)
-    assert record == {"status": "passed", "date": date.today().isoformat(), "commit": "abcdef12",
-                      "device": "cpu", "reference": "official", "note": ""}
+    assert record == {
+        "status": "passed",
+        "date": date.today().isoformat(),
+        "commit": "abcdef12",
+        "device": "cpu",
+        "reference": "official",
+        "note": "",
+    }
     facts = tomllib.loads(fake_card.read_text(encoding="utf-8"))
     assert facts["admission"] == record
     assert {k: v for k, v in facts.items() if k != "admission"} == {
-        k: v for k, v in ADMITTED_FACTS.items() if k != "admission"}
+        k: v for k, v in ADMITTED_FACTS.items() if k != "admission"
+    }
     assert 'seq_len = { from = "seq_len"' in fake_card.read_text(encoding="utf-8")
     ModelCard.model_validate(facts)
 
-    failed = admission.write_admission(Path("."), "Fake", {"stage": "backward", "error": "x" * 400},
-                                       reference="none")
+    failed = admission.write_admission(Path("."), "Fake", {"stage": "backward", "error": "x" * 400}, reference="none")
     assert failed["status"] == "failed" and failed["reference"] == "none"
     assert failed["note"].startswith("backward: x") and len(failed["note"]) == 300
     assert admission.write_admission(Path("."), "Fake", None, note="manual")["note"] == "manual"
@@ -857,12 +884,18 @@ def test_changed_models_follow_packages_presets_and_used_components(tmp_path, mo
     from tsflab.catalog.cards import metadata
 
     def git(*args):
-        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=tmp_path,
-                       check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=tmp_path, check=True, capture_output=True
+        )
 
-    files = ["src/tsflab/models/alpha/model.py", "src/tsflab/models/beta/model.py",
-             "src/tsflab/models/beta/README.md", "src/tsflab/models/_components/revin/__init__.py",
-             "configs/models/Gamma.toml", "docs/index.md"]
+    files = [
+        "src/tsflab/models/alpha/model.py",
+        "src/tsflab/models/beta/model.py",
+        "src/tsflab/models/beta/README.md",
+        "src/tsflab/models/_components/revin/__init__.py",
+        "configs/models/Gamma.toml",
+        "docs/index.md",
+    ]
     for name in files:
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_text("v1\n", encoding="utf-8")
@@ -870,10 +903,12 @@ def test_changed_models_follow_packages_presets_and_used_components(tmp_path, mo
     git("add", ".")
     git("commit", "-q", "-m", "base")
     git("branch", "base")
-    records = [{"name": "Alpha", "package": "alpha", "components": []},
-               {"name": "Beta", "package": "beta", "components": ["revin"]},
-               {"name": "Gamma", "package": "gamma", "components": []},
-               {"name": "Delta", "package": "delta", "components": []}]
+    records = [
+        {"name": "Alpha", "package": "alpha", "components": []},
+        {"name": "Beta", "package": "beta", "components": ["revin"]},
+        {"name": "Gamma", "package": "gamma", "components": []},
+        {"name": "Delta", "package": "delta", "components": []},
+    ]
     monkeypatch.setattr(metadata, "model_records", lambda root: records)
 
     def change(*names):
@@ -896,9 +931,11 @@ def test_verify_command_writes_every_result_and_fails_on_any_failure(monkeypatch
     from tsflab.cli.commands.verification import verification_command
 
     written = {}
-    monkeypatch.setattr(admission, "run_contracts",
-                        lambda names, jobs, **kw: {n: ({"stage": "forward", "error": "e"} if n == "AGCRN" else None)
-                                             for n in names})
+    monkeypatch.setattr(
+        admission,
+        "run_contracts",
+        lambda names, jobs, **kw: {n: ({"stage": "forward", "error": "e"} if n == "AGCRN" else None) for n in names},
+    )
 
     def fake_write(root, name, failure, **kwargs):
         written[name] = "failed" if failure else "passed"
@@ -921,9 +958,15 @@ def test_contract_supplies_a_graph_only_to_requires_graph_specs() -> None:
         enc_in: int
 
     def spec(requires_graph: bool) -> ModelSpec:
-        return ModelSpec(name="G", module="m", model_class=nn.Module, factory=lambda cfg, params: params,
-                         params_schema=Params, capabilities=frozenset(["spatiotemporal"]),
-                         requires_graph=requires_graph)
+        return ModelSpec(
+            name="G",
+            module="m",
+            model_class=nn.Module,
+            factory=lambda cfg, params: params,
+            params_schema=Params,
+            capabilities=frozenset(["spatiotemporal"]),
+            requires_graph=requires_graph,
+        )
 
     built = model_contracts._build_model(spec(True), None, {"enc_in": 5})
     assert built["adj_mx"].shape == (5, 5)
@@ -938,8 +981,12 @@ def test_contract_supplies_a_graph_only_to_requires_graph_specs() -> None:
 
 @pytest.mark.parametrize(
     ("slug", "maps"),
-    [("catboost_ts", lambda n: 1 + n), ("gradient_boosting_ts", lambda n: n),
-     ("lightgbm_ts", lambda n: n), ("xgboost_ts", lambda n: n)],
+    [
+        ("catboost_ts", lambda n: 1 + n),
+        ("gradient_boosting_ts", lambda n: n),
+        ("lightgbm_ts", lambda n: n),
+        ("xgboost_ts", lambda n: n),
+    ],
 )
 def test_dense_weight_cap_refuses_wide_cells_and_admits_narrow_ones(slug, maps) -> None:
     module = importlib.import_module(f"tsflab.models.{slug}.model")
@@ -959,8 +1006,7 @@ def test_deepar_checkpointed_rollout_matches_plain_rollout(dropout) -> None:
 
     def loss_and_grads(checkpoint_steps):
         torch.manual_seed(0)
-        model = Model(seq_len=8, pred_len=7, enc_in=3, dropout=dropout,
-                      checkpoint_steps=checkpoint_steps).train()
+        model = Model(seq_len=8, pred_len=7, enc_in=3, dropout=dropout, checkpoint_steps=checkpoint_steps).train()
         x = torch.randn(2, 8, 3)
         torch.manual_seed(1)
         loss = model(x).square().mean()

@@ -138,8 +138,12 @@ class AdaptiveScaleRoutingMoE(nn.Module):
         # Global experts: depth 3; local experts: depth 2 (Table 2).
         self.global_experts = nn.ModuleList(
             nn.Sequential(
-                nn.Linear(d_model, d_ff), nn.GELU(), nn.Linear(d_ff, d_ff), nn.GELU(),
-                nn.Dropout(dropout), nn.Linear(d_ff, pred_len),
+                nn.Linear(d_model, d_ff),
+                nn.GELU(),
+                nn.Linear(d_ff, d_ff),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(d_ff, pred_len),
             )
             for _ in range(num_global)
         )
@@ -151,7 +155,9 @@ class AdaptiveScaleRoutingMoE(nn.Module):
         # Temporal-aware weighting (Eq. 20): descriptors of each scale forecast plus w_hist.
         self.descriptor = nn.Sequential(nn.Linear(pred_len, pred_len), nn.GELU(), nn.Dropout(dropout))
         self.history = nn.Parameter(torch.zeros(1, num_scales))
-        self.scale_weight = nn.Sequential(nn.Linear(num_scales * pred_len + num_scales, num_scales), nn.Tanh(), nn.Softplus())
+        self.scale_weight = nn.Sequential(
+            nn.Linear(num_scales * pred_len + num_scales, num_scales), nn.Tanh(), nn.Softplus()
+        )
         self.output = nn.Sequential(
             nn.Linear(pred_len, pred_len), nn.GELU(), nn.Linear(pred_len, pred_len), nn.Dropout(dropout)
         )

@@ -21,8 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tsflab.models._components.empirical_quantiles import empirical_quantiles
 from tsflab.models._components.embed import DataEmbedding
+from tsflab.models._components.empirical_quantiles import empirical_quantiles
 from tsflab.models._components.masking import TriangularCausalMask
 from tsflab.models._components.self_attention_family import AttentionLayer
 from tsflab.models._components.transformer_encdec import (
@@ -96,7 +96,7 @@ def target_variance(history: torch.Tensor, future: torch.Tensor, window: int) ->
     """
     joined = torch.cat([history, future], dim=1)
     padded = torch.cat([joined[:, :1].expand(-1, window, -1), joined], dim=1)
-    return trailing_variance(padded, window)[:, -future.shape[1]:, :]
+    return trailing_variance(padded, window)[:, -future.shape[1] :, :]
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +124,7 @@ class DeStationaryAttention(nn.Module):
         if delta is not None:
             scores = scores + delta.view(batch, 1, 1, -1)
         if self.causal:
-            mask = attn_mask if attn_mask is not None else TriangularCausalMask(
-                batch, length, device=queries.device
-            )
+            mask = attn_mask if attn_mask is not None else TriangularCausalMask(batch, length, device=queries.device)
             scores = scores.masked_fill(mask.mask, float("-inf"))
         weights = self.dropout(torch.softmax(scores / sqrt(width), dim=-1))
         return torch.einsum("bhls,bshd->blhd", weights, values).contiguous(), None
@@ -141,9 +139,7 @@ class DeStationaryFactorProjector(nn.Module):
 
     def __init__(self, seq_len: int, channels: int, hidden_dims: list[int], output_dim: int) -> None:
         super().__init__()
-        self.time_mixer = nn.Conv1d(
-            seq_len, 1, kernel_size=3, padding=1, padding_mode="circular", bias=False
-        )
+        self.time_mixer = nn.Conv1d(seq_len, 1, kernel_size=3, padding=1, padding_mode="circular", bias=False)
         widths = [2 * channels, *hidden_dims]
         layers: list[nn.Module] = []
         for left, right in zip(widths, widths[1:]):
@@ -165,9 +161,19 @@ class StationaryPriorMean(nn.Module):
     """
 
     def __init__(
-        self, seq_len: int, label_len: int, pred_len: int, enc_in: int, d_model: int,
-        n_heads: int, e_layers: int, d_layers: int, d_ff: int, dropout: float,
-        activation: str, p_hidden_dims: list[int],
+        self,
+        seq_len: int,
+        label_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int,
+        n_heads: int,
+        e_layers: int,
+        d_layers: int,
+        d_ff: int,
+        dropout: float,
+        activation: str,
+        p_hidden_dims: list[int],
     ) -> None:
         super().__init__()
         self.label_len, self.pred_len = label_len, pred_len
@@ -178,13 +184,14 @@ class StationaryPriorMean(nn.Module):
             return AttentionLayer(DeStationaryAttention(causal, dropout), d_model, n_heads)
 
         self.encoder = Encoder(
-            [EncoderLayer(attention(False), d_model, d_ff, dropout, activation)
-             for _ in range(e_layers)],
+            [EncoderLayer(attention(False), d_model, d_ff, dropout, activation) for _ in range(e_layers)],
             norm_layer=nn.LayerNorm(d_model),
         )
         self.decoder = Decoder(
-            [DecoderLayer(attention(True), attention(False), d_model, d_ff, dropout, activation)
-             for _ in range(d_layers)],
+            [
+                DecoderLayer(attention(True), attention(False), d_model, d_ff, dropout, activation)
+                for _ in range(d_layers)
+            ],
             norm_layer=nn.LayerNorm(d_model),
             projection=nn.Linear(d_model, enc_in),
         )
@@ -198,17 +205,14 @@ class StationaryPriorMean(nn.Module):
         tau = self.tau_learner(x, std).exp()  # [B, 1]
         delta = self.delta_learner(x, mean)  # [B, seq_len]
         decoder_values = torch.cat(
-            [normalized[:, x.shape[1] - self.label_len:],
-             normalized.new_zeros(x.shape[0], self.pred_len, x.shape[2])],
+            [normalized[:, x.shape[1] - self.label_len :], normalized.new_zeros(x.shape[0], self.pred_len, x.shape[2])],
             dim=1,
         )
         if y_mark is not None:
-            y_mark = y_mark[:, -(self.label_len + self.pred_len):]
+            y_mark = y_mark[:, -(self.label_len + self.pred_len) :]
         memory, _ = self.encoder(self.encoder_embedding(normalized, x_mark), tau=tau, delta=delta)
-        decoded = self.decoder(
-            self.decoder_embedding(decoder_values, y_mark), memory, tau=tau, delta=delta
-        )
-        return decoded[:, -self.pred_len:] * std + mean
+        decoded = self.decoder(self.decoder_embedding(decoder_values, y_mark), memory, tau=tau, delta=delta)
+        return decoded[:, -self.pred_len :] * std + mean
 
 
 # ---------------------------------------------------------------------------
@@ -227,8 +231,10 @@ class SlidingVarianceEstimator(nn.Module):
         super().__init__()
         self.window = window
         self.network = nn.Sequential(
-            nn.Linear(seq_len - window, hidden), nn.ReLU(),
-            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(seq_len - window, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
             nn.Linear(hidden, pred_len),
         )
 
@@ -260,11 +266,13 @@ class NoiseVarianceDenoiser(nn.Module):
 
     def __init__(self, channels: int, hidden: int, steps: int) -> None:
         super().__init__()
-        self.layers = nn.ModuleList([
-            StepScaledLinear(3 * channels, hidden, steps + 1),
-            StepScaledLinear(hidden, hidden, steps + 1),
-            StepScaledLinear(hidden, hidden, steps + 1),
-        ])
+        self.layers = nn.ModuleList(
+            [
+                StepScaledLinear(3 * channels, hidden, steps + 1),
+                StepScaledLinear(hidden, hidden, steps + 1),
+                StepScaledLinear(hidden, hidden, steps + 1),
+            ]
+        )
         self.noise_head = nn.Linear(hidden, channels)
         self.variance_head = nn.Linear(hidden, channels)
 
@@ -331,8 +339,18 @@ class Model(nn.Module):
             self.register_buffer(name, value, persistent=False)
 
         self.prior_mean = StationaryPriorMean(
-            seq_len, label_len, pred_len, enc_in, d_model, n_heads, e_layers, d_layers,
-            d_ff, dropout, activation, list(p_hidden_dims or [64, 64]),
+            seq_len,
+            label_len,
+            pred_len,
+            enc_in,
+            d_model,
+            n_heads,
+            e_layers,
+            d_layers,
+            d_ff,
+            dropout,
+            activation,
+            list(p_hidden_dims or [64, 64]),
         )
         self.prior_variance = SlidingVarianceEstimator(seq_len, pred_len, rolling_length, variance_hidden)
         self.denoiser = NoiseVarianceDenoiser(enc_in, denoiser_hidden, diffusion_steps)
@@ -374,8 +392,7 @@ class Model(nn.Module):
         denominator = alpha * sigma_prev + sigma_t
         gamma0 = sqrt_alpha_bar_prev * sigma_t / denominator
         gamma1 = alpha.sqrt() * sigma_prev / denominator
-        gamma2 = (alpha.sqrt() * (alpha - 1.0) * sigma_prev
-                  + (1.0 - sqrt_alpha_bar_prev) * sigma_t) / denominator
+        gamma2 = (alpha.sqrt() * (alpha - 1.0) * sigma_prev + (1.0 - sqrt_alpha_bar_prev) * sigma_t) / denominator
         return gamma0, gamma1, gamma2
 
     def estimate_data_variance(self, t, prior_variance, reverse_variance):

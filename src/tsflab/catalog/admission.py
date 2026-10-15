@@ -41,9 +41,14 @@ def _contract(name: str) -> dict[str, str] | None:
 def _isolated(name: str, timeout: int) -> dict[str, str] | None:
     """Run one contract in a fresh interpreter, so memory and crashes stay per model."""
     try:
-        out = subprocess.run([sys.executable, "-m", "tsflab.catalog.admission", name],
-                             capture_output=True, text=True, timeout=timeout, env=os.environ.copy(),
-                             check=False)
+        out = subprocess.run(
+            [sys.executable, "-m", "tsflab.catalog.admission", name],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=os.environ.copy(),
+            check=False,
+        )
     except subprocess.TimeoutExpired:
         return {"stage": "process", "error": f"timed out after {timeout}s"}
     lines = out.stdout.strip().splitlines()
@@ -55,9 +60,14 @@ def _isolated(name: str, timeout: int) -> dict[str, str] | None:
     return {"stage": "process", "error": f"exit {out.returncode}: {tail}"}
 
 
-def run_contracts(names: list[str], jobs: int = 1, *, isolated: bool = False, timeout: int = TIMEOUT,
-                  progress: Callable[[str, dict[str, str] | None], None] | None = None,
-                  ) -> dict[str, dict[str, str] | None]:
+def run_contracts(
+    names: list[str],
+    jobs: int = 1,
+    *,
+    isolated: bool = False,
+    timeout: int = TIMEOUT,
+    progress: Callable[[str, dict[str, str] | None], None] | None = None,
+) -> dict[str, dict[str, str] | None]:
     """Run strict contracts; ``None`` means passed.
 
     ``isolated`` runs each model in its own interpreter (``jobs`` at a time): a crash,
@@ -83,8 +93,9 @@ def run_contracts(names: list[str], jobs: int = 1, *, isolated: bool = False, ti
 
 def _commit(root: Path) -> str:
     try:
-        out = subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], cwd=root, capture_output=True,
-                             text=True, check=False)
+        out = subprocess.run(
+            ["git", "rev-parse", "--short=8", "HEAD"], cwd=root, capture_output=True, text=True, check=False
+        )
     except OSError:
         return ""
     return out.stdout.strip() if out.returncode == 0 else ""
@@ -98,7 +109,8 @@ SCAFFOLD_MARKERS = ("SCAFFOLD", "PLACEHOLDER", "TODO")
 def unfinished_files(package: Path) -> list[Path]:
     """Model files that still carry scaffold markers (empty for a finished package)."""
     return [
-        path for path in (package / "model.py", package / "README.md", package / "card.toml")
+        path
+        for path in (package / "model.py", package / "README.md", package / "card.toml")
         if path.is_file() and any(marker in path.read_text(encoding="utf-8") for marker in SCAFFOLD_MARKERS)
     ]
 
@@ -110,8 +122,9 @@ def card_path(root: Path, name: str) -> Path:
     return root / "src" / Path(*module.split(".")[:-1]) / "card.toml"
 
 
-def write_admission(root: Path, name: str, failure: dict[str, str] | None, *, note: str = "",
-                    reference: str | None = None) -> dict[str, str]:
+def write_admission(
+    root: Path, name: str, failure: dict[str, str] | None, *, note: str = "", reference: str | None = None
+) -> dict[str, str]:
     """Record one admission result in the model's ``card.toml``; return the record."""
     path = card_path(root, name)
     facts = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -134,8 +147,9 @@ def changed_models(root: Path, base: str) -> list[str]:
     from tsflab.catalog.cards.metadata import model_records
     from tsflab.catalog.component_audit import component_dependency_closure
 
-    diff = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root,
-                          capture_output=True, text=True, check=False)
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, capture_output=True, text=True, check=False
+    )
     paths = [line for line in diff.stdout.split() if line]
     docs = {"README.md", "card.toml", "reference.md"}
     touched_packages, touched_components, touched_presets = set(), set(), set()
@@ -151,8 +165,7 @@ def changed_models(root: Path, base: str) -> list[str]:
     names = []
     for record in model_records(root):
         used = set(component_dependency_closure({str(c) for c in record.get("components", ())}))
-        if (record["package"] in touched_packages or record["name"] in touched_presets
-                or used & touched_components):
+        if record["package"] in touched_packages or record["name"] in touched_presets or used & touched_components:
             names.append(str(record["name"]))
     return sorted(names)
 

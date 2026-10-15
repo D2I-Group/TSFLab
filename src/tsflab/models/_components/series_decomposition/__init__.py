@@ -39,6 +39,7 @@ class SeriesDecomposition(nn.Module):
         moving_mean = self.moving_avg(x)
         return x - moving_mean, moving_mean
 
+
 __all__ = [
     "EdgePaddedMovingAverage",
     "SeriesDecomposition",

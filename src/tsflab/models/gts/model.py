@@ -24,18 +24,28 @@ def _row_normalize(adjacency: torch.Tensor) -> torch.Tensor:
 class DiscreteGraphDiscovery(nn.Module):
     """Parameterise Bernoulli edges from node histories and sample them."""
 
-    def __init__(self, seq_len: int, nodes: int, embedding_dim: int, temperature: float, prior: torch.Tensor, prior_strength: float) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        nodes: int,
+        embedding_dim: int,
+        temperature: float,
+        prior: torch.Tensor,
+        prior_strength: float,
+    ) -> None:
         super().__init__()
         self.nodes = nodes
         self.temperature = temperature
         self.prior_strength = prior_strength
         self.history_encoder = nn.Sequential(
-            nn.Linear(seq_len, embedding_dim), nn.ReLU(),
+            nn.Linear(seq_len, embedding_dim),
+            nn.ReLU(),
             nn.Linear(embedding_dim, embedding_dim),
         )
         self.node_identity = nn.Parameter(torch.randn(nodes, embedding_dim) / math.sqrt(embedding_dim))
         self.edge_classifier = nn.Sequential(
-            nn.Linear(2 * embedding_dim, embedding_dim), nn.ReLU(),
+            nn.Linear(2 * embedding_dim, embedding_dim),
+            nn.ReLU(),
             nn.Linear(embedding_dim, 2),
         )
         self.register_buffer("prior", prior)
@@ -107,11 +117,12 @@ class RecurrentStack(nn.Module):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.cells = nn.ModuleList(
-            GraphGRUCell(input_dim if index == 0 else hidden_dim, hidden_dim, order)
-            for index in range(layers)
+            GraphGRUCell(input_dim if index == 0 else hidden_dim, hidden_dim, order) for index in range(layers)
         )
 
-    def step(self, x: torch.Tensor, state: list[torch.Tensor], graph: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    def step(
+        self, x: torch.Tensor, state: list[torch.Tensor], graph: torch.Tensor
+    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         next_state = []
         for cell, hidden in zip(self.cells, state):
             x = cell(x, hidden, graph)
@@ -149,9 +160,7 @@ class Model(nn.Module):
         self.num_nodes = num_nodes
         self.has_prior = adj_mx is not None
         self.input_dim = input_dim
-        self.graph_discovery = DiscreteGraphDiscovery(
-            seq_len, num_nodes, embedding_dim, temp, prior, prior_strength
-        )
+        self.graph_discovery = DiscreteGraphDiscovery(seq_len, num_nodes, embedding_dim, temp, prior, prior_strength)
         self.encoder = RecurrentStack(input_dim, rnn_units, num_rnn_layers, max_diffusion_step)
         self.decoder = RecurrentStack(1, rnn_units, num_rnn_layers, max_diffusion_step)
         self.projection = nn.Linear(rnn_units, 1)
@@ -169,7 +178,9 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.num_nodes)
         graph = self.graph_discovery(x_enc)
         history = fit_channels(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
-        state = [history.new_zeros((history.shape[0], self.num_nodes, self.encoder.hidden_dim)) for _ in self.encoder.cells]
+        state = [
+            history.new_zeros((history.shape[0], self.num_nodes, self.encoder.hidden_dim)) for _ in self.encoder.cells
+        ]
         for step in range(self.seq_len):
             _, state = self.encoder.step(history[:, step], state, graph)
         previous = x_enc.new_zeros((x_enc.shape[0], self.num_nodes, 1))

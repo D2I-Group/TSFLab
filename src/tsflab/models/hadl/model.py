@@ -96,9 +96,7 @@ class Model(nn.Module):
                 return LowRankLinear(self.in_len, pred_len, rank, bias=bias)
             return nn.Linear(self.in_len, pred_len, bias=bias)
 
-        self.pred_layer = (
-            nn.ModuleList(make_layer() for _ in range(enc_in)) if self.individual else make_layer()
-        )
+        self.pred_layer = nn.ModuleList(make_layer() for _ in range(enc_in)) if self.individual else make_layer()
         self.aux_loss: torch.Tensor | None = None
 
     def haar_approximation(self, x: torch.Tensor) -> torch.Tensor:

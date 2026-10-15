@@ -17,11 +17,11 @@ the project's ``pyproject.toml``.
 from __future__ import annotations
 
 import argparse
-from importlib import metadata
-from pathlib import Path
 import shutil
 import sys
 import tomllib
+from importlib import metadata
+from pathlib import Path
 
 from tsflab.agent.index import render_index
 from tsflab.agent.modules import ALL_MODULES, CHAIN, MODULES, find_project, module_skills, module_tasks, parse_modules
@@ -135,7 +135,13 @@ def render_agents_md(name: str, modules: list[str]) -> str:
     if {"data", "models"} & set(modules):
         lines.append("- Skills that add datasets or models change the shared catalog and need a TSFLab")
         lines.append("  checkout (`tsf model add`, `tsf repo cards`); here they plan and draft the change.")
-    lines += [GENERATED_END, "", "## Project notes", "Add project-specific context below; `tsf agent sync` keeps it.", ""]
+    lines += [
+        GENERATED_END,
+        "",
+        "## Project notes",
+        "Add project-specific context below; `tsf agent sync` keeps it.",
+        "",
+    ]
     return "\n".join(lines)
 
 
@@ -163,8 +169,9 @@ def sync_agent_assets(target: Path, modules: list[str]) -> list[str]:
         destination = target / ".agents" / "skills" / skill
         if destination.exists():
             shutil.rmtree(destination)
-        shutil.copytree(source / "skills" / skill, destination,
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"))
+        shutil.copytree(
+            source / "skills" / skill, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
+        )
         written.append(f".agents/skills/{skill}")
     (target / ".agents" / "tasks").mkdir(parents=True, exist_ok=True)
     for task in tasks:
@@ -206,9 +213,7 @@ def init_project(
     }
     existing = [target / rel for rel in generated if (target / rel).exists()]
     if existing and not force:
-        raise FileExistsError(
-            "refusing to overwrite: " + ", ".join(str(path) for path in existing)
-        )
+        raise FileExistsError("refusing to overwrite: " + ", ".join(str(path) for path in existing))
     written = []
     for rel, template in generated.items():
         path = target / rel
@@ -228,10 +233,12 @@ def init_project(
 
 def render_readme(name: str, modules: list[str]) -> str:
     extras = ",".join(extras_for(modules))
-    steps = ["tsf env                                    # check devices, data, and output capacity",
-             "tsf catalog                                # what exists: models, components, datasets",
-             "tsf run configs/runs/example.toml --dry-run   # preview the expanded runs",
-             "tsf run configs/runs/example.toml          # train and evaluate; outputs go to work_dirs/"]
+    steps = [
+        "tsf env                                    # check devices, data, and output capacity",
+        "tsf catalog                                # what exists: models, components, datasets",
+        "tsf run configs/runs/example.toml --dry-run   # preview the expanded runs",
+        "tsf run configs/runs/example.toml          # train and evaluate; outputs go to work_dirs/",
+    ]
     if "release" in modules:
         steps.append("tsf result hub push <run_id> --repo <owner>/<weights-repo>   # publish a checkpoint (explicit)")
     body = "\n".join(steps)
@@ -285,19 +292,24 @@ def sync_command(argv: list[str]) -> int:
     if agents.is_file() and GENERATED_END in agents.read_text(encoding="utf-8"):
         notes = agents.read_text(encoding="utf-8").split(GENERATED_END, 1)[1]
     fresh = render_agents_md(name, modules)
-    agents.write_text(fresh.split(GENERATED_END, 1)[0] + GENERATED_END + (notes or fresh.split(GENERATED_END, 1)[1]),
-                      encoding="utf-8")
+    agents.write_text(
+        fresh.split(GENERATED_END, 1)[0] + GENERATED_END + (notes or fresh.split(GENERATED_END, 1)[1]), encoding="utf-8"
+    )
     print(f"Synced {len(written)} skill/task assets for modules: {', '.join(modules)}")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="tsf init", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="tsf init", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("directory", nargs="?", default=".")
     parser.add_argument("--name", help="project name (default: directory name)")
-    parser.add_argument("--modules", default=None,
-                        help=f"comma-separated modules from {','.join(ALL_MODULES)} (default: {','.join(CHAIN)})")
+    parser.add_argument(
+        "--modules",
+        default=None,
+        help=f"comma-separated modules from {','.join(ALL_MODULES)} (default: {','.join(CHAIN)})",
+    )
     parser.add_argument("--force", action="store_true", help="overwrite existing files")
     args = parser.parse_args(argv)
     try:

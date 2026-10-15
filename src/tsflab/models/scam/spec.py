@@ -26,7 +26,7 @@ class ModelParameterConfig(BaseModel):
     loss_form: Literal["official", "paper"] = "official"
 
     @model_validator(mode="after")
-    def _candidate_contract(self) -> "ModelParameterConfig":
+    def _candidate_contract(self) -> ModelParameterConfig:
         if self.rec_width % self.candidates:
             raise ValueError("rec_width must be divisible by candidates")
         return self

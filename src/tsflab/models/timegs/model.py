@@ -70,9 +70,7 @@ def gaussian_basis_bank(
     return profile / profile.sum(dim=-1, keepdim=True).clamp(min=1e-4)
 
 
-def render_kernels(
-    kernels: torch.Tensor, period: int, positions: torch.Tensor, pred_len: int
-) -> torch.Tensor:
+def render_kernels(kernels: torch.Tensor, period: int, positions: torch.Tensor, pred_len: int) -> torch.Tensor:
     """Chronologically continuous rasterization (Eqs. 12-14).
 
     ``kernels`` is ``[..., G, P, rows, width]`` and ``positions`` the ``[G]``
@@ -85,10 +83,10 @@ def render_kernels(
     rows, width = kernels.shape[-2:]
     keep = min(rows, math.ceil(pred_len / period) * 2 - 1)
     top = (rows - keep) // 2
-    kernels = kernels[..., top:top + keep, :]
+    kernels = kernels[..., top : top + keep, :]
     if width >= period:
         left = width // 2 - period // 2
-        kernels = kernels[..., left:left + period]
+        kernels = kernels[..., left : left + period]
     else:
         left = period // 2 - width // 2
         kernels = F.pad(kernels, (left, period - width - left))
@@ -250,9 +248,7 @@ class Model(nn.Module):
             nn.Linear(conv_dim * pixels, hidden_dim * self.anchors) for _ in range(self.branches)
         )
         self.intensity = nn.ModuleList(IntensityMLP(hidden_dim, components) for _ in range(self.branches))
-        self.mixing = nn.ModuleList(
-            nn.Linear(hidden_dim, components * self.num_bases) for _ in range(self.branches)
-        )
+        self.mixing = nn.ModuleList(nn.Linear(hidden_dim, components * self.num_bases) for _ in range(self.branches))
         self.branch_weight = nn.Parameter(torch.full((enc_in, self.branches), 1.0 / self.branches))
         self.component_weight = nn.Parameter(torch.full((enc_in, components), 1.0 / components))
 

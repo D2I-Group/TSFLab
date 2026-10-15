@@ -37,9 +37,7 @@ class AdaptiveMultiScaleIdentifier(nn.Module):
         periods = dominant_periods(values, self.scale_number)
         scales = []
         for period in periods:
-            pooled = F.avg_pool1d(
-                values.transpose(1, 2), kernel_size=period, stride=period
-            ).transpose(1, 2)
+            pooled = F.avg_pool1d(values.transpose(1, 2), kernel_size=period, stride=period).transpose(1, 2)
             scales.append(pooled)
         lengths = [scale.shape[1] for scale in scales]
         self.last_periods, self.last_lengths = periods, lengths
@@ -110,21 +108,15 @@ class SparseCrossGraphLayer(nn.Module):
         negative = -_renormalize(inverse, negative_mask)
         return positive + negative
 
-    def forward(
-        self, hidden: torch.Tensor, periods: list[int], lengths: list[int]
-    ) -> torch.Tensor:
+    def forward(self, hidden: torch.Tensor, periods: list[int], lengths: list[int]) -> torch.Tensor:
         if self.use_time_graph:
             temporal = self.temporal_adjacency(periods, lengths)
             message = torch.einsum("ij,bjdc->bidc", temporal, hidden)
-            hidden = F.normalize(
-                F.gelu(self.time_update(torch.cat((hidden, message), dim=-1))), dim=-1
-            )
+            hidden = F.normalize(F.gelu(self.time_update(torch.cat((hidden, message), dim=-1))), dim=-1)
         if self.use_variable_graph:
             variable = self.variable_adjacency()
             message = torch.einsum("ij,btjc->btic", variable, hidden)
-            hidden = F.normalize(
-                F.gelu(self.variable_update(torch.cat((hidden, message), dim=-1))), dim=-1
-            )
+            hidden = F.normalize(F.gelu(self.variable_update(torch.cat((hidden, message), dim=-1))), dim=-1)
         return self.dropout(hidden)
 
 
@@ -194,8 +186,6 @@ class Model(nn.Module):
             hidden = hidden + layer(hidden, periods, lengths)
         collapsed = self.channel_head(hidden).squeeze(-1).transpose(1, 2)
         # AMSI has data-dependent L'; interpolation makes the DMS head shape-static.
-        collapsed = F.interpolate(
-            collapsed, size=self.seq_len, mode="linear", align_corners=False
-        )
+        collapsed = F.interpolate(collapsed, size=self.seq_len, mode="linear", align_corners=False)
         forecast = self.temporal_head(collapsed).transpose(1, 2)
         return restore_last_value(forecast, baseline)

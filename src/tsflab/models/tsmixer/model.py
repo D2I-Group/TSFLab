@@ -25,9 +25,7 @@ class Model(nn.Module):
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = enc_in
-        self.blocks = nn.ModuleList(
-            MixerBlock(seq_len, enc_in, d_model, dropout) for _ in range(e_layers)
-        )
+        self.blocks = nn.ModuleList(MixerBlock(seq_len, enc_in, d_model, dropout) for _ in range(e_layers))
         self.projection = ChannelWiseLinear(seq_len, pred_len, enc_in)
 
     def forward(

@@ -15,9 +15,7 @@ from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
 
-def _right_padded_patches(
-    x: torch.Tensor, patch_len: int, stride: int
-) -> torch.Tensor:
+def _right_padded_patches(x: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
     """Paper patch count floor((L-P)/S)+2, including one padded tail patch."""
     remainder = (x.shape[-1] - patch_len) % stride
     padding = stride - remainder
@@ -74,9 +72,7 @@ class _FTPEncoderLayer(nn.Module):
         super().__init__()
         patch_lengths = [min(seq_len, patch_unit * (index + 1)) for index in range(num_scales)]
         self.levels = nn.ModuleList(
-            _GlobalLocalLevel(
-                seq_len, enc_in, d_model, patch_len, min(stride, patch_len)
-            )
+            _GlobalLocalLevel(seq_len, enc_in, d_model, patch_len, min(stride, patch_len))
             for patch_len in patch_lengths
         )
         self.ce_embedding = nn.Linear(seq_len, d_model)
@@ -114,14 +110,8 @@ class _FTPEncoderLayer(nn.Module):
             ci = level.ci(ci)
             cm = level.cm(cm)
         enhanced, _ = self.channel_enhancement(x)
-        fused = self.fusion(
-            torch.cat(
-                (self.ci_projection(ci), self.cm_projection(cm), enhanced), dim=-1
-            )
-        )
-        return self.sequence_projection(
-            torch.cat((fused, self.original_embedding(x)), dim=-1)
-        )
+        fused = self.fusion(torch.cat((self.ci_projection(ci), self.cm_projection(cm), enhanced), dim=-1))
+        return self.sequence_projection(torch.cat((fused, self.original_embedding(x)), dim=-1))
 
 
 class Model(nn.Module):

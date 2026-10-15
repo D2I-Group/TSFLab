@@ -52,9 +52,7 @@ class PatchConsistentDenoiser(nn.Module):
         neighbour_width = max(1, adjacent_range * patch_len)
         self.previous_projection = nn.Linear(neighbour_width, dimension)
         self.next_projection = nn.Linear(neighbour_width, dimension)
-        self.blocks = nn.ModuleList(
-            [AdaLNMLPBlock(dimension, dropout) for _ in range(depth)]
-        )
+        self.blocks = nn.ModuleList([AdaLNMLPBlock(dimension, dropout) for _ in range(depth)])
         self.final_modulation = nn.Linear(dimension, 2 * dimension)
         self.output = nn.Linear(dimension, patch_len)
 
@@ -69,9 +67,7 @@ class PatchConsistentDenoiser(nn.Module):
         following = windows[..., self.adjacent_range + 1 :].reshape(batch, count, -1)
         return previous, following
 
-    def forward(
-        self, noisy_patches: torch.Tensor, tokens: torch.Tensor, step: int | torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, noisy_patches: torch.Tensor, tokens: torch.Tensor, step: int | torch.Tensor) -> torch.Tensor:
         if noisy_patches.ndim != 3 or noisy_patches.shape[-1] != self.patch_len:
             raise ValueError("noisy patches have the wrong shape")
         if tokens.shape[:2] != noisy_patches.shape[:2]:
@@ -114,9 +110,7 @@ class FuturePatchBackbone(nn.Module):
         self.patch_len = patch_len
         self.history_embedding = nn.Linear(patch_len, dimension)
         self.future_queries = nn.Parameter(torch.randn(num_future_patches, dimension) * 0.02)
-        self.cross_attention = nn.MultiheadAttention(
-            dimension, num_heads, dropout=dropout, batch_first=True
-        )
+        self.cross_attention = nn.MultiheadAttention(dimension, num_heads, dropout=dropout, batch_first=True)
         self.norm = nn.LayerNorm(dimension)
         self.feed_forward = nn.Sequential(
             nn.Linear(dimension, 4 * dimension),
@@ -185,9 +179,7 @@ class Model(nn.Module):
         self.register_buffer("alpha_bar", alpha_bar)
         self.anchor_step = int((alpha_bar - 0.5).abs().argmin())
 
-    def _normalized_context(
-        self, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _normalized_context(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         check_window(x, self.seq_len, self.enc_in)
         mean = x.mean(1, keepdim=True).detach()
         scale = x.std(1, keepdim=True, unbiased=False).clamp_min(1e-5).detach()
@@ -229,9 +221,7 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         _, tokens, mean, scale = self._normalized_context(x_enc)
-        zeros = x_enc.new_zeros(
-            x_enc.shape[0] * self.enc_in, self.num_future_patches, self.patch_len
-        )
+        zeros = x_enc.new_zeros(x_enc.shape[0] * self.enc_in, self.num_future_patches, self.patch_len)
         predicted_noise = self.denoiser(zeros, tokens, self.anchor_step)
         alpha = self.alpha_bar[self.anchor_step]
         normalized = -((1 - alpha) / alpha).sqrt() * predicted_noise
@@ -247,8 +237,11 @@ class Model(nn.Module):
         _, tokens, mean, scale = self._normalized_context(x)
         tokens = tokens.repeat(num_samples, 1, 1)
         noisy = torch.randn(
-            tokens.shape[0], self.num_future_patches, self.patch_len,
-            device=x.device, dtype=x.dtype,
+            tokens.shape[0],
+            self.num_future_patches,
+            self.patch_len,
+            device=x.device,
+            dtype=x.dtype,
         )
         schedule = torch.linspace(len(self.alpha_bar) - 1, 0, min(steps, len(self.alpha_bar))).long()
         for index, step in enumerate(schedule):

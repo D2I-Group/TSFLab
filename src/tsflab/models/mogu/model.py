@@ -41,9 +41,7 @@ def mixture_moments(
     return mean, aleatoric, epistemic
 
 
-def gaussian_nll(
-    mean: torch.Tensor, variance: torch.Tensor, target: torch.Tensor, eps: float
-) -> torch.Tensor:
+def gaussian_nll(mean: torch.Tensor, variance: torch.Tensor, target: torch.Tensor, eps: float) -> torch.Tensor:
     """Eq. (6): ``0.5 * (log max(sigma^2, eps) + (mu - y)^2 / max(sigma^2, eps))``, elementwise."""
     variance = variance.clamp_min(eps)
     return 0.5 * (torch.log(variance) + (mean - target).pow(2) / variance)
@@ -76,9 +74,7 @@ class UncertaintyHead(nn.Module):
     def __init__(self, d_model: int, pred_len: int, head_type: str) -> None:
         super().__init__()
         if head_type == "mlp":
-            self.net = nn.Sequential(
-                nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, pred_len)
-            )
+            self.net = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, pred_len))
         else:
             self.net = nn.Linear(d_model, pred_len)
 

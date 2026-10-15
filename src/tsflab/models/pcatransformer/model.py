@@ -33,9 +33,7 @@ def principal_axes(covariates: torch.Tensor, n_components: int) -> tuple[torch.T
         raise ValueError("covariates must be a [time, variables] matrix")
     rows, variables = covariates.shape
     if not 1 <= n_components <= min(rows, variables):
-        raise ValueError(
-            f"n_components={n_components} must be in [1, min(time={rows}, variables={variables})]"
-        )
+        raise ValueError(f"n_components={n_components} must be in [1, min(time={rows}, variables={variables})]")
     data = covariates.double()
     mean = data.mean(dim=0)
     _, _, vh = torch.linalg.svd(data - mean, full_matrices=False)
@@ -84,20 +82,18 @@ class Model(nn.Module):
         self.decoder_embedding = DataEmbedding(reduced, d_model, embed, freq, dropout)
 
         def attention(*, causal: bool) -> AttentionLayer:
-            return AttentionLayer(
-                FullAttention(mask_flag=causal, attention_dropout=dropout), d_model, n_heads
-            )
+            return AttentionLayer(FullAttention(mask_flag=causal, attention_dropout=dropout), d_model, n_heads)
 
         self.encoder = Encoder(
-            [EncoderLayer(attention(causal=False), d_model, d_ff, dropout, activation)
-             for _ in range(e_layers)],
+            [EncoderLayer(attention(causal=False), d_model, d_ff, dropout, activation) for _ in range(e_layers)],
             norm_layer=nn.LayerNorm(d_model),
         )
         # c_out = 1: the decoder forecasts only the target channel (official MS runs).
         self.decoder = Decoder(
-            [DecoderLayer(attention(causal=True), attention(causal=False), d_model, d_ff,
-                          dropout, activation)
-             for _ in range(d_layers)],
+            [
+                DecoderLayer(attention(causal=True), attention(causal=False), d_model, d_ff, dropout, activation)
+                for _ in range(d_layers)
+            ],
             norm_layer=nn.LayerNorm(d_model),
             projection=nn.Linear(d_model, 1),
         )

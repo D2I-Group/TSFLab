@@ -99,7 +99,9 @@ class DozerAttention(nn.Module):
             scores = torch.where(mask.any(dim=-1, keepdim=True), masked, torch.zeros_like(scores))
         return torch.softmax(scale * scores, dim=-1)
 
-    def forward(self, queries: torch.Tensor, keys: torch.Tensor, values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, queries: torch.Tensor, keys: torch.Tensor, values: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
         batch, length_q, _ = queries.shape
         length_k = keys.shape[1]
         heads = self.n_heads
@@ -212,7 +214,9 @@ class Model(nn.Module):
         d_model = embed_dim * patch_size
 
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
-        self.moving_averages = nn.ModuleList(EdgePaddedMovingAverage(k) for k in moving_avg) if trend_branch else nn.ModuleList()
+        self.moving_averages = (
+            nn.ModuleList(EdgePaddedMovingAverage(k) for k in moving_avg) if trend_branch else nn.ModuleList()
+        )
         self.trend_linear = nn.Linear(seq_len, pred_len) if trend_branch else None
 
         self.enc_embedding = DimensionInvariantEmbedding(embed_dim)
@@ -224,8 +228,12 @@ class Model(nn.Module):
         self.dec_pre_norm = nn.LayerNorm(d_model)
         self.dec_post_norm = nn.LayerNorm(d_model)
         ff = d_ff * patch_size
-        self.encoder = nn.ModuleList(DozerEncoderLayer(d_model, ff, n_heads, dropout, score_mode) for _ in range(e_layers))
-        self.decoder = nn.ModuleList(DozerDecoderLayer(d_model, ff, n_heads, dropout, score_mode) for _ in range(d_layers))
+        self.encoder = nn.ModuleList(
+            DozerEncoderLayer(d_model, ff, n_heads, dropout, score_mode) for _ in range(e_layers)
+        )
+        self.decoder = nn.ModuleList(
+            DozerDecoderLayer(d_model, ff, n_heads, dropout, score_mode) for _ in range(d_layers)
+        )
         self.output_conv = nn.Conv2d(embed_dim, 1, kernel_size=1)
 
         self.register_buffer("enc_self_mask", dozer_self_mask(self.enc_patches, local_window, stride), persistent=False)

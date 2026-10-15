@@ -22,10 +22,10 @@ contract and no keywords) and is reported by :meth:`ComponentCatalog.problems`.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -56,8 +56,9 @@ def public_symbols(init_file: Path) -> tuple[str, ...]:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names.append(node.name)
             continue
-        targets = node.targets if isinstance(node, ast.Assign) else (
-            [node.target] if isinstance(node, ast.AnnAssign) else [])
+        targets = (
+            node.targets if isinstance(node, ast.Assign) else ([node.target] if isinstance(node, ast.AnnAssign) else [])
+        )
         for target in targets:
             if not isinstance(target, ast.Name):
                 continue
@@ -83,17 +84,14 @@ def _component_spec(directory: Path) -> tuple[ComponentSpec, list[str]]:
         keywords = tuple(str(tag) for tag in card.get("tags") or ())
     except (OSError, ValueError) as exc:
         problems.append(f"{where}/card.toml cannot be read: {exc}")
-    spec = ComponentSpec(directory.name, f"tsflab.models._components.{directory.name}",
-                         contract, symbols, keywords)
+    spec = ComponentSpec(directory.name, f"tsflab.models._components.{directory.name}", contract, symbols, keywords)
     return spec, problems
 
 
 class ComponentCatalog:
     """Flat lookup for shared component metadata, scanned once on first use."""
 
-    def __init__(
-        self, specs: tuple[ComponentSpec, ...] | None = None, *, directory: Path | None = None
-    ) -> None:
+    def __init__(self, specs: tuple[ComponentSpec, ...] | None = None, *, directory: Path | None = None) -> None:
         self._directory = directory or Path(__file__).resolve().parents[1] / "models" / "_components"
         self._specs: dict[str, ComponentSpec] | None = None
         self._problems: list[str] = []
@@ -143,26 +141,14 @@ class ComponentCatalog:
         matches: list[ComponentMatch] = []
         for spec in self.specs():
             name_terms = set(re.findall(r"[a-z0-9]+", spec.name.lower()))
-            symbol_terms = set(
-                re.findall(r"[a-z0-9]+", " ".join(spec.public_symbols).lower())
-            )
-            keyword_terms = set(
-                re.findall(r"[a-z0-9]+", " ".join(spec.keywords).lower())
-            )
+            symbol_terms = set(re.findall(r"[a-z0-9]+", " ".join(spec.public_symbols).lower()))
+            keyword_terms = set(re.findall(r"[a-z0-9]+", " ".join(spec.keywords).lower()))
             contract_terms = set(re.findall(r"[a-z0-9]+", spec.contract.lower()))
-            matched = terms & (
-                name_terms | symbol_terms | keyword_terms | contract_terms
-            )
+            matched = terms & (name_terms | symbol_terms | keyword_terms | contract_terms)
             if not matched:
                 continue
             score = sum(
-                5
-                if term in name_terms
-                else 3
-                if term in keyword_terms
-                else 2
-                if term in symbol_terms
-                else 1
+                5 if term in name_terms else 3 if term in keyword_terms else 2 if term in symbol_terms else 1
                 for term in matched
             )
             matches.append(ComponentMatch(spec, score, tuple(sorted(matched))))

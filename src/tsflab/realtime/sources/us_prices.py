@@ -44,8 +44,13 @@ def parse_nasdaq_history(data: dict) -> pd.Series:
 def nasdaq_close(symbol: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
     # The endpoint returns nothing for a short window that ends long before today,
     # so callers always request up to the present (updates and bootstraps do).
-    data = nasdaq_get(f"quote/{symbol.replace('-', '.')}/historical", assetclass="stocks",
-                      fromdate=f"{start:%Y-%m-%d}", todate=f"{end:%Y-%m-%d}", limit=9999)
+    data = nasdaq_get(
+        f"quote/{symbol.replace('-', '.')}/historical",
+        assetclass="stocks",
+        fromdate=f"{start:%Y-%m-%d}",
+        todate=f"{end:%Y-%m-%d}",
+        limit=9999,
+    )
     return parse_nasdaq_history(data)
 
 
@@ -74,10 +79,15 @@ def yahoo_close(symbol: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Serie
     import requests
 
     response = requests.get(
-        f"{_YAHOO}/{symbol.replace('.', '-')}", headers=_HEADERS, timeout=30,
-        params={"period1": int(start.tz_localize("UTC").timestamp()),
-                "period2": int((end + pd.Timedelta(days=2)).tz_localize("UTC").timestamp()),
-                "interval": "1d", "events": "div,splits"},
+        f"{_YAHOO}/{symbol.replace('.', '-')}",
+        headers=_HEADERS,
+        timeout=30,
+        params={
+            "period1": int(start.tz_localize("UTC").timestamp()),
+            "period2": int((end + pd.Timedelta(days=2)).tz_localize("UTC").timestamp()),
+            "interval": "1d",
+            "events": "div,splits",
+        },
     )
     response.raise_for_status()
     return parse_yahoo_chart(response.json())

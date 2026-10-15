@@ -74,7 +74,9 @@ def read_xlsx_rows(payload: bytes) -> list[list[str]]:
 
 def parse_native_load(payload: bytes) -> pd.DataFrame:
     """A ``Native_Load_<year>.zip`` (or bare xlsx) -> hourly load per weather zone, local time."""
-    if payload[:4] == b"PK\x03\x04" and any(n.endswith(".xlsx") for n in zipfile.ZipFile(io.BytesIO(payload)).namelist()):
+    if payload[:4] == b"PK\x03\x04" and any(
+        n.endswith(".xlsx") for n in zipfile.ZipFile(io.BytesIO(payload)).namelist()
+    ):
         archive = zipfile.ZipFile(io.BytesIO(payload))
         payload = archive.read(next(n for n in archive.namelist() if n.endswith(".xlsx")))
     rows = read_xlsx_rows(payload)

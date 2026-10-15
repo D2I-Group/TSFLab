@@ -1,7 +1,9 @@
 """Independent SRSNet implementation from the selective patch-space paper."""
+
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
 
@@ -11,13 +13,16 @@ from tsflab.models._components.revin import RevIN
 
 class SelectivePatching(nn.Module):
     """Score and softly gate contextual patches to form a selective space."""
+
     def __init__(self, patch_len: int, d_model: int, hidden_size: int, alpha: float, dropout: float) -> None:
         super().__init__()
         self.alpha = float(alpha)
         self.embedding = nn.Linear(patch_len, d_model)
         # A shared final bias would cancel in both centered gates and pairwise
         # ranks, so it is deliberately omitted rather than keeping a dead parameter.
-        self.scorer = nn.Sequential(nn.Linear(d_model, hidden_size), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden_size, 1, bias=False))
+        self.scorer = nn.Sequential(
+            nn.Linear(d_model, hidden_size), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden_size, 1, bias=False)
+        )
 
     def forward(self, patches: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         embedded = self.embedding(patches)
@@ -28,6 +33,7 @@ class SelectivePatching(nn.Module):
 
 class DynamicReassembly(nn.Module):
     """Differentiably reorder patches according to their learned utility."""
+
     def __init__(self, alpha: float) -> None:
         super().__init__()
         self.alpha = float(alpha)
@@ -46,7 +52,10 @@ class DynamicReassembly(nn.Module):
 
 class SelectiveRepresentationSpace(nn.Module):
     """Selective Patching followed by Dynamic Reassembly."""
-    def __init__(self, patch_len: int, d_model: int, hidden_size: int, alpha: float, dropout: float, pos: bool, patch_count: int) -> None:
+
+    def __init__(
+        self, patch_len: int, d_model: int, hidden_size: int, alpha: float, dropout: float, pos: bool, patch_count: int
+    ) -> None:
         super().__init__()
         self.select = SelectivePatching(patch_len, d_model, hidden_size, alpha, dropout)
         self.reassemble = DynamicReassembly(alpha)
@@ -64,10 +73,24 @@ SRS = SelectiveRepresentationSpace
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, features: str = "M", d_model: int = 512,
-                 patch_len: int = 24, stride: int = 24, hidden_size: int = 128, dropout: float = 0.2,
-                 head_dropout: float = 0.1, alpha: float = 2.0, pos: bool = True,
-                 head_mode: str = "linear", affine: bool = True, subtract_last: bool = False) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        features: str = "M",
+        d_model: int = 512,
+        patch_len: int = 24,
+        stride: int = 24,
+        hidden_size: int = 128,
+        dropout: float = 0.2,
+        head_dropout: float = 0.1,
+        alpha: float = 2.0,
+        pos: bool = True,
+        head_mode: str = "linear",
+        affine: bool = True,
+        subtract_last: bool = False,
+    ) -> None:
         super().__init__()
         if patch_len > seq_len:
             raise ValueError("SRSNet requires patch_len <= seq_len")

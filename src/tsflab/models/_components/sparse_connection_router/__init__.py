@@ -68,9 +68,7 @@ class SharedSparseConnectionRouter(nn.Module):
             nn.ReLU(),
             nn.Linear(memory_dim, 1),
         )
-        self.register_buffer(
-            "_position_index", torch.arange(num_positions), persistent=False
-        )
+        self.register_buffer("_position_index", torch.arange(num_positions), persistent=False)
 
     def forward(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return ``(connections, probabilities)``, each ``(heads, N, N)``.

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mtsmixer.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     rev: bool = True
 
     @model_validator(mode="after")
-    def _channel_rank(self) -> "ModelParameterConfig":
+    def _channel_rank(self) -> ModelParameterConfig:
         if self.fac_C and self.d_ff >= self.enc_in:
             raise ValueError("factorized channel rank must be smaller than enc_in")
         return self

@@ -24,12 +24,8 @@ class GatedCausalLayer(nn.Module):
         super().__init__()
         self.dilation = dilation
         self.kernel_size = kernel_size
-        self.filter = nn.Conv1d(
-            residual_width, dilation_width, kernel_size, dilation=dilation
-        )
-        self.gate = nn.Conv1d(
-            residual_width, dilation_width, kernel_size, dilation=dilation
-        )
+        self.filter = nn.Conv1d(residual_width, dilation_width, kernel_size, dilation=dilation)
+        self.gate = nn.Conv1d(residual_width, dilation_width, kernel_size, dilation=dilation)
         self.residual = nn.Conv1d(dilation_width, residual_width, 1)
         self.skip = nn.Conv1d(dilation_width, skip_width, 1)
 
@@ -96,20 +92,14 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm") if self.revin is not None else x_enc
         batch = normalized.shape[0]
-        values = normalized.transpose(1, 2).reshape(
-            batch * self.enc_in, 1, self.seq_len
-        )
+        values = normalized.transpose(1, 2).reshape(batch * self.enc_in, 1, self.seq_len)
         residual = self.input_projection(values)
         skips: list[torch.Tensor] = []
         for layer in self.causal_layers:
             residual, skip = layer(residual)
             skips.append(skip)
-        summary = self.head(
-            torch.stack(skips).sum(0) + self.final_skip(residual)
-        ).squeeze(-1)
-        forecast = self.horizon_projection(summary).view(
-            batch, self.enc_in, self.pred_len
-        ).transpose(1, 2)
+        summary = self.head(torch.stack(skips).sum(0) + self.final_skip(residual)).squeeze(-1)
+        forecast = self.horizon_projection(summary).view(batch, self.enc_in, self.pred_len).transpose(1, 2)
         if self.revin is not None:
             forecast = self.revin(forecast, "denorm")
         return forecast[..., -1:] if self.features == "MS" else forecast

@@ -44,9 +44,7 @@ def build_model(cfg, params):
     levels = options.pop("quantile_levels") or list(cfg.evaluation.quantile_levels)
     if options["bands"] > cfg.task.seq_len // 2 + 1:
         raise ValueError("bands must not exceed the number of rFFT bins of seq_len")
-    return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options
-    )
+    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options)
 
 
 def training_objective(model, batch: TrainingBatch, criterion):

@@ -26,14 +26,10 @@ class ModelParameterConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enc_in: int = Field(gt=0)
-    patch_extractors: list[list[int]] = Field(
-        default_factory=lambda: [[3, 1, 1], [10, 2, 4], [15, 3, 5]], min_length=1
-    )
+    patch_extractors: list[list[int]] = Field(default_factory=lambda: [[3, 1, 1], [10, 2, 4], [15, 3, 5]], min_length=1)
     encoding_size: int = Field(default=16, gt=0)
     representation: Representation = "linear"
-    time_embedding: list[Literal["posEmb", "timeF", "tempEmb"]] = Field(
-        default_factory=lambda: ["posEmb"]
-    )
+    time_embedding: list[Literal["posEmb", "timeF", "tempEmb"]] = Field(default_factory=lambda: ["posEmb"])
     time_embedding_size: int = Field(default=16, gt=0)
     freq: str = "h"
     memory_layers: int = Field(default=3, ge=0)
@@ -49,9 +45,7 @@ class ModelParameterConfig(BaseModel):
     @classmethod
     def _triples(cls, value: list[list[int]]) -> list[list[int]]:
         if any(len(spec) != 3 or min(spec) < 1 for spec in value):
-            raise ValueError(
-                "each patch extractor is [cover_size, dilation, stride] of positive integers"
-            )
+            raise ValueError("each patch extractor is [cover_size, dilation, stride] of positive integers")
         return value
 
     @field_validator("time_embedding")

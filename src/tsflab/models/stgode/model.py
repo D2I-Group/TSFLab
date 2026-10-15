@@ -1,10 +1,12 @@
 """Clean-room STGODE with spatial/semantic tensor-ODE branches."""
 
 from __future__ import annotations
+
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._inputs import check_window, square_adjacency
 
@@ -50,9 +52,7 @@ class ODEBranch(nn.Module):
         channels = x.permute(0, 3, 2, 1)
         first = torch.tanh(self._causal(self.pre_filter, channels, 2)).permute(0, 3, 2, 1)
         evolved = self.ode(first, graph)
-        second = torch.tanh(self._causal(self.post_filter, evolved.permute(0, 3, 2, 1), 4)).permute(
-            0, 3, 2, 1
-        )
+        second = torch.tanh(self._causal(self.post_filter, evolved.permute(0, 3, 2, 1), 4)).permute(0, 3, 2, 1)
         return self.norm(x + second)
 
 
@@ -76,11 +76,7 @@ class Model(nn.Module):
             num_nodes,
             input_dim,
         )
-        adj = (
-            np.eye(num_nodes, dtype=np.float32)
-            if adj_mx is None
-            else square_adjacency(adj_mx, num_nodes)
-        )
+        adj = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         spatial = _row_normalize(adj)
         profiles = spatial @ spatial.T
         semantic = _row_normalize(np.maximum(profiles, 0).astype(np.float32))

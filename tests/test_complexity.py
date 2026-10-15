@@ -25,7 +25,15 @@ def test_audit_flags_complex_functions_and_large_methods(tmp_path: Path, monkeyp
     errors = ca.audit_complexity(tmp_path)
     assert any("cyclomatic complexity" in e for e in errors)
     (pkg / "model.py").write_text("x = 1\n" * (ca.MAX_METHOD_LINES + 1))
-    assert any("lines of Python" in e for e in ca.audit_complexity(tmp_path))
+    assert any("lines of code" in e for e in ca.audit_complexity(tmp_path))
+    padded = '"""Doc."""\n# comment\n\n' + "x = 1\n" * ca.MAX_METHOD_LINES
+    (pkg / "model.py").write_text(padded)
+    assert ca.audit_complexity(tmp_path) == []
+
+
+def test_code_lines_skip_blank_lines_comments_and_docstrings():
+    source = '"""Module."""\n\n# note\ndef f(\n    a,\n    b,\n):\n    """Doc."""\n    return a + b\n'
+    assert ca.code_lines(source) == 5
 
 
 def test_repository_passes_complexity_audit():

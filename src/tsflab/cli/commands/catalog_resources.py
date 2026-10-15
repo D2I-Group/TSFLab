@@ -20,11 +20,7 @@ def _model_audit_record(
     paper = dict(fields.get("paper", {}))
     codebase_value = fields.get("codebase")
     codebase = dict(codebase_value) if isinstance(codebase_value, dict) else {}
-    missing_source = [
-        field
-        for field in ("url", "revision", "license")
-        if not codebase.get(field)
-    ]
+    missing_source = [field for field in ("url", "revision", "license") if not codebase.get(field)]
     blockers = []
     if paper.get("url") and not paper.get("title"):  # baselines without a paper omit [paper]
         blockers.append("paper.title")
@@ -32,8 +28,10 @@ def _model_audit_record(
         blockers.extend(f"codebase.{field}" for field in missing_source)
     admission = dict(fields.get("admission") or {})
     status = str(admission.get("status") or "pending")
-    verification_status: dict[str, object] = {"status": status, **{
-        key: admission[key] for key in ("date", "commit", "reference", "note") if admission.get(key)}}
+    verification_status: dict[str, object] = {
+        "status": status,
+        **{key: admission[key] for key in ("date", "commit", "reference", "note") if admission.get(key)},
+    }
     # Admission is recorded once in card.toml; a release requires every model passed.
     release_blockers = list(blockers)
     if status != "passed":
@@ -117,7 +115,9 @@ def _model_impl(args: list[str]) -> int:
         from tsflab.catalog.registry.models import MODEL_CATALOG
 
         parameters_only = "--params" in rest
-        parsed = parse_show("tsf catalog show --kind model", "public model name", [arg for arg in rest if arg != "--params"])
+        parsed = parse_show(
+            "tsf catalog show --kind model", "public model name", [arg for arg in rest if arg != "--params"]
+        )
         lookup = parsed.name
         if lookup not in MODEL_CATALOG.names():
             matches = [name for name in MODEL_CATALOG.names() if name.casefold() == lookup.casefold()]
@@ -129,12 +129,18 @@ def _model_impl(args: list[str]) -> int:
             print(str(exc), file=sys.stderr)
             return 2
         if parameters_only:
-            print(json.dumps({"name": spec.name, "config": spec.config_path,
-                              "parameters": spec.params_schema.model_json_schema()}, separators=(",", ":")))
+            print(
+                json.dumps(
+                    {
+                        "name": spec.name,
+                        "config": spec.config_path,
+                        "parameters": spec.params_schema.model_json_schema(),
+                    },
+                    separators=(",", ":"),
+                )
+            )
             return 0
-        fields = next(
-            record for record in model_records(ROOT) if record["name"] == spec.name
-        )
+        fields = next(record for record in model_records(ROOT) if record["name"] == spec.name)
         paper = dict(fields["paper"])
         codebase = fields["codebase"]
         card_path = ROOT / str(fields["model_card"])
@@ -190,10 +196,7 @@ def _model_impl(args: list[str]) -> int:
             spec.config_path,
             spec.smoke_config or "",
             f"{package}/reference.md",
-            *(
-                f"src/tsflab/models/_components/{name}/README.md"
-                for name in spec.components
-            ),
+            *(f"src/tsflab/models/_components/{name}/README.md" for name in spec.components),
         )
         return show_card(ROOT, card_path, parsed, facts=facts, paths=paths, legacy=legacy)
     if action == "artifacts":
@@ -217,9 +220,7 @@ def _model_impl(args: list[str]) -> int:
         except KeyError as exc:
             parser.error(str(exc))
         if parsed.fetch:
-            selected = next(
-                (item for item in spec.artifacts if item.name == parsed.fetch), None
-            )
+            selected = next((item for item in spec.artifacts if item.name == parsed.fetch), None)
             if selected is None:
                 parser.error(f"model {spec.name!r} has no artifact {parsed.fetch!r}")
             fetch_artifact(spec, selected, parsed.cache_dir)
@@ -239,6 +240,7 @@ def _model_impl(args: list[str]) -> int:
         return search_command(ROOT, rest, prog="tsf catalog search --kind model", kind="model")
     if action == "audit":
         import argparse
+
         from tsflab.catalog.cards.metadata import model_records
 
         parser = argparse.ArgumentParser(
@@ -249,8 +251,7 @@ def _model_impl(args: list[str]) -> int:
         output = parser.add_mutually_exclusive_group()
         output.add_argument("--json", action="store_true", help="emit per-model JSON")
         output.add_argument("--summary", action="store_true", help="emit aggregate JSON")
-        parser.add_argument("--release", action="store_true",
-                            help="also require a passed admission for every model")
+        parser.add_argument("--release", action="store_true", help="also require a passed admission for every model")
         parsed = parser.parse_args(rest)
         key = "release_blockers" if parsed.release else "blockers"
         declared = {str(fields["name"]): fields for fields in model_records(ROOT)}
@@ -262,33 +263,20 @@ def _model_impl(args: list[str]) -> int:
         for name in names:
             card = ROOT / str(declared[name]["model_card"])
             declared[name]["card_text"] = card.read_text(encoding="utf-8")
-        records = [
-            _model_audit_record(declared[name])
-            for name in names
-        ]
+        records = [_model_audit_record(declared[name]) for name in names]
         failures = [record for record in records if record[key]]
         pending = sum(any(b.startswith("admission.") for b in record["release_blockers"]) for record in records)
         if parsed.summary:
-            blockers = Counter(
-                blocker for record in failures for blocker in record[key]
-            )
+            blockers = Counter(blocker for record in failures for blocker in record[key])
             _print(
                 {
                     "models": len(records),
                     "passed": len(records) - len(failures),
                     "failed": len(failures),
                     "blockers": dict(sorted(blockers.items())),
-                    "verification": dict(
-                        sorted(
-                            Counter(
-                                str(r["verification"]["status"])
-                                for r in records
-                            ).items()
-                        )
-                    ),
+                    "verification": dict(sorted(Counter(str(r["verification"]["status"]) for r in records).items())),
                     "complete_codebase": sum(
-                        bool(r["codebase"]["url"]) and not r["codebase"]["missing"]
-                        for r in records
+                        bool(r["codebase"]["url"]) and not r["codebase"]["missing"] for r in records
                     ),
                     "with_smoke_config": sum(bool(r["smoke_config"]) for r in records),
                     "admission_pending": pending,
@@ -299,15 +287,13 @@ def _model_impl(args: list[str]) -> int:
         else:
             for record in failures:
                 print(f"FAIL {record['name']}: {', '.join(record[key])}")
-            print(
-                f"{len(records) - len(failures)}/{len(records)} model audits passed"
-            )
+            print(f"{len(records) - len(failures)}/{len(records)} model audits passed")
             if pending and not parsed.release:
-                print(f"{pending} model(s) lack a passed admission "
-                      "(advisory; required by `tsf model audit --release`)")
+                print(f"{pending} model(s) lack a passed admission (advisory; required by `tsf model audit --release`)")
         return 1 if failures else 0
     print(f"unknown model action: {action!r}", file=sys.stderr)
     return 2
+
 
 def _issues_command(argv: list[str]) -> int:
     """List upstream issues recorded in model cards (paper and official-code problems)."""
@@ -340,13 +326,12 @@ def _issues_command(argv: list[str]) -> int:
         print(f"MALFORMED {problem}", file=sys.stderr)
     malformed.extend(declined_problems)
     if args.summary:
-        _print({**summarize(records), "malformed": len(malformed),
-                "declined": summarize_declined(declined)})
+        _print({**summarize(records), "malformed": len(malformed), "declined": summarize_declined(declined)})
         return 1 if malformed else 0
     rows = [
-        {"model": name, "kind": issue.kind, "where": issue.where, "what": issue.what,
-         "resolution": issue.resolution}
-        for name, issues in records.items() for issue in issues or []
+        {"model": name, "kind": issue.kind, "where": issue.where, "what": issue.what, "resolution": issue.resolution}
+        for name, issues in records.items()
+        for issue in issues or []
         if not args.kind or issue.kind == args.kind
     ]
     if args.json:
@@ -377,17 +362,15 @@ def _component_impl(args: list[str]) -> int:
 
         root = repository_root()
         failures = audit_components()
-        failures.extend(
-            error for error in audit_resource_cards(root) if "_components" in error
-        )
+        failures.extend(error for error in audit_resource_cards(root) if "_components" in error)
         for failure in failures:
             print(f"ERROR: {failure}")
         total = len(COMPONENT_CATALOG.names())
         print(f"Component catalog/cards: {'PASS' if not failures else 'FAIL'} ({total} components)")
         return 1 if failures else 0
     if action == "list" and (not rest or rest == ["--json"]):
-        from tsflab.catalog.cards.depth import card_l0, l0_line, read_card
         from tsflab.catalog.cards.components import component_card_path
+        from tsflab.catalog.cards.depth import card_l0, l0_line, read_card
 
         records = []
         for spec in COMPONENT_CATALOG.specs():
@@ -407,8 +390,8 @@ def _component_impl(args: list[str]) -> int:
                 print(l0_line(record))
         return 0
     if action == "show":
-        from tsflab.catalog.cards.show import existing, parse_show, show_card
         from tsflab.catalog.cards.components import component_card_path
+        from tsflab.catalog.cards.show import existing, parse_show, show_card
 
         parsed = parse_show("tsf catalog show --kind component", "component name", rest)
         try:
@@ -418,8 +401,7 @@ def _component_impl(args: list[str]) -> int:
             return 2
         consumers = []
         for package in sorted((ROOT / "src" / "tsflab" / "models").iterdir()):
-            if (package.is_dir() and not package.name.startswith("_")
-                    and spec.name in components_used_by(package)):
+            if package.is_dir() and not package.name.startswith("_") and spec.name in components_used_by(package):
                 consumers.append(package.name)
         card = f"src/tsflab/models/_components/{spec.name}/README.md"
         legacy = {
@@ -448,9 +430,7 @@ def _component_impl(args: list[str]) -> int:
             *tests[:6],
             *(f"src/tsflab/models/{name}/model.py" for name in consumers[:3]),
         )
-        return show_card(
-            ROOT, component_card_path(ROOT, spec.name), parsed, facts=facts, paths=paths, legacy=legacy
-        )
+        return show_card(ROOT, component_card_path(ROOT, spec.name), parsed, facts=facts, paths=paths, legacy=legacy)
     if action == "search":
         from tsflab.catalog.cards.search import search_command
 
@@ -463,9 +443,7 @@ def _component_impl(args: list[str]) -> int:
                 "review_required": True,
             }
 
-        code = search_command(
-            ROOT, rest, prog="tsf catalog search --kind component", kind="component", augment=augment
-        )
+        code = search_command(ROOT, rest, prog="tsf catalog search --kind component", kind="component", augment=augment)
         if code == 0 and "--json" not in rest:
             print(
                 "Candidate retrieval only; open one with `tsf catalog show <name> "
@@ -481,12 +459,12 @@ def _catalog_overview(as_json: bool) -> int:
     """Print the entry view: what exists, grouped, and how to drill down."""
     from collections import Counter
 
+    from tsflab.catalog.cards.components import component_card_path
     from tsflab.catalog.cards.datasets import dataset_facts, dataset_records
     from tsflab.catalog.cards.depth import read_card
     from tsflab.catalog.cards.metadata import model_records
     from tsflab.catalog.cards.models import FAMILY_TAGS
     from tsflab.catalog.components import COMPONENT_CATALOG
-    from tsflab.catalog.cards.components import component_card_path
 
     models = model_records(ROOT)
     families = Counter(tag for record in models for tag in record.get("tags", ()) if tag in FAMILY_TAGS)
@@ -499,8 +477,11 @@ def _catalog_overview(as_json: bool) -> int:
     facts = dataset_facts(ROOT)
     domains = Counter(str(facts.get(r.name, {}).get("domain", "unknown")).split(" / ")[0] for r in records)
     payload = {
-        "models": {"count": len(models), "families": dict(families.most_common()),
-                   "task_modes": dict(modes.most_common())},
+        "models": {
+            "count": len(models),
+            "families": dict(families.most_common()),
+            "task_modes": dict(modes.most_common()),
+        },
         "components": {"count": len(COMPONENT_CATALOG.names()), "categories": dict(categories.most_common())},
         "datasets": {"count": len(records), "domains": dict(domains.most_common())},
         "next": [
@@ -517,8 +498,10 @@ def _catalog_overview(as_json: bool) -> int:
     if as_json:
         print(json.dumps(payload, indent=2))
         return 0
+
     def fmt(counter: dict) -> str:
         return ", ".join(f"{key} {value}" for key, value in counter.items()) or "(untagged)"
+
     print(f"models      {len(models):>4}  families: {fmt(payload['models']['families'])}")
     print(f"            capabilities: {fmt(payload['models']['task_modes'])}")
     print(f"components  {payload['components']['count']:>4}  categories: {fmt(payload['components']['categories'])}")
@@ -598,8 +581,7 @@ def catalog_command(args: list[str]) -> int:
             return _read(kind, "search", rest)
         from tsflab.catalog.cards.search import search_command
 
-        return search_command(ROOT, rest if kind is None else [*rest, "--kind", kind],
-                              prog="tsf catalog search")
+        return search_command(ROOT, rest if kind is None else [*rest, "--kind", kind], prog="tsf catalog search")
     if action == "match":
         from tsflab.catalog.match import match_command
 

@@ -32,9 +32,16 @@ class _HeterogeneousProjection(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 rank: int = 4, polynomial_order: int = 2,
-                 use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        rank: int = 4,
+        polynomial_order: int = 2,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.rank, self.polynomial_order, self.use_revin = min(rank, enc_in), polynomial_order, use_revin

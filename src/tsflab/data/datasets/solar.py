@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
-from tsflab.data.schemas.datasets.solar import DatasetParameterConfig
 from tsflab.catalog.registry import DATASET_REGISTRY
 from tsflab.data.datasets.base import ForecastingDataset
+from tsflab.data.schemas.datasets.solar import DatasetParameterConfig
 
 
 class Dataset_Solar(ForecastingDataset):
@@ -58,10 +58,10 @@ class Dataset_Solar(ForecastingDataset):
         target: str,
         split_ratio: tuple[float, float, float],
         scale: bool,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Read the Solar data and return split series and timestamps."""
         df_rows = []
-        with open(self.file_path, "r", encoding="utf-8") as f:
+        with open(self.file_path, encoding="utf-8") as f:
             for line in f.readlines():
                 line = line.strip("\n").split(",")
                 data_line = np.stack([float(i) for i in line])
@@ -102,6 +102,8 @@ class Dataset_Solar(ForecastingDataset):
 def register() -> None:
     """Register the Solar dataset."""
     DATASET_REGISTRY.register(
-        "solar", Dataset_Solar, DatasetParameterConfig,
+        "solar",
+        Dataset_Solar,
+        DatasetParameterConfig,
         task_modes=frozenset({"time_series"}),
     )

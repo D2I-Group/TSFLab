@@ -140,7 +140,7 @@ class ConvSelfAttention(nn.Module):
         earlier positions and is extended in place; ``blocked_row`` is row ``L - 1``
         of the mask restricted to its first ``L`` columns. An empty cache starts it.
         """
-        tail = x[:, -self.kernel_size:]
+        tail = x[:, -self.kernel_size :]
         q = self._heads(self._causal_conv(self.query_conv, tail)[:, -1:])
         k_new = self._heads(self._causal_conv(self.key_conv, tail)[:, -1:])
         v_new = self._heads(self.value(x[:, -1:]))

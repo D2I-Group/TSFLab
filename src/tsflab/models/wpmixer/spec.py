@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.wpmixer.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     no_decomposition: bool = False
 
     @model_validator(mode="after")
-    def _wavelet_filters(self) -> "ModelParameterConfig":
+    def _wavelet_filters(self) -> ModelParameterConfig:
         # The wavelet is only built when the decomposition is on.
         if not self.no_decomposition and (self.wavelet not in ("haar", "db1", "db2") or self.level < 1):
             raise ValueError("wavelet must be haar/db1/db2 and level positive")

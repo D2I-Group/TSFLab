@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.sparsetsf.model import Model
-
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.models.sparsetsf.model import Model
 
 
 class ModelParameterConfig(BaseModel):

@@ -98,9 +98,7 @@ class Model(nn.Module):
     ) -> torch.Tensor:
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
-        denoised, self.last_band_boundaries, self.last_gating_scores = self.moe(
-            x_enc.permute(0, 2, 1)
-        )
+        denoised, self.last_band_boundaries, self.last_gating_scores = self.moe(x_enc.permute(0, 2, 1))
         denoised = denoised.permute(0, 2, 1)
 
         residual = denoised

@@ -11,8 +11,6 @@ cov_hist, cov_fut)`` with value ``(T, N)`` and covariates ``(T, N, F)``.
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 from torch.utils.data import Dataset
 
@@ -80,7 +78,7 @@ class Dataset_Synthetic_ST(Dataset):
         """Number of windows in this split."""
         return len(self.data) - self.seq_len - self.pred_len + 1
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return ``(value_hist, value_fut, cov_hist, cov_fut)``."""
         s = index
         e = s + self.seq_len
@@ -101,7 +99,9 @@ class Dataset_Synthetic_ST(Dataset):
 def register() -> None:
     """Register the synthetic spatiotemporal dataset."""
     DATASET_REGISTRY.register(
-        "synthetic_st", Dataset_Synthetic_ST, DatasetParameterConfig,
+        "synthetic_st",
+        Dataset_Synthetic_ST,
+        DatasetParameterConfig,
         task_modes=frozenset({"spatiotemporal", "covariate"}),
         storage="directory",
     )

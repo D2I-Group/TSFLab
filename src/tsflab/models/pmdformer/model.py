@@ -28,7 +28,9 @@ class TrendRestorationAttention(nn.Module):
         self.output = nn.Linear(d_model, d_model)
         self.norm1 = nn.LayerNorm(d_model)
         self.ffn = nn.Sequential(
-            nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Dropout(dropout),
+            nn.Linear(d_model, 2 * d_model),
+            nn.GELU(),
+            nn.Dropout(dropout),
             nn.Linear(2 * d_model, d_model),
         )
         self.norm2 = nn.LayerNorm(d_model)
@@ -64,12 +66,12 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, enabled=use_revin)
         self.patch_projection = nn.Linear(self.patch_len, d_model)
         self.position = nn.Parameter(torch.zeros(1, 1, self.num_patches, d_model))
-        self.proximal_attention = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
+        self.proximal_attention = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.proximal_norm1 = nn.LayerNorm(d_model)
         self.proximal_ffn = nn.Sequential(
-            nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Dropout(dropout),
+            nn.Linear(d_model, 2 * d_model),
+            nn.GELU(),
+            nn.Dropout(dropout),
             nn.Linear(2 * d_model, d_model),
         )
         self.proximal_norm2 = nn.LayerNorm(d_model)

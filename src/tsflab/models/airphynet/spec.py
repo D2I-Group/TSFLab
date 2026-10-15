@@ -1,9 +1,11 @@
 """Runtime specification for AirPhyNet."""
 
 from typing import Literal
+
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.airphynet.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

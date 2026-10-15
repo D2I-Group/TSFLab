@@ -11,7 +11,6 @@ from torch import nn
 from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
-
 _ACTIVATIONS = {
     "relu": nn.ReLU,
     "gelu": nn.GELU,
@@ -78,12 +77,8 @@ class PWSModel(nn.Module):
         self.hidden_sizes = _parse_hidden(analysis_hidden)
         self.analysis_act = analysis_act
 
-        self.analysis_layers = nn.ModuleList(
-            [self.make_analysis() for _ in range(self.num_patches)]
-        )
-        self.weighted_sum_layers = nn.ModuleList(
-            [self.make_wsum() for _ in range(self.num_patches)]
-        )
+        self.analysis_layers = nn.ModuleList([self.make_analysis() for _ in range(self.num_patches)])
+        self.weighted_sum_layers = nn.ModuleList([self.make_wsum() for _ in range(self.num_patches)])
 
     def make_analysis(self):
         act = make_act(self.analysis_act)

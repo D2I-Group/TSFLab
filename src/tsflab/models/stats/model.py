@@ -55,8 +55,7 @@ class ConditionalGuidedModule(nn.Module):
         self.gate_bias = nn.Parameter(torch.zeros(frequencies))  # b in Eq. 17
         sizes = [len(part) for part in torch.tensor_split(torch.arange(frequencies), bands)]
         self.band_gains = nn.ParameterList(
-            nn.Parameter(torch.view_as_real(torch.randn(size, dtype=torch.cfloat) * init_scale))
-            for size in sizes
+            nn.Parameter(torch.view_as_real(torch.randn(size, dtype=torch.cfloat) * init_scale)) for size in sizes
         )
         self.projection = nn.Linear(seq_len, pred_len)
 
@@ -69,8 +68,9 @@ class ConditionalGuidedModule(nn.Module):
         spectrum = torch.fft.rfft(history.transpose(1, 2), dim=-1)  # [B, N, F]
         spectrum = spectrum * self.frequency_gate(spectrum)[:, None, :]
         parts = torch.tensor_split(spectrum, self.bands, dim=-1)
-        spectrum = torch.cat([part * torch.view_as_complex(gain) for part, gain in zip(parts, self.band_gains)],
-                             dim=-1)  # Eqs. 18-19
+        spectrum = torch.cat(
+            [part * torch.view_as_complex(gain) for part, gain in zip(parts, self.band_gains)], dim=-1
+        )  # Eqs. 18-19
         filtered = torch.fft.irfft(spectrum, n=self.seq_len, dim=-1)  # Eq. 20
         return self.projection(filtered).transpose(1, 2)
 
@@ -94,8 +94,9 @@ class SpectralConditionedDenoiser(nn.Module):
     def __init__(self, steps: int, channels: int, pred_len: int, hidden: int) -> None:
         super().__init__()
         bottleneck = max(8, channels // 4)
-        self.gate = nn.Sequential(nn.Linear(channels, bottleneck), nn.SiLU(),
-                                  nn.Linear(bottleneck, channels), nn.Sigmoid())
+        self.gate = nn.Sequential(
+            nn.Linear(channels, bottleneck), nn.SiLU(), nn.Linear(bottleneck, channels), nn.Sigmoid()
+        )
         self.raw_input = nn.Linear(pred_len, hidden)
         self.guided_input = nn.Linear(pred_len, hidden)
         self.film1 = FiLM(steps + 1, hidden)
@@ -193,8 +194,14 @@ class Model(nn.Module):
         self.num_steps = diffusion_steps
         self.schedule_epochs = schedule_epochs
         self.stage_lr, self.stage_weight_decay, self.stage_grad_clip = stage_lr, stage_weight_decay, stage_grad_clip
-        self.weights = {"smooth": lambda_smooth, "init": lambda_init, "end": lambda_end,
-                        "bar": lambda_bar, "prog": lambda_prog, "obj": lambda_obj}
+        self.weights = {
+            "smooth": lambda_smooth,
+            "init": lambda_init,
+            "end": lambda_end,
+            "bar": lambda_bar,
+            "prog": lambda_prog,
+            "obj": lambda_obj,
+        }
         self.num_samples, self.sample_batch_size = num_samples, sample_batch_size
         self.denoiser = FrequencyGuidedDenoiser(seq_len, pred_len, enc_in, diffusion_steps, hidden, bands)
         # STS: beta(t) for the 0-based steps t = 0 .. T-1, linear initialisation.
@@ -269,8 +276,9 @@ class Model(nn.Module):
             return
         self.to(device)
         self.train()
-        denoiser_optim = torch.optim.Adam(self.denoiser.parameters(), lr=self.stage_lr,
-                                          weight_decay=self.stage_weight_decay)
+        denoiser_optim = torch.optim.Adam(
+            self.denoiser.parameters(), lr=self.stage_lr, weight_decay=self.stage_weight_decay
+        )
         schedule_optim = torch.optim.Adam([self.beta], lr=self.stage_lr, weight_decay=self.stage_weight_decay)
         for _ in range(self.schedule_epochs):
             self.beta.requires_grad_(False)
@@ -278,7 +286,7 @@ class Model(nn.Module):
             for batch in train_loader:
                 x, y = batch[0].float().to(device), batch[1].float().to(device)
                 denoiser_optim.zero_grad()
-                loss = self.denoiser_loss(x, y[:, -self.pred_len:])
+                loss = self.denoiser_loss(x, y[:, -self.pred_len :])
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.parameters(), self.stage_grad_clip)
                 denoiser_optim.step()
@@ -287,7 +295,7 @@ class Model(nn.Module):
             for batch in train_loader:
                 x, y = batch[0].float().to(device), batch[1].float().to(device)
                 schedule_optim.zero_grad()
-                self.schedule_loss(x, y[:, -self.pred_len:]).backward()
+                self.schedule_loss(x, y[:, -self.pred_len :]).backward()
                 schedule_optim.step()
         self.denoiser.requires_grad_(True)
         self.freeze_schedule()

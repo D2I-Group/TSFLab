@@ -11,6 +11,7 @@ training and uses its mean for deterministic evaluation.
 from __future__ import annotations
 
 import math
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -35,7 +36,10 @@ class CausalTemporalAttention(nn.Module):
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         batch, steps, width = values.shape
         q, k, v = self.qkv(values).chunk(3, dim=-1)
-        reshape = lambda item: item.reshape(batch, steps, self.heads, self.head_dim).transpose(1, 2)
+
+        def reshape(item):
+            return item.reshape(batch, steps, self.heads, self.head_dim).transpose(1, 2)
+
         q, k, v = map(reshape, (q, k, v))
         scores = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.head_dim)
         row = torch.arange(steps, device=values.device)[:, None]
@@ -91,13 +95,15 @@ class AirFormerBlock(nn.Module):
 
     def forward(self, values: torch.Tensor, projection: torch.Tensor) -> torch.Tensor:
         batch, steps, nodes, width = values.shape
-        temporal = self.temporal(
-            self.temporal_norm(values).permute(0, 2, 1, 3).reshape(batch * nodes, steps, width)
-        ).reshape(batch, nodes, steps, width).permute(0, 2, 1, 3)
+        temporal = (
+            self.temporal(self.temporal_norm(values).permute(0, 2, 1, 3).reshape(batch * nodes, steps, width))
+            .reshape(batch, nodes, steps, width)
+            .permute(0, 2, 1, 3)
+        )
         values = values + temporal
-        spatial = self.spatial(
-            self.spatial_norm(values).reshape(batch * steps, nodes, width), projection
-        ).reshape(batch, steps, nodes, width)
+        spatial = self.spatial(self.spatial_norm(values).reshape(batch * steps, nodes, width), projection).reshape(
+            batch, steps, nodes, width
+        )
         values = values + spatial
         return values + self.ff(self.ff_norm(values))
 
@@ -139,19 +145,13 @@ class Model(nn.Module):
         self.cov_dim = cov_dim
         self.register_buffer("dartboard_projection", _dartboard_projection(dartboard_mx, enc_in))
 
-        self.input_projection = nn.Sequential(
-            nn.Linear(1 + cov_dim, d_model), nn.GELU(), nn.Linear(d_model, d_model)
-        )
+        self.input_projection = nn.Sequential(nn.Linear(1 + cov_dim, d_model), nn.GELU(), nn.Linear(d_model, d_model))
         self.blocks = nn.ModuleList(
             AirFormerBlock(d_model, nhead, min(seq_len, 2 ** (index + 1)), dropout)
             for index in range(num_encoder_layers)
         )
-        self.latent_mean = nn.ModuleList(
-            nn.Linear(d_model * 2, d_model) for _ in range(num_encoder_layers)
-        )
-        self.latent_scale = nn.ModuleList(
-            nn.Linear(d_model * 2, d_model) for _ in range(num_encoder_layers)
-        )
+        self.latent_mean = nn.ModuleList(nn.Linear(d_model * 2, d_model) for _ in range(num_encoder_layers))
+        self.latent_scale = nn.ModuleList(nn.Linear(d_model * 2, d_model) for _ in range(num_encoder_layers))
         self.top_prior = nn.Parameter(torch.zeros(1, 1, 1, d_model))
         self.temporal_head = nn.Linear(seq_len, pred_len)
         self.output_head = nn.Linear(d_model * 2, 1)

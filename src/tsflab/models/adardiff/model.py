@@ -1,4 +1,5 @@
 """Causal adaptive differencing, residual pretraining and finite reconstruction."""
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -20,11 +21,11 @@ def causal_inverse_kernel(delta, horizon):
     g = torch.ones_like(delta[..., :1])
     while g.shape[-1] < horizon:
         length = min(2 * g.shape[-1], horizon)
-        a = torch.cat([torch.ones_like(delta[..., :1]), -delta[..., :length-1]], dim=-1)
+        a = torch.cat([torch.ones_like(delta[..., :1]), -delta[..., : length - 1]], dim=-1)
         ag = polynomial_product(a, g, length)
-        ag = F.pad(ag, (0, length-ag.shape[-1]))
-        identity_twice = F.pad(torch.full_like(g[..., :1], 2.), (0, length-1))
-        g = polynomial_product(g, identity_twice-ag, length)
+        ag = F.pad(ag, (0, length - ag.shape[-1]))
+        identity_twice = F.pad(torch.full_like(g[..., :1], 2.0), (0, length - 1))
+        g = polynomial_product(g, identity_twice - ag, length)
     return g
 
 
@@ -58,23 +59,29 @@ class Forecaster(nn.Module):
         if target is None:
             return zhat
         # Initial-condition term c_k = sum_{j>=k} delta_j x_{L+k-j}.
-        hist = x[:, -self.p:, :].flip(1).transpose(1, 2).reshape(-1, 1, self.p)
+        hist = x[:, -self.p :, :].flip(1).transpose(1, 2).reshape(-1, 1, self.p)
         signal = self.delta.unsqueeze(0).expand(x.shape[0], -1, -1).reshape(1, -1, self.p)
         signal = F.pad(signal, (0, self.horizon - 1))
-        c = F.conv1d(signal, hist, groups=x.shape[0] * self.channels).reshape(x.shape[0], self.channels, self.horizon).transpose(1, 2)
+        c = (
+            F.conv1d(signal, hist, groups=x.shape[0] * self.channels)
+            .reshape(x.shape[0], self.channels, self.horizon)
+            .transpose(1, 2)
+        )
         # h is the inverse generating function (1 - sum_j delta_j z^j)^-1.
         h = causal_inverse_kernel(self.delta, self.horizon)
         v = zhat + c
         # Causal convolution independently for each batch/channel.
         vf = torch.fft.rfft(v.transpose(1, 2), n=self.nfft, dim=-1)
         hf = torch.fft.rfft(h, n=self.nfft, dim=-1)
-        return torch.fft.irfft(vf * hf.unsqueeze(0), n=self.nfft, dim=-1)[..., :self.horizon].transpose(1, 2)
+        return torch.fft.irfft(vf * hf.unsqueeze(0), n=self.nfft, dim=-1)[..., : self.horizon].transpose(1, 2)
 
 
 class NativeForecaster(Forecaster):
     """Native forecasting interface; residual supervision owns a separate stage."""
-    def __init__(self, channels, lookback, horizon, p, enabled=True,
-                 phase1_epochs=30, phase1_lr=.001, phase1_patience=3):
+
+    def __init__(
+        self, channels, lookback, horizon, p, enabled=True, phase1_epochs=30, phase1_lr=0.001, phase1_patience=3
+    ):
         super().__init__(channels, lookback, horizon, p, enabled)
         self.phase1_epochs = phase1_epochs
         self.phase1_lr = phase1_lr
@@ -88,8 +95,7 @@ class NativeForecaster(Forecaster):
 
     def residual_pair(self, x, target):
         prediction = super().forward(x)
-        expected = self._difference_slice(torch.cat([x, target], dim=1),
-                                          x.shape[1], x.shape[1]+self.horizon)
+        expected = self._difference_slice(torch.cat([x, target], dim=1), x.shape[1], x.shape[1] + self.horizon)
         return prediction, expected
 
     def _phase1_pass(self, loader, device, optimizer=None):
@@ -100,7 +106,7 @@ class NativeForecaster(Forecaster):
         with torch.set_grad_enabled(training):
             for batch in loader:
                 x = batch[0].float().to(device)
-                target = batch[1].float().to(device)[:, -self.horizon:, :self.channels]
+                target = batch[1].float().to(device)[:, -self.horizon :, : self.channels]
                 prediction, expected = self.residual_pair(x, target)
                 loss = F.mse_loss(prediction, expected)
                 if not torch.isfinite(loss):

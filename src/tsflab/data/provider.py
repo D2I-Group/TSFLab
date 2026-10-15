@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Tuple, Type, cast
+from typing import cast
 
 from torch.utils.data import DataLoader
 
@@ -22,7 +22,7 @@ def build_data_loader(
     *,
     drop_last: bool | None = None,
     window_context: str = "carry",
-) -> Tuple[object, DataLoader]:
+) -> tuple[object, DataLoader]:
     """Build a dataset instance and its DataLoader.
 
     Parameters
@@ -57,7 +57,7 @@ def build_data_loader(
     dataset_spec = DATASET_REGISTRY.get(dataset_name)
     if window_context not in {"carry", "within-split"}:
         raise ValueError("window_context must be carry or within-split")
-    dataset_cls = cast(Type, dataset_spec.dataset_class)
+    dataset_cls = cast(type, dataset_spec.dataset_class)
 
     dataset_kwargs = dict(dataset_params)
 
@@ -71,8 +71,11 @@ def build_data_loader(
     )
     if window_context == "within-split":
         from tsflab.data.datasets.base import ForecastingDataset
+
         if not isinstance(data_set, ForecastingDataset) or not hasattr(data_set, "_history_context_rows"):
-            raise ValueError("within-split windows require a chronological ForecastingDataset with declared context rows")
+            raise ValueError(
+                "within-split windows require a chronological ForecastingDataset with declared context rows"
+            )
         context_rows = data_set._history_context_rows
         data_set.data = data_set.data[context_rows:]
         if data_set.time_stamp is not None:

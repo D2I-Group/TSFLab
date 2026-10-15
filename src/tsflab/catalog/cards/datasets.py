@@ -13,13 +13,12 @@ family of series sharing a loader (GIFT-Eval) get one family card as well.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 
 from tsflab.catalog.cards.schema import BENCHMARKS, DOMAINS, REDISTRIBUTION  # noqa: F401  (public names)
-
 
 #: Keys every preset card must carry; ``OPTIONAL_KEYS`` may be omitted.
 #: ``protocol`` is the TSFLab protocol; ``literature_protocol`` is context only.
@@ -111,6 +110,7 @@ def family_names(records: tuple[DatasetRecord, ...]) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 # Front matter
 # ---------------------------------------------------------------------------
+
 
 def split_card(text: str) -> tuple[dict[str, object], str]:
     """Split a card into ordered front-matter values and its body.
@@ -215,14 +215,14 @@ def write_characteristics(root: Path, config: str, fired: list[str], basis: str)
     terms = measured + [term for term in task if term not in measured]
     kept = [line for line in front if not line.startswith(("characteristics: ", "characteristics_basis: "))]
     kept += [f"characteristics: {json.dumps(terms)}", f"characteristics_basis: {json.dumps(basis)}"]
-    path.write_text("\n".join(["---", *kept, *lines[end:]]) + ("\n" if text.endswith("\n") else ""),
-                    encoding="utf-8")
+    path.write_text("\n".join(["---", *kept, *lines[end:]]) + ("\n" if text.endswith("\n") else ""), encoding="utf-8")
     return path
 
 
 # ---------------------------------------------------------------------------
 # tsflab.card/1 readers and writers (card.toml + README description)
 # ---------------------------------------------------------------------------
+
 
 def read_dataset_facts(path: Path) -> dict[str, object]:  # noqa: F811 - replaces the README parser
     """Flat retrieval facts of one dataset card (``path``: its README or directory)."""
@@ -232,19 +232,34 @@ def read_dataset_facts(path: Path) -> dict[str, object]:  # noqa: F811 - replace
     f = card.facts
     source, shape, protocol = f.get("source", {}), f.get("shape", {}), f.get("protocol", {})
     return {
-        "name": f["name"], "kind": f["kind"], "summary": card.description, "domain": f.get("domain", ""),
-        "topic": f.get("topic", ""), "benchmarks": list(f.get("benchmarks", [])),
-        "tags": list(f.get("tags", [])), "characteristics": list(f.get("characteristics", [])),
-        "source": source.get("name", ""), "source_url": source.get("url", ""),
-        "license": source.get("license", ""), "license_url": source.get("license_url", ""),
-        "redistribution": source.get("redistribution", ""), "conditions": source.get("conditions", ""),
-        "frequency": shape.get("frequency", ""), "time_span": shape.get("time_span", ""),
-        "length": shape.get("length", ""), "channels": shape.get("channels", ""),
-        "channel_kind": shape.get("channel_kind", ""), "target": shape.get("target", ""),
-        "missing_values": shape.get("missing_values", ""), "stats_basis": shape.get("stats_basis", ""),
-        "protocol": protocol.get("protocol", ""), "split": protocol.get("split", ""),
-        "seq_lens": list(protocol.get("seq_lens", [])), "pred_lens": list(protocol.get("pred_lens", [])),
-        "related": list(f.get("related", [])), "realtime_track": f.get("realtime_track", ""),
+        "name": f["name"],
+        "kind": f["kind"],
+        "summary": card.description,
+        "domain": f.get("domain", ""),
+        "topic": f.get("topic", ""),
+        "benchmarks": list(f.get("benchmarks", [])),
+        "tags": list(f.get("tags", [])),
+        "characteristics": list(f.get("characteristics", [])),
+        "source": source.get("name", ""),
+        "source_url": source.get("url", ""),
+        "license": source.get("license", ""),
+        "license_url": source.get("license_url", ""),
+        "redistribution": source.get("redistribution", ""),
+        "conditions": source.get("conditions", ""),
+        "frequency": shape.get("frequency", ""),
+        "time_span": shape.get("time_span", ""),
+        "length": shape.get("length", ""),
+        "channels": shape.get("channels", ""),
+        "channel_kind": shape.get("channel_kind", ""),
+        "target": shape.get("target", ""),
+        "missing_values": shape.get("missing_values", ""),
+        "stats_basis": shape.get("stats_basis", ""),
+        "protocol": protocol.get("protocol", ""),
+        "split": protocol.get("split", ""),
+        "seq_lens": list(protocol.get("seq_lens", [])),
+        "pred_lens": list(protocol.get("pred_lens", [])),
+        "related": list(f.get("related", [])),
+        "realtime_track": f.get("realtime_track", ""),
     }
 
 
@@ -271,8 +286,21 @@ def write_characteristics(root: Path, config: str, fired: list[str], basis: str)
     measured = [term for term in fired if term in data_terms()]
     facts["characteristics"] = measured + [term for term in task if term not in measured]
     facts["characteristics_basis"] = basis
-    ordered = {k: facts[k] for k in ("schema", "kind", "name", "domain", "topic", "benchmarks", "tags",
-                                     "characteristics", "characteristics_basis") if k in facts}
+    ordered = {
+        k: facts[k]
+        for k in (
+            "schema",
+            "kind",
+            "name",
+            "domain",
+            "topic",
+            "benchmarks",
+            "tags",
+            "characteristics",
+            "characteristics_basis",
+        )
+        if k in facts
+    }
     ordered.update({k: v for k, v in facts.items() if k not in ordered})
     path.write_text(dumps(ordered), encoding="utf-8")
     return path

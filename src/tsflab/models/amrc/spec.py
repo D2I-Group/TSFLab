@@ -1,8 +1,9 @@
 """Model specification for AMRC."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.amrc.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

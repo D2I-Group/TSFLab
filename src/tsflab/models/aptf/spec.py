@@ -58,16 +58,10 @@ def training_objective(model, batch: TrainingBatch, criterion):
     forecast = batch.forecast(model)
     source = batch.align(forecast)
     if model.amortizer is None:
-        return forecast, model.hierarchical_loss(
-            source, target, loss_order(source, target), stage, criterion
-        )
+        return forecast, model.hierarchical_loss(source, target, loss_order(source, target), stage, criterion)
     amortized = batch.align(model.amortizer(batch.x))
-    source_loss = model.hierarchical_loss(
-        source, target, loss_order(amortized, target), stage, criterion
-    )
-    amortizer_loss = model.hierarchical_loss(
-        amortized, target, loss_order(source, target), stage, criterion
-    )
+    source_loss = model.hierarchical_loss(source, target, loss_order(amortized, target), stage, criterion)
+    amortizer_loss = model.hierarchical_loss(amortized, target, loss_order(source, target), stage, criterion)
     return forecast, source_loss + amortizer_loss
 
 

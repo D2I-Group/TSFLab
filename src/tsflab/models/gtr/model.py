@@ -33,9 +33,7 @@ class GlobalTemporalRetriever(nn.Module):
         self.fusion = nn.Conv2d(1, 1, kernel_size=(2, width), padding=(0, width // 2))
         self.dropout = nn.Dropout(dropout)
 
-    def cycle_indices(
-        self, start_index: int | torch.Tensor, batch_size: int, device: torch.device
-    ) -> torch.Tensor:
+    def cycle_indices(self, start_index: int | torch.Tensor, batch_size: int, device: torch.device) -> torch.Tensor:
         start = torch.as_tensor(start_index, device=device, dtype=torch.long)
         if start.ndim == 0:
             start = start.expand(batch_size)
@@ -49,14 +47,10 @@ class GlobalTemporalRetriever(nn.Module):
         reference = self.global_embedding[indices]
         return self.reference_projection(reference.transpose(1, 2)).transpose(1, 2)
 
-    def forward(
-        self, x: torch.Tensor, start_index: int | torch.Tensor = 0
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, start_index: int | torch.Tensor = 0) -> torch.Tensor:
         batch, length, channels = x.shape
         if (length, channels) != (self.seq_len, self.enc_in):
-            raise ValueError(
-                f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}"
-            )
+            raise ValueError(f"expected [batch, {self.seq_len}, {self.enc_in}], got {tuple(x.shape)}")
         reference = self.retrieve(start_index, batch)
         paired = torch.stack((x, reference), dim=2)
         paired = paired.permute(0, 3, 2, 1).reshape(batch * channels, 1, 2, length)
@@ -83,9 +77,7 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)
-        self.retriever = GlobalTemporalRetriever(
-            seq_len, enc_in, cycle_length, local_period, dropout
-        )
+        self.retriever = GlobalTemporalRetriever(seq_len, enc_in, cycle_length, local_period, dropout)
         self.input_projection = nn.Linear(seq_len, d_model)
         self.mlp_first = nn.Linear(d_model, d_model)
         self.mlp_second = nn.Linear(d_model, d_model)

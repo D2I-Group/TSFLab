@@ -77,9 +77,7 @@ class Model(nn.Module):
         self.enc_in = enc_in
         self.normalization = RevIN(enc_in, affine=False)
         self.cross_embedding = CrossCorrelationEmbedding(enc_in, alpha)
-        self.head = PatchForecastHead(
-            seq_len, pred_len, patch_len, d_model, d_ff, beta
-        )
+        self.head = PatchForecastHead(seq_len, pred_len, patch_len, d_model, d_ff, beta)
 
     def forward(
         self,

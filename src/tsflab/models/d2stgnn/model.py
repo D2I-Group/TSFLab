@@ -36,13 +36,17 @@ class DynamicGraphConstructor(nn.Module):
         summary = hidden.mean(dim=1)
         source = torch.cat((summary, self.node_source.unsqueeze(0).expand(summary.shape[0], -1, -1)), -1)
         target = torch.cat((summary, self.node_target.unsqueeze(0).expand(summary.shape[0], -1, -1)), -1)
-        return torch.softmax(self.query(source) @ self.key(target).transpose(-1, -2) * self.query.out_features**-0.5, dim=-1)
+        return torch.softmax(
+            self.query(source) @ self.key(target).transpose(-1, -2) * self.query.out_features**-0.5, dim=-1
+        )
 
 
 class DecoupledLayer(nn.Module):
     """Separate diffusion and inherent signals, then subtract their backcasts."""
 
-    def __init__(self, hidden: int, graphs: int, spatial_order: int, temporal_kernel: int, dropout: float, *, with_backcast: bool) -> None:
+    def __init__(
+        self, hidden: int, graphs: int, spatial_order: int, temporal_kernel: int, dropout: float, *, with_backcast: bool
+    ) -> None:
         super().__init__()
         self.spatial_order = spatial_order
         self.diffusion_projection = nn.Linear(hidden * (1 + graphs * spatial_order), hidden)
@@ -63,7 +67,12 @@ class DecoupledLayer(nn.Module):
         diffusion = torch.tanh(self.diffusion_projection(torch.cat(terms, -1)))
         batch, length, nodes, hidden = residual.shape
         inherent, _ = self.inherent(residual.transpose(1, 2).reshape(batch * nodes, length, hidden))
-        inherent = self.temporal(inherent.transpose(1, 2)).transpose(1, 2).reshape(batch, nodes, length, hidden).transpose(1, 2)
+        inherent = (
+            self.temporal(inherent.transpose(1, 2))
+            .transpose(1, 2)
+            .reshape(batch, nodes, length, hidden)
+            .transpose(1, 2)
+        )
         weight = torch.sigmoid(self.gate(torch.cat((diffusion, inherent), -1)))
         separated = torch.cat((weight * diffusion, (1 - weight) * inherent), -1)
         next_residual = residual
@@ -75,7 +84,27 @@ class DecoupledLayer(nn.Module):
 class Model(nn.Module):
     """Decoupled dynamic spatial-temporal graph neural forecaster."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, num_feat: int = 1, num_hidden: int = 16, node_hidden: int = 8, time_emb_dim: int = 8, k_s: int = 2, k_t: int = 3, gap: int = 1, num_layers: int = 2, dropout: float = 0.1, time_in_day_size: int = 288, day_in_week_size: int = 7, forecast_dim: int = 64, output_hidden: int = 128) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        input_dim: int = 3,
+        num_feat: int = 1,
+        num_hidden: int = 16,
+        node_hidden: int = 8,
+        time_emb_dim: int = 8,
+        k_s: int = 2,
+        k_t: int = 3,
+        gap: int = 1,
+        num_layers: int = 2,
+        dropout: float = 0.1,
+        time_in_day_size: int = 288,
+        day_in_week_size: int = 7,
+        forecast_dim: int = 64,
+        output_hidden: int = 128,
+    ) -> None:
         super().__init__()
         del num_feat, output_hidden
         if pred_len % gap:
@@ -96,7 +125,9 @@ class Model(nn.Module):
             DecoupledLayer(num_hidden, 4, k_s, k_t, dropout, with_backcast=layer < num_layers - 1)
             for layer in range(num_layers)
         )
-        self.forecast = nn.Sequential(nn.Linear(num_layers * num_hidden, forecast_dim), nn.ReLU(), nn.Linear(forecast_dim, pred_len))
+        self.forecast = nn.Sequential(
+            nn.Linear(num_layers * num_hidden, forecast_dim), nn.ReLU(), nn.Linear(forecast_dim, pred_len)
+        )
         nn.init.xavier_uniform_(self.adaptive_source)
         nn.init.xavier_uniform_(self.adaptive_target)
 

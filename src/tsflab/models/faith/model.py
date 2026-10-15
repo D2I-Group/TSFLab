@@ -57,9 +57,7 @@ class FrequencyFeatureExtraction(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float) -> None:
         super().__init__()
-        self.attention = AttentionLayer(
-            FullAttention(False, attention_dropout=0.0), d_model, n_heads
-        )
+        self.attention = AttentionLayer(FullAttention(False, attention_dropout=0.0), d_model, n_heads)
         self.attention_dropout = nn.Dropout(dropout)
         self.norm_attention = nn.BatchNorm1d(d_model)
         self.feed_forward = nn.Sequential(
@@ -86,8 +84,9 @@ class FrequencyAttention(nn.Module):
     the inverse rFFT back to ``length`` (Eqs. 10-13).
     """
 
-    def __init__(self, length: int, pool: int, modes: int, d_model: int, n_heads: int,
-                 d_ff: int, dropout: float) -> None:
+    def __init__(
+        self, length: int, pool: int, modes: int, d_model: int, n_heads: int, d_ff: int, dropout: float
+    ) -> None:
         super().__init__()
         self.length = length
         self.register_buffer("bins", select_frequency_bins(pool, modes))
@@ -106,8 +105,9 @@ class FrequencyAttention(nn.Module):
 class FCTEMBlock(nn.Module):
     """FCEM over the channel axis per time step, then FTEM over the time axis per channel."""
 
-    def __init__(self, seq_len: int, enc_in: int, modes: int, d_model: int, n_heads: int,
-                 d_ff: int, dropout: float) -> None:
+    def __init__(
+        self, seq_len: int, enc_in: int, modes: int, d_model: int, n_heads: int, d_ff: int, dropout: float
+    ) -> None:
         super().__init__()
         # Official pools: (N + 1) // 2 channel bins and L // 2 temporal bins.
         self.fcem = FrequencyAttention(enc_in, (enc_in + 1) // 2, modes, d_model, n_heads, d_ff, dropout)
@@ -147,8 +147,7 @@ class Model(nn.Module):
         # Seasonal embedding: each scalar times one learned d_model token.
         self.token = nn.Parameter(torch.randn(1, d_model))
         self.blocks = nn.ModuleList(
-            FCTEMBlock(seq_len, enc_in, modes, d_model, n_heads, d_ff, dropout)
-            for _ in range(e_layers)
+            FCTEMBlock(seq_len, enc_in, modes, d_model, n_heads, d_ff, dropout) for _ in range(e_layers)
         )
         self.seasonal_head = FlattenForecastHead(False, enc_in, seq_len * d_model, pred_len, head_dropout)
         self.trend_head = nn.Linear(seq_len, pred_len)

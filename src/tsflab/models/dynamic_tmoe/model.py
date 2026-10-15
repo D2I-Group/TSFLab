@@ -32,17 +32,19 @@ class _IdentityExpert(nn.Module):
 class _TrendExpert(nn.Module):
     def __init__(self, d_model: int) -> None:
         super().__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Linear(2 * d_model, d_model)
-        )
+        self.mlp = nn.Sequential(nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Linear(2 * d_model, d_model))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        trend = F.avg_pool1d(
-            x.permute(0, 2, 3, 1).reshape(-1, x.shape[-1], x.shape[1]),
-            kernel_size=3,
-            stride=1,
-            padding=1,
-        ).reshape(x.shape[0], x.shape[2], x.shape[-1], x.shape[1]).permute(0, 3, 1, 2)
+        trend = (
+            F.avg_pool1d(
+                x.permute(0, 2, 3, 1).reshape(-1, x.shape[-1], x.shape[1]),
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            )
+            .reshape(x.shape[0], x.shape[2], x.shape[-1], x.shape[1])
+            .permute(0, 3, 1, 2)
+        )
         return self.mlp(trend)
 
 
@@ -54,9 +56,7 @@ class _SeasonalityExpert(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         spectrum = torch.fft.rfft(x, dim=1)
-        filtered = torch.fft.irfft(
-            spectrum * self.spectral_gate[None, :, None], n=x.shape[1], dim=1
-        )
+        filtered = torch.fft.irfft(spectrum * self.spectral_gate[None, :, None], n=x.shape[1], dim=1)
         return self.projection(torch.cat((filtered.sin(), filtered.cos()), dim=-1))
 
 
@@ -132,12 +132,8 @@ class Model(nn.Module):
                 _DriftExpert(d_model),
             )
         )
-        self.cycle_relation = nn.Parameter(
-            torch.empty(relation_period, enc_in, enc_in)
-        )
-        self.relation_residual = nn.Sequential(
-            nn.Linear(1, d_model), nn.Tanh(), nn.Linear(d_model, 1)
-        )
+        self.cycle_relation = nn.Parameter(torch.empty(relation_period, enc_in, enc_in))
+        self.relation_residual = nn.Sequential(nn.Linear(1, d_model), nn.Tanh(), nn.Linear(d_model, 1))
         self.head = nn.Linear(self.num_patches * d_model, pred_len)
         nn.init.normal_(self.anomaly_repository, std=0.02)
         nn.init.normal_(self.cycle_relation, std=0.02)
@@ -177,9 +173,7 @@ class Model(nn.Module):
         """Paper equation (2): epsilon = mean(H) + lambda * std(H)."""
         return history.mean(-1) + sensitivity * history.std(-1, unbiased=False)
 
-    def routing_weights(
-        self, patch_tokens: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def routing_weights(self, patch_tokens: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         pooled = patch_tokens.mean(2)
         hidden, _ = self.router(pooled)
         normalized_hidden = F.normalize(hidden, dim=-1)
@@ -203,8 +197,7 @@ class Model(nn.Module):
         weights = topk_dense_mix(soft, self.top_k, self.routing_floor)
         return weights, drift
 
-    def window_phase(self, x_mark_enc: torch.Tensor | None, batch: int,
-                     device: torch.device) -> torch.Tensor:
+    def window_phase(self, x_mark_enc: torch.Tensor | None, batch: int, device: torch.device) -> torch.Tensor:
         """Cycle index ``t`` of Eq. (10) for each sample: the phase of the first input step.
 
         The phase is the absolute step count of the first raw mark since
@@ -216,8 +209,7 @@ class Model(nn.Module):
         period = self.cycle_relation.shape[0]
         if x_mark_enc is None:
             return torch.zeros(batch, dtype=torch.long, device=device)
-        if (x_mark_enc.ndim != 3 or x_mark_enc.shape[0] != batch or x_mark_enc.shape[1] < 2
-                or x_mark_enc.shape[-1] != 6):
+        if x_mark_enc.ndim != 3 or x_mark_enc.shape[0] != batch or x_mark_enc.shape[1] < 2 or x_mark_enc.shape[-1] != 6:
             raise ValueError("x_mark_enc must be raw marks [batch, seq_len >= 2, 6]")
         minutes = elapsed_minutes(x_mark_enc[:, :2])
         step = (minutes[:, 1] - minutes[:, 0]).clamp_min(1)
@@ -243,13 +235,9 @@ class Model(nn.Module):
         normalized = self.revin(x_enc, "norm") if self.use_revin else x_enc
         patch_tokens = self._patches(normalized)
         weights, drift = self.routing_weights(patch_tokens)
-        expert_outputs = torch.stack(
-            [expert(patch_tokens) for expert in self.experts], dim=-2
-        )
+        expert_outputs = torch.stack([expert(patch_tokens) for expert in self.experts], dim=-2)
         mixed = (expert_outputs * weights[:, :, None, :, None]).sum(-2)
-        relation = self.channel_relation(
-            normalized, self.window_phase(x_mark_enc, x_enc.shape[0], x_enc.device)
-        )
+        relation = self.channel_relation(normalized, self.window_phase(x_mark_enc, x_enc.shape[0], x_enc.device))
         mixed = mixed + torch.einsum("bck,bnkd->bncd", relation, mixed)
         forecast = self.head(mixed.permute(0, 2, 1, 3).flatten(-2)).transpose(1, 2)
         self.last_mmd = drift.detach()

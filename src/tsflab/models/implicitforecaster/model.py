@@ -36,9 +36,7 @@ class Model(nn.Module):
         self.pool_bins = self.frequency_pool // 2 + 1
         input_bins = seq_len // 2 + 1
         self.revin = RevIN(enc_in, enabled=use_revin)
-        self.encoder = nn.Sequential(
-            nn.Linear(seq_len, d_model), nn.GELU(), nn.Dropout(dropout)
-        )
+        self.encoder = nn.Sequential(nn.Linear(seq_len, d_model), nn.GELU(), nn.Dropout(dropout))
         feature_width = d_model + input_bins
         self.amplitude_head = nn.Sequential(
             nn.Linear(feature_width, d_model), nn.GELU(), nn.Linear(d_model, self.pool_bins)

@@ -33,12 +33,8 @@ class GraphConvLSTMCell(nn.Module):
         self.hidden_dim = hidden_dim
         self.gates = ChebyshevGraphProjection(input_dim + hidden_dim, 4 * hidden_dim, supports)
 
-    def forward(
-        self, x: torch.Tensor, hidden: torch.Tensor, cell: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        input_gate, forget_gate, output_gate, candidate = self.gates(
-            torch.cat((x, hidden), dim=-1)
-        ).chunk(4, dim=-1)
+    def forward(self, x: torch.Tensor, hidden: torch.Tensor, cell: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        input_gate, forget_gate, output_gate, candidate = self.gates(torch.cat((x, hidden), dim=-1)).chunk(4, dim=-1)
         input_gate = torch.sigmoid(input_gate)
         forget_gate = torch.sigmoid(forget_gate)
         output_gate = torch.sigmoid(output_gate)

@@ -8,6 +8,7 @@ downsamples with a stride-``s`` convolution (local features), applies an
 isometric convolution whose kernel spans the whole downsampled sequence
 (global correlations), and restores the length with a transposed convolution.
 """
+
 from __future__ import annotations
 
 import torch
@@ -114,8 +115,18 @@ def _checked_c_out(enc_in, c_out):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, c_out=None, d_model=64, d_layers=1,
-                 dropout=0.05, conv_kernel=(12, 16), mode="regre"):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        c_out=None,
+        d_model=64,
+        d_layers=1,
+        dropout=0.05,
+        conv_kernel=(12, 16),
+        mode="regre",
+    ):
         super().__init__()
         c_out = _checked_c_out(enc_in, c_out)
         scales = tuple(int(kernel) for kernel in conv_kernel)
@@ -145,11 +156,12 @@ class Model(nn.Module):
             trend_forecast = self.regression(trend.transpose(1, 2)).transpose(1, 2)
         else:
             trend_forecast = x_enc.mean(1, keepdim=True).expand(-1, self.pred_len, -1)
-        decoder_input = torch.cat((seasonal, seasonal.new_zeros(seasonal.shape[0], self.pred_len,
-                                                                seasonal.shape[2])), dim=1)
+        decoder_input = torch.cat(
+            (seasonal, seasonal.new_zeros(seasonal.shape[0], self.pred_len, seasonal.shape[2])), dim=1
+        )
         hidden = self.value_embedding(decoder_input) + self.position_embedding(decoder_input)
         hidden = self.embedding_dropout(hidden)
         for layer in self.layers:
             hidden = layer(hidden)
-        seasonal_forecast = self.projection(hidden)[:, -self.pred_len:]
+        seasonal_forecast = self.projection(hidden)[:, -self.pred_len :]
         return seasonal_forecast + trend_forecast

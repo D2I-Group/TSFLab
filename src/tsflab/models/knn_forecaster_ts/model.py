@@ -22,20 +22,14 @@ class Model(nn.Module):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.kernel_gamma = kernel_gamma
-        self.reference_windows = nn.Parameter(
-            torch.empty(num_prototypes, seq_len, enc_in)
-        )
-        self.reference_futures = nn.Parameter(
-            torch.empty(num_prototypes, pred_len, enc_in)
-        )
+        self.reference_windows = nn.Parameter(torch.empty(num_prototypes, seq_len, enc_in))
+        self.reference_futures = nn.Parameter(torch.empty(num_prototypes, pred_len, enc_in))
         nn.init.normal_(self.reference_windows, std=0.02)
         nn.init.normal_(self.reference_futures, std=0.02)
         self.aux_loss: torch.Tensor | None = None
 
     def neighbor_weights(self, x: torch.Tensor) -> torch.Tensor:
-        squared_distance = (
-            x.unsqueeze(1) - self.reference_windows.unsqueeze(0)
-        ).square().mean(dim=(-1, -2))
+        squared_distance = (x.unsqueeze(1) - self.reference_windows.unsqueeze(0)).square().mean(dim=(-1, -2))
         return torch.softmax(-self.kernel_gamma * squared_distance, dim=-1)
 
     def forward(

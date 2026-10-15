@@ -56,10 +56,7 @@ def _quantile_levels(quantile_levels: list[float] | None) -> list[float]:
 
 def _check_marks(marks: torch.Tensor, length: int, batch: int) -> None:
     if marks.ndim != 3 or marks.shape[0] != batch or marks.shape[-1] != _MARK_WIDTH:
-        raise ValueError(
-            f"TFT expects raw marks [B, T, {_MARK_WIDTH}] "
-            "(year, month, day, weekday, hour, minute)"
-        )
+        raise ValueError(f"TFT expects raw marks [B, T, {_MARK_WIDTH}] (year, month, day, weekday, hour, minute)")
     if marks.shape[1] < length:
         raise ValueError("time marks do not cover the required window")
 
@@ -104,9 +101,7 @@ class Model(nn.Module):
         # embeddings for categorical ones, all to d_model.
         self.observed_weight = nn.Parameter(torch.empty(num_observed, d_model))
         self.observed_bias = nn.Parameter(torch.zeros(num_observed, d_model))
-        self.known_embeddings = nn.ModuleList(
-            nn.Embedding(size, d_model) for size in _KNOWN_CARDINALITY
-        )
+        self.known_embeddings = nn.ModuleList(nn.Embedding(size, d_model) for size in _KNOWN_CARDINALITY)
         self.static_embedding = nn.Embedding(num_entities, d_model)
 
         # Static covariate encoders (Sec. 4.3).
@@ -122,26 +117,20 @@ class Model(nn.Module):
         self.history_selection = VariableSelectionNetwork(
             num_known + num_observed, d_model, context_dim=d_model, dropout=dropout
         )
-        self.future_selection = VariableSelectionNetwork(
-            num_known, d_model, context_dim=d_model, dropout=dropout
-        )
+        self.future_selection = VariableSelectionNetwork(num_known, d_model, context_dim=d_model, dropout=dropout)
 
         # Temporal fusion decoder (Sec. 4.5).
         self.encoder_lstm = nn.LSTM(d_model, d_model, batch_first=True)
         self.decoder_lstm = nn.LSTM(d_model, d_model, batch_first=True)
         self.lstm_gate = GateAddNorm(d_model, d_model, dropout)
-        self.enrichment = GatedResidualNetwork(
-            d_model, d_model, context_dim=d_model, dropout=dropout
-        )
+        self.enrichment = GatedResidualNetwork(d_model, d_model, context_dim=d_model, dropout=dropout)
         self.attention = InterpretableMultiHeadAttention(d_model, num_heads, dropout)
         self.attention_gate = GateAddNorm(d_model, d_model, dropout)
         self.position_wise = GatedResidualNetwork(d_model, d_model, dropout=dropout)
         # The official code applies no dropout in this last gate.
         self.output_gate = GateAddNorm(d_model, d_model, dropout=0.0)
         self.quantile_proj = nn.Linear(d_model, len(levels))
-        self.register_buffer(
-            "_mask", causal_mask(seq_len + pred_len), persistent=False
-        )
+        self.register_buffer("_mask", causal_mask(seq_len + pred_len), persistent=False)
         self._reset_parameters()
 
     def _reset_parameters(self) -> None:
@@ -167,15 +156,12 @@ class Model(nn.Module):
     ) -> torch.Tensor:
         """Embed the known calendar inputs of the last ``length`` steps: [B, T, K, d]."""
         if marks is None:
-            codes = torch.zeros(
-                batch, length, len(_KNOWN_COLUMNS), dtype=torch.long, device=reference.device
-            )
+            codes = torch.zeros(batch, length, len(_KNOWN_COLUMNS), dtype=torch.long, device=reference.device)
         else:
             _check_marks(marks, length, batch)
             codes = marks[:, -length:, list(_KNOWN_COLUMNS)].round().long()
         embedded = [
-            table(codes[..., j].clamp(0, table.num_embeddings - 1))
-            for j, table in enumerate(self.known_embeddings)
+            table(codes[..., j].clamp(0, table.num_embeddings - 1)) for j, table in enumerate(self.known_embeddings)
         ]
         return torch.stack(embedded, dim=-2)
 
@@ -202,23 +188,17 @@ class Model(nn.Module):
             entity = torch.zeros(batch, dtype=torch.long, device=x_enc.device)
         observed = observed.unsqueeze(-1) * self.observed_weight + self.observed_bias
 
-        static_vector, static_weights = self.static_selection(
-            self.static_embedding(entity).unsqueeze(-2)
-        )
+        static_vector, static_weights = self.static_selection(self.static_embedding(entity).unsqueeze(-2))
         context = {name: grn(static_vector) for name, grn in self.static_contexts.items()}
 
         past, past_weights = self.history_selection(
             torch.cat([known_past, observed], dim=-2), context["selection"].unsqueeze(1)
         )
-        future, future_weights = self.future_selection(
-            known_future, context["selection"].unsqueeze(1)
-        )
+        future, future_weights = self.future_selection(known_future, context["selection"].unsqueeze(1))
         initial = (context["state_h"].unsqueeze(0), context["state_c"].unsqueeze(0))
         encoded, state = self.encoder_lstm(past, initial)
         decoded, _ = self.decoder_lstm(future, state)
-        temporal = self.lstm_gate(
-            torch.cat([encoded, decoded], dim=1), torch.cat([past, future], dim=1)
-        )
+        temporal = self.lstm_gate(torch.cat([encoded, decoded], dim=1), torch.cat([past, future], dim=1))
         enriched = self.enrichment(temporal, context["enrichment"].unsqueeze(1))
         attended, attention = self.attention(enriched, enriched, enriched, self._mask)
         fused = self.attention_gate(attended, enriched)

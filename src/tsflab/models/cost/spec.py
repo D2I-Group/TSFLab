@@ -43,9 +43,7 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, features=cfg.task.features, **params
-    )
+    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, features=cfg.task.features, **params)
 
 
 SPEC = ModelSpec(

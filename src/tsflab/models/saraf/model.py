@@ -34,7 +34,7 @@ def window_stationarity(windows: torch.Tensor, n_sub: int) -> torch.Tensor:
     means, stds = [], []
     for k in range(n_sub):
         stop = (k + 1) * size if k < n_sub - 1 else length
-        part = windows[:, k * size:stop, :]
+        part = windows[:, k * size : stop, :]
         means.append(part.mean(dim=1))
         stds.append(part.std(dim=1))
     v_mu = torch.stack(means, dim=1).std(dim=1).mean(dim=1)
@@ -184,7 +184,7 @@ class Model(nn.Module):
 
     def _windows(self, start: int, stop: int) -> torch.Tensor:
         """Input windows ``[n, L, C]`` starting at ``start..stop-1`` (a view)."""
-        span = self.db_series[start:stop + self.seq_len - 1]
+        span = self.db_series[start : stop + self.seq_len - 1]
         return span.unfold(0, self.seq_len, 1).transpose(1, 2)
 
     def _futures(self, index: torch.Tensor) -> torch.Tensor:
@@ -229,6 +229,7 @@ class Model(nn.Module):
     # ---------------------------------------------------------------- retrieval
     def temporal_similarity(self, x: torch.Tensor) -> torch.Tensor:
         """Eq. (4): Pearson similarity ``[B, N]`` of last-value-offset, flattened windows."""
+
         def centred(w: torch.Tensor) -> torch.Tensor:
             w = (w - w[:, -1:, :]).flatten(1)
             return F.normalize(w - w.mean(dim=1, keepdim=True), dim=1)
@@ -245,9 +246,7 @@ class Model(nn.Module):
         mid = self.seq_len // 2
         n = self.n_windows
         last = self.seq_len - 1
-        keys = torch.cat(
-            (self.db_series[:n], self.db_series[mid:mid + n], self.db_series[last:last + n]), dim=1
-        )
+        keys = torch.cat((self.db_series[:n], self.db_series[mid : mid + n], self.db_series[last : last + n]), dim=1)
         probe = torch.cat((x[:, 0], x[:, mid], x[:, -1]), dim=1)
         best, index = torch.cdist(probe, keys, p=1.0).min(dim=1)
         tolerance = 1e-5 * (1.0 + probe.abs().sum(dim=1))
@@ -264,7 +263,7 @@ class Model(nn.Module):
         sim = self.temporal_similarity(x)
         if x_mark is not None and x_mark.ndim == 3 and self.time_aware_weight > 0:
             mid = self.seq_len // 2
-            keys = self.db_marks[mid:mid + n]
+            keys = self.db_marks[mid : mid + n]
             bonus = time_aligned_bonus(x_mark[:, mid].float(), keys, self.seq_len, self.steps_per_day)
             sim = (1.0 - self.time_aware_weight) * sim + self.time_aware_weight * bonus  # Eq. (5)
         if self.training:
@@ -280,7 +279,7 @@ class Model(nn.Module):
             generator = torch.Generator(device=x.device).manual_seed(self.eval_seed)
         chosen = stochastic_mmr(candidate_sim, self.top_k, self.mmr_lambda, self.mmr_temperature, generator)
         # Eq. (11): Gaussian weights on d = 1 - S over the selected set.
-        logits = -((1.0 - candidate_sim) ** 2) / (2.0 * self.sigma ** 2)
+        logits = -((1.0 - candidate_sim) ** 2) / (2.0 * self.sigma**2)
         kernel = torch.exp(logits.masked_fill(~chosen, float("-inf")))
         weights = kernel / kernel.sum(dim=1, keepdim=True).clamp_min(1e-12)
         futures = self._futures(candidate_idx)  # [B, M, H, C]

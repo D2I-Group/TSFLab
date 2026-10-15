@@ -44,8 +44,8 @@ class Model(nn.Module):
     ):
         if x_enc.ndim != 3 or x_enc.shape[1] != self.seq_len:
             raise ValueError(f"expected [batch, {self.seq_len}, channels], got {tuple(x_enc.shape)}")
-        base = self.backbone(x_enc)               # (B, pred_len, enc_in)
+        base = self.backbone(x_enc)  # (B, pred_len, enc_in)
         if self.features == "MS":
             base = base[:, :, -1:]
-        base = base[:, -self.pred_len:, :]     # (B, pred_len, c_out)
+        base = base[:, -self.pred_len :, :]  # (B, pred_len, c_out)
         return self.quantile_head(base.unsqueeze(-1))  # (B, pred_len, c_out, Q)

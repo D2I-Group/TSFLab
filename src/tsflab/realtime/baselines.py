@@ -6,14 +6,14 @@ naive forecast on a round has not learned anything the calendar did not know.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
 
+from tsflab.core.realtime import ForecastSubmission, RoundSpec
 from tsflab.realtime.store import PanelStore
 from tsflab.realtime.tracks import TrackSpec
-from tsflab.core.realtime import ForecastSubmission, RoundSpec
 
 
 def _history(spec: RoundSpec, store: PanelStore, steps: int) -> np.ndarray:
@@ -44,7 +44,7 @@ def seasonal_naive(spec: RoundSpec, store: PanelStore, track: TrackSpec) -> np.n
     history = _history(spec, store, period)
     total = _lead(spec)
     path = np.stack([history[(k % period)] for k in range(total)])
-    return path[-spec.horizon:]
+    return path[-spec.horizon :]
 
 
 def window_mean(spec: RoundSpec, store: PanelStore, track: TrackSpec) -> np.ndarray:
@@ -55,15 +55,21 @@ def window_mean(spec: RoundSpec, store: PanelStore, track: TrackSpec) -> np.ndar
 BASELINES = {"Naive": naive, "SeasonalNaive": seasonal_naive, "WindowMean": window_mean}
 
 
-def run_baselines(spec: RoundSpec, store: PanelStore, track: TrackSpec,
-                  names: list[str] | None = None) -> list[ForecastSubmission]:
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+def run_baselines(
+    spec: RoundSpec, store: PanelStore, track: TrackSpec, names: list[str] | None = None
+) -> list[ForecastSubmission]:
+    now = datetime.now(UTC).isoformat(timespec="seconds")
     out = []
     for name in names or list(BASELINES):
         values = BASELINES[name](spec, store, track)
-        out.append(ForecastSubmission(
-            track=spec.track, round_id=spec.round_id, model=name,
-            submitter="tsflab-baselines", submitted_at=now,
-            predictions=[[float(v) for v in row] for row in values],
-        ))
+        out.append(
+            ForecastSubmission(
+                track=spec.track,
+                round_id=spec.round_id,
+                model=name,
+                submitter="tsflab-baselines",
+                submitted_at=now,
+                predictions=[[float(v) for v in row] for row in values],
+            )
+        )
     return out

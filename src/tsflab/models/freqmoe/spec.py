@@ -1,11 +1,9 @@
 """Runtime specification for FreqMoE."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.freqmoe.model import Model
-
-"""Validated parameters for FreqMoE."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

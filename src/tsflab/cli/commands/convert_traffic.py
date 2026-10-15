@@ -40,13 +40,13 @@ Then point a dataset config at it::
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_option
 import json
 import os
 import pickle
 
 import numpy as np
+
+from tsflab.cli.args import add_option
 
 
 def _load_array(path: str, key: str | None) -> np.ndarray:
@@ -145,8 +145,12 @@ def build_bundle(
     os.makedirs(output_dir, exist_ok=True)
     np.savez(
         os.path.join(output_dir, "his.npz"),
-        data=values, mean=mean, std=std, train_end=np.int64(train_end),
-        seq_len=np.int64(seq_len), pred_len=np.int64(pred_len),
+        data=values,
+        mean=mean,
+        std=std,
+        train_end=np.int64(train_end),
+        seq_len=np.int64(seq_len),
+        pred_len=np.int64(pred_len),
     )
 
     if adj is not None:
@@ -156,8 +160,11 @@ def build_bundle(
     np.save(os.path.join(output_dir, "idx_val.npy"), val_c)
     np.save(os.path.join(output_dir, "idx_test.npy"), test_c)
     split_info = {
-        "seq_len": seq_len, "pred_len": pred_len, "splits": [r_tr, r_va, r_te],
-        "rows": t, "train_end": train_end,
+        "seq_len": seq_len,
+        "pred_len": pred_len,
+        "splits": [r_tr, r_va, r_te],
+        "rows": t,
+        "train_end": train_end,
         "windows": {"train": len(train_c), "val": len(val_c), "test": len(test_c)},
         "stats": "mean/std fitted on rows [0, train_end) only",
     }
@@ -171,23 +178,21 @@ def build_bundle(
 
 def main(argv: list[str] | None = None) -> None:
     """Convert raw traffic arrays into a TSFLab node bundle."""
-    p = argparse.ArgumentParser(prog="tsf data prepare --from traffic",
-                                description="Convert traffic data to a node bundle")
+    p = argparse.ArgumentParser(
+        prog="tsf data prepare --from traffic", description="Convert traffic data to a node bundle"
+    )
     p.add_argument("--values", required=True, help="Path to the value array (.npy/.npz)")
     p.add_argument("--values-key", default=None, help="Key inside an .npz value file")
-    p.add_argument(
-        "--adj", default=None, help="Path to the (N, N) adjacency (.npy/.npz/.pkl)"
-    )
+    p.add_argument("--adj", default=None, help="Path to the (N, N) adjacency (.npy/.npz/.pkl)")
     p.add_argument("--adj-key", default=None, help="Key inside an .npz adjacency file")
     add_option(p, "--out", "output_dir", "--output-dir", required=True, help="Bundle output directory")
     p.add_argument("--seq-len", type=int, default=12, help="History length (PeMS protocol: 12)")
-    add_option(p, "--horizon", "pred_len", "--pred-len", type=int, default=12,
-               help="Forecast horizon (PeMS protocol: 12)")
+    add_option(
+        p, "--horizon", "pred_len", "--pred-len", type=int, default=12, help="Forecast horizon (PeMS protocol: 12)"
+    )
     p.add_argument("--add-time", action="store_true", help="Append calendar covariates")
     p.add_argument("--freq-min", type=int, default=5, help="Minutes per step (for --add-time)")
-    p.add_argument(
-        "--splits", default="0.7,0.1,0.2", help="train,val,test ratios (comma-separated)"
-    )
+    p.add_argument("--splits", default="0.7,0.1,0.2", help="train,val,test ratios (comma-separated)")
     args = p.parse_args(argv)
 
     r_tr, r_va, r_te = (float(x) for x in args.splits.split(","))
@@ -195,8 +200,11 @@ def main(argv: list[str] | None = None) -> None:
         _load_array(args.values, args.values_key),
         args.output_dir,
         adj=_load_adjacency(args.adj, args.adj_key) if args.adj else None,
-        seq_len=args.seq_len, pred_len=args.pred_len,
-        add_time=args.add_time, freq_min=args.freq_min, splits=(r_tr, r_va, r_te),
+        seq_len=args.seq_len,
+        pred_len=args.pred_len,
+        add_time=args.add_time,
+        freq_min=args.freq_min,
+        splits=(r_tr, r_va, r_te),
     )
 
 

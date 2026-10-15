@@ -43,18 +43,10 @@ class Model(nn.Module):
     @torch.no_grad()
     def fit_projection(self, labels: torch.Tensor) -> torch.Tensor:
         """Fit per-variate right-singular-vector bases from training labels."""
-        if (
-            labels.ndim != 3
-            or labels.shape[1] != self.pred_len
-            or not 1 <= labels.shape[2] <= self.enc_in
-        ):
-            raise ValueError(
-                f"expected labels (N, {self.pred_len}, <={self.enc_in}), got {tuple(labels.shape)}"
-            )
+        if labels.ndim != 3 or labels.shape[1] != self.pred_len or not 1 <= labels.shape[2] <= self.enc_in:
+            raise ValueError(f"expected labels (N, {self.pred_len}, <={self.enc_in}), got {tuple(labels.shape)}")
         centered = labels - labels.mean(dim=1, keepdim=True)
-        standardized = centered / torch.sqrt(
-            centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5
-        )
+        standardized = centered / torch.sqrt(centered.var(dim=1, keepdim=True, unbiased=False) + 1e-5)
         bases = []
         channels = labels.shape[2]
         for channel in range(channels):
@@ -67,15 +59,9 @@ class Model(nn.Module):
 
     def transform(self, values: torch.Tensor) -> torch.Tensor:
         """Project horizon values into descending-significance models._components."""
-        if (
-            values.ndim != 3
-            or values.shape[1] != self.pred_len
-            or not 1 <= values.shape[2] <= self.enc_in
-        ):
-            raise ValueError(
-                f"expected values (B, {self.pred_len}, <={self.enc_in}), got {tuple(values.shape)}"
-            )
-        return torch.einsum("btc,ctk->bkc", values, self.projection[-values.shape[2]:])
+        if values.ndim != 3 or values.shape[1] != self.pred_len or not 1 <= values.shape[2] <= self.enc_in:
+            raise ValueError(f"expected values (B, {self.pred_len}, <={self.enc_in}), got {tuple(values.shape)}")
+        return torch.einsum("btc,ctk->bkc", values, self.projection[-values.shape[2] :])
 
     def transformed_alignment_loss(
         self,
@@ -99,18 +85,12 @@ class Model(nn.Module):
         forecast_components = self.transform(forecast)
         target_components = self.transform(target)
         retained = max(1, round(self.rank_ratio * self.pred_len))
-        difference = (
-            forecast_components[:, :retained] - target_components[:, :retained]
-        ).abs()
+        difference = (forecast_components[:, :retained] - target_components[:, :retained]).abs()
         if reduction == "sum":
             transformed, temporal_loss = difference.sum(), (forecast - target).square().sum()
         else:
             transformed = difference.mean()
-            temporal_loss = (
-                temporal(forecast, target)
-                if temporal is not None
-                else (forecast - target).square().mean()
-            )
+            temporal_loss = temporal(forecast, target) if temporal is not None else (forecast - target).square().mean()
         return self.alpha * transformed + (1 - self.alpha) * temporal_loss
 
     def forward(

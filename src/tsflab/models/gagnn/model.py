@@ -33,7 +33,7 @@ class GroupAwareLayer(nn.Module):
         assignment = torch.softmax(torch.einsum("bnd,gd->bng", x, self.group_query), -1)
         self.last_assignment = assignment
         group = torch.einsum("bng,bnd->bgd", assignment, x) / assignment.sum(1).clamp_min(1e-6).unsqueeze(-1)
-        group_affinity = torch.softmax(torch.einsum("bgd,bhd->bgh", group, group) / x.shape[-1]**0.5, -1)
+        group_affinity = torch.softmax(torch.einsum("bgd,bhd->bgh", group, group) / x.shape[-1] ** 0.5, -1)
         group = torch.einsum("bgh,bhd->bgd", group_affinity, self.group_message(group))
         returned = torch.einsum("bng,bgd->bnd", assignment, group)
         return self.norm(x + self.fusion(torch.cat((x, city, returned), -1)))
@@ -42,10 +42,18 @@ class GroupAwareLayer(nn.Module):
 class Model(nn.Module):
     """Temporal encoder followed by hierarchical group-aware graph layers."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 adj_mx: np.ndarray | None = None, cov_dim: int = 2,
-                 d_model: int = 64, num_layers: int = 3,
-                 dropout: float = 0.1, group_num: int = 4) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        adj_mx: np.ndarray | None = None,
+        cov_dim: int = 2,
+        d_model: int = 64,
+        num_layers: int = 3,
+        dropout: float = 0.1,
+        group_num: int = 4,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in, self.cov_dim = seq_len, pred_len, enc_in, cov_dim
         adj = np.eye(enc_in, dtype=np.float32) if adj_mx is None else adj_mx
@@ -66,7 +74,7 @@ class Model(nn.Module):
         st = to_spatiotemporal(x_enc, x_mark_enc)
         needed = 1 + self.cov_dim
         if st.shape[-1] < needed:
-            st = torch.cat((st, st.new_zeros(*st.shape[:-1], needed-st.shape[-1])), -1)
+            st = torch.cat((st, st.new_zeros(*st.shape[:-1], needed - st.shape[-1])), -1)
         encoded = self.input_projection(st[..., :needed]).transpose(1, 2)
         batch, nodes, steps, width = encoded.shape
         _, hidden = self.temporal(encoded.reshape(batch * nodes, steps, width))

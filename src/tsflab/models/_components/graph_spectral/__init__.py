@@ -44,11 +44,7 @@ def chebyshev_polynomials(matrix: np.ndarray, order: int) -> np.ndarray:
     return np.asarray(polynomials)
 
 
-def chebyshev_supports(
-    adj_mx: np.ndarray, order: int, *, undirected: bool = True
-) -> torch.Tensor:
+def chebyshev_supports(adj_mx: np.ndarray, order: int, *, undirected: bool = True) -> torch.Tensor:
     """Build exactly ``order`` dense Chebyshev supports for an adjacency matrix."""
-    basis = chebyshev_polynomials(
-        scaled_laplacian(adj_mx, undirected=undirected), order
-    )
+    basis = chebyshev_polynomials(scaled_laplacian(adj_mx, undirected=undirected), order)
     return torch.as_tensor(basis, dtype=torch.float32)

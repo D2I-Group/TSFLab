@@ -1,11 +1,9 @@
 """Runtime specification for AMD."""
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.amd.model import Model
-
-"""Validated parameters for AMD."""
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

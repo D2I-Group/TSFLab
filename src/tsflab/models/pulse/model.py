@@ -22,12 +22,8 @@ class PhaseRouter(nn.Module):
         super().__init__()
         self.history_projection = nn.Linear(channels, d_model)
         self.future_projection = nn.Linear(channels, d_model)
-        self.history_queries_future = nn.MultiheadAttention(
-            d_model, heads, batch_first=True
-        )
-        self.future_queries_history = nn.MultiheadAttention(
-            d_model, heads, batch_first=True
-        )
+        self.history_queries_future = nn.MultiheadAttention(d_model, heads, batch_first=True)
+        self.future_queries_history = nn.MultiheadAttention(d_model, heads, batch_first=True)
         self.output = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Linear(d_model, d_model),
@@ -44,17 +40,15 @@ class PhaseRouter(nn.Module):
         history = F.interpolate(
             historical_anchor.transpose(1, 2), resolution, mode="linear", align_corners=False
         ).transpose(1, 2)
-        future = F.interpolate(
-            latent_future.transpose(1, 2), resolution, mode="linear", align_corners=False
-        ).transpose(1, 2)
+        future = F.interpolate(latent_future.transpose(1, 2), resolution, mode="linear", align_corners=False).transpose(
+            1, 2
+        )
         history_tokens = self.history_projection(history)
         future_tokens = self.future_projection(future)
         routed_history, _ = self.history_queries_future(
             history_tokens, future_tokens, future_tokens, need_weights=False
         )
-        evolved, _ = self.future_queries_history(
-            future_tokens, routed_history, routed_history, need_weights=False
-        )
+        evolved, _ = self.future_queries_history(future_tokens, routed_history, routed_history, need_weights=False)
         return self.output(evolved)
 
 
@@ -99,9 +93,7 @@ class Model(nn.Module):
         positions = torch.arange(self.seq_len, device=device)
         return positions.remainder(self.phase_period)
 
-    def disentangle(
-        self, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def disentangle(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Apply phase anchoring and residual-only normalization (Eq. 2--3)."""
         index = self.phase_indices(self.seq_len, future=False, device=x.device)
         anchor = self.phase_codebook[index].unsqueeze(0).expand(x.shape[0], -1, -1)
@@ -144,9 +136,9 @@ class Model(nn.Module):
         normalized, historical_anchor, residual_mean, residual_scale = self.disentangle(x_enc)
         latent_future = self.backbone(normalized.transpose(1, 2)).transpose(1, 2)
         routed = self.router(historical_anchor, latent_future, self.phase_resolution)
-        routed = F.interpolate(
-            routed.transpose(1, 2), self.pred_len, mode="linear", align_corners=False
-        ).transpose(1, 2)
+        routed = F.interpolate(routed.transpose(1, 2), self.pred_len, mode="linear", align_corners=False).transpose(
+            1, 2
+        )
         future_index = self.phase_indices(self.pred_len, future=True, device=x_enc.device)
         future_anchor = routed + self.phase_codebook[future_index].unsqueeze(0)
         normalized_residual = latent_future - future_anchor

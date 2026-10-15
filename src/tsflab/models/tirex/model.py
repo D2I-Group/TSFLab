@@ -18,7 +18,6 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 from tsflab.models._components.quantile_head import QuantileHead
 from tsflab.models._inputs import check_window
 
-
 _DEFAULT_LEVELS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 
@@ -104,9 +103,7 @@ class Model(nn.Module):
         self.future_patches = math.ceil(pred_len / patch_len)
         levels = list(quantile_levels) if quantile_levels else _DEFAULT_LEVELS
         self.input_projection = ResidualProjection(2 * patch_len, d_model)
-        self.blocks = nn.ModuleList(
-            ScalarLSTMBlock(d_model, dropout) for _ in range(num_layers)
-        )
+        self.blocks = nn.ModuleList(ScalarLSTMBlock(d_model, dropout) for _ in range(num_layers))
         self.final_norm = nn.RMSNorm(d_model)
         self.output_projection = ResidualProjection(d_model, patch_len * d_model)
         self.quantile_head = QuantileHead(levels, in_features=d_model)
@@ -146,9 +143,7 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized, mean, scale = standardize(x_enc, 1e-5, detach_mean=True, detach_std=True)
         history = self._history_tokens(normalized)
-        missing = normalized.new_zeros(
-            history.shape[0], self.future_patches, 2 * self.patch_len
-        )
+        missing = normalized.new_zeros(history.shape[0], self.future_patches, 2 * self.patch_len)
         tokens = torch.cat([history, self.input_projection(missing)], dim=1)
         for block in self.blocks:
             tokens = block(tokens)

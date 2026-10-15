@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
-from tsflab.data.schemas.datasets.ett import DatasetParameterConfig
 from tsflab.catalog.registry import DATASET_REGISTRY
 from tsflab.data.datasets.base import ForecastingDataset
+from tsflab.data.schemas.datasets.ett import DatasetParameterConfig
 
 
 class _ETTDataset(ForecastingDataset):
@@ -53,7 +53,7 @@ class _ETTDataset(ForecastingDataset):
         target: str,
         split_ratio: tuple[float, float, float],
         scale: bool,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Read the ETT data and return split series and timestamps."""
         df_raw = self._limit_rows(pd.read_csv(self.file_path))
         num_samples = len(df_raw)

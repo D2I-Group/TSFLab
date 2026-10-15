@@ -10,6 +10,7 @@ CachLormer propagates the learned past association through future covariates.
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,18 +123,12 @@ class Model(nn.Module):
             raise ValueError(f"CauAir expects exactly {self.cov_dim} future covariates")
 
         aqi = self.aqi_summary(x_enc.transpose(1, 2))
-        past_cov = history[..., 1:].permute(0, 2, 1, 3).reshape(
-            x_enc.shape[0], self.enc_in, self.seq_len * self.cov_dim
+        past_cov = (
+            history[..., 1:].permute(0, 2, 1, 3).reshape(x_enc.shape[0], self.enc_in, self.seq_len * self.cov_dim)
         )
         past_cov = self.past_cov_summary(past_cov)
-        learned_past = self.past_cachlormer(
-            self.past_association(torch.cat([aqi, past_cov], dim=-1))
-        )
-        future_cov = future.permute(0, 2, 1, 3).reshape(
-            x_enc.shape[0], self.enc_in, self.pred_len * self.cov_dim
-        )
+        learned_past = self.past_cachlormer(self.past_association(torch.cat([aqi, past_cov], dim=-1)))
+        future_cov = future.permute(0, 2, 1, 3).reshape(x_enc.shape[0], self.enc_in, self.pred_len * self.cov_dim)
         future_cov = self.future_cov_summary(future_cov)
-        propagated = self.future_cachlormer(
-            self.future_association(torch.cat([learned_past, future_cov], dim=-1))
-        )
+        propagated = self.future_cachlormer(self.future_association(torch.cat([learned_past, future_cov], dim=-1)))
         return self.decoder(propagated).transpose(1, 2)

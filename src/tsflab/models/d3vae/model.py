@@ -32,9 +32,7 @@ def soft_clamp(x: torch.Tensor, bound: float) -> torch.Tensor:
     return bound * torch.tanh(x / bound)
 
 
-def total_correlation(
-    z: torch.Tensor, mu: torch.Tensor, log_var: torch.Tensor, eps: float = 1e-12
-) -> torch.Tensor:
+def total_correlation(z: torch.Tensor, mu: torch.Tensor, log_var: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
     """Batch-normalized total-correlation score of one latent group (Eq. 12).
 
     ``z``, ``mu`` and ``log_var`` are ``[B, m, H, W]`` with the ``m`` latent
@@ -43,9 +41,7 @@ def total_correlation(
     factors, the factorized density takes the log-sum-exp over factors per cell,
     and their difference is min-max normalized over the batch before averaging.
     """
-    log_density = -0.5 * (math.log(2 * math.pi) + log_var) - 0.5 * (z - mu) ** 2 * torch.exp(
-        -log_var
-    )
+    log_density = -0.5 * (math.log(2 * math.pi) + log_var) - 0.5 * (z - mu) ** 2 * torch.exp(-log_var)
     log_joint = torch.logsumexp(log_density.sum(dim=(2, 3)), dim=1)
     log_factorized = torch.logsumexp(log_density, dim=1).sum(dim=(1, 2))
     score = log_joint - log_factorized
@@ -117,10 +113,14 @@ class InvertedResidual(nn.Module):
         self.upsample = upsample
         self.layers = nn.Sequential(
             _batch_norm(c_in),
-            nn.Conv2d(c_in, hidden, 1), _batch_norm(hidden), nn.SiLU(),  # expand
+            nn.Conv2d(c_in, hidden, 1),
+            _batch_norm(hidden),
+            nn.SiLU(),  # expand
             nn.Conv2d(hidden, hidden, kernel, padding=kernel // 2, groups=hidden),  # depthwise
-            _batch_norm(hidden), nn.SiLU(),
-            nn.Conv2d(hidden, c_out, 1), _batch_norm(c_out),  # project
+            _batch_norm(hidden),
+            nn.SiLU(),
+            nn.Conv2d(hidden, c_out, 1),
+            _batch_norm(c_out),  # project
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -215,10 +215,17 @@ class BidirectionalVAE(nn.Module):
 
     def __init__(
         self,
-        time_len: int, width: int, target_dim: int,
-        num_channels_enc: int, num_channels_dec: int, num_blocks: int,
-        num_preprocess_cells: int, num_postprocess_cells: int,
-        groups: int, latent_per_group: int, clamp: float,
+        time_len: int,
+        width: int,
+        target_dim: int,
+        num_channels_enc: int,
+        num_channels_dec: int,
+        num_blocks: int,
+        num_preprocess_cells: int,
+        num_postprocess_cells: int,
+        groups: int,
+        latent_per_group: int,
+        clamp: float,
     ) -> None:
         super().__init__()
         self.width, self.clamp = width, clamp
@@ -227,24 +234,18 @@ class BidirectionalVAE(nn.Module):
         enc_c, dec_c = num_channels_enc * 2**num_blocks, num_channels_dec * 2**num_blocks
         self.enc_cells = nn.ModuleList(Cell(enc_c, enc_c, "normal_enc") for _ in range(groups))
         # Encoder combiner: x_enc + conv1x1(decoder state).
-        self.enc_combiners = nn.ModuleList(
-            WeightNormConv2d(dec_c, enc_c, 1) for _ in range(groups - 1)
-        )
+        self.enc_combiners = nn.ModuleList(WeightNormConv2d(dec_c, enc_c, 1) for _ in range(groups - 1))
         self.enc0 = nn.Sequential(nn.ELU(), WeightNormConv2d(enc_c, enc_c, 1), nn.ELU())
         self.enc_samplers = nn.ModuleList(
             WeightNormConv2d(enc_c, 2 * latent_per_group, 3, padding=1) for _ in range(groups)
         )
         self.dec_cells = nn.ModuleList(Cell(dec_c, dec_c, "normal_dec") for _ in range(groups - 1))
         # Decoder combiner: conv1x1(concat(decoder state, z)).
-        self.dec_combiners = nn.ModuleList(
-            WeightNormConv2d(dec_c + latent_per_group, dec_c, 1) for _ in range(groups)
-        )
+        self.dec_combiners = nn.ModuleList(WeightNormConv2d(dec_c + latent_per_group, dec_c, 1) for _ in range(groups))
         latent_width = -(-width // 2**num_blocks)  # ceil-halved once per block
         self.prior_ftr0 = nn.Parameter(torch.rand(dec_c, time_len // 2**num_blocks, latent_width))
         self.post_process = _post_process_cells(dec_c, num_blocks, num_postprocess_cells)
-        self.image_conditional = nn.Sequential(
-            nn.ELU(), WeightNormConv2d(num_channels_dec, 2, 3, padding=1)
-        )
+        self.image_conditional = nn.Sequential(nn.ELU(), WeightNormConv2d(num_channels_dec, 2, 3, padding=1))
         self.projection = nn.Linear(width, target_dim)
 
     def _posterior(self, features: torch.Tensor, index: int) -> tuple[torch.Tensor, torch.Tensor]:
@@ -300,9 +301,7 @@ class EnergyNetwork(nn.Module):
         super().__init__()
         widths = [factor * channels for factor in (1, 2, 2, 4, 4, 8, 8)]
         self.conv_in = nn.Conv2d(1, channels, 3, padding=1)
-        self.blocks = nn.Sequential(
-            *(EnergyResidualBlock(a, b) for a, b in zip(widths[:-1], widths[1:]))
-        )
+        self.blocks = nn.Sequential(*(EnergyResidualBlock(a, b) for a, b in zip(widths[:-1], widths[1:])))
         features = 8 * channels * time_len * target_dim
         self.linear1 = nn.Linear(features, 1)
         self.linear2 = nn.Linear(features, 1)
@@ -367,15 +366,27 @@ class Model(nn.Module):
         self.calendar_embedding = CalendarEmbedding(embedding_dim, freq)
         self.embedding_dropout = nn.Dropout(dropout)
         self.rnn = nn.GRU(
-            embedding_dim, hidden_size, num_layers=num_layers,
-            dropout=dropout if num_layers > 1 else 0.0, batch_first=True,
+            embedding_dim,
+            hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+            batch_first=True,
         )
         # Local adapter: the BVAE grid is horizon-long; identity when seq_len == pred_len.
         self.time_map = nn.Linear(seq_len, pred_len) if seq_len != pred_len else None
         width = embedding_dim + hidden_size
         self.bvae = BidirectionalVAE(
-            pred_len, width, self.target_dim, num_channels_enc, num_channels_dec, num_blocks,
-            num_preprocess_cells, num_postprocess_cells, groups_per_scale, latent_per_group, clamp,
+            pred_len,
+            width,
+            self.target_dim,
+            num_channels_enc,
+            num_channels_dec,
+            num_blocks,
+            num_preprocess_cells,
+            num_postprocess_cells,
+            groups_per_scale,
+            latent_per_group,
+            clamp,
         )
         self.energy = EnergyNetwork(score_channels, pred_len, self.target_dim)
 
@@ -408,9 +419,7 @@ class Model(nn.Module):
     def _at(schedule: torch.Tensor, step: torch.Tensor, ndim: int) -> torch.Tensor:
         return schedule[step].view(-1, *([1] * (ndim - 1)))
 
-    def diffuse(
-        self, schedule: torch.Tensor, x: torch.Tensor, step: torch.Tensor, noise: torch.Tensor
-    ) -> torch.Tensor:
+    def diffuse(self, schedule: torch.Tensor, x: torch.Tensor, step: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
         """``X(t) = sqrt(abar_t) X + sqrt(1 - abar_t) dX``: the input (Eq. 3-4) with
         ``alphas_cumprod`` and the target (Eq. 6, ``beta'_t = omega beta_t``) with
         ``target_alphas_cumprod``."""
@@ -458,16 +467,12 @@ class Model(nn.Module):
         features = self.representation(x_enc, x_mark_enc)
         noisy_input = self.diffuse(self.alphas_cumprod, features, step, torch.randn_like(features))
         target = y.unsqueeze(1)
-        noisy_target = self.diffuse(
-            self.target_alphas_cumprod, target, step, torch.randn_like(target)
-        )
+        noisy_target = self.diffuse(self.target_alphas_cumprod, target, step, torch.randn_like(target))
         mu, log_sigma, tc = self.bvae(noisy_input.unsqueeze(1))
         sigma = torch.exp(log_sigma)
 
         # psi-term: Gaussian negative log-likelihood of the diffused target.
-        log_prob = (
-            -0.5 * ((noisy_target - mu) / sigma) ** 2 - log_sigma - 0.5 * math.log(2 * math.pi)
-        )
+        log_prob = -0.5 * ((noisy_target - mu) / sigma) ** 2 - log_sigma - 0.5 * math.log(2 * math.pi)
         nll = -log_prob.sum(dim=(1, 2, 3)).mean()
         generated = mu + sigma * torch.randn_like(mu)
         mse = F.mse_loss(generated, noisy_target)
@@ -480,9 +485,7 @@ class Model(nn.Module):
         dsm = (residual.pow(2) * weight).sum(dim=(1, 2, 3)).mean()
         return {"nll": nll, "dsm": dsm, "tc": tc, "mse": mse}
 
-    def training_loss(
-        self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None, y: torch.Tensor
-    ) -> torch.Tensor:
+    def training_loss(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None, y: torch.Tensor) -> torch.Tensor:
         """Eq. 14: ``psi * NLL + lambda * DSM + gamma * TC + MSE``."""
         terms = self.loss_terms(x_enc, x_mark_enc, y)
         weighted = self.psi * terms["nll"] + self.lambda_dsm * terms["dsm"]

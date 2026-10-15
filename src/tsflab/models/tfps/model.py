@@ -279,7 +279,9 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         x = self.revin(x_enc, "norm")
         patches = patchify(x.transpose(1, 2), self.patch_len, self.stride)  # [B, C, N_in, P]
-        h_time, s_time = self.route(self.encode_time(patches), self.time_project, self.time_identifier, self.time_experts)
+        h_time, s_time = self.route(
+            self.encode_time(patches), self.time_project, self.time_identifier, self.time_experts
+        )
         h_freq, s_freq = self.route(
             self.encode_frequency(patches), self.freq_project, self.freq_identifier, self.freq_experts
         )

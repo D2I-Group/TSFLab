@@ -50,9 +50,7 @@ class SampleAdaptiveDropout(nn.Module):
             return F.dropout(inputs, self.p, training=True)
         if inputs.shape[0] != rates.shape[0]:
             if inputs.shape[0] % rates.shape[0]:
-                raise ValueError(
-                    f"cannot align {rates.shape[0]} sample rates with batch {inputs.shape[0]}"
-                )
+                raise ValueError(f"cannot align {rates.shape[0]} sample rates with batch {inputs.shape[0]}")
             rates = rates.repeat_interleave(inputs.shape[0] // rates.shape[0])
         rates = rates.view(-1, *([1] * (inputs.ndim - 1)))
         keep = 1.0 - rates
@@ -107,8 +105,13 @@ class SpectralNoiseScorer(nn.Module):
         clean = torch.fft.irfft(spectrum * mask, n=self.seq_len, dim=-1) + trend
         score = (series - clean).abs().mean(dim=(1, 2))  # Eq. (7)
         return {
-            "trend": trend, "normalized": normalized, "sfm": sfm,
-            "threshold": threshold, "mask": mask, "reconstruction": clean, "score": score,
+            "trend": trend,
+            "normalized": normalized,
+            "sfm": sfm,
+            "threshold": threshold,
+            "mask": mask,
+            "reconstruction": clean,
+            "score": score,
         }
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -148,13 +151,32 @@ class Model(nn.Module):
         self.p_min = float(p_min)
         self.p_max = float(p_max)
         self.backbone = PatchTSTBackbone(
-            c_in=enc_in, context_window=seq_len, target_window=pred_len,
-            patch_len=patch_len, stride=stride, padding_patch=padding_patch,
-            n_layers=e_layers, d_model=d_model, n_heads=n_heads, d_k=None, d_v=None,
-            d_ff=d_ff, activation=activation, norm=norm, attn_dropout=attn_dropout,
-            res_dropout=dropout, ffn_dropout=dropout, proj_dropout=dropout,
-            head_dropout=dropout, pre_norm=False, pe="zeros", learn_pe=False,
-            head_type="flatten", individual=False, revin=revin, affine=affine,
+            c_in=enc_in,
+            context_window=seq_len,
+            target_window=pred_len,
+            patch_len=patch_len,
+            stride=stride,
+            padding_patch=padding_patch,
+            n_layers=e_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            d_k=None,
+            d_v=None,
+            d_ff=d_ff,
+            activation=activation,
+            norm=norm,
+            attn_dropout=attn_dropout,
+            res_dropout=dropout,
+            ffn_dropout=dropout,
+            proj_dropout=dropout,
+            head_dropout=dropout,
+            pre_norm=False,
+            pe="zeros",
+            learn_pe=False,
+            head_type="flatten",
+            individual=False,
+            revin=revin,
+            affine=affine,
             subtract_last=False,
         )
         self.rate_state = DropoutRateState()

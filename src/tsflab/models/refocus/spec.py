@@ -1,11 +1,9 @@
 """Runtime specification for ReFocus."""
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.refocus.model import Model
-
-"""Validated parameters for ReFocus."""
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelParameterConfig(BaseModel):

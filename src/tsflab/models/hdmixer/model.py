@@ -4,6 +4,7 @@ Length-Extendable Patching learns a center and width adjustment for every
 nominal patch. Hierarchical Dependency Explorer blocks then mix within-patch,
 across-patch, and across-variable axes with separate MLPs.
 """
+
 from __future__ import annotations
 
 import torch
@@ -16,6 +17,7 @@ from tsflab.models._inputs import check_window
 
 class LengthExtendablePatcher(nn.Module):
     """Sample learned variable-length patches by differentiable interpolation."""
+
     def __init__(self, seq_len: int, patch_len: int, stride: int, deform_range: float):
         super().__init__()
         self.seq_len, self.patch_len = seq_len, patch_len
@@ -39,8 +41,9 @@ class LengthExtendablePatcher(nn.Module):
         horizontal = self.sampling_grid(series)
         vertical = torch.zeros_like(horizontal)
         grid = torch.stack((horizontal, vertical), -1)
-        sampled = F.grid_sample(series[:, None, None], grid, mode="bilinear",
-                                padding_mode="border", align_corners=True).squeeze(1)
+        sampled = F.grid_sample(
+            series[:, None, None], grid, mode="bilinear", padding_mode="border", align_corners=True
+        ).squeeze(1)
         return sampled.reshape(batch, channels, self.patch_count, self.patch_len)
 
 
@@ -48,8 +51,9 @@ class AxisMixer(nn.Module):
     def __init__(self, width: int, hidden: int, dropout: float):
         super().__init__()
         self.norm = nn.LayerNorm(width)
-        self.net = nn.Sequential(nn.Linear(width, hidden), nn.GELU(), nn.Dropout(dropout),
-                                 nn.Linear(hidden, width), nn.Dropout(dropout))
+        self.net = nn.Sequential(
+            nn.Linear(width, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, width), nn.Dropout(dropout)
+        )
 
     def forward(self, values):
         return values + self.net(self.norm(values))
@@ -57,8 +61,10 @@ class AxisMixer(nn.Module):
 
 class HierarchicalDependencyBlock(nn.Module):
     """HDE with distinct local-time, long-time, variable and channel mixers."""
-    def __init__(self, variables, patches, patch_len, width, hidden, dropout,
-                 mix_time=True, mix_variable=True, mix_channel=True):
+
+    def __init__(
+        self, variables, patches, patch_len, width, hidden, dropout, mix_time=True, mix_variable=True, mix_channel=True
+    ):
         super().__init__()
         self.local = AxisMixer(patch_len, max(patch_len, hidden // 4), dropout) if mix_time else nn.Identity()
         self.patch = AxisMixer(patches, max(patches, hidden // 4), dropout) if mix_time else nn.Identity()
@@ -74,24 +80,53 @@ class HierarchicalDependencyBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", d_model=128,
-                 d_ff=256, e_layers=3, patch_len=16, stride=8, dropout=0.1,
-                 head_dropout=0.0, revin=True, affine=True,
-                 subtract_last=False, deform_range=0.25,
-                 mix_time=True, mix_variable=True, mix_channel=True):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        d_model=128,
+        d_ff=256,
+        e_layers=3,
+        patch_len=16,
+        stride=8,
+        dropout=0.1,
+        head_dropout=0.0,
+        revin=True,
+        affine=True,
+        subtract_last=False,
+        deform_range=0.25,
+        mix_time=True,
+        mix_variable=True,
+        mix_channel=True,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, affine=affine, subtract_last=subtract_last, enabled=revin)
         self.patcher = LengthExtendablePatcher(seq_len, patch_len, stride, deform_range)
         self.embedding = nn.Linear(1, d_model)
-        self.layers = nn.ModuleList([
-            HierarchicalDependencyBlock(enc_in, self.patcher.patch_count, patch_len,
-                                        d_model, d_ff, dropout, mix_time,
-                                        mix_variable, mix_channel)
-            for _ in range(e_layers)
-        ])
-        self.head = nn.Sequential(nn.Flatten(-3), nn.Dropout(head_dropout),
-                                  nn.Linear(self.patcher.patch_count * patch_len * d_model, pred_len))
+        self.layers = nn.ModuleList(
+            [
+                HierarchicalDependencyBlock(
+                    enc_in,
+                    self.patcher.patch_count,
+                    patch_len,
+                    d_model,
+                    d_ff,
+                    dropout,
+                    mix_time,
+                    mix_variable,
+                    mix_channel,
+                )
+                for _ in range(e_layers)
+            ]
+        )
+        self.head = nn.Sequential(
+            nn.Flatten(-3),
+            nn.Dropout(head_dropout),
+            nn.Linear(self.patcher.patch_count * patch_len * d_model, pred_len),
+        )
 
     def forward(
         self,

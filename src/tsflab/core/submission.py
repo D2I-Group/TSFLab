@@ -78,12 +78,11 @@ class SubmissionReport(BaseModel):
     reports: list[ReportArtifact] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _consistency(self) -> "SubmissionReport":
+    def _consistency(self) -> SubmissionReport:
         for record in self.records:
             if record.track != self.manifest.track:
                 raise ValueError(
-                    f"record {record.record_id!r} track {record.track!r} != "
-                    f"manifest track {self.manifest.track!r}"
+                    f"record {record.record_id!r} track {record.track!r} != manifest track {self.manifest.track!r}"
                 )
         seen: set[str] = set()
         for ref in self.manifest.files:

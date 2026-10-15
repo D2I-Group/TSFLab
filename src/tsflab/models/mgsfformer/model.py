@@ -1,14 +1,18 @@
 """Clean-room MGSFformer from the published three-module description."""
+
 from __future__ import annotations
+
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+
 from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
 
 class ResidualDeRedundant(nn.Module):
     """Remove information predictable from the next finer granularity."""
+
     def __init__(self, width: int) -> None:
         super().__init__()
         self.predict_redundancy = nn.Linear(width, width)
@@ -20,6 +24,7 @@ class ResidualDeRedundant(nn.Module):
 
 class SpatioTemporalAttention(nn.Module):
     """Temporal attention per station followed by spatial attention per step."""
+
     def __init__(self, width: int, heads: int, dropout: float) -> None:
         super().__init__()
         self.temporal = nn.MultiheadAttention(width, heads, dropout=dropout, batch_first=True)
@@ -38,6 +43,7 @@ class SpatioTemporalAttention(nn.Module):
 
 class DynamicFusion(nn.Module):
     """Sample/node-specific convex fusion of granularity forecasts."""
+
     def __init__(self, width: int, branches: int) -> None:
         super().__init__()
         self.score = nn.Linear(width, 1)
@@ -53,10 +59,12 @@ class DynamicFusion(nn.Module):
 
 class Model(nn.Module):
     """Multi-granularity spatiotemporal fusion Transformer."""
+
     GRANULARITIES = (1, 3, 6, 12, 24)
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, IE_dim: int = 32,
-                 dropout: float = 0.3, num_head: int = 2) -> None:
+    def __init__(
+        self, seq_len: int, pred_len: int, enc_in: int, IE_dim: int = 32, dropout: float = 0.3, num_head: int = 2
+    ) -> None:
         super().__init__()
         if seq_len < 24 or seq_len % 24:
             raise ValueError("MGSFformer requires seq_len to be a multiple of 24")
@@ -71,8 +79,13 @@ class Model(nn.Module):
     def _granularity(self, x: torch.Tensor, factor: int) -> torch.Tensor:
         b, t, n, d = x.shape
         coarse = x.reshape(b, t // factor, factor, n, d).mean(2)
-        return F.interpolate(coarse.permute(0, 2, 3, 1).reshape(b, n * d, t // factor),
-                             size=t, mode="linear", align_corners=False).reshape(b, n, d, t).permute(0, 3, 1, 2)
+        return (
+            F.interpolate(
+                coarse.permute(0, 2, 3, 1).reshape(b, n * d, t // factor), size=t, mode="linear", align_corners=False
+            )
+            .reshape(b, n, d, t)
+            .permute(0, 3, 1, 2)
+        )
 
     def forward(
         self,
@@ -88,6 +101,7 @@ class Model(nn.Module):
         for index in range(1, len(raw)):
             features.append(self.deredundant[index - 1](raw[index], raw[index - 1]))
         features = [block(value) for block, value in zip(self.attention, features)]
-        forecasts = [head(value.transpose(1, 2).flatten(2)).transpose(1, 2)
-                     for head, value in zip(self.heads, features)]
+        forecasts = [
+            head(value.transpose(1, 2).flatten(2)).transpose(1, 2) for head, value in zip(self.heads, features)
+        ]
         return self.revin(self.fusion(features, forecasts), "denorm")

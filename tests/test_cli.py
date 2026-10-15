@@ -23,8 +23,17 @@ from tsflab.core.paths import repository_root
 
 
 COMMANDS = {
-    "catalog", "data", "model", "run", "env", "result", "realtime",
-    "research", "repo", "agent", "init",
+    "catalog",
+    "data",
+    "model",
+    "run",
+    "env",
+    "result",
+    "realtime",
+    "research",
+    "repo",
+    "agent",
+    "init",
 }
 
 
@@ -33,17 +42,41 @@ def test_public_surface_is_eleven_module_commands() -> None:
     assert all(f"    {name} " in cli.__doc__ for name in COMMANDS)
 
 
-@pytest.mark.parametrize("old", [
-    "dataset", "component", "verify", "smoke", "inspect", "queue", "slurm", "storage",
-    "usage", "interface", "submit", "hub", "schema-export", "leaderboard-build",
-])
+@pytest.mark.parametrize(
+    "old",
+    [
+        "dataset",
+        "component",
+        "verify",
+        "smoke",
+        "inspect",
+        "queue",
+        "slurm",
+        "storage",
+        "usage",
+        "interface",
+        "submit",
+        "hub",
+        "schema-export",
+        "leaderboard-build",
+    ],
+)
 def test_removed_commands_are_unknown(old: str, capsys) -> None:
     assert cli.main([old]) == 2
     assert "unknown command" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("argv", [["repo", "audit"], ["repo", "doctor"], ["model", "show", "x"],
-                                  ["model", "list"], ["data", "list"], ["result", "nope"]])
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["repo", "audit"],
+        ["repo", "doctor"],
+        ["model", "show", "x"],
+        ["model", "list"],
+        ["data", "list"],
+        ["result", "nope"],
+    ],
+)
 def test_removed_subcommands_print_usage(argv: list[str], capsys) -> None:
     assert cli.main(argv) == 2
     assert "usage:" in capsys.readouterr().err
@@ -105,16 +138,16 @@ class GateSelectionTests(unittest.TestCase):
     def test_model_change_maps_to_its_smoke_config(self) -> None:
         configs = affected_smoke_configs(["src/tsflab/models/crib/model.py"], ROOT)
         self.assertEqual(configs, ["configs/runs/smoke_crib.toml"])
-        self.assertIn("smoke-affected",
-                      names("changed", ["src/tsflab/models/crib/model.py"]))
+        self.assertIn("smoke-affected", names("changed", ["src/tsflab/models/crib/model.py"]))
 
     def test_model_without_smoke_config_falls_back(self) -> None:
         configs = affected_smoke_configs(["src/tsflab/models/nonexistent_x/model.py"], ROOT)
         self.assertEqual(len(configs), 3)
 
     def test_edited_smoke_config_is_selected(self) -> None:
-        self.assertEqual(affected_smoke_configs(["configs/runs/smoke_crib.toml"], ROOT),
-                         ["configs/runs/smoke_crib.toml"])
+        self.assertEqual(
+            affected_smoke_configs(["configs/runs/smoke_crib.toml"], ROOT), ["configs/runs/smoke_crib.toml"]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -216,8 +249,9 @@ def test_catalog_list_covers_every_resource() -> None:
 
     root = Path(__file__).resolve().parents[1]
     models = _json("catalog", "list", "--kind", "model")
-    assert len(models) == len([p for p in (root / "src/tsflab/models").glob("*/spec.py")
-                               if not p.parent.name.startswith("_")])
+    assert len(models) == len(
+        [p for p in (root / "src/tsflab/models").glob("*/spec.py") if not p.parent.name.startswith("_")]
+    )
     assert all(record["summary"] for record in models)
     datasets = _json("catalog", "list", "--kind", "dataset")
     assert len(datasets) == len(list((root / "configs/datasets").rglob("*.toml")))
@@ -233,11 +267,15 @@ def test_catalog_show_routes_component_facts_and_consumers() -> None:
 
 
 def test_catalog_search_ranks_names_and_tags() -> None:
-    assert _json("catalog", "search", "--kind", "dataset", "electricity", "15t")[0]["name"] == "gift_eval/electricity_15T"
+    assert (
+        _json("catalog", "search", "--kind", "dataset", "electricity", "15t")[0]["name"] == "gift_eval/electricity_15T"
+    )
     hits = _json("catalog", "search", "--kind", "model", "exogenous", "transformer")[:3]
     timexer = next(hit for hit in hits if hit["name"] == "TimeXer")
     assert "exogenous" in timexer["matched_terms"]
-    assert _json("catalog", "search", "--kind", "component", "patch", "transformer", "backbone")[0]["name"] == "patchtst"
+    assert (
+        _json("catalog", "search", "--kind", "component", "patch", "transformer", "backbone")[0]["name"] == "patchtst"
+    )
     first = _run("catalog", "search", "reversible", "instance", "normalization", "--limit", "3").splitlines()[0]
     assert first.split("\t")[:2] == ["revin", "component"]
     only = _json("catalog", "search", "electricity", "--kind", "dataset")
@@ -302,9 +340,11 @@ def test_shared_spellings_keep_hidden_aliases() -> None:
     add_option(parser, "--out", "output", "--output", "--out-dir")
     help_text = parser.format_help()
     assert "--records" in help_text and "--work-dir" not in help_text and "--pred-len" not in help_text
-    for argv in (["ETTh1", "--records", "w", "--horizon", "96", "--out", "o"],
-                 ["--dataset", "ETTh1", "--work-dir", "w", "--pred-len", "96", "--output", "o"],
-                 ["--dataset=ETTh1", "--work-dir=w", "--pred-len=96", "--out-dir", "o"]):
+    for argv in (
+        ["ETTh1", "--records", "w", "--horizon", "96", "--out", "o"],
+        ["--dataset", "ETTh1", "--work-dir", "w", "--pred-len", "96", "--output", "o"],
+        ["--dataset=ETTh1", "--work-dir=w", "--pred-len=96", "--out-dir", "o"],
+    ):
         args = parser.parse_args(argv)
         resolve_name(parser, args, "dataset")
         assert (args.dataset, args.work_dir, args.pred_len, args.output) == ("ETTh1", "w", 96, "o"), argv
@@ -314,10 +354,13 @@ def test_shared_spellings_keep_hidden_aliases() -> None:
         resolve_name(parser, defaults, "dataset")
 
 
-@pytest.mark.parametrize("argv", [
-    ["fixture", "--records", "{root}"],
-    ["--dataset", "fixture", "--work-dir", "{root}"],
-])
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["fixture", "--records", "{root}"],
+        ["--dataset", "fixture", "--work-dir", "{root}"],
+    ],
+)
 def test_result_aggregate_reads_dataset_and_records_in_either_spelling(argv, tmp_path, monkeypatch) -> None:
     import sys
 
@@ -335,9 +378,11 @@ def test_data_splits_horizon_alias_and_global_json_anywhere() -> None:
 
     new = _json("data", "splits", "etth1", "--horizon", "96")
     assert _json("data", "splits", "etth1", "--pred-len", "96") == new
-    for argv in (["--format", "json", "data", "splits", "etth1"],
-                 ["data", "splits", "--format", "json", "etth1"],
-                 ["data", "splits", "etth1", "--format=json"]):
+    for argv in (
+        ["--format", "json", "data", "splits", "etth1"],
+        ["data", "splits", "--format", "json", "etth1"],
+        ["data", "splits", "etth1", "--format=json"],
+    ):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             assert cli.main(argv) == 0, argv
@@ -382,8 +427,10 @@ def test_documented_commands_exist_in_the_inventory(tmp_path, monkeypatch) -> No
 
     assert check_docs.command_reference_problems() == []
     page = tmp_path / "page.md"
-    page.write_text("Run `tsf data inspect --config x`, `tsf model show X`, and `tsf run configs/a.toml`.\n"
-                    "`tsf catalog show A B` and `tsf agent interface modules`.\n")
+    page.write_text(
+        "Run `tsf data inspect --config x`, `tsf model show X`, and `tsf run configs/a.toml`.\n"
+        "`tsf catalog show A B` and `tsf agent interface modules`.\n"
+    )
     monkeypatch.setattr(check_docs, "ROOT", tmp_path)
     problems = check_docs.command_reference_problems([page])
     assert len(problems) == 3, problems
@@ -394,10 +441,13 @@ def test_documented_commands_exist_in_the_inventory(tmp_path, monkeypatch) -> No
 @pytest.mark.parametrize("name", ["StateFlow", "stateflow", "STATEFLOW"])
 def test_model_parameter_query_returns_schema_without_loading_all_cards(monkeypatch, capsys, name):
     import json
-    from tsflab.cli.commands.catalog_resources import catalog_command
+
     from tsflab.catalog.cards import metadata
+    from tsflab.cli.commands.catalog_resources import catalog_command
+
     def unexpected(*a, **k):
         raise AssertionError("parameter query must not read all catalog cards")
+
     monkeypatch.setattr(metadata, "model_records", unexpected)
     assert catalog_command(["show", name, "--params"]) == 0
     result = json.loads(capsys.readouterr().out)
@@ -411,47 +461,76 @@ def test_model_parameter_query_returns_schema_without_loading_all_cards(monkeypa
 
 def test_parameter_query_disambiguates_model_from_same_named_component(capsys):
     import json
+
     from tsflab.cli.commands.catalog_resources import catalog_command
+
     assert catalog_command(["show", "patchtst", "--params"]) == 0
     result = json.loads(capsys.readouterr().out)
-    assert result['name'] == 'PatchTST'
-    assert 'enc_in' in result['parameters']['properties']
+    assert result["name"] == "PatchTST"
+    assert "enc_in" in result["parameters"]["properties"]
 
 
 def test_named_model_request_saves_validation_failure_before_dispatch(tmp_path, capsys):
     import json
+
     from tsflab.cli.commands.execution import run_command
-    output = tmp_path/'completion.json'
-    assert run_command(['--model','StateFlow','--set','model.params.hidden_size=99',
-        '--set','dataset.name=custom','--set','dataset.path=./missing.csv','--set','dataset.params.target=OT',
-        '--json','--output',str(output)]) == 2
+
+    output = tmp_path / "completion.json"
+    assert (
+        run_command(
+            [
+                "--model",
+                "StateFlow",
+                "--set",
+                "model.params.hidden_size=99",
+                "--set",
+                "dataset.name=custom",
+                "--set",
+                "dataset.path=./missing.csv",
+                "--set",
+                "dataset.params.target=OT",
+                "--json",
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
     result = json.loads(capsys.readouterr().out)
     assert json.loads(output.read_text()) == result
-    assert not result['ok'] and 'hidden_size' in result['error']['message']
+    assert not result["ok"] and "hidden_size" in result["error"]["message"]
 
 
 @pytest.mark.parametrize("settings", ["max_parallel_jobs=2\nauto_parallel=true\n", ""])
 def test_research_policy_excludes_automatic_scheduling_flag(tmp_path, monkeypatch, capsys, settings):
     from tsflab.cli.commands import research
-    policy = tmp_path/'policy.toml'
-    policy.write_text('[budget]\nmax_runs=10\n'+settings+'max_wall_minutes=10\n')
+
+    policy = tmp_path / "policy.toml"
+    policy.write_text("[budget]\nmax_runs=10\n" + settings + "max_wall_minutes=10\n")
     captured = {}
+
     def create(**kwargs):
         captured.update(kwargs)
         from tsflab.research.rounds import _normalize_budget
-        _normalize_budget(kwargs['budget'], kwargs['max_runs'])
-        return {'id':'bounded'}
-    monkeypatch.setattr(research, 'create_round', create)
-    assert research.research_command(['start','--goal','smoke','--policy',str(policy),'--max-iterations','3']) == 0
-    assert captured['budget']['max_iterations'] == 3
-    assert 'auto_parallel' not in captured['budget']
-    assert 'max_parallel_jobs' not in captured['budget']
+
+        _normalize_budget(kwargs["budget"], kwargs["max_runs"])
+        return {"id": "bounded"}
+
+    monkeypatch.setattr(research, "create_round", create)
+    assert (
+        research.research_command(["start", "--goal", "smoke", "--policy", str(policy), "--max-iterations", "3"]) == 0
+    )
+    assert captured["budget"]["max_iterations"] == 3
+    assert "auto_parallel" not in captured["budget"]
+    assert "max_parallel_jobs" not in captured["budget"]
 
 
 @pytest.mark.parametrize("name", ["itransformer", "FREDFORMER", "scinet"])
 def test_catalog_show_resolves_model_case_without_explicit_kind(capsys, name):
     import json
+
     from tsflab.cli.commands.catalog_resources import catalog_command
+
     assert catalog_command(["show", name, "--depth", "0", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["name"].casefold() == name.casefold()
@@ -459,33 +538,56 @@ def test_catalog_show_resolves_model_case_without_explicit_kind(capsys, name):
 
 def test_catalog_show_preserves_model_component_ambiguity(capsys):
     from tsflab.cli.commands.catalog_resources import catalog_command
+
     assert catalog_command(["show", "patchtst"]) == 2
     assert "pass --kind" in capsys.readouterr().err
 
 
 def test_rejected_request_preserves_previous_execution_report(tmp_path, capsys):
     import json
+
     from tsflab.cli.commands.execution import run_command
-    output = tmp_path / 'completion.json'
-    original = {'ok': True, 'directory': str(tmp_path / 'native-sweep'),
-                'runs': [{'run_id': 'completed-run', 'status': 'succeeded'}]}
+
+    output = tmp_path / "completion.json"
+    original = {
+        "ok": True,
+        "directory": str(tmp_path / "native-sweep"),
+        "runs": [{"run_id": "completed-run", "status": "succeeded"}],
+    }
     output.write_text(json.dumps(original))
-    assert run_command(['--model', 'StateFlow', '--set', 'model.params.hidden_size=99',
-        '--set', 'dataset.name=custom', '--set', 'dataset.path=./missing.csv',
-        '--json', '--output', str(output)]) == 2
+    assert (
+        run_command(
+            [
+                "--model",
+                "StateFlow",
+                "--set",
+                "model.params.hidden_size=99",
+                "--set",
+                "dataset.name=custom",
+                "--set",
+                "dataset.path=./missing.csv",
+                "--json",
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
     failure = json.loads(capsys.readouterr().out)
-    assert not failure['ok'] and failure['output_preserved'] == str(output)
+    assert not failure["ok"] and failure["output_preserved"] == str(output)
     assert json.loads(output.read_text()) == original
 
 
 def test_preview_cannot_replace_execution_receipt_but_native_status_can(tmp_path):
     import json
+
     from tsflab.cli.commands.execution import _save_output
-    path = tmp_path / 'completion.json'
-    completed = {'ok': True, 'directory': str(tmp_path / 'native-sweep'), 'runs': []}
+
+    path = tmp_path / "completion.json"
+    completed = {"ok": True, "directory": str(tmp_path / "native-sweep"), "runs": []}
     assert _save_output(path, completed)
-    assert not _save_output(path, {'ok': True, 'total_runs': 2, 'runs': []})
+    assert not _save_output(path, {"ok": True, "total_runs": 2, "runs": []})
     assert json.loads(path.read_text()) == completed
-    updated = dict(completed, status='finished')
+    updated = dict(completed, status="finished")
     assert _save_output(path, updated)
     assert json.loads(path.read_text()) == updated

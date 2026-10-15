@@ -111,9 +111,7 @@ class StructuredAttention(nn.Module):
             self.out = StructuredLinear(d_model)
         else:
             half = kernel_size // 2
-            self.qkv = nn.ModuleList(
-                nn.ModuleList(_conv(half) for _ in range(_CONV_QKV_LAYERS)) for _ in range(3)
-            )
+            self.qkv = nn.ModuleList(nn.ModuleList(_conv(half) for _ in range(_CONV_QKV_LAYERS)) for _ in range(3))
             self.qkv_norms = nn.ModuleList(nn.LayerNorm(d_model) for _ in range(3))
             self.qkv_dropout = nn.Dropout(_CONV_QKV_DROPOUT)
             self.out = _conv(kernel_size)
@@ -144,7 +142,9 @@ class StructuredAttention(nn.Module):
 class EncoderLayer(nn.Module):
     """Residual attention, LayerNorm, structured two-layer feed-forward, residual LayerNorm."""
 
-    def __init__(self, d_model: int, n_heads: int, mode: StructMode, kernel_size: int, dropout: float, activation: str) -> None:
+    def __init__(
+        self, d_model: int, n_heads: int, mode: StructMode, kernel_size: int, dropout: float, activation: str
+    ) -> None:
         super().__init__()
         self.attention = StructuredAttention(d_model, n_heads, mode, kernel_size, dropout)
         self.mode = mode

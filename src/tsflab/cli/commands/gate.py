@@ -18,13 +18,13 @@ per model, when it is added or changed (``tsf model verify --changed``). Fast st
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from tsflab.core.paths import repository_root
 
@@ -90,13 +90,13 @@ def affected_smoke_configs(changed: list[str], root: Path) -> list[str]:
 
 def changed_models(changed: list[str]) -> list[str]:
     """Model packages whose files appear in ``changed`` (shared code is covered by the smoke run)."""
-    names = {path.split("/")[3] for path in changed
-             if path.startswith("src/tsflab/models/") and path.count("/") >= 4}
+    names = {path.split("/")[3] for path in changed if path.startswith("src/tsflab/models/") and path.count("/") >= 4}
     return sorted(name for name in names if not name.startswith(("_", ".")))
 
 
-def select_steps(scope: str, changed: list[str], root: Path, *, base: str | None = None,
-                 local: bool = False) -> list[Step]:
+def select_steps(
+    scope: str, changed: list[str], root: Path, *, base: str | None = None, local: bool = False
+) -> list[Step]:
     """Return the ordered steps for ``scope`` (pure; runs nothing).
 
     ``repo-audit`` covers agent assets, component, dataset, and model cards, complexity,
@@ -104,8 +104,7 @@ def select_steps(scope: str, changed: list[str], root: Path, *, base: str | None
     not CI), ``changed`` also re-admits the changed models, which records ``[admission]``.
     """
     steps = [
-        Step("schema-export", [PY, "-m", "tsflab.core", "--check",
-                               "--out", "src/tsflab/core/schema"]),
+        Step("schema-export", [PY, "-m", "tsflab.core", "--check", "--out", "src/tsflab/core/schema"]),
         Step("agent-tasks", CLI + ["agent", "task", "validate"]),
         Step("model-cards", CLI + ["model", "audit", "--summary"], scopes=("full", "changed")),
         Step("model-release", CLI + ["model", "audit", "--summary", "--release"], scopes=("release",)),
@@ -115,15 +114,18 @@ def select_steps(scope: str, changed: list[str], root: Path, *, base: str | None
     steps = [step for step in steps if scope in step.scopes]
     if scope == "changed":
         if local and changed_models(changed):
-            steps.append(Step("admission-changed", CLI + ["model", "verify", "--changed",
-                                                         *(["--base", base] if base else [])]))
+            steps.append(
+                Step("admission-changed", CLI + ["model", "verify", "--changed", *(["--base", base] if base else [])])
+            )
         configs = affected_smoke_configs(changed, root)
         if configs:
-            steps.append(Step(
-                "smoke-affected",
-                CLI + ["run", "--smoke", "--config", *configs],
-                setup=[[PY, "scripts/make_smoke_data.py"]],
-            ))
+            steps.append(
+                Step(
+                    "smoke-affected",
+                    CLI + ["run", "--smoke", "--config", *configs],
+                    setup=[[PY, "scripts/make_smoke_data.py"]],
+                )
+            )
     steps.append(Step("pytest", [PY, "-m", "pytest", "-q", "-m", "not e2e", "tests"]))
     return steps
 
@@ -137,15 +139,16 @@ def changed_files(root: Path, base: str | None) -> list[str]:
             candidates.append(f"origin/{env}")
         candidates += ["origin/dev", "dev", "origin/main", "main"]
     for ref in candidates:
-        probe = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref],
-                               cwd=root, capture_output=True)
+        probe = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref], cwd=root, capture_output=True)
         if probe.returncode == 0:
-            diff = subprocess.run(["git", "diff", "--name-only", f"{ref}...HEAD"],
-                                  cwd=root, capture_output=True, text=True)
+            diff = subprocess.run(
+                ["git", "diff", "--name-only", f"{ref}...HEAD"], cwd=root, capture_output=True, text=True
+            )
             if diff.returncode == 0:
                 tracked = diff.stdout.split()
-                dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=root,
-                                       capture_output=True, text=True).stdout
+                dirty = subprocess.run(
+                    ["git", "status", "--porcelain", "--untracked-files=all"], cwd=root, capture_output=True, text=True
+                ).stdout
                 return sorted(set(tracked) | {line[3:] for line in dirty.splitlines()})
     raise RuntimeError("cannot resolve a base ref for --scope changed; pass --base REF")
 
@@ -155,35 +158,50 @@ def _run(step: Step, root: Path, quiet: bool) -> dict:
     code = 0
     output = ""
     for command in [*step.setup, step.argv]:
-        proc = subprocess.run(command, cwd=root / step.cwd, text=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              env={**os.environ, "PYTHONUNBUFFERED": "1"})
+        proc = subprocess.run(
+            command,
+            cwd=root / step.cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        )
         output += proc.stdout
         code = proc.returncode
         if code:
             break
     if not quiet and code:
         print(output, file=sys.stderr)
-    return {"step": step.name, "ok": code == 0, "code": code,
-            "seconds": round(time.monotonic() - start, 1),
-            "tail": "\n".join(output.strip().splitlines()[-15:])}
+    return {
+        "step": step.name,
+        "ok": code == 0,
+        "code": code,
+        "seconds": round(time.monotonic() - start, 1),
+        "tail": "\n".join(output.strip().splitlines()[-15:]),
+    }
 
 
 def check_command(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="tsf repo check", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="tsf repo check", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--scope", choices=["full", "changed", "release"], default="full")
     parser.add_argument("--base", help="base ref for --scope changed")
     parser.add_argument("--fail-fast", action="store_true")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--list", action="store_true", help="print the steps and exit")
     parser.add_argument("--only", nargs="+", metavar="STEP", help="run only these steps (see --list)")
-    parser.add_argument("--audit", action="store_true",
-                        help="run the static repository audits in-process (the repo-audit step)")
-    parser.add_argument("--contracts", choices=["construct", "forward", "backward", "strict"],
-                        help="execute model tensor contracts at this depth")
-    parser.add_argument("--models", nargs="+", metavar="NAME",
-                        help="with --contracts: only these models (default: the whole catalog)")
+    parser.add_argument(
+        "--audit", action="store_true", help="run the static repository audits in-process (the repo-audit step)"
+    )
+    parser.add_argument(
+        "--contracts",
+        choices=["construct", "forward", "backward", "strict"],
+        help="execute model tensor contracts at this depth",
+    )
+    parser.add_argument(
+        "--models", nargs="+", metavar="NAME", help="with --contracts: only these models (default: the whole catalog)"
+    )
     args = parser.parse_args(argv)
     if args.audit or args.contracts:
         from tsflab.cli.commands.repository import run_audit, run_contracts
@@ -227,14 +245,12 @@ def check_command(argv: list[str]) -> int:
         result = _run(step, root, quiet=args.json)
         results.append(result)
         if not args.json:
-            print(f"[check] {step.name}: {'PASS' if result['ok'] else 'FAIL'} "
-                  f"({result['seconds']}s)", flush=True)
+            print(f"[check] {step.name}: {'PASS' if result['ok'] else 'FAIL'} ({result['seconds']}s)", flush=True)
         if args.fail_fast and not result["ok"]:
             break
     failed = [r["step"] for r in results if not r["ok"]]
     if args.json:
-        print(json.dumps({"scope": args.scope, "passed": not failed, "failed": failed,
-                          "steps": results}, indent=2))
+        print(json.dumps({"scope": args.scope, "passed": not failed, "failed": failed, "steps": results}, indent=2))
     else:
         print("\n== tsf repo check summary ==")
         for r in results:

@@ -63,8 +63,7 @@ class RecurrentStack(nn.Module):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.cells = nn.ModuleList(
-            DCGRUCell(input_dim if index == 0 else hidden_dim, hidden_dim, order, supports)
-            for index in range(layers)
+            DCGRUCell(input_dim if index == 0 else hidden_dim, hidden_dim, order, supports) for index in range(layers)
         )
 
     def step(self, x: torch.Tensor, state: list[torch.Tensor]) -> tuple[torch.Tensor, list[torch.Tensor]]:

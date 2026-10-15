@@ -7,10 +7,10 @@ transform so every stock track stores the same kind of values.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import os
-from pathlib import Path
 import time
+from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,8 +20,7 @@ from tsflab.realtime.tracks import TrackSpec
 CloseFetcher = Callable[[str, pd.Timestamp, pd.Timestamp], pd.Series]
 
 
-def with_fallback(providers: list[Callable[..., pd.Series]], *args, attempts: int = 4,
-                  label: str = "") -> pd.Series:
+def with_fallback(providers: list[Callable[..., pd.Series]], *args, attempts: int = 4, label: str = "") -> pd.Series:
     """Call providers in order, retrying with backoff; move the one that works first.
 
     ``providers`` is reordered in place, so a blocked vendor costs one failed
@@ -49,8 +48,9 @@ def _cache_dir(track: TrackSpec, start: pd.Timestamp, end: pd.Timestamp) -> Path
     return root / "_cache" / track.id / f"{start:%Y%m%d}-{end:%Y%m%d}"
 
 
-def fetch_panel(track: TrackSpec, start: pd.Timestamp, end: pd.Timestamp,
-                symbols: list[str], daily_close: CloseFetcher) -> pd.DataFrame:
+def fetch_panel(
+    track: TrackSpec, start: pd.Timestamp, end: pd.Timestamp, symbols: list[str], daily_close: CloseFetcher
+) -> pd.DataFrame:
     cache = _cache_dir(track, start, end)
     cache.mkdir(parents=True, exist_ok=True)
     series = {}

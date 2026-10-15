@@ -1,9 +1,11 @@
 """Runtime specification for Air-DualODE."""
 
 from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.airdualode.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

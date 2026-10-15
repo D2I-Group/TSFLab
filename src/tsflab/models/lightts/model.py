@@ -20,9 +20,7 @@ class InformationExchangeBlock(nn.Module):
         dropout: float,
     ) -> None:
         super().__init__()
-        self.temporal_projection = nn.Sequential(
-            nn.Linear(rows, bottleneck), nn.LeakyReLU(), nn.Dropout(dropout)
-        )
+        self.temporal_projection = nn.Sequential(nn.Linear(rows, bottleneck), nn.LeakyReLU(), nn.Dropout(dropout))
         self.channel_projection = nn.Linear(channels, channels)
         self.output_projection = nn.Linear(bottleneck, output_rows)
         nn.init.eye_(self.channel_projection.weight)
@@ -58,9 +56,7 @@ class Model(nn.Module):
         self.continuous_block = InformationExchangeBlock(
             chunk_size, self.num_chunks, bottleneck, feature_width, dropout
         )
-        self.interval_block = InformationExchangeBlock(
-            chunk_size, self.num_chunks, bottleneck, feature_width, dropout
-        )
+        self.interval_block = InformationExchangeBlock(chunk_size, self.num_chunks, bottleneck, feature_width, dropout)
         self.continuous_summary = nn.Linear(self.num_chunks, 1)
         self.interval_summary = nn.Linear(self.num_chunks, 1)
         self.forecast_block = InformationExchangeBlock(
@@ -86,15 +82,9 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
-        per_series = x_enc.transpose(1, 2).reshape(
-            batch * self.enc_in, self.seq_len
-        )
-        continuous = self.continuous_summary(
-            self.continuous_block(self.sample_continuous(per_series))
-        ).squeeze(-1)
-        interval = self.interval_summary(
-            self.interval_block(self.sample_interval(per_series))
-        ).squeeze(-1)
+        per_series = x_enc.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len)
+        continuous = self.continuous_summary(self.continuous_block(self.sample_continuous(per_series))).squeeze(-1)
+        interval = self.interval_summary(self.interval_block(self.sample_interval(per_series))).squeeze(-1)
         features = torch.cat((continuous, interval), dim=-1)
         features = features.view(batch, self.enc_in, -1).transpose(1, 2)
         nonlinear = self.forecast_block(features)

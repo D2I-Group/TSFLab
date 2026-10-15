@@ -48,10 +48,8 @@ class Model(nn.Module):
         for parameter in self.llm.parameters():
             parameter.requires_grad_(False)
         self.normalizer = RevIN(1, affine=False)
-        self.encoder = SegmentMLP(token_len, width, mlp_hidden_dim, mlp_hidden_layers,
-                                  dropout, mlp_activation)
-        self.decoder = SegmentMLP(width, token_len, mlp_hidden_dim, mlp_hidden_layers,
-                                  dropout, mlp_activation)
+        self.encoder = SegmentMLP(token_len, width, mlp_hidden_dim, mlp_hidden_layers, dropout, mlp_activation)
+        self.decoder = SegmentMLP(width, token_len, mlp_hidden_dim, mlp_hidden_layers, dropout, mlp_activation)
 
     def next_segments(self, x_enc: torch.Tensor) -> torch.Tensor:
         """Map segments ``s_1..s_N`` of ``[B, N*S, C]`` to predictions ``s_2..s_{N+1}``.
@@ -80,7 +78,7 @@ class Model(nn.Module):
         only the covered positions are supervised.
         """
         available = min(self.token_len, future.shape[1])
-        target = torch.cat([x_enc, future[:, :available]], dim=1)[:, self.token_len:]
+        target = torch.cat([x_enc, future[:, :available]], dim=1)[:, self.token_len :]
         predicted = self.next_segments(x_enc)[:, : target.shape[1]]
         return criterion(predicted, target)
 
@@ -90,8 +88,8 @@ class Model(nn.Module):
             raise ValueError(f"AutoTimes expects [batch, {self.seq_len}, channels]")
         window, outputs = x_enc, []
         for _ in range(math.ceil(self.pred_len / self.token_len)):
-            segment = self.next_segments(window)[:, -self.token_len:]
+            segment = self.next_segments(window)[:, -self.token_len :]
             outputs.append(segment)
             # Slide the context: drop the oldest segment, append the generated one.
-            window = torch.cat([window[:, self.token_len:], segment], dim=1)
+            window = torch.cat([window[:, self.token_len :], segment], dim=1)
         return torch.cat(outputs, dim=1)[:, : self.pred_len]

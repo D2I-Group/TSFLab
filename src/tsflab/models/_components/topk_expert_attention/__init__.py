@@ -95,8 +95,10 @@ class TopKExpertAttention(nn.Module):
         q, k, v = self.qkv(x).split([self.qk_dim, self.qk_dim, self.dim], dim=-1)
 
         def split_heads(t: torch.Tensor, head_dim: int) -> torch.Tensor:
-            return t.view(batch, tokens, self.num_heads, head_dim).permute(0, 2, 1, 3).reshape(
-                batch * self.num_heads, tokens, head_dim
+            return (
+                t.view(batch, tokens, self.num_heads, head_dim)
+                .permute(0, 2, 1, 3)
+                .reshape(batch * self.num_heads, tokens, head_dim)
             )
 
         q = split_heads(q, self.head_qk)
@@ -129,7 +131,7 @@ class TopKExpertAttention(nn.Module):
             attn_weight = self.attn_dropout(attn_logits.softmax(dim=-1))
             out = attn_weight @ v
 
-        out = out.reshape(batch, self.num_heads, tokens, self.head_v).permute(0, 2, 1, 3).reshape(
-            batch, tokens, self.dim
+        out = (
+            out.reshape(batch, self.num_heads, tokens, self.head_v).permute(0, 2, 1, 3).reshape(batch, tokens, self.dim)
         )
         return self.out_proj(out)

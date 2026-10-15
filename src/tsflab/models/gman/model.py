@@ -210,9 +210,15 @@ class Model(nn.Module):
 
         # Pre-learned node2vec vectors are fixed; only the FC on top is trained.
         spatial = node2vec_embedding(
-            adjacency, se_dim, p=node2vec_p, q=node2vec_q, num_walks=node2vec_walks,
-            walk_length=node2vec_walk_length, window=node2vec_window,
-            steps=node2vec_steps, seed=node2vec_seed,
+            adjacency,
+            se_dim,
+            p=node2vec_p,
+            q=node2vec_q,
+            num_walks=node2vec_walks,
+            walk_length=node2vec_walk_length,
+            window=node2vec_window,
+            steps=node2vec_steps,
+            seed=node2vec_seed,
         )
         self.register_buffer("spatial_embedding", spatial)
         self.spatial_fc = FC([se_dim, width, width], [True, False], momentum)

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from tsflab.experiments.runner.objective import TrainingBatch
-
-from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.mafs.model import Model
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.experiments.runner.objective import TrainingBatch
+from tsflab.models.mafs.model import Model
 
 
 class ModelParameterConfig(BaseModel):
@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     topology: Literal["star", "ring", "chain", "fully-connected"] = "star"
 
     @model_validator(mode="after")
-    def _heads_divide_width(self) -> "ModelParameterConfig":
+    def _heads_divide_width(self) -> ModelParameterConfig:
         if self.d_model % self.num_heads:
             raise ValueError("d_model must be divisible by num_heads")
         return self

@@ -67,7 +67,11 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.cov_dim = cov_dim
-        projection = default_spatial_projection(enc_in, spatial_regions) if spatial_mx is None else torch.as_tensor(spatial_mx, dtype=torch.float32)
+        projection = (
+            default_spatial_projection(enc_in, spatial_regions)
+            if spatial_mx is None
+            else torch.as_tensor(spatial_mx, dtype=torch.float32)
+        )
         if projection.ndim == 2:
             projection = projection.unsqueeze(1)
         if projection.ndim != 3 or projection.shape[0] != enc_in or projection.shape[2] != enc_in:
@@ -112,20 +116,16 @@ class Model(nn.Module):
 
         # Target-relative regional readings: (B, T, target, region).
         transformed = torch.einsum("irn,btn->btir", self.spatial_projection, x_enc)
-        flattened = transformed.permute(0, 2, 1, 3).reshape(
-            x_enc.shape[0], self.enc_in, -1
-        )
+        flattened = transformed.permute(0, 2, 1, 3).reshape(x_enc.shape[0], self.enc_in, -1)
         main = torch.relu(self.main_embedding(flattened))
         secondary = torch.relu(self.spatial_pollutant_embedding(flattened.square()))
-        historical = history[..., 1:].permute(0, 2, 1, 3).reshape(
-            x_enc.shape[0], self.enc_in, -1
-        )
+        historical = history[..., 1:].permute(0, 2, 1, 3).reshape(x_enc.shape[0], self.enc_in, -1)
         historical = torch.relu(self.historical_weather_embedding(historical))
         future_flat = future.permute(0, 2, 1, 3).reshape(x_enc.shape[0], self.enc_in, -1)
         forecast = torch.relu(self.future_weather_embedding(future_flat))
-        calendar = torch.cat(
-            [history[..., 1:].permute(0, 2, 1, 3), future.permute(0, 2, 1, 3)], dim=2
-        ).reshape(x_enc.shape[0], self.enc_in, -1)
+        calendar = torch.cat([history[..., 1:].permute(0, 2, 1, 3), future.permute(0, 2, 1, 3)], dim=2).reshape(
+            x_enc.shape[0], self.enc_in, -1
+        )
         calendar = torch.relu(self.calendar_embedding(calendar))
         station = self.station_embedding.unsqueeze(0).expand(x_enc.shape[0], -1, -1)
 
@@ -135,9 +135,7 @@ class Model(nn.Module):
                 self.weather_forecast(torch.cat([main, forecast], dim=-1)),
                 self.secondary_pollutants(torch.cat([main, secondary], dim=-1)),
                 self.meta_properties(torch.cat([main, calendar, station], dim=-1)),
-                self.holistic(
-                    torch.cat([main, historical, forecast, secondary, calendar, station], dim=-1)
-                ),
+                self.holistic(torch.cat([main, historical, forecast, secondary, calendar, station], dim=-1)),
             ],
             dim=1,
         ).permute(0, 1, 3, 2)

@@ -1,11 +1,9 @@
 """Runtime specification for TimeExpert."""
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timeexpert.model import Model
-
-"""Validated parameters for TimeExpert."""
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

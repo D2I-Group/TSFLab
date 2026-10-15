@@ -80,11 +80,15 @@ class Model(nn.Module):
         super().__init__()
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.graph = LatentCorrelationGraph(seq_len, num_nodes, dropout_rate, leaky_rate)
-        self.blocks = nn.ModuleList([
-            SpectralTemporalBlock(seq_len, multi_layer, True),
-            SpectralTemporalBlock(seq_len, multi_layer, False),
-        ])
-        self.horizon = nn.Sequential(nn.Linear(seq_len, seq_len), nn.LeakyReLU(leaky_rate), nn.Linear(seq_len, pred_len))
+        self.blocks = nn.ModuleList(
+            [
+                SpectralTemporalBlock(seq_len, multi_layer, True),
+                SpectralTemporalBlock(seq_len, multi_layer, False),
+            ]
+        )
+        self.horizon = nn.Sequential(
+            nn.Linear(seq_len, seq_len), nn.LeakyReLU(leaky_rate), nn.Linear(seq_len, pred_len)
+        )
 
     def forward(
         self,

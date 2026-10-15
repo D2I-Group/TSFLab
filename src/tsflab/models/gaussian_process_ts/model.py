@@ -14,7 +14,15 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Approximate a zero-mean GP posterior mean with learned inducing pairs."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, num_inducing: int = 16, length_scale: float = 1.0, noise: float = 1e-3) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        num_inducing: int = 16,
+        length_scale: float = 1.0,
+        noise: float = 1e-3,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.inducing_inputs = nn.Parameter(torch.randn(num_inducing, seq_len) * 0.05)

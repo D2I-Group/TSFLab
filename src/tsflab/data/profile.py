@@ -17,8 +17,9 @@ from __future__ import annotations
 import math
 import tomllib
 import warnings
+from collections.abc import Mapping
 from importlib import resources
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -142,7 +143,7 @@ def _quality(raw: np.ndarray) -> dict[str, Any]:
     clean = np.where(finite, raw, np.nan)
     nan_frac_ch = 1.0 - finite.mean(axis=0)
     valid = clean[finite]
-    zero = (clean == 0)
+    zero = clean == 0
     repeat = np.zeros_like(finite)
     repeat[1:] = (clean[1:] == clean[:-1]) & (clean[1:] != 0) & finite[1:]
     zero_ch = zero.sum(axis=0) / np.maximum(finite.sum(axis=0), 1)
@@ -202,11 +203,7 @@ def _periods(z: np.ndarray, steps_per_day: float | None, top_k: int = 5) -> dict
     lo_bin = 3  # need >= 3 cycles in the window
     hi_bin = mean_p.size - 1
     floor = float(np.median(mean_p[lo_bin : hi_bin + 1])) or 1e-12
-    cand = [
-        k
-        for k in range(lo_bin, hi_bin)
-        if mean_p[k] >= mean_p[k - 1] and mean_p[k] >= mean_p[k + 1]
-    ]
+    cand = [k for k in range(lo_bin, hi_bin) if mean_p[k] >= mean_p[k - 1] and mean_p[k] >= mean_p[k + 1]]
     cand.sort(key=lambda k: -mean_p[k])
     max_lag = min(n // 3, 4096)
     acf = _acf(z, max_lag)
@@ -225,12 +222,7 @@ def _periods(z: np.ndarray, steps_per_day: float | None, top_k: int = 5) -> dict
                 "acf_at_period": _f(acf[max(lag - 1, 0) : lag + 2].max()) if lag_ok else None,
                 "tag": _period_tag(period, steps_per_day),
                 "harmonic_of": next(
-                    (
-                        q["period"]
-                        for q in peaks
-                        for m in range(2, 9)
-                        if abs(period - q["period"] / m) / period < 0.06
-                    ),
+                    (q["period"] for q in peaks for m in range(2, 9) if abs(period - q["period"] / m) / period < 0.06),
                     None,
                 ),
             }
@@ -240,9 +232,7 @@ def _periods(z: np.ndarray, steps_per_day: float | None, top_k: int = 5) -> dict
     below = np.where(acf < 0.1)[0]
     return {
         "dominant": peaks,
-        "n_strong": int(
-            sum(1 for p in peaks if p["harmonic_of"] is None and (p["energy_share"] or 0) >= 0.03)
-        ),
+        "n_strong": int(sum(1 for p in peaks if p["harmonic_of"] is None and (p["energy_share"] or 0) >= 0.03)),
         "acf_lag1": _f(acf[1]) if acf.size > 1 else None,
         "acf_decay_lag": int(below[0]) if below.size else None,
         "acf_max_lag": int(max_lag),
@@ -447,7 +437,12 @@ def _profile_active(arrays, raw_train, x, active, name, source, freq, spd, max_c
         "anomalies": _anomalies(x, cols, block),
     }
     half = n // 2
-    within = float(_median(np.abs(x[half:, cols].mean(axis=0) - x[:half, cols].mean(axis=0)) / np.maximum(x[:, cols].std(axis=0), 1e-12)))
+    within = float(
+        _median(
+            np.abs(x[half:, cols].mean(axis=0) - x[:half, cols].mean(axis=0))
+            / np.maximum(x[:, cols].std(axis=0), 1e-12)
+        )
+    )
     shift: dict[str, Any] = {"within_train": {"half_mean_shift_median": _f(within)}}
     val = arrays.get("val")
     test = arrays.get("test")
@@ -555,30 +550,36 @@ def render_markdown(profile: Mapping[str, Any], recommendations: Mapping[str, An
         "",
         f"- Source: `{d['source']}`; channels {d['channels']} "
         f"(sampled {d['channels_sampled']} for spectral statistics)",
-        "- Split lengths: " + ", ".join(f"{k} {v}" for k, v in profile["split"].items())
+        "- Split lengths: "
+        + ", ".join(f"{k} {v}" for k, v in profile["split"].items())
         + f"; frequency {freq.get('label') or 'unknown'}",
         f"- Missing {q['missing_fraction']}, zeros {q['zero_fraction']} "
         f"(channels mostly zero: {q['channels_mostly_zero']}), outliers(5 MAD) {an['outlier_fraction_5mad']}",
         f"- Scale: std p90/p10 {sc['std_ratio_p90_p10']}, heteroscedasticity {sc['heteroscedasticity']}, "
         f"level-std corr {sc['level_std_correlation']}",
         "- Dominant periods: "
-        + (", ".join(
-            f"{p['period']}" + (f" ({p['tag']})" if p["tag"] else "") + f" ratio {p['peak_ratio']}"
-            for p in pe["dominant"][:3]
-        ) or "none"),
+        + (
+            ", ".join(
+                f"{p['period']}" + (f" ({p['tag']})" if p["tag"] else "") + f" ratio {p['peak_ratio']}"
+                for p in pe["dominant"][:3]
+            )
+            or "none"
+        ),
         f"- Seasonal strength {tr['seasonal']['strength']}, trend strength {tr['trend']['strength']}, "
         f"forecastability {pe['forecastability']['score']}, stationarity score {tr['stationarity']['score']} "
         f"(mean drift {tr['stationarity']['mean_drift']})",
         "- Cross-channel: "
-        + (f"mean |corr| {cc['mean_abs_corr']}, PC1 share {cc['pc1_share']}, effective-rank ratio {cc['effective_rank_ratio']}"
-           if cc.get("applicable") else "single channel"),
+        + (
+            f"mean |corr| {cc['mean_abs_corr']}, PC1 share {cc['pc1_share']}, effective-rank ratio {cc['effective_rank_ratio']}"
+            if cc.get("applicable")
+            else "single channel"
+        ),
         f"- Level shifts {an['level_shift_count']} (max {an['level_shift_max']} std)",
         f"- Shift within train {sh['within_train']['half_mean_shift_median']}; "
         f"train to val mean {lookup(profile, 'shift.train_to_val.mean_shift_median')}, "
         f"std ratio(log2) {lookup(profile, 'shift.train_to_val.log2_std_ratio_median')}; "
         f"test shift (diagnostic only) {lookup(profile, 'shift.train_to_test.mean_shift_median')}",
-        "- Lookback candidates: "
-        + ", ".join(str(c["value"]) for c in profile["lookback_candidates"]),
+        "- Lookback candidates: " + ", ".join(str(c["value"]) for c in profile["lookback_candidates"]),
         "",
         "## Findings and catalog actions",
         "",

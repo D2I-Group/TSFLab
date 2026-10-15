@@ -41,9 +41,7 @@ class DLinearBackbone(nn.Module):
         self.individual = individual
         self.channels = c_in
 
-        self.seasonal_projection = ChannelWiseLinear(
-            seq_len, pred_len, c_in, individual
-        )
+        self.seasonal_projection = ChannelWiseLinear(seq_len, pred_len, c_in, individual)
         self.trend_projection = ChannelWiseLinear(seq_len, pred_len, c_in, individual)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

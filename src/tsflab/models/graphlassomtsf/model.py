@@ -98,9 +98,7 @@ def graphical_lasso(
     return precision
 
 
-def estimate_precision(
-    series: np.ndarray, lasso_lambda: float, cov_eps: float, max_iter: int = 1000
-) -> np.ndarray:
+def estimate_precision(series: np.ndarray, lasso_lambda: float, cov_eps: float, max_iter: int = 1000) -> np.ndarray:
     """Phase 1 (Eq. 1): sparse precision matrix of the standardized ``[T, N]`` series.
 
     Each column is z-scored, the sample covariance gets ``cov_eps`` on its

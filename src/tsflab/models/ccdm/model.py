@@ -71,9 +71,7 @@ class DenseEncoder(nn.Module):
     def __init__(self, in_dim: int, out_dim: int, layers: int, dropout: float) -> None:
         super().__init__()
         widths = [in_dim] + [out_dim] * layers
-        self.blocks = nn.Sequential(
-            *(DenseResidual(a, b, dropout) for a, b in zip(widths[:-1], widths[1:]))
-        )
+        self.blocks = nn.Sequential(*(DenseResidual(a, b, dropout) for a, b in zip(widths[:-1], widths[1:])))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.blocks(x)
@@ -142,15 +140,13 @@ class ChannelDiTBlock(nn.Module):
     shift/scale/gate vectors come from ``Linear(SiLU(c))``.
     """
 
-    def __init__(self, d_model: int, cond_dim: int, n_heads: int, attn_dropout: float,
-                 mlp_ratio: float) -> None:
+    def __init__(self, d_model: int, cond_dim: int, n_heads: int, attn_dropout: float, mlp_ratio: float) -> None:
         super().__init__()
         self.norm1 = nn.LayerNorm(d_model, elementwise_affine=False, eps=1e-6)
         self.attn = ChannelAttention(d_model, n_heads, attn_dropout)
         self.norm2 = nn.LayerNorm(d_model, elementwise_affine=False, eps=1e-6)
         hidden = max(1, int(d_model * mlp_ratio))
-        self.mlp = nn.Sequential(nn.Linear(d_model, hidden), nn.GELU(approximate="tanh"),
-                                 nn.Linear(hidden, d_model))
+        self.mlp = nn.Sequential(nn.Linear(d_model, hidden), nn.GELU(approximate="tanh"), nn.Linear(hidden, d_model))
         self.modulation = nn.Sequential(nn.SiLU(), nn.Linear(cond_dim, 6 * d_model))
 
     def forward(self, h: torch.Tensor, c: torch.Tensor) -> torch.Tensor:
@@ -177,24 +173,34 @@ class OutputDecoder(nn.Module):
 class ChannelAwareDenoiser(nn.Module):
     """``eps_theta(y_k, x, k)``: ``[B, H, D]`` noise estimate (Sec. 3.1, Fig. 3)."""
 
-    def __init__(self, seq_len: int, pred_len: int, cont_hidden_dim: int, pred_hidden_dim: int,
-                 step_hidden_dim: int, encoder_layers: int, decoder_layers: int, n_depth: int,
-                 n_heads: int, attn_dropout: float, mlp_ratio: float, dropout: float) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        cont_hidden_dim: int,
+        pred_hidden_dim: int,
+        step_hidden_dim: int,
+        encoder_layers: int,
+        decoder_layers: int,
+        n_depth: int,
+        n_heads: int,
+        attn_dropout: float,
+        mlp_ratio: float,
+        dropout: float,
+    ) -> None:
         super().__init__()
         d_model = cont_hidden_dim + pred_hidden_dim
         self.condition_encoder = DenseEncoder(seq_len, cont_hidden_dim, encoder_layers, dropout)
         self.latent_encoder = DenseEncoder(pred_len, pred_hidden_dim, encoder_layers, dropout)
         self.step_embedding = StepEmbedding(step_hidden_dim)
         self.blocks = nn.ModuleList(
-            ChannelDiTBlock(d_model, step_hidden_dim, n_heads, attn_dropout, mlp_ratio)
-            for _ in range(n_depth)
+            ChannelDiTBlock(d_model, step_hidden_dim, n_heads, attn_dropout, mlp_ratio) for _ in range(n_depth)
         )
         self.decoder = OutputDecoder(d_model, step_hidden_dim, pred_len, decoder_layers, dropout)
 
     def forward(self, x: torch.Tensor, y_k: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
         # Channel-independent encoders on [B, D, time]; channel tokens hold [x-code ; y-code].
-        h = torch.cat([self.condition_encoder(x.transpose(1, 2)),
-                       self.latent_encoder(y_k.transpose(1, 2))], dim=-1)
+        h = torch.cat([self.condition_encoder(x.transpose(1, 2)), self.latent_encoder(y_k.transpose(1, 2))], dim=-1)
         c = self.step_embedding(k)
         for block in self.blocks:
             h = block(h, c)  # channel mixing
@@ -228,10 +234,13 @@ def amplitude_scale(y0: torch.Tensor, count: int) -> torch.Tensor:
     ``a_d ~ U[0, 0.5]``, drawn per target and channel. Returns ``[B, count, H, D]``."""
     batch, _, channels = y0.shape
     up = count // 2
-    factors = torch.cat([
-        torch.empty(batch, up, 1, channels, device=y0.device, dtype=y0.dtype).uniform_(1.5, 2.0),
-        torch.empty(batch, count - up, 1, channels, device=y0.device, dtype=y0.dtype).uniform_(0.0, 0.5),
-    ], dim=1)
+    factors = torch.cat(
+        [
+            torch.empty(batch, up, 1, channels, device=y0.device, dtype=y0.dtype).uniform_(1.5, 2.0),
+            torch.empty(batch, count - up, 1, channels, device=y0.device, dtype=y0.dtype).uniform_(0.0, 0.5),
+        ],
+        dim=1,
+    )
     return y0.unsqueeze(1) * factors
 
 
@@ -310,8 +319,18 @@ class Model(nn.Module):
             self.register_buffer(name, value.float(), persistent=False)
 
         self.denoiser = ChannelAwareDenoiser(
-            seq_len, pred_len, cont_hidden_dim, pred_hidden_dim, step_hidden_dim,
-            encoder_layers, decoder_layers, n_depth, n_heads, attn_dropout, mlp_ratio, dropout,
+            seq_len,
+            pred_len,
+            cont_hidden_dim,
+            pred_hidden_dim,
+            step_hidden_dim,
+            encoder_layers,
+            decoder_layers,
+            n_depth,
+            n_heads,
+            attn_dropout,
+            mlp_ratio,
+            dropout,
         )
 
     # -- normalization -------------------------------------------------------
@@ -343,8 +362,7 @@ class Model(nn.Module):
         """One ancestral step ``p(y_{k-1} | y_k, x)`` with the posterior variance."""
         k = torch.full((y_k.shape[0],), step, device=y_k.device, dtype=torch.long)
         eps = self.denoiser(x, y_k, k)
-        mean = (y_k - self._at("betas", k) / (1 - self._at("alpha_bar", k)).sqrt() * eps) \
-            / self._at("alphas", k).sqrt()
+        mean = (y_k - self._at("betas", k) / (1 - self._at("alpha_bar", k)).sqrt() * eps) / self._at("alphas", k).sqrt()
         variance = self._at("posterior_variance", k)
         return mean + variance.sqrt() * torch.randn_like(y_k)
 
@@ -378,11 +396,13 @@ class Model(nn.Module):
     # -- training (Eqs. 1, 3, 4, 6) -----------------------------------------
     def negatives(self, y0: torch.Tensor) -> torch.Tensor:
         """``[B, 2N, H, D]``: N patch-shuffled then N amplitude-scaled targets."""
-        return torch.cat([patch_shuffle(y0, self.n_negatives, self.shuffle_patch_len),
-                          amplitude_scale(y0, self.n_negatives)], dim=1)
+        return torch.cat(
+            [patch_shuffle(y0, self.n_negatives, self.shuffle_patch_len), amplitude_scale(y0, self.n_negatives)], dim=1
+        )
 
-    def contrastive_loss(self, x: torch.Tensor, y0: torch.Tensor, k: torch.Tensor,
-                         negatives: torch.Tensor) -> torch.Tensor:
+    def contrastive_loss(
+        self, x: torch.Tensor, y0: torch.Tensor, k: torch.Tensor, negatives: torch.Tensor
+    ) -> torch.Tensor:
         """InfoNCE of Eq. 4 with the positive in slot 0.
 
         All candidates (positive and negatives) share step ``k`` and one fresh noise

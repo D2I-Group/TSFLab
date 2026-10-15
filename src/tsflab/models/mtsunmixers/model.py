@@ -106,17 +106,13 @@ class Model(nn.Module):
         self.dropout = nn.Dropout(dropout)
         # Time unmixing: patch tokens -> Mamba -> Linear -> softmax gives S_c (Eqs. 14-15).
         self.patch_embedding = nn.Linear(patch_len, d_model)
-        self.time_encoder = nn.ModuleList(
-            TimeEncoderBlock(d_model, d_state, d_conv, expand) for _ in range(e_layers)
-        )
+        self.time_encoder = nn.ModuleList(TimeEncoderBlock(d_model, d_state, d_conv, expand) for _ in range(e_layers))
         self.coefficient_head = nn.Linear(self.num_patches * d_model, channel_bases)
         self.history_bases = nn.Parameter(torch.empty(seq_len, channel_bases))  # A_c
         self.future_bases = nn.Parameter(torch.empty(pred_len, channel_bases))  # A_p
         # Channel unmixing: channel tokens -> Bi-Mamba -> Linear gives A_t (Eq. 16).
         self.channel_embedding = nn.Linear(seq_len, d_model)
-        self.channel_encoder = nn.ModuleList(
-            BiMambaBlock(d_model, d_state, d_conv, expand) for _ in range(e_layers)
-        )
+        self.channel_encoder = nn.ModuleList(BiMambaBlock(d_model, d_state, d_conv, expand) for _ in range(e_layers))
         self.basis_head = nn.Linear(d_model, time_bases)
         self.history_logits = nn.Parameter(torch.zeros(time_bases, seq_len))  # S_t before softmax
         self.future_logits = nn.Parameter(torch.zeros(time_bases, pred_len))  # S_p before softmax

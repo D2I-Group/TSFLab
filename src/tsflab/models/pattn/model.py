@@ -38,9 +38,7 @@ class Model(nn.Module):
         self.stride = stride
         self.patch_count = (seq_len + stride - patch_len) // stride + 1
         self.patch_projection = nn.Linear(patch_len, d_model)
-        self.attention = nn.MultiheadAttention(
-            d_model, n_heads, dropout=dropout, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
         self.attention_norm = nn.LayerNorm(d_model)
         self.forecast_projection = nn.Linear(self.patch_count * d_model, pred_len)
 

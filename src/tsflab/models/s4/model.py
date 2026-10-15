@@ -31,9 +31,7 @@ class DiagonalSSMKernel(nn.Module):
         self.log_decay = nn.Parameter(torch.full((d_model, modes), math.log(0.5)))
         frequencies = math.pi * torch.arange(modes).expand(d_model, modes).clone()
         self.frequency = nn.Parameter(frequencies)
-        self.b = nn.Parameter(
-            torch.view_as_real(torch.ones(d_model, modes, dtype=torch.cfloat))
-        )
+        self.b = nn.Parameter(torch.view_as_real(torch.ones(d_model, modes, dtype=torch.cfloat)))
         c = torch.randn(d_model, modes, dtype=torch.cfloat) / math.sqrt(max(modes, 1))
         self.c = nn.Parameter(torch.view_as_real(c))
 
@@ -106,9 +104,7 @@ class Model(nn.Module):
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_norm = use_norm
         self.input_projection = nn.Linear(enc_in, d_model)
-        self.blocks = nn.ModuleList(
-            [S4ResidualBlock(d_model, d_state, dropout) for _ in range(e_layers)]
-        )
+        self.blocks = nn.ModuleList([S4ResidualBlock(d_model, d_state, dropout) for _ in range(e_layers)])
         self.final_norm = nn.LayerNorm(d_model)
         self.horizon_projection = nn.Linear(seq_len, pred_len)
         self.output_projection = nn.Linear(d_model, c_out)
@@ -128,8 +124,6 @@ class Model(nn.Module):
         hidden = self.input_projection(values)
         for block in self.blocks:
             hidden = block(hidden)
-        hidden = self.horizon_projection(
-            self.final_norm(hidden).transpose(1, 2)
-        ).transpose(1, 2)
+        hidden = self.horizon_projection(self.final_norm(hidden).transpose(1, 2)).transpose(1, 2)
         forecast = self.output_projection(hidden)
         return destandardize(forecast, mean, scale) if self.use_norm else forecast

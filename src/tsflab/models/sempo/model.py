@@ -16,9 +16,18 @@ from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 patch_len: int = 16, num_prompts: int = 4, num_heads: int = 4,
-                 dropout: float = 0.1, use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        patch_len: int = 16,
+        num_prompts: int = 4,
+        num_heads: int = 4,
+        dropout: float = 0.1,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         if seq_len % patch_len:
             raise ValueError("seq_len must be divisible by patch_len")
@@ -35,7 +44,9 @@ class Model(nn.Module):
         self.prompt_kv = nn.Linear(d_model, 2 * d_model)
         self.attention = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.norm1 = nn.LayerNorm(d_model)
-        self.feed_forward = nn.Sequential(nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Dropout(dropout), nn.Linear(2 * d_model, d_model))
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_model, 2 * d_model), nn.GELU(), nn.Dropout(dropout), nn.Linear(2 * d_model, d_model)
+        )
         self.norm2 = nn.LayerNorm(d_model)
         self.head = nn.Linear(self.num_patches * d_model, pred_len)
         nn.init.normal_(self.position, std=0.02)
@@ -69,7 +80,9 @@ class Model(nn.Module):
         routing = self.router(tokens).softmax(-1)
         mixed = routing @ self.prompt_experts
         prompt_key, prompt_value = self.prompt_kv(mixed).chunk(2, dim=-1)
-        attended, _ = self.attention(tokens, torch.cat((prompt_key, tokens), 1), torch.cat((prompt_value, tokens), 1), need_weights=False)
+        attended, _ = self.attention(
+            tokens, torch.cat((prompt_key, tokens), 1), torch.cat((prompt_value, tokens), 1), need_weights=False
+        )
         hidden = self.norm1(tokens + attended)
         hidden = self.norm2(hidden + self.feed_forward(hidden))
         forecast = self.head(hidden.flatten(1)).reshape(batch, channels, self.pred_len).transpose(1, 2)

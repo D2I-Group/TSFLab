@@ -55,16 +55,12 @@ class Model(nn.Module):
         self.base.requires_grad_(False)
 
         # Base adapter: Delta = tanh(g) * Linear([Y_base_c || context]).
-        self.adapter = ChannelWiseLinear(
-            pred_len + context_len, pred_len, enc_in, individual=var_wise_gating
-        )
+        self.adapter = ChannelWiseLinear(pred_len + context_len, pred_len, enc_in, individual=var_wise_gating)
         for module in self.adapter.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight, gain=0.1)
                 nn.init.zeros_(module.bias)
-        self.gate = nn.Parameter(
-            torch.full((enc_in if var_wise_gating else 1,), float(gate_init))
-        )
+        self.gate = nn.Parameter(torch.full((enc_in if var_wise_gating else 1,), float(gate_init)))
 
         # Shared-anchor Correction Refinement bottleneck (Eq. 5), small init.
         self.scr_down = nn.Linear(2 * pred_len, self.scr_rank)
@@ -112,9 +108,7 @@ class Model(nn.Module):
         gate = torch.tanh(self.scr_gate(spectral)).unsqueeze(-1)  # Eq. 8, [B, C, 1]
         return (corr + gate * refinement).transpose(1, 2)  # Eq. 6
 
-    def correct(
-        self, base_forecast: torch.Tensor, context: torch.Tensor, spectral: torch.Tensor
-    ) -> torch.Tensor:
+    def correct(self, base_forecast: torch.Tensor, context: torch.Tensor, spectral: torch.Tensor) -> torch.Tensor:
         check_window(base_forecast, self.pred_len, self.enc_in, name="base_forecast")
         if spectral.shape != (base_forecast.shape[0], 4):
             raise ValueError("spectral descriptor must be [batch, 4]")

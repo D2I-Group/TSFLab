@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from tsflab.experiments.runner.objective import TrainingBatch
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
+from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.models.visifold.model import Model
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -37,8 +36,7 @@ class ModelParameterConfig(BaseModel):
     @model_validator(mode="after")
     def _check_heads(self):
         model_dim = (
-            self.input_embedding_dim + self.tod_embedding_dim
-            + self.dow_embedding_dim + self.spatial_embedding_dim
+            self.input_embedding_dim + self.tod_embedding_dim + self.dow_embedding_dim + self.spatial_embedding_dim
         )
         if model_dim % self.num_heads:
             raise ValueError("VisiFold model_dim must be divisible by num_heads")

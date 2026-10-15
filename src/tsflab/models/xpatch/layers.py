@@ -24,10 +24,7 @@ class ExponentialDecomposition(nn.Module):
     def _ema(x: torch.Tensor, smoothing: float) -> torch.Tensor:
         states = [x[:, :1, :]]
         for step in range(1, x.shape[1]):
-            states.append(
-                smoothing * x[:, step : step + 1, :]
-                + (1.0 - smoothing) * states[-1]
-            )
+            states.append(smoothing * x[:, step : step + 1, :] + (1.0 - smoothing) * states[-1])
         return torch.cat(states, dim=1)
 
     def _dema(self, x: torch.Tensor) -> torch.Tensor:
@@ -36,9 +33,7 @@ class ExponentialDecomposition(nn.Module):
         states = [level]
         for step in range(1, x.shape[1]):
             previous = level
-            level = self.alpha * x[:, step : step + 1, :] + (1.0 - self.alpha) * (
-                level + slope
-            )
+            level = self.alpha * x[:, step : step + 1, :] + (1.0 - self.alpha) * (level + slope)
             slope = self.beta * (level - previous) + (1.0 - self.beta) * slope
             states.append(level)
         return torch.cat(states, dim=1)
@@ -147,9 +142,7 @@ class NonlinearPatchStream(nn.Module):
     def forward(self, seasonal: torch.Tensor) -> torch.Tensor:
         patches = self.extract_patches(seasonal)
         embedded = self.embedding_norm(F.gelu(self.patch_embedding(patches)))
-        residual = F.avg_pool1d(
-            embedded, kernel_size=self.patch_len, stride=self.patch_len
-        )
+        residual = F.avg_pool1d(embedded, kernel_size=self.patch_len, stride=self.patch_len)
         hidden = self.depthwise_norm(F.gelu(self.depthwise(embedded))) + residual
         hidden = self.pointwise_norm(F.gelu(self.pointwise(hidden)))
         return self.forecast_head(hidden.flatten(1))
@@ -169,9 +162,7 @@ class DualStreamForecaster(nn.Module):
     ) -> None:
         super().__init__()
         self.linear_stream = LinearTrendStream(seq_len, pred_len, hidden_dim)
-        self.nonlinear_stream = NonlinearPatchStream(
-            seq_len, pred_len, patch_len, stride, padding_patch
-        )
+        self.nonlinear_stream = NonlinearPatchStream(seq_len, pred_len, patch_len, stride, padding_patch)
         self.fusion = nn.Sequential(
             nn.Linear(2 * pred_len, 2 * pred_len),
             nn.GELU(),

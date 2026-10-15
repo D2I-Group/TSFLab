@@ -10,7 +10,7 @@ model trained by the platform) can have seen the evaluation data.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -20,7 +20,7 @@ from .constants import SCHEMA_VERSION, TaskMode
 def _parse(ts: str) -> datetime:
     """Parse ISO 8601; naive values are interpreted as UTC."""
     value = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 class RoundSpec(BaseModel):
@@ -49,7 +49,7 @@ class RoundSpec(BaseModel):
         return len(self.target_timestamps)
 
     @model_validator(mode="after")
-    def _consistent(self) -> "RoundSpec":
+    def _consistent(self) -> RoundSpec:
         n = len(self.channels)
         if not self.target_timestamps:
             raise ValueError("a round needs at least one target timestamp")

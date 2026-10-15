@@ -117,8 +117,10 @@ class Model(nn.Module):
         if marks.ndim != 3 or marks.shape[:2] != (batch, steps) or marks.shape[-1] < 6:
             raise ValueError(f"marks must have shape [batch, {steps}, 6]")
         features = normalized_time_features(marks.to(ref.dtype))
-        return features.unsqueeze(1).expand(-1, self.enc_in, -1, -1).reshape(
-            batch * self.enc_in, steps, _CALENDAR_FEATURES
+        return (
+            features.unsqueeze(1)
+            .expand(-1, self.enc_in, -1, -1)
+            .reshape(batch * self.enc_in, steps, _CALENDAR_FEATURES)
         )
 
     def _scale(self, history: torch.Tensor) -> torch.Tensor:
@@ -143,7 +145,7 @@ class Model(nn.Module):
         """Covariates x_t for t = 2 .. seq_len + pred_len, ``[B*C, length, F]``."""
         batch = x_enc.shape[0]
         if self.use_marks and x_mark_enc is not None and x_mark_dec is not None:
-            future = x_mark_dec[:, -self.pred_len:]
+            future = x_mark_dec[:, -self.pred_len :]
             if future.shape[1] != self.pred_len:
                 raise ValueError("x_mark_dec does not cover the forecast horizon")
             marks = torch.cat((x_mark_enc, future), dim=1)[:, 1:]
@@ -180,7 +182,7 @@ class Model(nn.Module):
         if self.features == "MS":
             nll = nll[:, -1:]
         if not self.history_likelihood:
-            nll = nll[..., -self.pred_len:]
+            nll = nll[..., -self.pred_len :]
         return nll.mean()
 
     # -------------------------------------------------------------- inference
@@ -205,9 +207,7 @@ class Model(nn.Module):
         locs, sigmas = [loc], [sigma]
         for step in range(1, self.pred_len):
             position = self.seq_len + step - 1
-            hidden = self._embed(
-                loc.unsqueeze(-1) / scale, covariates[:, position : position + 1], position
-            )
+            hidden = self._embed(loc.unsqueeze(-1) / scale, covariates[:, position : position + 1], position)
             row = self.blocked[position, : position + 1]
             for index, block in enumerate(self.blocks):
                 inputs[index] = torch.cat((inputs[index], hidden), dim=1)

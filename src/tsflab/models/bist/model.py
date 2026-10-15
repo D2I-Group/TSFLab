@@ -17,9 +17,7 @@ class ResidualMLP(nn.Module):
 
     def __init__(self, width: int) -> None:
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(width, 4 * width), nn.GELU(), nn.Linear(4 * width, width)
-        )
+        self.net = nn.Sequential(nn.Linear(width, 4 * width), nn.GELU(), nn.Linear(4 * width, width))
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         return values + self.net(values)
@@ -59,20 +57,14 @@ class Model(nn.Module):
         self.time_prompt = nn.Embedding(tod_size, prompt_dim)
         self.weekday_prompt = nn.Embedding(7, prompt_dim)
         width = model_dim + 3 * prompt_dim
-        self.forward_layers = nn.ModuleList(
-            [ResidualMLP(width) for _ in range(num_layers)]
-        )
+        self.forward_layers = nn.ModuleList([ResidualMLP(width) for _ in range(num_layers)])
         self.base_head = nn.Linear(width, pred_len)
 
         # Equations 11--16: virtual-cluster context and personalized residual.
         self.node_queries = nn.Parameter(torch.empty(enc_in, width))
         self.cluster_keys = nn.Parameter(torch.empty(virtual_clusters, width))
-        self.residual_alignment = nn.Sequential(
-            nn.Linear(2 * width, width), nn.GELU(), nn.Linear(width, width)
-        )
-        self.residual_layers = nn.ModuleList(
-            [ResidualMLP(width) for _ in range(num_layers)]
-        )
+        self.residual_alignment = nn.Sequential(nn.Linear(2 * width, width), nn.GELU(), nn.Linear(width, width))
+        self.residual_layers = nn.ModuleList([ResidualMLP(width) for _ in range(num_layers)])
 
         # Equations 17--22: adaptive diffusion with node-wise alpha and beta.
         self.graph_embedding = nn.Parameter(torch.empty(enc_in, graph_dim))
@@ -83,15 +75,15 @@ class Model(nn.Module):
 
     def reset_parameters(self) -> None:
         for parameter in (
-            self.node_prompt, self.node_queries, self.cluster_keys,
+            self.node_prompt,
+            self.node_queries,
+            self.cluster_keys,
             self.graph_embedding,
         ):
             nn.init.xavier_uniform_(parameter)
         nn.init.constant_(self.alpha, 0.1)
 
-    def _calendar_indices(
-        self, x: torch.Tensor, marks: torch.Tensor | None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _calendar_indices(self, x: torch.Tensor, marks: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor]:
         batch = x.shape[0]
         if marks is None:
             return (
@@ -100,27 +92,15 @@ class Model(nn.Module):
             )
         if marks.ndim == 4:
             if marks.shape[:3] != x.shape:
-                raise ValueError(
-                    "node covariates must have shape [batch, time, nodes, features]"
-                )
+                raise ValueError("node covariates must have shape [batch, time, nodes, features]")
             if marks.shape[-1] < 2:
                 raise ValueError("BiST requires time-of-day and weekday covariates")
             calendar = marks[:, -1, :, :2].mean(dim=1)
-        elif (
-            marks.ndim == 3
-            and marks.shape[:2] == x.shape[:2]
-            and marks.shape[-1] == 6
-        ):
+        elif marks.ndim == 3 and marks.shape[:2] == x.shape[:2] and marks.shape[-1] == 6:
             calendar = normalized_time_features(marks)[:, -1]
         else:
-            raise ValueError(
-                "marks must be raw [B,T,6] or node covariates [B,T,N,F]"
-            )
-        time_index = (
-            torch.floor(calendar[:, 0] * self.tod_size)
-            .long()
-            .clamp(0, self.tod_size - 1)
-        )
+            raise ValueError("marks must be raw [B,T,6] or node covariates [B,T,N,F]")
+        time_index = torch.floor(calendar[:, 0] * self.tod_size).long().clamp(0, self.tod_size - 1)
         weekday_index = torch.floor(calendar[:, 1] * 7).long().clamp(0, 6)
         return time_index, weekday_index
 
@@ -130,12 +110,8 @@ class Model(nn.Module):
             torch.eye(self.enc_in, dtype=torch.bool, device=affinity.device),
             float("-inf"),
         )
-        adjacency = (
-            torch.zeros_like(affinity) if self.enc_in == 1 else affinity.softmax(-1)
-        )
-        return torch.diag(torch.sigmoid(self.beta)) + (
-            torch.diag(torch.tanh(self.alpha)) @ adjacency
-        )
+        adjacency = torch.zeros_like(affinity) if self.enc_in == 1 else affinity.softmax(-1)
+        return torch.diag(torch.sigmoid(self.beta)) + (torch.diag(torch.tanh(self.alpha)) @ adjacency)
 
     def forward(
         self,
@@ -165,10 +141,7 @@ class Model(nn.Module):
             label_representation = layer(label_representation)
         base = self.base_head(label_representation).transpose(1, 2)
 
-        memberships = (
-            self.node_queries @ self.cluster_keys.T
-            / math.sqrt(self.node_queries.shape[-1])
-        ).softmax(-1)
+        memberships = (self.node_queries @ self.cluster_keys.T / math.sqrt(self.node_queries.shape[-1])).softmax(-1)
         context_graph = memberships @ memberships.T
         context_graph = context_graph / context_graph.sum(-1, keepdim=True).clamp_min(1e-6)
         common = torch.einsum("nm,bmd->bnd", context_graph, label_representation)

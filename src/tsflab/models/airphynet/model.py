@@ -59,10 +59,7 @@ class PhysicsVectorField(nn.Module):
         advection = torch.einsum("nm,bmd->bnd", flow_operator, state)
         coefficient = F.softplus(self.diffusion_raw).view(1, 1, -1)
         gate = torch.sigmoid(self.gate_logits).view(1, 1, -1)
-        return (
-            -gate * coefficient * torch.tanh(diffusion)
-            - (1.0 - gate) * torch.tanh(advection)
-        )
+        return -gate * coefficient * torch.tanh(diffusion) - (1.0 - gate) * torch.tanh(advection)
 
 
 class Model(nn.Module):
@@ -118,7 +115,9 @@ class Model(nn.Module):
         )
 
     def _ode_step(self, state: torch.Tensor) -> torch.Tensor:
-        field = lambda z: self.vector_field(z, self.distance_support, self.flow_support)
+        def field(z):
+            return self.vector_field(z, self.distance_support, self.flow_support)
+
         if self.ode_method == "euler":
             return state + field(state)
         k1 = field(state)
@@ -141,9 +140,7 @@ class Model(nn.Module):
         features = to_spatiotemporal(x_enc, x_mark_enc)
         if features.shape[-1] != 1 + self.cov_dim:
             raise ValueError(f"AirPhyNet expects exactly {self.cov_dim} covariate channels")
-        sequence = features.permute(0, 2, 1, 3).reshape(
-            x_enc.shape[0] * self.enc_in, self.seq_len, 1 + self.cov_dim
-        )
+        sequence = features.permute(0, 2, 1, 3).reshape(x_enc.shape[0] * self.enc_in, self.seq_len, 1 + self.cov_dim)
         _, hidden = self.encoder(sequence)
         hidden = hidden[-1].reshape(x_enc.shape[0], self.enc_in, -1)
         mean = self.initial_mean(hidden)

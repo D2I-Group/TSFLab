@@ -31,8 +31,13 @@ _CALENDAR = 7  # minute, hour, dayofweek, day, dayofyear, month, weekofyear
 
 def _iso_weeks_in_year(year: torch.Tensor) -> torch.Tensor:
     def p(y):
-        return (y + torch.div(y, 4, rounding_mode="floor") - torch.div(y, 100, rounding_mode="floor")
-                + torch.div(y, 400, rounding_mode="floor")) % 7
+        return (
+            y
+            + torch.div(y, 4, rounding_mode="floor")
+            - torch.div(y, 100, rounding_mode="floor")
+            + torch.div(y, 400, rounding_mode="floor")
+        ) % 7
+
     return 52 + ((p(year) == 4) | (p(year - 1) == 3)).long()
 
 
@@ -40,7 +45,9 @@ def calendar_features(marks: torch.Tensor) -> torch.Tensor:
     """Raw ``[..., 6]`` marks -> ``[..., 7]`` minute, hour, dayofweek, day, dayofyear, month, ISO week."""
     raw = marks.round().long()
     year, month, day, weekday, hour, minute = raw.unbind(-1)
-    day_of_year = days_from_civil(year, month, day) - days_from_civil(year, torch.ones_like(month), torch.ones_like(day)) + 1
+    day_of_year = (
+        days_from_civil(year, month, day) - days_from_civil(year, torch.ones_like(month), torch.ones_like(day)) + 1
+    )
     week = torch.div(day_of_year - (weekday + 1) + 10, 7, rounding_mode="floor")
     week = torch.where(week < 1, _iso_weeks_in_year(year - 1), week)
     week = torch.where(week > _iso_weeks_in_year(year), torch.ones_like(week), week)
@@ -150,7 +157,11 @@ class Model(nn.Module):
         self.channel_independent, self.use_marks = channel_independent, use_marks
         self.alpha, self.momentum, self.temperature = alpha, momentum, temperature
         self.sigma, self.aug_prob = sigma, aug_prob
-        self.pretrain_iters, self.pretrain_batch_size, self.pretrain_lr = pretrain_iters, pretrain_batch_size, pretrain_lr
+        self.pretrain_iters, self.pretrain_batch_size, self.pretrain_lr = (
+            pretrain_iters,
+            pretrain_batch_size,
+            pretrain_lr,
+        )
         self.ridge_alphas = [float(a) for a in ridge_alphas]
         self.ridge_valid_fraction, self.ridge_max_samples = ridge_valid_fraction, ridge_max_samples
         self.queue_size = queue_size
@@ -283,7 +294,7 @@ class Model(nn.Module):
 
     # ------------------------------------------------------ stage II: ridge
     def _labels(self, batch, device) -> torch.Tensor:
-        future = batch[1].float().to(device)[:, -self.pred_len:, : self.enc_in]
+        future = batch[1].float().to(device)[:, -self.pred_len :, : self.enc_in]
         if self.channel_independent:
             labels = future.transpose(1, 2).reshape(-1, self.pred_len)
         elif self.features == "MS":

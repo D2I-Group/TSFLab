@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import BaseModel, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.nhits.model import Model
-
-from pydantic import BaseModel, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -27,8 +27,7 @@ class ModelParameterConfig(BaseModel):
     @model_validator(mode="after")
     def _stack_lengths(self):
         count = len(self.stack_types)
-        if not all(len(items) == count for items in
-                   (self.n_blocks, self.n_pool_kernel_size, self.n_freq_downsample)):
+        if not all(len(items) == count for items in (self.n_blocks, self.n_pool_kernel_size, self.n_freq_downsample)):
             raise ValueError("N-HiTS stack configuration lengths must match")
         return self
 

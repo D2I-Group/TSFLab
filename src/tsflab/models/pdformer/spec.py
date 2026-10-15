@@ -92,9 +92,7 @@ def training_setup(model, train_loader, *, pred_len, features):
         # Fallback: rebuild an ordered history from the newest step of every window.
         steps = [batch[0][:, -1, :] for batch in train_loader]
         series = torch.cat(steps).double() if steps else None
-        warnings.warn(
-            "PDFormer: no ordered training series; fitting on window end points", stacklevel=2
-        )
+        warnings.warn("PDFormer: no ordered training series; fitting on window end points", stacklevel=2)
     if series is None or series.shape[0] < model.s_attn_size:
         warnings.warn(
             "PDFormer: too little training data; semantic mask and patterns stay unfitted",

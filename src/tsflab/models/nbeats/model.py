@@ -24,13 +24,14 @@ def seasonality_basis(length: int, dimension: int, device=None, dtype=None) -> t
 
 
 class NBeatsBlock(nn.Module):
-    def __init__(self, input_length: int, horizon: int, basis: str,
-                 theta_dimension: int, hidden: int, harmonics: int | None) -> None:
+    def __init__(
+        self, input_length: int, horizon: int, basis: str, theta_dimension: int, hidden: int, harmonics: int | None
+    ) -> None:
         super().__init__()
         self.input_length = input_length
         self.horizon = horizon
         self.basis = basis
-        dimension = (2 * harmonics if basis == "seasonality" and harmonics else theta_dimension)
+        dimension = 2 * harmonics if basis == "seasonality" and harmonics else theta_dimension
         layers: list[nn.Module] = [nn.Linear(input_length, hidden), nn.ReLU()]
         for _ in range(3):
             layers.extend([nn.Linear(hidden, hidden), nn.ReLU()])
@@ -45,11 +46,9 @@ class NBeatsBlock(nn.Module):
 
     def _basis(self, length: int, values: torch.Tensor) -> torch.Tensor:
         if self.basis == "trend":
-            return trend_basis(length, self.theta_forecast.out_features,
-                               values.device, values.dtype)
+            return trend_basis(length, self.theta_forecast.out_features, values.device, values.dtype)
         if self.basis == "seasonality":
-            return seasonality_basis(length, self.theta_forecast.out_features,
-                                     values.device, values.dtype)
+            return seasonality_basis(length, self.theta_forecast.out_features, values.device, values.dtype)
         return self.backcast_basis if length == self.input_length else self.forecast_basis
 
     def forward(self, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -61,10 +60,17 @@ class NBeatsBlock(nn.Module):
 
 class Model(nn.Module):
     def __init__(
-        self, seq_len: int, pred_len: int, label_len: int, features: str,
-        enc_in: int, stack_types: tuple[str, ...] = ("trend", "seasonality", "generic"),
-        nb_blocks_per_stack: int = 3, thetas_dim: tuple[int, ...] = (4, 8, 8),
-        hidden_layer_units: int = 256, share_weights_in_stack: bool = False,
+        self,
+        seq_len: int,
+        pred_len: int,
+        label_len: int,
+        features: str,
+        enc_in: int,
+        stack_types: tuple[str, ...] = ("trend", "seasonality", "generic"),
+        nb_blocks_per_stack: int = 3,
+        thetas_dim: tuple[int, ...] = (4, 8, 8),
+        hidden_layer_units: int = 256,
+        share_weights_in_stack: bool = False,
         nb_harmonics: int | None = None,
     ) -> None:
         super().__init__()
@@ -72,12 +78,15 @@ class Model(nn.Module):
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         blocks = []
         for basis, dimension in zip(stack_types, thetas_dim):
-            shared = NBeatsBlock(seq_len, pred_len, basis, dimension,
-                                 hidden_layer_units, nb_harmonics)
-            blocks.extend([shared if share_weights_in_stack else
-                           NBeatsBlock(seq_len, pred_len, basis, dimension,
-                                       hidden_layer_units, nb_harmonics)
-                           for _ in range(nb_blocks_per_stack)])
+            shared = NBeatsBlock(seq_len, pred_len, basis, dimension, hidden_layer_units, nb_harmonics)
+            blocks.extend(
+                [
+                    shared
+                    if share_weights_in_stack
+                    else NBeatsBlock(seq_len, pred_len, basis, dimension, hidden_layer_units, nb_harmonics)
+                    for _ in range(nb_blocks_per_stack)
+                ]
+            )
         self.blocks = nn.ModuleList(blocks)
         if not share_weights_in_stack:
             for parameter in self.blocks[-1].theta_backcast.parameters():

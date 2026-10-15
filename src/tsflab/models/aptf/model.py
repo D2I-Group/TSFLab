@@ -89,14 +89,33 @@ class Model(nn.Module):
         self.amortization = amortization
         self.weights = bucket_weights(num_buckets)
         backbone = dict(
-            c_in=enc_in, context_window=seq_len, target_window=pred_len,
-            patch_len=patch_len, stride=stride, padding_patch="end",
-            n_layers=e_layers, d_model=d_model, n_heads=n_heads, d_k=None, d_v=None,
-            d_ff=d_ff, activation="gelu", norm="BatchNorm",
-            attn_dropout=0.0, res_dropout=dropout, ffn_dropout=dropout,
-            proj_dropout=0.0, head_dropout=head_dropout, pre_norm=False,
-            pe="zeros", learn_pe=True, head_type="flatten", individual=False,
-            revin=revin, affine=False, subtract_last=False,
+            c_in=enc_in,
+            context_window=seq_len,
+            target_window=pred_len,
+            patch_len=patch_len,
+            stride=stride,
+            padding_patch="end",
+            n_layers=e_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            d_k=None,
+            d_v=None,
+            d_ff=d_ff,
+            activation="gelu",
+            norm="BatchNorm",
+            attn_dropout=0.0,
+            res_dropout=dropout,
+            ffn_dropout=dropout,
+            proj_dropout=0.0,
+            head_dropout=head_dropout,
+            pre_norm=False,
+            pe="zeros",
+            learn_pe=True,
+            head_type="flatten",
+            individual=False,
+            revin=revin,
+            affine=False,
+            subtract_last=False,
         )
         self.source = PatchTSTBackbone(**backbone)
         # Independently initialised model of the same architecture (Section 3.2).
@@ -137,9 +156,7 @@ class Model(nn.Module):
         """
         total = outputs.new_zeros(())
         for group in range(stage + 1):
-            total = total + predictability_aware_loss(
-                outputs, target, order, self.weights[group:], criterion
-            )
+            total = total + predictability_aware_loss(outputs, target, order, self.weights[group:], criterion)
         return total / self.num_groups
 
 

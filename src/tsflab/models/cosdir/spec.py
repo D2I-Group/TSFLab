@@ -45,9 +45,7 @@ def training_objective(model, batch, criterion):
     """Configured base loss plus the CosDir direction term on the target channels."""
     target_start = -1 if batch.features == "MS" else 0
     last_observed = batch.x[:, -1:, target_start:]
-    forecast, loss, _ = model.training_objective(
-        batch.x, batch.target, last_observed, criterion, batch.align
-    )
+    forecast, loss, _ = model.training_objective(batch.x, batch.target, last_observed, criterion, batch.align)
     return forecast, loss
 
 

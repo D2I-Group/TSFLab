@@ -42,7 +42,20 @@ class DynamicDiffusion(nn.Module):
 class Model(nn.Module):
     """Spatial-temporal decomposition with attention and dynamic diffusion."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, time_slice_size: int = 60, K: int = 4, d: int = 8, L: int = 1, order: int = 2, reference: int = 4, out_channels: int = 1) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        time_slice_size: int = 60,
+        K: int = 4,
+        d: int = 8,
+        L: int = 1,
+        order: int = 2,
+        reference: int = 4,
+        out_channels: int = 1,
+    ) -> None:
         super().__init__()
         width = K * d
         slots = 1440 // time_slice_size
@@ -65,7 +78,9 @@ class Model(nn.Module):
         self.reference = min(reference, num_nodes)
         nn.init.xavier_uniform_(self.horizon_embedding)
 
-    def _calendar(self, marks: torch.Tensor | None, length: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
+    def _calendar(
+        self, marks: torch.Tensor | None, length: int, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         if marks is None:
             tod = torch.arange(length, device=device).view(1, length) % self.slots
             return tod, torch.zeros_like(tod)
@@ -113,7 +128,9 @@ class Model(nn.Module):
         future_tod, future_dow = self._calendar(x_mark_dec, self.pred_len, x_enc.device)
         if future_tod.shape[0] == 1 and batch != 1:
             future_tod, future_dow = future_tod.expand(batch, -1), future_dow.expand(batch, -1)
-        query = self.time_embedding(future_tod) + self.weekday_embedding(future_dow) + self.horizon_embedding.unsqueeze(0)
+        query = (
+            self.time_embedding(future_tod) + self.weekday_embedding(future_dow) + self.horizon_embedding.unsqueeze(0)
+        )
         query = (query.unsqueeze(2) + spatial).transpose(1, 2).reshape(batch * nodes, self.pred_len, width)
         memory = seasonal.transpose(1, 2).reshape(batch * nodes, length, width)
         for attention, norm in zip(self.history_attention, self.attention_norm):

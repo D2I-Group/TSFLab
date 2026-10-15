@@ -28,7 +28,7 @@ class ModelParameterConfig(BaseModel):
     causal_variate_mask: bool = False
 
     @model_validator(mode="after")
-    def _contract(self) -> "ModelParameterConfig":
+    def _contract(self) -> ModelParameterConfig:
         windows = self.conv_windows
         if windows[0] < 1 or any(b <= a for a, b in zip(windows, windows[1:])):
             raise ValueError("conv_windows must be strictly increasing positive period lengths")

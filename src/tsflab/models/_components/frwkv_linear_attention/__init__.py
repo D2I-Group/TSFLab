@@ -133,7 +133,12 @@ class FRWKVLinearAttention(nn.Module):
         replacement_key = k * torch.lerp(torch.ones_like(strength), strength, self.strength_mix)
         r, v, replacement_key = r.view(heads), v.view(heads), replacement_key.view(heads)
         y = frwkv_state_scan(r, removal_key, replacement_key, v, decay.view(heads), strength.view(heads))
-        bonus = _BONUS_SCALE * (r * replacement_key).sum(dim=-1, keepdim=True) * v * self.bonus.view(self.n_heads, self.head_size)
+        bonus = (
+            _BONUS_SCALE
+            * (r * replacement_key).sum(dim=-1, keepdim=True)
+            * v
+            * self.bonus.view(self.n_heads, self.head_size)
+        )
         out = self.norm((y + bonus).reshape(batch, tokens, width)) * gate
         return self.dropout(self.output(out)), None
 

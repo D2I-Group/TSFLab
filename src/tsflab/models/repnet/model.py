@@ -198,9 +198,11 @@ class Representation(nn.Module):
         return counts
 
     def _time_encoders(self, encoding: int, time_size: int) -> nn.ModuleList:
-        return nn.ModuleList(
-            nn.Linear(cover * time_size, encoding // 2) for cover, _, _ in self.extractors
-        ) if self.time is not None else nn.ModuleList()
+        return (
+            nn.ModuleList(nn.Linear(cover * time_size, encoding // 2) for cover, _, _ in self.extractors)
+            if self.time is not None
+            else nn.ModuleList()
+        )
 
     @staticmethod
     def extract(x: torch.Tensor, cover: int, dilation: int, stride: int) -> torch.Tensor:
@@ -305,9 +307,13 @@ class Projection(nn.Module):
     def __init__(self, patch_counts: Sequence[int], encoding: int, pred_len: int, lstm_layers: int) -> None:
         super().__init__()
         self.patch_counts = list(patch_counts)
-        self.lstms = nn.ModuleList(
-            nn.LSTM(encoding, encoding, num_layers=lstm_layers, batch_first=True) for _ in self.patch_counts
-        ) if lstm_layers > 0 else nn.ModuleList()
+        self.lstms = (
+            nn.ModuleList(
+                nn.LSTM(encoding, encoding, num_layers=lstm_layers, batch_first=True) for _ in self.patch_counts
+            )
+            if lstm_layers > 0
+            else nn.ModuleList()
+        )
         self.heads = nn.ModuleList(nn.Linear(encoding * n, pred_len, bias=False) for n in self.patch_counts)
 
     def forward(self, memory: torch.Tensor) -> torch.Tensor:
@@ -349,8 +355,14 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.revin = RevIN(enc_in, affine=True, subtract_last=False, enabled=revin)
         self.representation = Representation(
-            seq_len, enc_in, patch_extractors, encoding_size, representation,
-            tuple(time_embedding), time_embedding_size, freq,
+            seq_len,
+            enc_in,
+            patch_extractors,
+            encoding_size,
+            representation,
+            tuple(time_embedding),
+            time_embedding_size,
+            freq,
         )
         num_patches = sum(self.representation.patch_counts)
         self.memory = nn.ModuleList(

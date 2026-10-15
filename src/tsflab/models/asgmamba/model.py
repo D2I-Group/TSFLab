@@ -150,8 +150,17 @@ class Model(nn.Module):
         self.node_embedding = nn.Parameter(torch.randn(1, enc_in, 1, d_model) * 0.02)
         self.branches = nn.ModuleList(
             ScaleBranch(
-                seq_len, pred_len, patch_len, overlap, d_model, d_state, d_conv,
-                expand, dropout, gate, gate_amplitude,
+                seq_len,
+                pred_len,
+                patch_len,
+                overlap,
+                d_model,
+                d_state,
+                d_conv,
+                expand,
+                dropout,
+                gate,
+                gate_amplitude,
             )
             for patch_len in self.patch_sizes
         )

@@ -89,9 +89,7 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         center = x_enc.mean(dim=1, keepdim=True)
         history = (x_enc - center).transpose(1, 2)
-        reduced = F.avg_pool1d(
-            history, kernel_size=self.downsample, stride=self.downsample
-        )
+        reduced = F.avg_pool1d(history, kernel_size=self.downsample, stride=self.downsample)
         segment = self.segment_path(reduced)
         frequency = self.spectral_path(reduced)
         combined = F.interpolate(

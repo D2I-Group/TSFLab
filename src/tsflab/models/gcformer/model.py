@@ -73,7 +73,7 @@ class MultiScaleGlobalConv(nn.Module):
         k = self.assembled_kernel()
         k = k[..., :length] if k.shape[-1] >= length else F.pad(k, (0, length - k.shape[-1]))
         k = k / self.kernel_norm
-        causal, anti_causal = k[: self.heads], k[self.heads:]
+        causal, anti_causal = k[: self.heads], k[self.heads :]
         return F.pad(causal, (0, length)) + F.pad(anti_causal.flip(-1), (length, 0))
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
@@ -100,7 +100,7 @@ class ResidualScoreAttention(nn.Module):
         self.value = nn.Linear(d_model, d_model)
         self.out = nn.Sequential(nn.Linear(d_model, d_model), nn.Dropout(proj_dropout))
         self.attn_dropout = nn.Dropout(attn_dropout)
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
 
     def forward(self, x: torch.Tensor, prev: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor]:
         batch, length, _ = x.shape
@@ -125,9 +125,7 @@ class PatchEncoderLayer(nn.Module):
         self.attention = ResidualScoreAttention(d_model, n_heads, 0.0, dropout)
         self.attn_dropout = nn.Dropout(dropout)
         self.attn_norm = nn.BatchNorm1d(d_model)
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.ff_dropout = nn.Dropout(dropout)
         self.ff_norm = nn.BatchNorm1d(d_model)
 
@@ -146,8 +144,18 @@ class LocalPatchBranch(nn.Module):
     """Eq. (9): channel-independent PatchTST on the tail ``[B, N', C]`` -> ``[B, T, C]``."""
 
     def __init__(
-        self, enc_in: int, context_len: int, pred_len: int, patch_len: int, stride: int,
-        d_model: int, n_heads: int, d_ff: int, e_layers: int, dropout: float, head_dropout: float,
+        self,
+        enc_in: int,
+        context_len: int,
+        pred_len: int,
+        patch_len: int,
+        stride: int,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        e_layers: int,
+        dropout: float,
+        head_dropout: float,
         individual: bool,
     ) -> None:
         super().__init__()
@@ -157,9 +165,7 @@ class LocalPatchBranch(nn.Module):
         self.patch_embedding = nn.Linear(patch_len, d_model)
         self.position = positional_encoding("zeros", True, self.patch_num, d_model)
         self.dropout = nn.Dropout(dropout)
-        self.layers = nn.ModuleList(
-            PatchEncoderLayer(d_model, n_heads, d_ff, dropout) for _ in range(e_layers)
-        )
+        self.layers = nn.ModuleList(PatchEncoderLayer(d_model, n_heads, d_ff, dropout) for _ in range(e_layers))
         self.head = FlattenForecastHead(individual, enc_in, d_model * self.patch_num, pred_len, head_dropout)
 
     def patchify(self, series: torch.Tensor) -> torch.Tensor:
@@ -182,7 +188,9 @@ class LocalPatchBranch(nn.Module):
 class CrossFusion(nn.Module):
     """Eqs. (10)-(12) in one view: both query directions, shared BatchNorm, weighted sum."""
 
-    def __init__(self, in_dim: int, hidden: int, n_heads: int, attention: str, fc_dropout: float, atten_bias: float) -> None:
+    def __init__(
+        self, in_dim: int, hidden: int, n_heads: int, attention: str, fc_dropout: float, atten_bias: float
+    ) -> None:
         super().__init__()
         self.project_in = nn.Linear(in_dim, hidden)
         if attention == "full":
@@ -248,8 +256,18 @@ class Model(nn.Module):
         self.global_conv = MultiScaleGlobalConv(enc_in, seq_len, n_heads, kernel_dim, kernel_decay)
         self.global_head = nn.Linear(seq_len, pred_len)
         self.local_branch = LocalPatchBranch(
-            enc_in, context_len, pred_len, patch_len, stride, d_model, n_heads, d_ff, e_layers,
-            dropout, head_dropout, individual,
+            enc_in,
+            context_len,
+            pred_len,
+            patch_len,
+            stride,
+            d_model,
+            n_heads,
+            d_ff,
+            e_layers,
+            dropout,
+            head_dropout,
+            individual,
         )
         self.channel_fusion = CrossFusion(enc_in, h_channel, n_heads, decoder_attention, fc_dropout, atten_bias)
         self.token_fusion = CrossFusion(pred_len, h_token, n_heads, decoder_attention, fc_dropout, atten_bias)
@@ -261,7 +279,7 @@ class Model(nn.Module):
     def branches(self, normalized: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Eqs. (8)-(9): ``z_global`` from the whole window, ``z_local`` from its tail."""
         z_global = self.global_head(self.global_conv(normalized).transpose(1, 2)).transpose(1, 2)
-        z_local = self.local_branch(normalized[:, -self.context_len:])
+        z_local = self.local_branch(normalized[:, -self.context_len :])
         return z_global, z_local
 
     def decode(self, z_global: torch.Tensor, z_local: torch.Tensor) -> torch.Tensor:
@@ -269,8 +287,10 @@ class Model(nn.Module):
         channel = self.ff(self.channel_fusion(z_global, z_local))
         token = self.ff(self.token_fusion(z_global.transpose(1, 2), z_local.transpose(1, 2)).transpose(1, 2))
         return (
-            self.tc_bias * channel + (1 - self.tc_bias) * token
-            + self.global_bias * z_global + self.local_bias * z_local
+            self.tc_bias * channel
+            + (1 - self.tc_bias) * token
+            + self.global_bias * z_global
+            + self.local_bias * z_local
         )
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):

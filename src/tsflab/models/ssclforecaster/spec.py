@@ -29,9 +29,7 @@ class ModelParameterConfig(BaseModel):
     @classmethod
     def _even_scales(cls, scales: list[int]) -> list[int]:
         if any(scale < 2 or scale % 2 for scale in scales):
-            raise ValueError(
-                "scales must be positive even lengths (moving-average kernels scale + 1)"
-            )
+            raise ValueError("scales must be positive even lengths (moving-average kernels scale + 1)")
         return scales
 
 

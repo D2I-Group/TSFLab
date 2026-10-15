@@ -39,9 +39,7 @@ def periodic_alibi_bias(
     return torch.cat(blocks, dim=0)
 
 
-def _period_groups(
-    seq_len: int, num_heads: int, periods: Sequence[int | None] | None
-) -> list[int | None]:
+def _period_groups(seq_len: int, num_heads: int, periods: Sequence[int | None] | None) -> list[int | None]:
     """Validate the arguments and return one period (or ``None``) per head group."""
     if seq_len < 1 or num_heads < 1:
         raise ValueError("seq_len and num_heads must be positive")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, Tuple
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
@@ -89,15 +89,13 @@ class ForecastingDataset(ABC, Dataset):
         # ``StandardScaler`` path is used.
         self._mean: np.ndarray | None = None
         self._std: np.ndarray | None = None
-        self.data, self.time_stamp = self._read_data(
-            flag, features, target, split_ratio, scale
-        )
+        self.data, self.time_stamp = self._read_data(flag, features, target, split_ratio, scale)
 
     def __len__(self) -> int:
         """Return number of windows available in the split."""
         return len(self.data) - self.seq_len - self.pred_len + 1
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return one input/target window and optional timestamps.
 
         Parameters
@@ -213,7 +211,7 @@ class ForecastingDataset(ABC, Dataset):
                 # MS / reduced-channel output: anchor on the last k channels
                 # (the target channel(s), placed last in TS datasets).
                 k = data.shape[-1]
-                return data * self._std[len(self._std) - k:] + self._mean[len(self._mean) - k:]
+                return data * self._std[len(self._std) - k :] + self._mean[len(self._mean) - k :]
             return data * self._std + self._mean
 
         if self.scaler is None:
@@ -226,7 +224,7 @@ class ForecastingDataset(ABC, Dataset):
         n = self.scaler.scale_.shape[0]
         if data.shape[-1] < n:
             k = data.shape[-1]
-            return data * self.scaler.scale_[n - k:] + self.scaler.mean_[n - k:]
+            return data * self.scaler.scale_[n - k :] + self.scaler.mean_[n - k :]
         return self.scaler.inverse_transform(data)
 
     def _build_time_stamp(self, df_raw: pd.DataFrame) -> np.ndarray:
@@ -273,7 +271,7 @@ class ForecastingDataset(ABC, Dataset):
         flag: str,
         split_ratio: tuple[float, float, float],
         num_samples: int,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """Return ``(start, end)`` rows of ``flag``; see ``protocol.split_borders``.
 
         Validation and test read ``seq_len`` prior rows as input context;
@@ -290,7 +288,7 @@ class ForecastingDataset(ABC, Dataset):
         target: str,
         split_ratio: tuple[float, float, float],
         scale: bool,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Read data for a split and return series and timestamps.
 
         Parameters

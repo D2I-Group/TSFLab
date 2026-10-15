@@ -75,8 +75,13 @@ class TrendAwareAttention(nn.Module):
     """
 
     def __init__(
-        self, width: int, heads: int, kernel_size: int, dropout: float,
-        query_causal: bool, key_causal: bool,
+        self,
+        width: int,
+        heads: int,
+        kernel_size: int,
+        dropout: float,
+        query_causal: bool,
+        key_causal: bool,
     ) -> None:
         super().__init__()
         self.heads = heads

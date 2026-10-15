@@ -29,9 +29,7 @@ class SubSeriesMapper(nn.Module):
     def __init__(self, in_len: int, out_len: int, hidden_size: int) -> None:
         super().__init__()
         if hidden_size > 0:
-            self.net = nn.Sequential(
-                nn.Linear(in_len, hidden_size), nn.ELU(), nn.Linear(hidden_size, out_len)
-            )
+            self.net = nn.Sequential(nn.Linear(in_len, hidden_size), nn.ELU(), nn.Linear(hidden_size, out_len))
         else:
             self.net = nn.Linear(in_len, out_len)
 
@@ -64,8 +62,13 @@ class Model(nn.Module):
         self.dwt = HaarDWT1D()
         self.idwt = HaarIDWT1D()
         self.fusion_conv = nn.Conv1d(
-            in_channels=2, out_channels=2, kernel_size=conv_kernel,
-            stride=1, padding=(conv_kernel - 1) // 2, padding_mode="zeros", bias=False,
+            in_channels=2,
+            out_channels=2,
+            kernel_size=conv_kernel,
+            stride=1,
+            padding=(conv_kernel - 1) // 2,
+            padding_mode="zeros",
+            bias=False,
         )
         if use_convdropout:
             self.conv_dropout = nn.Dropout(conv_dropout)
@@ -73,9 +76,7 @@ class Model(nn.Module):
         in_len = _half_length(seq_len)
         out_len = _half_length(pred_len)
         if not_independent:
-            self.mapper = nn.ModuleList(
-                [SubSeriesMapper(in_len, out_len, hidden_size) for _ in range(enc_in)]
-            )
+            self.mapper = nn.ModuleList([SubSeriesMapper(in_len, out_len, hidden_size) for _ in range(enc_in)])
         else:
             self.mapper = SubSeriesMapper(in_len, out_len, hidden_size)
 
@@ -94,16 +95,17 @@ class Model(nn.Module):
 
         approx, detail = self.dwt(values)
         stacked = torch.stack([approx, detail], dim=-2)
-        fused = self.fusion_conv(
-            stacked.reshape(batch * self.enc_in, 2, stacked.shape[-1])
-        ).reshape(batch, self.enc_in, 2, stacked.shape[-1]) + stacked
+        fused = (
+            self.fusion_conv(stacked.reshape(batch * self.enc_in, 2, stacked.shape[-1])).reshape(
+                batch, self.enc_in, 2, stacked.shape[-1]
+            )
+            + stacked
+        )
         if self.use_convdropout:
             fused = self.conv_dropout(fused)
 
         if self.not_independent:
-            mapped = torch.stack(
-                [self.mapper[i](fused[:, i, :, :]) for i in range(self.enc_in)], dim=1
-            )
+            mapped = torch.stack([self.mapper[i](fused[:, i, :, :]) for i in range(self.enc_in)], dim=1)
         else:
             mapped = self.mapper(fused)
         approx_out, detail_out = mapped[:, :, 0, :], mapped[:, :, 1, :]

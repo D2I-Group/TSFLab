@@ -42,10 +42,9 @@ class SimplifiedMambaMixer(MambaBlock):
         self.use_act = use_act
         # Reference Mamba step-size initialization (softplus(bias) in [dt_min, dt_max]).
         nn.init.uniform_(self.dt_proj.weight, -(dt_rank**-0.5), dt_rank**-0.5)
-        dt = torch.exp(
-            torch.rand(self.d_inner) * (math.log(dt_max) - math.log(dt_min))
-            + math.log(dt_min)
-        ).clamp(min=dt_floor)
+        dt = torch.exp(torch.rand(self.d_inner) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min)).clamp(
+            min=dt_floor
+        )
         with torch.no_grad():
             self.dt_proj.bias.copy_(dt + torch.log(-torch.expm1(-dt)))
 
@@ -75,9 +74,7 @@ class GatedMLP(nn.Module):
 class SimplifiedMambaBlock(nn.Module):
     """Add -> LayerNorm -> mixer, then add -> LayerNorm -> gated MLP; returns (hidden, residual)."""
 
-    def __init__(
-        self, d_model: int, d_state: int, d_ff: int, use_act: bool
-    ) -> None:
+    def __init__(self, d_model: int, d_state: int, d_ff: int, use_act: bool) -> None:
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
         self.mixer = SimplifiedMambaMixer(d_model, d_state, use_act=use_act)

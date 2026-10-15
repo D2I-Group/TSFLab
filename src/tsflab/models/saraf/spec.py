@@ -30,7 +30,7 @@ class ModelParameterConfig(BaseModel):
     eval_seed: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
-    def _contract(self) -> "ModelParameterConfig":
+    def _contract(self) -> ModelParameterConfig:
         if self.top_k > self.candidate_pool:
             raise ValueError("top_k must not exceed candidate_pool")
         if self.sigma_min > self.sigma_max or self.lambda_min > self.lambda_max:

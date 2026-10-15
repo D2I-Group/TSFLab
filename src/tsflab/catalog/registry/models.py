@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Literal, Type
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -32,13 +33,9 @@ class ModelArtifact:
             from tsflab.release.hub.uri import parse
 
             if parse(self.url).revision != self.revision:
-                raise ValueError(
-                    f"artifact {self.name!r} hf:// URI must be pinned to its revision"
-                )
+                raise ValueError(f"artifact {self.name!r} hf:// URI must be pinned to its revision")
         elif self.url.startswith("https://") and self.revision not in self.url:
-            raise ValueError(
-                f"artifact {self.name!r} URL must contain its pinned revision"
-            )
+            raise ValueError(f"artifact {self.name!r} URL must contain its pinned revision")
         if "/" in self.filename or "\\" in self.filename:
             raise ValueError(f"artifact {self.name!r} filename must be a basename")
 
@@ -48,7 +45,7 @@ class ModelSpec:
     name: str
     model_class: type
     factory: Callable
-    params_schema: Type[BaseModel]
+    params_schema: type[BaseModel]
     #: Derived from the package of ``model_class`` when left empty: ``tsflab.models.<package>``,
     #: ``configs/models/<name>.toml``, and ``src/tsflab/models/<package>/README.md``.
     module: str = ""
@@ -77,9 +74,7 @@ class ModelSpec:
             object.__setattr__(self, "config_path", f"configs/models/{self.name}.toml")
         if not self.model_card:
             object.__setattr__(self, "model_card", f"src/{self.module.replace('.', '/')}/README.md")
-        output_capabilities = self.capabilities & {
-            "quantile-output", "distribution-output"
-        }
+        output_capabilities = self.capabilities & {"quantile-output", "distribution-output"}
         if len(output_capabilities) > 1:
             raise ValueError(f"model {self.name!r} declares conflicting output capabilities")
         if not self.task_modes:
@@ -92,27 +87,19 @@ class ModelSpec:
             if not callable(self.training_setup):
                 raise TypeError(f"model {self.name!r} training_setup must be callable")
             if self.training_objective is None:
-                raise ValueError(
-                    f"model {self.name!r} declares training_setup without training_objective"
-                )
+                raise ValueError(f"model {self.name!r} declares training_setup without training_objective")
         if "inference-only" in self.capabilities:
             if "pretraining-stage" in self.capabilities:
-                raise ValueError(
-                    f"model {self.name!r} cannot be inference-only and pretraining-stage"
-                )
+                raise ValueError(f"model {self.name!r} cannot be inference-only and pretraining-stage")
             if self.training_objective is not None:
-                raise ValueError(
-                    f"model {self.name!r} cannot be inference-only with a training objective"
-                )
+                raise ValueError(f"model {self.name!r} cannot be inference-only with a training objective")
         artifact_names = [artifact.name for artifact in self.artifacts]
         if len(set(artifact_names)) != len(artifact_names):
             raise ValueError(f"model {self.name!r} declares duplicate artifacts")
         if self.artifact_factory is not None and not callable(self.artifact_factory):
             raise TypeError(f"model {self.name!r} artifact_factory must be callable")
         if self.artifact_factory is not None and not self.artifacts:
-            raise ValueError(
-                f"model {self.name!r} declares artifact_factory without artifacts"
-            )
+            raise ValueError(f"model {self.name!r} declares artifact_factory without artifacts")
 
     @property
     def output_type(self) -> Literal["point", "quantile", "distribution"]:
@@ -148,9 +135,7 @@ class ModelSpec:
     def build_with_artifacts(self, cfg, params: dict, paths: dict):
         """Construct an artifact-backed model through its explicit factory."""
         if self.artifact_factory is None:
-            raise ValueError(
-                f"model {self.name!r} declares runtime artifacts but has no artifact_factory"
-            )
+            raise ValueError(f"model {self.name!r} declares runtime artifacts but has no artifact_factory")
         return self.artifact_factory(cfg, self.validate_params(params), dict(paths))
 
 
@@ -208,9 +193,7 @@ class ModelCatalog:
         if not isinstance(spec, ModelSpec):
             raise TypeError(f"{module_path} must expose a ModelSpec named SPEC")
         if spec.name != name:
-            raise ValueError(
-                f"discovered name {name!r} disagrees with {module_path}.SPEC.name={spec.name!r}"
-            )
+            raise ValueError(f"discovered name {name!r} disagrees with {module_path}.SPEC.name={spec.name!r}")
         self._loaded[name] = spec
         return spec
 

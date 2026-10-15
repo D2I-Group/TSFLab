@@ -1,11 +1,9 @@
 """Runtime specification for AWEMixer."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.awemixer.model import Model
-
-"""Validated parameters for AWEMixer."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

@@ -79,10 +79,9 @@ class MambaBlock(nn.Module):
             dt_min, dt_max, floor = 1e-3, 1e-1, 1e-4
             bound = dt_rank**-0.5
             nn.init.uniform_(self.dt_proj.weight, -bound, bound)
-            dt = torch.exp(
-                torch.rand(d_inner) * (math.log(dt_max) - math.log(dt_min))
-                + math.log(dt_min)
-            ).clamp(min=floor)
+            dt = torch.exp(torch.rand(d_inner) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min)).clamp(
+                min=floor
+            )
             with torch.no_grad():
                 self.dt_proj.bias.copy_(dt + torch.log(-torch.expm1(-dt)))
         state = repeat(torch.arange(1, d_state + 1), "n -> d n", d=d_inner).float()
@@ -105,9 +104,7 @@ class MambaBlock(nn.Module):
         state_size = self.A_log.shape[1]
         a = -torch.exp(self.A_log.float())
         d = self.D.float()
-        delta, b, c = self.x_dropout(self.x_proj(x)).split(
-            [self.dt_rank, state_size, state_size], dim=-1
-        )
+        delta, b, c = self.x_dropout(self.x_proj(x)).split([self.dt_rank, state_size, state_size], dim=-1)
         delta = F.softplus(self.dt_proj(delta))
         if self.checkpoint_scan and torch.is_grad_enabled():
             return checkpoint(self.selective_scan, x, delta, a, b, c, d, use_reentrant=False)

@@ -1,8 +1,9 @@
 """Runtime specification for KalmanFilterTS."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.kalman_filter_ts.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

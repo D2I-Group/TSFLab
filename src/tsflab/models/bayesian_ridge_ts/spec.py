@@ -1,8 +1,9 @@
 """Runtime specification for BayesianRidgeTS."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.bayesian_ridge_ts.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):
@@ -11,9 +12,7 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    return Model(
-        cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params["initial_weight_precision"]
-    )
+    return Model(cfg.task.seq_len, cfg.task.pred_len, params["enc_in"], params["initial_weight_precision"])
 
 
 SPEC = ModelSpec(

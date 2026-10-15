@@ -107,8 +107,7 @@ class Model(nn.Module):
         super().__init__()
         if min(seq_len, pred_len) < 2:
             raise ValueError(
-                "seq_len and pred_len must each be >= 2 (FLinear's "
-                "irfft needs at least two output samples)"
+                "seq_len and pred_len must each be >= 2 (FLinear's irfft needs at least two output samples)"
             )
         if kernel_size > seq_len:
             raise ValueError("kernel_size must not exceed seq_len")
@@ -117,9 +116,7 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, affine=True)
         self.moving_average = EdgePaddedMovingAverage(kernel_size)
         self.embed = FLinear(seq_len, d_model)
-        self.encoders = nn.ModuleList(
-            [EncoderBlock(d_model, d_pick, dropout) for _ in range(layers)]
-        )
+        self.encoders = nn.ModuleList([EncoderBlock(d_model, d_pick, dropout) for _ in range(layers)])
         self.projection = FLinear(d_model, pred_len)
         if initial:
             self.projection.initialize_as_identity()

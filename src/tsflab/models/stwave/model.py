@@ -4,12 +4,16 @@ The implementation uses a differentiable two-band discrete wavelet split,
 dual temporal/spatial encoders, Laplacian spectral positional encoding and a
 query-sampled graph attention mask.  It does not contain BasicTS source.
 """
+
 from __future__ import annotations
+
 import math
+
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
+
 from tsflab.models._components.marks import to_spatiotemporal
 from tsflab.models._inputs import check_window, square_adjacency
 
@@ -45,8 +49,8 @@ def wavelet_disentangle(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
 class SpectralGraphAttention(nn.Module):
     """Sparse neighbor attention; sampled high-energy queries also attend globally."""
-    def __init__(self, width: int, adjacency: torch.Tensor, spectral: torch.Tensor,
-                 log_samples: int) -> None:
+
+    def __init__(self, width: int, adjacency: torch.Tensor, spectral: torch.Tensor, log_samples: int) -> None:
         super().__init__()
         self.query, self.key, self.value, self.output = (nn.Linear(width, width) for _ in range(4))
         self.register_buffer("adjacency", adjacency)
@@ -79,6 +83,7 @@ class TemporalModule(nn.Module):
         self.causal = nn.Conv1d(width, width, 3, padding=2)
         self.gate = nn.Conv1d(width, width, 3, padding=2)
         self.norm = nn.LayerNorm(width)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         b, t, n, d = x.shape
         flat = x.transpose(1, 2).reshape(b * n, t, d)
@@ -89,11 +94,11 @@ class TemporalModule(nn.Module):
 
 
 class DualEncoder(nn.Module):
-    def __init__(self, width: int, adjacency: torch.Tensor, spectral: torch.Tensor,
-                 log_samples: int) -> None:
+    def __init__(self, width: int, adjacency: torch.Tensor, spectral: torch.Tensor, log_samples: int) -> None:
         super().__init__()
         self.temporal = TemporalModule(width)
         self.spatial = SpectralGraphAttention(width, adjacency, spectral, log_samples)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.spatial(self.temporal(x))
 
@@ -103,6 +108,7 @@ class AdaptiveFusion(nn.Module):
         super().__init__()
         self.gate = nn.Sequential(nn.Linear(3 * width, width), nn.Sigmoid())
         self.last_gate: torch.Tensor | None = None
+
     def forward(self, low: torch.Tensor, high: torch.Tensor, calendar: torch.Tensor) -> torch.Tensor:
         gate = self.gate(torch.cat((low, high, calendar), -1))
         self.last_gate = gate
@@ -111,9 +117,17 @@ class AdaptiveFusion(nn.Module):
 
 class Model(nn.Module):
     """Wavelet-disentangled efficient spectral graph attention forecaster."""
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx=None,
-                 hidden_size: int = 16, layers: int = 1,
-                 log_samples: int = 1) -> None:
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx=None,
+        hidden_size: int = 16,
+        layers: int = 1,
+        log_samples: int = 1,
+    ) -> None:
         super().__init__()
         if num_nodes <= 0:
             raise ValueError("STWave dimensions must be positive")
@@ -126,8 +140,12 @@ class Model(nn.Module):
         adjacency, spectral = _graph_data(adj_mx, num_nodes, hidden_size)
         self.value_embedding = nn.Linear(1, hidden_size)
         self.calendar_embedding = nn.Linear(2, hidden_size)
-        self.low_encoders = nn.ModuleList(DualEncoder(hidden_size, adjacency, spectral, log_samples) for _ in range(layers))
-        self.high_encoders = nn.ModuleList(DualEncoder(hidden_size, adjacency, spectral, log_samples) for _ in range(layers))
+        self.low_encoders = nn.ModuleList(
+            DualEncoder(hidden_size, adjacency, spectral, log_samples) for _ in range(layers)
+        )
+        self.high_encoders = nn.ModuleList(
+            DualEncoder(hidden_size, adjacency, spectral, log_samples) for _ in range(layers)
+        )
         self.low_head = nn.Linear(seq_len * hidden_size, pred_len * hidden_size)
         self.high_head = nn.Linear(seq_len * hidden_size, pred_len * hidden_size)
         self.future_calendar = nn.Linear(seq_len * hidden_size, pred_len * hidden_size)
@@ -148,11 +166,16 @@ class Model(nn.Module):
             calendar = F.pad(calendar, (0, 2 - calendar.shape[-1]))
         calendar = self.calendar_embedding(calendar)
         low, high = wavelet_disentangle(x_enc)
-        low, high = self.value_embedding(low.unsqueeze(-1)) + calendar, self.value_embedding(high.unsqueeze(-1)) + calendar
+        low, high = (
+            self.value_embedding(low.unsqueeze(-1)) + calendar,
+            self.value_embedding(high.unsqueeze(-1)) + calendar,
+        )
         for low_encoder, high_encoder in zip(self.low_encoders, self.high_encoders):
             low, high = low_encoder(low), high_encoder(high)
         b, _, n, d = low.shape
         low = self.low_head(low.transpose(1, 2).flatten(2)).reshape(b, n, self.pred_len, d).transpose(1, 2)
         high = self.high_head(high.transpose(1, 2).flatten(2)).reshape(b, n, self.pred_len, d).transpose(1, 2)
-        future = self.future_calendar(calendar.transpose(1, 2).flatten(2)).reshape(b, n, self.pred_len, d).transpose(1, 2)
+        future = (
+            self.future_calendar(calendar.transpose(1, 2).flatten(2)).reshape(b, n, self.pred_len, d).transpose(1, 2)
+        )
         return self.readout(self.fusion(low, high, future)).squeeze(-1)

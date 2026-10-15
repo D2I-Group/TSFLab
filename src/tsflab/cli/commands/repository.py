@@ -71,8 +71,9 @@ def run_contracts(level: str, models: list[str] | None) -> int:
     failed = audit_model_contracts(names=names, forward=forward, backward=backward, strict=strict)
     for failure in failed:
         print(f"FAIL {failure.stage} {failure.model}: {failure.error}")
-    label = {"strict": "strict-checked", "backward": "backward-checked",
-             "forward": "forward-checked"}.get(level, "constructed")
+    label = {"strict": "strict-checked", "backward": "backward-checked", "forward": "forward-checked"}.get(
+        level, "constructed"
+    )
     print(f"{label.capitalize()} {len(names) - len(failed)}/{len(names)} models")
     return 1 if failed else 0
 

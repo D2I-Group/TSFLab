@@ -36,8 +36,18 @@ from tsflab.realtime.tracks import TrackSpec, get_track, list_tracks
 # ---------------------------------------------------------------------------
 
 
-TOY_TRACK = TrackSpec(id="toy", title="toy", mode="time_series", freq="h", seq_len=24, horizon=6,
-                  submission_hours=2, seasonal_period=24, min_coverage=0.8, tz="America/Los_Angeles")
+TOY_TRACK = TrackSpec(
+    id="toy",
+    title="toy",
+    mode="time_series",
+    freq="h",
+    seq_len=24,
+    horizon=6,
+    submission_hours=2,
+    seasonal_period=24,
+    min_coverage=0.8,
+    tz="America/Los_Angeles",
+)
 
 
 def _panel(start: str, hours: int, channels: int = 3) -> pd.DataFrame:
@@ -87,8 +97,13 @@ def test_round_targets_follow_the_submission_window(tmp_path: Path) -> None:
 
 def test_late_or_malformed_forecasts_are_rejected(tmp_path: Path) -> None:
     _, spec = _opened_round(tmp_path)
-    good = ForecastSubmission(track="toy", round_id=spec.round_id, model="M",
-                              submitted_at=spec.opened_at, predictions=[[0.0] * 3] * spec.horizon)
+    good = ForecastSubmission(
+        track="toy",
+        round_id=spec.round_id,
+        model="M",
+        submitted_at=spec.opened_at,
+        predictions=[[0.0] * 3] * spec.horizon,
+    )
     good.check_against(spec)
     late = good.model_copy(update={"submitted_at": spec.target_timestamps[0]})
     with pytest.raises(ValueError, match="deadline"):
@@ -136,12 +151,23 @@ def test_validate_cli_uses_trusted_arrival_time(tmp_path: Path, monkeypatch) -> 
 
     _, spec = _opened_round(tmp_path)
     monkeypatch.setattr(R, "ROUNDS_ROOT", tmp_path / "rounds")
-    monkeypatch.setattr(R, "load_round", lambda t, r, root=tmp_path / "rounds": R.RoundSpec.model_validate_json(
-        (tmp_path / "rounds" / t / "rounds" / r / "round.json").read_text()))
+    monkeypatch.setattr(
+        R,
+        "load_round",
+        lambda t, r, root=tmp_path / "rounds": R.RoundSpec.model_validate_json(
+            (tmp_path / "rounds" / t / "rounds" / r / "round.json").read_text()
+        ),
+    )
     path = tmp_path / "f.json"
-    path.write_text(ForecastSubmission(track="toy", round_id=spec.round_id, model="M",
-                                       submitted_at=spec.opened_at,
-                                       predictions=[[0.0] * 3] * spec.horizon).model_dump_json())
+    path.write_text(
+        ForecastSubmission(
+            track="toy",
+            round_id=spec.round_id,
+            model="M",
+            submitted_at=spec.opened_at,
+            predictions=[[0.0] * 3] * spec.horizon,
+        ).model_dump_json()
+    )
     assert main(["validate", str(path)]) == 0
     assert main(["validate", str(path), "--received-at", spec.target_timestamps[-1]]) == 1
 
@@ -155,9 +181,17 @@ def test_forecast_cli_validates_the_file_it_writes(tmp_path: Path, monkeypatch, 
     monkeypatch.setattr(R, "write_forecast", lambda submission, spec: write(submission, spec, root))
     monkeypatch.setattr(cli, "_latest_round", lambda track, round_id: spec)
     monkeypatch.setattr(cli, "get_track", lambda track: TOY_TRACK)
-    monkeypatch.setattr(forecast, "forecast_with_model", lambda *args: ForecastSubmission(
-        track="toy", round_id=spec.round_id, model="M", submitted_at=spec.opened_at,
-        predictions=[[0.0] * 3] * spec.horizon))
+    monkeypatch.setattr(
+        forecast,
+        "forecast_with_model",
+        lambda *args: ForecastSubmission(
+            track="toy",
+            round_id=spec.round_id,
+            model="M",
+            submitted_at=spec.opened_at,
+            predictions=[[0.0] * 3] * spec.horizon,
+        ),
+    )
     on_disk = R.RoundSpec.model_validate_json((root / "toy" / "rounds" / spec.round_id / "round.json").read_text())
     monkeypatch.setattr(R, "load_round", lambda track, round_id: on_disk)
     assert cli.main(["forecast", "--track", "toy", "--model", "M"]) == 0
@@ -231,8 +265,11 @@ def test_nasdaq_historical_fallback_parses_quoted_closes(monkeypatch) -> None:
     assert seen["path"] == "quote/BRK.B/historical"
     assert close.tolist() == [335.92, 1341.07]
     assert nasdaq100._PREFERRED[:2] == [us_prices.nasdaq_close, us_prices.yahoo_close]  # Sina is last
-    monkeypatch.setattr(nasdaq100, "nasdaq_get", lambda path, **params: {"data": {"rows": [
-        {"symbol": "brk.b "}, {"symbol": "AAPL"}, {"symbol": "AAPL"}]}})
+    monkeypatch.setattr(
+        nasdaq100,
+        "nasdaq_get",
+        lambda path, **params: {"data": {"rows": [{"symbol": "brk.b "}, {"symbol": "AAPL"}, {"symbol": "AAPL"}]}},
+    )
     assert nasdaq100.constituents() == ["AAPL", "BRK-B"]
 
 
@@ -247,8 +284,13 @@ NEW_TRACKS = ["weather_openmeteo_temp", "solar_openmeteo_ghi", "air_airnow_us", 
 def test_new_track_configs_load_and_resolve_to_sources() -> None:
     ids = {t.id for t in list_tracks()}
     assert set(NEW_TRACKS) <= ids
-    kinds = {"weather_openmeteo_temp": "openmeteo", "solar_openmeteo_ghi": "openmeteo", "air_airnow_us": "airnow",
-             "grid_ercot": "ercot", "stock_sp500": "sp500"}
+    kinds = {
+        "weather_openmeteo_temp": "openmeteo",
+        "solar_openmeteo_ghi": "openmeteo",
+        "air_airnow_us": "airnow",
+        "grid_ercot": "ercot",
+        "stock_sp500": "sp500",
+    }
     for track_id, kind in kinds.items():
         track = get_track(track_id)
         assert track.source["kind"] == kind and track.bootstrap["kind"] == "source"
@@ -265,8 +307,9 @@ def test_open_meteo_site_lists_are_sane(track_id: str, low: int, high: int) -> N
 
 def test_open_meteo_parser_handles_batches_and_single_site() -> None:
     hourly = {"time": ["2026-09-20T00:00", "2026-09-20T01:00"], "temperature_2m": [10.5, None]}
-    batch = openmeteo.parse_hourly([{"hourly": hourly}, {"hourly": {**hourly, "temperature_2m": [1.0, 2.0]}}],
-                                   "temperature_2m", ["a", "b"])
+    batch = openmeteo.parse_hourly(
+        [{"hourly": hourly}, {"hourly": {**hourly, "temperature_2m": [1.0, 2.0]}}], "temperature_2m", ["a", "b"]
+    )
     assert batch.loc["2026-09-20 00:00", "a"] == 10.5 and pd.isna(batch.loc["2026-09-20 01:00", "a"])
     assert list(batch["b"]) == [1.0, 2.0]
     assert list(openmeteo.parse_hourly({"hourly": hourly}, "temperature_2m", ["a"]).columns) == ["a"]
@@ -276,16 +319,20 @@ def test_open_meteo_parser_handles_batches_and_single_site() -> None:
 
 def test_open_meteo_fetch_clips_recent_hours_and_batches(monkeypatch) -> None:
     track = get_track("weather_openmeteo_temp")
-    track = replace(track, source={**track.source, "sites": track.source["sites"][:3], "batch": 2,
-                                   "pause_seconds": 0, "lag_hours": 3})
+    track = replace(
+        track,
+        source={**track.source, "sites": track.source["sites"][:3], "batch": 2, "pause_seconds": 0, "lag_hours": 3},
+    )
     calls = []
 
     def fake(params):
         calls.append(params)
         n = len(params["latitude"].split(","))
         index = pd.date_range(params["start_date"], pd.Timestamp(params["end_date"]) + pd.Timedelta(hours=23), freq="h")
-        return [{"hourly": {"time": [t.strftime("%Y-%m-%dT%H:%M") for t in index], "temperature_2m": [1.0] * len(index)}}
-                for _ in range(n)]
+        return [
+            {"hourly": {"time": [t.strftime("%Y-%m-%dT%H:%M") for t in index], "temperature_2m": [1.0] * len(index)}}
+            for _ in range(n)
+        ]
 
     monkeypatch.setattr(openmeteo, "_get", fake)
     monkeypatch.setattr(openmeteo.time, "sleep", lambda s: None)
@@ -314,8 +361,10 @@ def test_airnow_parser_keeps_us_pm25_in_utc() -> None:
 
 
 def test_airnow_fetch_selects_best_covered_sites_then_keeps_them(monkeypatch) -> None:
-    track = replace(get_track("air_airnow_us"), source={**get_track("air_airnow_us").source,
-                                                        "max_sites": 1, "min_coverage": 0.5, "workers": 1})
+    track = replace(
+        get_track("air_airnow_us"),
+        source={**get_track("air_airnow_us").source, "max_sites": 1, "min_coverage": 0.5, "workers": 1},
+    )
 
     def lines(hour, with_b):
         rows = [f"10/02/26|{hour:02d}:00|840010491003|A|-4|PM2.5|UG/M3|{hour}|x"]
@@ -326,8 +375,9 @@ def test_airnow_fetch_selects_best_covered_sites_then_keeps_them(monkeypatch) ->
     monkeypatch.setattr(airnow, "_download", lambda h: None if h.hour == 12 else lines(h.hour, h.hour == 10))
     panel = airnow.fetch(track, pd.Timestamp("2026-10-02 10:00"), pd.Timestamp("2026-10-02 12:00"), None)
     assert list(panel.columns) == ["840010491003"] and len(panel) == 2  # hour 12 was not published
-    both = airnow.fetch(track, pd.Timestamp("2026-10-02 10:00"), pd.Timestamp("2026-10-02 11:00"),
-                        ["840010491003", "840020900040"])
+    both = airnow.fetch(
+        track, pd.Timestamp("2026-10-02 10:00"), pd.Timestamp("2026-10-02 11:00"), ["840010491003", "840020900040"]
+    )
     assert list(both.columns) == ["840010491003", "840020900040"]
 
 
@@ -342,23 +392,28 @@ def _tiny_xlsx(rows: list[list[object]]) -> bytes:
 
     body = "".join(
         f'<row r="{i + 1}">' + "".join(cell(f"{chr(65 + j)}{i + 1}", v) for j, v in enumerate(row)) + "</row>"
-        for i, row in enumerate(rows))
+        for i, row in enumerate(rows)
+    )
     ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as book:
         book.writestr("xl/worksheets/sheet1.xml", f"<worksheet {ns}><sheetData>{body}</sheetData></worksheet>")
-        book.writestr("xl/sharedStrings.xml", f"<sst {ns}>" + "".join(f"<si><t>{s}</t></si>" for s in shared) + "</sst>")
+        book.writestr(
+            "xl/sharedStrings.xml", f"<sst {ns}>" + "".join(f"<si><t>{s}</t></si>" for s in shared) + "</sst>"
+        )
     return out.getvalue()
 
 
 def test_ercot_native_load_archive_is_read_without_openpyxl() -> None:
     header = ["Hour Ending", *ercot.ZONES, "ERCOT"]
-    rows = [header,
-            ["03/09/2025 01:00", *range(1, 9), 36],
-            ["03/09/2025 24:00", *range(11, 19), 116],
-            ["11/02/2025 01:00", *[100] * 8, 800],
-            ["11/02/2025 02:00", *[100] * 8, 800],
-            ["11/02/2025 02:00", *[300] * 8, 2400]]  # repeated hour of the clock change
+    rows = [
+        header,
+        ["03/09/2025 01:00", *range(1, 9), 36],
+        ["03/09/2025 24:00", *range(11, 19), 116],
+        ["11/02/2025 01:00", *[100] * 8, 800],
+        ["11/02/2025 02:00", *[100] * 8, 800],
+        ["11/02/2025 02:00", *[300] * 8, 2400],
+    ]  # repeated hour of the clock change
     zipped = io.BytesIO()
     with zipfile.ZipFile(zipped, "w") as archive:
         archive.writestr("Native_Load_2025.xlsx", _tiny_xlsx(rows))
@@ -373,11 +428,13 @@ def test_ercot_native_load_archive_is_read_without_openpyxl() -> None:
 def test_ercot_native_load_accepts_hourending_header_and_excel_serial_stamps() -> None:
     # 2019/2020 archives spell the column ``HourEnding``; the 2022 archive stores
     # one stamp as an Excel serial number instead of text.
-    rows = [["HourEnding", *ercot.ZONES, "ERCOT"],
-            ["11/30/2022 24:00", *[5] * 8, 40],
-            [44896.041666666664, *[7] * 8, 56],  # 2022-12-01 01:00 (hour ending)
-            ["12/01/2022 02:00", *[9] * 8, 72],
-            [44897.0, *[3] * 8, 24]]  # 2022-12-02 00:00 == 12/01/2022 24:00
+    rows = [
+        ["HourEnding", *ercot.ZONES, "ERCOT"],
+        ["11/30/2022 24:00", *[5] * 8, 40],
+        [44896.041666666664, *[7] * 8, 56],  # 2022-12-01 01:00 (hour ending)
+        ["12/01/2022 02:00", *[9] * 8, 72],
+        [44897.0, *[3] * 8, 24],
+    ]  # 2022-12-02 00:00 == 12/01/2022 24:00
     frame = ercot.parse_native_load(_tiny_xlsx(rows))
     assert list(frame.columns) == ercot.ZONES
     assert frame.loc["2022-11-30 23:00", "EAST"] == 5
@@ -388,9 +445,11 @@ def test_ercot_native_load_accepts_hourending_header_and_excel_serial_stamps() -
 
 
 def test_ercot_daily_weather_zone_report_matches_archive_names() -> None:
-    text = ("OperDay,HourEnding,COAST,EAST,FAR_WEST,NORTH,NORTH_C,SOUTHERN,SOUTH_C,WEST,TOTAL,DSTFlag\n"
-            "10/01/2026,01:00,16023.5,2034.95,7333.67,2026.75,16451.46,5343.57,10647.45,1569.58,61430.93,N\n"
-            "10/01/2026,02:00,15417.71,1925.37,7213.02,2191.10,15915.20,5158.56,10167.12,1309.80,59297.89,N\n")
+    text = (
+        "OperDay,HourEnding,COAST,EAST,FAR_WEST,NORTH,NORTH_C,SOUTHERN,SOUTH_C,WEST,TOTAL,DSTFlag\n"
+        "10/01/2026,01:00,16023.5,2034.95,7333.67,2026.75,16451.46,5343.57,10647.45,1569.58,61430.93,N\n"
+        "10/01/2026,02:00,15417.71,1925.37,7213.02,2191.10,15915.20,5158.56,10167.12,1309.80,59297.89,N\n"
+    )
     frame = ercot.parse_weather_zone_csv(text)
     assert list(frame.columns) == ercot.ZONES
     assert frame.index[0] == pd.Timestamp("2026-10-01 00:00")
@@ -413,8 +472,11 @@ def test_ercot_fetch_prefers_archive_and_fills_from_daily_reports(monkeypatch) -
 
 
 def test_nasdaq_history_is_sorted_oldest_first_and_empty_raises() -> None:
-    data = {"tradesTable": {"rows": [{"date": "10/01/2026", "close": "$330.32"},
-                                      {"date": "09/30/2026", "close": "$1,333.02"}]}}
+    data = {
+        "tradesTable": {
+            "rows": [{"date": "10/01/2026", "close": "$330.32"}, {"date": "09/30/2026", "close": "$1,333.02"}]
+        }
+    }
     series = us_prices.parse_nasdaq_history(data)
     assert list(series.index) == [pd.Timestamp("2026-09-30"), pd.Timestamp("2026-10-01")]
     assert series.iloc[0] == 1333.02
@@ -426,10 +488,17 @@ def test_yahoo_chart_drops_the_unsettled_session_and_uses_exchange_dates() -> No
     def stamp(day: str) -> int:
         return int(pd.Timestamp(day + " 13:30", tz="UTC").timestamp())  # 09:30 New York
 
-    payload = {"chart": {"result": [{
-        "meta": {"exchangeTimezoneName": "America/New_York"},
-        "timestamp": [stamp("2026-09-30"), stamp("2026-10-01"), stamp("2026-10-02")],
-        "indicators": {"quote": [{"close": [333.02, 330.32, 331.91]}]}}]}}
+    payload = {
+        "chart": {
+            "result": [
+                {
+                    "meta": {"exchangeTimezoneName": "America/New_York"},
+                    "timestamp": [stamp("2026-09-30"), stamp("2026-10-01"), stamp("2026-10-02")],
+                    "indicators": {"quote": [{"close": [333.02, 330.32, 331.91]}]},
+                }
+            ]
+        }
+    }
     during = us_prices.parse_yahoo_chart(payload, now=pd.Timestamp("2026-10-02 11:47", tz="America/New_York"))
     assert list(during.index) == [pd.Timestamp("2026-09-30"), pd.Timestamp("2026-10-01")]
     after = us_prices.parse_yahoo_chart(payload, now=pd.Timestamp("2026-10-02 18:00", tz="America/New_York"))
@@ -477,13 +546,14 @@ PANEL_TRACK = "traffic_pems_sb"  # a shipped track config (hourly), the store it
 def _store(tmp_path: Path, hours: int = 24 * 40) -> Path:
     index = pd.date_range("2024-01-01", periods=hours, freq="h")
     t = np.arange(hours)[:, None]
-    panel = pd.DataFrame(50 + 5 * np.sin(2 * np.pi * t / 24) + np.arange(3)[None, :], index=index,
-                         columns=["a", "b", "c"])
+    panel = pd.DataFrame(
+        50 + 5 * np.sin(2 * np.pi * t / 24) + np.arange(3)[None, :], index=index, columns=["a", "b", "c"]
+    )
     panel.iloc[5:8, 1] = np.nan  # a gap the loader must fill causally
     panel.iloc[10:20, 2] = np.nan
     PanelStore(PANEL_TRACK, tmp_path).append(panel.iloc[: hours // 2])
     store = PanelStore(PANEL_TRACK, tmp_path)
-    store.append(panel.iloc[hours // 2:])
+    store.append(panel.iloc[hours // 2 :])
     manifest = store.manifest()
     manifest["releases"][0]["version"] = "2024.01.01-0000"  # same-minute releases would collide
     store._write_manifest(manifest)
@@ -507,11 +577,13 @@ def test_time_series_layout_split_and_scaling(tmp_path: Path) -> None:
     # Scaling uses the training rows only.
     raw = load_panel(str(path), PANEL_TRACK).to_numpy(np.float32)[: int(0.7 * total)]
     assert train.value_mean == pytest.approx(float(raw.mean()), rel=1e-5)
-    assert np.allclose(train.inverse_transform(train.values[:5]), load_panel(str(path), PANEL_TRACK).to_numpy()[:5], atol=1e-3)
+    assert np.allclose(
+        train.inverse_transform(train.values[:5]), load_panel(str(path), PANEL_TRACK).to_numpy()[:5], atol=1e-3
+    )
     # The first validation target is the first validation row.
     first = int(0.7 * total)
     _, target, _, _ = val[0]
-    assert np.allclose(target, val.values[first:first + 6])
+    assert np.allclose(target, val.values[first : first + 6])
     assert not np.isnan(train.values).any()
 
 
@@ -554,6 +626,7 @@ def test_hub_revision_pulls_into_a_cache(tmp_path: Path, monkeypatch) -> None:
         calls.append((repo_id, revision))
         store.directory.parent.mkdir(parents=True, exist_ok=True)
         import shutil
+
         shutil.copytree(source, store.directory)
         return True
 
@@ -569,8 +642,15 @@ def test_local_traffic_store_if_present() -> None:
     root = Path("dataset/realtime")
     if not (root / "traffic_pems_sb" / "manifest.json").is_file():
         pytest.skip("no local traffic_pems_sb store")
-    ds = Dataset_RealtimePanel_ST(root_path=str(root / "traffic_pems_sb"), data_path="", size=(168, 0, 24),
-                                  flag="test", track="traffic_pems_sb", start="2023-11-01", max_windows=4)
+    ds = Dataset_RealtimePanel_ST(
+        root_path=str(root / "traffic_pems_sb"),
+        data_path="",
+        size=(168, 0, 24),
+        flag="test",
+        track="traffic_pems_sb",
+        start="2023-11-01",
+        max_windows=4,
+    )
     value, future, cov, _ = ds[0]
     assert value.shape[0] == 168 and future.shape[0] == 24 and cov.shape[-1] == 2
     assert np.isfinite(value).all()
@@ -583,12 +663,11 @@ def test_series_array_feeds_dataset_inspection(tmp_path: Path) -> None:
     total = 24 * 40
     train_end, val_end = int(0.7 * total), int((0.7 + 0.1) * total)
     for cls in (Dataset_RealtimePanel_TS, Dataset_RealtimePanel_ST):
-        for flag, rows in (("train", (0, train_end)), ("val", (train_end, val_end)),
-                           ("test", (val_end, total))):
+        for flag, rows in (("train", (0, train_end)), ("val", (train_end, val_end)), ("test", (val_end, total))):
             ds = cls(flag=flag, **_kw(path))
             series = _extract_series(ds)
             assert series.shape == (rows[1] - rows[0], 3)
-            assert np.allclose(series, ds.values[rows[0]:rows[1]])
+            assert np.allclose(series, ds.values[rows[0] : rows[1]])
 
 
 # ---------------------------------------------------------------------------
@@ -656,17 +735,21 @@ def _script_track_store(tmp_path: Path, monkeypatch) -> PanelStore:
 def test_weekly_push_skips_script_tracks_and_still_opens_the_round(tmp_path: Path, monkeypatch, capsys) -> None:
     from types import SimpleNamespace
 
-    from tsflab.realtime import cli, sources
     import tsflab.realtime.baselines as baselines
+    from tsflab.realtime import cli, sources
 
     store = _script_track_store(tmp_path, monkeypatch)
     last = pd.Timestamp(store.manifest()["last_timestamp"])
     new_index = pd.bdate_range(last + pd.Timedelta(days=1), periods=3)
-    monkeypatch.setattr(sources, "fetch", lambda track, start, end, channels: pd.DataFrame(
-        {"a": 1.0, "b": 0.5}, index=new_index))
+    monkeypatch.setattr(
+        sources, "fetch", lambda track, start, end, channels: pd.DataFrame({"a": 1.0, "b": 0.5}, index=new_index)
+    )
     opened = []
-    monkeypatch.setattr(R, "open_round", lambda track, store, hf_revision=None: opened.append(hf_revision)
-                        or SimpleNamespace(round_id="r1"))
+    monkeypatch.setattr(
+        R,
+        "open_round",
+        lambda track, store, hf_revision=None: opened.append(hf_revision) or SimpleNamespace(round_id="r1"),
+    )
     monkeypatch.setattr(baselines, "run_baselines", lambda spec, store, track: [])
     assert cli.main(["weekly", "--track", "stock_hs300", "--pull", "--push"]) == 0
     out = capsys.readouterr().out
@@ -708,8 +791,7 @@ def test_pull_moves_the_track_folder_into_a_custom_store_root(tmp_path: Path, mo
     root = tmp_path / "anywhere"  # no .../realtime/<track> layout
     store = PanelStore("grid_ercot", root)
     assert pull_track(store, "o/TSFLab-Datasets", "abc123") is True
-    assert calls == [("o/TSFLab-Datasets", "dataset", "abc123",
-                      ["realtime/grid_ercot/*", "realtime/grid_ercot/**/*"])]
+    assert calls == [("o/TSFLab-Datasets", "dataset", "abc123", ["realtime/grid_ercot/*", "realtime/grid_ercot/**/*"])]
     assert store.directory == root / "grid_ercot" and store.exists
     assert store.manifest() == source.manifest() and len(store.read()) == 48
     assert sorted(p.name for p in root.iterdir()) == ["grid_ercot"]  # temp dir cleaned up

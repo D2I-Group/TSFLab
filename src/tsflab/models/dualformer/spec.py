@@ -27,7 +27,7 @@ class ModelParameterConfig(BaseModel):
     dc_bins: int = Field(default=3, gt=0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.enc_in != self.c_out:
             raise ValueError("enc_in and c_out must match")
         if self.d_model % self.n_heads:

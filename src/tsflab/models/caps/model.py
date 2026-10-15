@@ -159,9 +159,7 @@ class Model(nn.Module):
         self.value_embedding = nn.Parameter(0.02 * torch.randn(enc_in, value_dim))  # V_c
         self.position = nn.Parameter(torch.zeros(seq_len + pred_len, width))
         self.channel_embedding = nn.Parameter(torch.zeros(enc_in, width))
-        self.blocks = nn.ModuleList(
-            CAPSBlock(width, n_heads, dropout, learn_rope_freq) for _ in range(e_layers)
-        )
+        self.blocks = nn.ModuleList(CAPSBlock(width, n_heads, dropout, learn_rope_freq) for _ in range(e_layers))
         self.apply(self._init_linear)
         for name, parameter in self.named_parameters():
             if name.endswith("c_proj.weight"):  # GPT-2 residual-projection scaling (Sec. A.2)
@@ -195,7 +193,7 @@ class Model(nn.Module):
         hidden = self.tokens(series)
         for block in self.blocks:
             hidden = block(hidden)
-        horizon = hidden[:, -self.pred_len:, -self.value_dim:]
+        horizon = hidden[:, -self.pred_len :, -self.value_dim :]
         horizon = horizon.reshape(x_enc.shape[0], self.enc_in, self.pred_len, self.value_dim)
         forecast = torch.einsum("bchd,cd->bhc", horizon, self.value_embedding)  # y_{c,t} = h_{c,t} V_c^T
         return restore_last_value(forecast, level)

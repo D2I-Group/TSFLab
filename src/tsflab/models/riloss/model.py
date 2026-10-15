@@ -89,9 +89,7 @@ class Model(nn.Module):
 
     def residual_dependence(self, residual: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
         """Summed per-window HSIC between ``[B, H, C]`` residuals and noise (channels as samples)."""
-        return hsic(
-            residual.transpose(1, 2).contiguous(), noise.transpose(1, 2).contiguous(), self.bandwidth
-        ).sum()
+        return hsic(residual.transpose(1, 2).contiguous(), noise.transpose(1, 2).contiguous(), self.bandwidth).sum()
 
     def ri_loss(
         self,

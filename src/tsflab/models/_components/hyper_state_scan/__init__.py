@@ -67,9 +67,7 @@ class GridStateMixer(nn.Module):
         super().__init__()
         if channels < 1 or kernel_size < 1 or kernel_size % 2 == 0:
             raise ValueError("channels must be positive and kernel_size a positive odd integer")
-        self.conv = nn.Conv2d(
-            channels, channels, kernel_size=kernel_size, padding=kernel_size // 2, groups=channels
-        )
+        self.conv = nn.Conv2d(channels, channels, kernel_size=kernel_size, padding=kernel_size // 2, groups=channels)
 
     def forward(self, grid: torch.Tensor) -> torch.Tensor:
         if grid.ndim != 4:

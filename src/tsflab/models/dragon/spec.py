@@ -36,7 +36,7 @@ class ModelParameterConfig(BaseModel):
     ppr_alpha: float = Field(default=0.05, gt=0.0, lt=1.0)
 
     @model_validator(mode="after")
-    def _contract(self) -> "ModelParameterConfig":
+    def _contract(self) -> ModelParameterConfig:
         if self.d_model % 2:
             raise ValueError("d_model must be even (sinusoidal positions)")
         return self
@@ -56,9 +56,7 @@ def training_setup(model, train_loader, *, pred_len, features):
         raise ValueError("DRAGON needs the training split series (train_loader.dataset.data)")
     series = np.asarray(data, dtype=np.float64)
     if series.ndim != 2 or series.shape[1] != model.enc_in:
-        raise ValueError(
-            f"DRAGON expects a [T, {model.enc_in}] training series, got {series.shape}"
-        )
+        raise ValueError(f"DRAGON expects a [T, {model.enc_in}] training series, got {series.shape}")
     model.fit_graphs(series)
 
 

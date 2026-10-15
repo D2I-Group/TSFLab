@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 import shutil
 import tempfile
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 from tsflab.release.hub.uri import DEFAULT_ENDPOINT, HubURI, is_hub_uri, parse
@@ -74,9 +74,7 @@ def download(url: str, destination: Path, sha256: str | None = None) -> Path:
         if sha256:
             actual = sha256_file(temporary)
             if actual != sha256:
-                raise ValueError(
-                    f"checksum mismatch for {url}: expected {sha256}, got {actual}"
-                )
+                raise ValueError(f"checksum mismatch for {url}: expected {sha256}, got {actual}")
         temporary.replace(destination)
     finally:
         temporary.unlink(missing_ok=True)

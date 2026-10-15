@@ -172,8 +172,7 @@ class Model(nn.Module):
         self.normalizer = RevIN(enc_in, eps=1e-5, affine=False, enabled=use_norm)
         self.embedding = DataEmbedding_inverted(seq_len, d_model, dropout=dropout)
         self.layers = nn.ModuleList(
-            VCformerLayer(d_model, snap_size, proj_dim, hidden_dim, dropout, koopman_dropout)
-            for _ in range(e_layers)
+            VCformerLayer(d_model, snap_size, proj_dim, hidden_dim, dropout, koopman_dropout) for _ in range(e_layers)
         )
         self.final_norm = nn.LayerNorm(d_model)
         self.projection = nn.Linear(d_model, pred_len)

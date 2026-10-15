@@ -44,9 +44,7 @@ class ModelParameterConfig(BaseModel):
     def _contract(self) -> ModelParameterConfig:
         step = 2**self.n_downsampling
         if self.image_height % step or self.image_width % step:
-            raise ValueError(
-                "image_height and image_width must be divisible by 2 ** n_downsampling"
-            )
+            raise ValueError("image_height and image_width must be divisible by 2 ** n_downsampling")
         if self.kernel_size % 2 == 0:
             raise ValueError("kernel_size must be odd to keep the image size")
         if any(p < 0 for p in self.periods):

@@ -48,7 +48,9 @@ class TemporalNormalization(nn.Module):
 class NormalizedTemporalLayer(nn.Module):
     """Concatenate raw, spatial-normalized and temporal-normalized streams."""
 
-    def __init__(self, nodes: int, channels: int, kernel: int, dilation: int, use_spatial: bool, use_temporal: bool) -> None:
+    def __init__(
+        self, nodes: int, channels: int, kernel: int, dilation: int, use_spatial: bool, use_temporal: bool
+    ) -> None:
         super().__init__()
         self.spatial = SpatialNormalization(channels) if use_spatial else None
         self.temporal = TemporalNormalization(nodes, channels) if use_temporal else None
@@ -74,7 +76,20 @@ class NormalizedTemporalLayer(nn.Module):
 class Model(nn.Module):
     """WaveNet temporal backbone augmented with spatial and temporal normalization."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, channels: int = 16, kernel_size: int = 2, blocks: int = 2, layers: int = 2, tnorm_bool: bool = True, snorm_bool: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        input_dim: int = 3,
+        channels: int = 16,
+        kernel_size: int = 2,
+        blocks: int = 2,
+        layers: int = 2,
+        tnorm_bool: bool = True,
+        snorm_bool: bool = True,
+    ) -> None:
         super().__init__()
         del adj_mx
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
@@ -84,7 +99,9 @@ class Model(nn.Module):
             for _ in range(blocks)
             for layer in range(layers)
         )
-        self.output = nn.Sequential(nn.ReLU(), nn.Conv2d(channels, channels, 1), nn.ReLU(), nn.Conv2d(channels, pred_len, 1))
+        self.output = nn.Sequential(
+            nn.ReLU(), nn.Conv2d(channels, channels, 1), nn.ReLU(), nn.Conv2d(channels, pred_len, 1)
+        )
 
     def forward(
         self,

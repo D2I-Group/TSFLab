@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
+from pathlib import Path
 
 from tsflab.cli.args import add_option
-import json
-from pathlib import Path
-import sys
-
 from tsflab.cli.runtime import ROOT, passthrough
 
 
@@ -57,8 +56,8 @@ def dataset_read(action: str, rest: list[str]) -> int:
                 print(f"{record['name']}\t{record['loader']}\t{modes}\t{record['alias']}")
         return 0
     if action == "show":
-        from tsflab.catalog.cards.show import existing, parse_show, show_card
         from tsflab.catalog.cards.resources import dataset_card_path
+        from tsflab.catalog.cards.show import existing, parse_show, show_card
 
         parsed = parse_show("tsf catalog show --kind dataset", "dataset preset name", rest)
         selected = next((record for record in records if record.name == parsed.name), None)
@@ -69,15 +68,16 @@ def dataset_read(action: str, rest: list[str]) -> int:
                 return 2
             card_path = dataset_card_path(ROOT, parsed.name)
             facts = {"kind": "dataset-family", "members": len(family)}
-            legacy = {"name": parsed.name, "kind": "dataset-family",
-                      "card": card_path.relative_to(ROOT).as_posix(),
-                      "facts": dataset_facts(ROOT, [parsed.name]).get(parsed.name, {}),
-                      "members": [r.name for r in family]}
+            legacy = {
+                "name": parsed.name,
+                "kind": "dataset-family",
+                "card": card_path.relative_to(ROOT).as_posix(),
+                "facts": dataset_facts(ROOT, [parsed.name]).get(parsed.name, {}),
+                "members": [r.name for r in family],
+            }
             paths = existing(ROOT, card_path.relative_to(ROOT).as_posix())
             return show_card(ROOT, card_path, parsed, facts=facts, paths=paths, legacy=legacy)
-        legacy = _dataset_record_payload(
-            selected, dataset_facts(ROOT, [selected.name]).get(selected.name, {})
-        )
+        legacy = _dataset_record_payload(selected, dataset_facts(ROOT, [selected.name]).get(selected.name, {}))
         # config, loader, and task modes are already in the card header.
         facts = {"path": selected.path or "(loader-defined)", **_split_facts(selected.name)}
         card_path = dataset_card_path(ROOT, selected.name)
@@ -96,9 +96,7 @@ def dataset_read(action: str, rest: list[str]) -> int:
         def augment(match: dict[str, object]) -> dict[str, object]:
             return {**_dataset_record_payload(by_name[str(match["name"])]), **match}
 
-        return search_command(
-            ROOT, rest, prog="tsf catalog search --kind dataset", kind="dataset", augment=augment
-        )
+        return search_command(ROOT, rest, prog="tsf catalog search --kind dataset", kind="dataset", augment=augment)
     if rest:
         print("tsf data audit takes no arguments", file=sys.stderr)
         return 2
@@ -161,8 +159,10 @@ def data_command(args: list[str]) -> int:
 
             return fetch_dcrnn(rest)
         if source is not None:
-            print(f"unknown --from source {source!r}; choose traffic, ultratraffic, gift-eval, tfb, or dcrnn",
-                  file=sys.stderr)
+            print(
+                f"unknown --from source {source!r}; choose traffic, ultratraffic, gift-eval, tfb, or dcrnn",
+                file=sys.stderr,
+            )
             return 2
     script = scripts.get(action)
     if script is None:
@@ -210,21 +210,29 @@ def splits_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="tsf data splits",
         description="Official split of a dataset preset: rows used (with any truncation), train/val/test "
-                    "row ranges (val/test inputs start seq_len rows early), ratio, and scaling rule, "
-                    "computed by the loader's own code. Use these borders; never re-derive them.",
+        "row ranges (val/test inputs start seq_len rows early), ratio, and scaling rule, "
+        "computed by the loader's own code. Use these borders; never re-derive them.",
     )
     parser.add_argument("dataset", help="dataset preset name, for example etth1 or weather")
-    parser.add_argument("--seq-len", type=int, default=None,
-                        help="lookback (default: the first lookback in the card's [protocol])")
-    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, default=None,
-               help="prediction length; only window-index bundles use it (default: first card horizon)")
-    parser.add_argument("--path", default=None,
-                        help="apply the preset's protocol to this file or bundle directory instead")
+    parser.add_argument(
+        "--seq-len", type=int, default=None, help="lookback (default: the first lookback in the card's [protocol])"
+    )
+    add_option(
+        parser,
+        "--horizon",
+        "pred_len",
+        "--pred-len",
+        type=int,
+        default=None,
+        help="prediction length; only window-index bundles use it (default: first card horizon)",
+    )
+    parser.add_argument(
+        "--path", default=None, help="apply the preset's protocol to this file or bundle directory instead"
+    )
     parser.add_argument("--json", action="store_true", help="structured output")
     parsed = parser.parse_args(args)
     try:
-        protocol = split_protocol(parsed.dataset, parsed.seq_len, path=parsed.path, pred_len=parsed.pred_len,
-                                  root=ROOT)
+        protocol = split_protocol(parsed.dataset, parsed.seq_len, path=parsed.path, pred_len=parsed.pred_len, root=ROOT)
     except (FileNotFoundError, ValueError, KeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -256,27 +264,38 @@ def _hub_dataset_command(action: str, rest: list[str]) -> int:
 
     parser = argparse.ArgumentParser(prog=f"tsf data {action}")
     parser.add_argument("presets", nargs="*")
-    parser.add_argument("--root", type=Path, default=Path("dataset"),
-                        help="local dataset root (default: ./dataset)")
+    parser.add_argument("--root", type=Path, default=Path("dataset"), help="local dataset root (default: ./dataset)")
     if action == "download":
         parser.add_argument("--all", action="store_true", help="every published preset")
         parser.add_argument("--list", action="store_true", help="list published presets")
-        parser.add_argument("--check", action="store_true",
-                            help="check that every pinned file still resolves (no download)")
+        parser.add_argument(
+            "--check", action="store_true", help="check that every pinned file still resolves (no download)"
+        )
     else:
         parser.add_argument("--repo", default=hub.DEFAULT_DATASETS_REPO)
         parser.add_argument("--create", action="store_true", help="create the repo if missing")
         parser.add_argument("--private", action="store_true", help="create the repo as private")
-        parser.add_argument("--path", action="append", default=[], dest="paths",
-                            help="also publish a whole subtree of the root (repeatable)")
+        parser.add_argument(
+            "--path",
+            action="append",
+            default=[],
+            dest="paths",
+            help="also publish a whole subtree of the root (repeatable)",
+        )
     parsed = parser.parse_args(rest)
     try:
         if action == "publish":
             if not parsed.presets and not parsed.paths:
                 parser.error("name presets or --path subtrees to publish")
-            revisions = hub.publish_presets(parsed.presets, parsed.root, parsed.repo,
-                                            paths=tuple(parsed.paths), create=parsed.create, private=parsed.private,
-                                            root=ROOT)
+            revisions = hub.publish_presets(
+                parsed.presets,
+                parsed.root,
+                parsed.repo,
+                paths=tuple(parsed.paths),
+                create=parsed.create,
+                private=parsed.private,
+                root=ROOT,
+            )
             for preset, revision in revisions.items():
                 print(f"{preset}\t{revision}")
             print("Updated configs/hub/datasets.json; commit it with the release.")

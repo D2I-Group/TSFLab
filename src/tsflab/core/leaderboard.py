@@ -14,10 +14,10 @@ row can be traced to its evidence.
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Iterable, Iterator
 import json
 import math
+from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -112,8 +112,11 @@ def aggregate(docs: Iterable[dict], primary: str = PRIMARY_METRIC) -> dict:
                 row[f"{key}_std"] = std
         row["n_runs"] = len(runs)
         row["submission_ids"] = sorted({r["_sid"] for r in runs})
-        (tracks.setdefault(track, {"datasets": {}})["datasets"]
-         .setdefault(dataset, {"horizons": {}})["horizons"].setdefault(horizon, [])).append(row)
+        (
+            tracks.setdefault(track, {"datasets": {}})["datasets"]
+            .setdefault(dataset, {"horizons": {}})["horizons"]
+            .setdefault(horizon, [])
+        ).append(row)
     for block in tracks.values():
         for dataset in block["datasets"].values():
             horizons = dataset["horizons"]
@@ -121,5 +124,7 @@ def aggregate(docs: Iterable[dict], primary: str = PRIMARY_METRIC) -> dict:
                 rows.sort(key=lambda r: (r.get(primary) is None, r.get(primary)))
                 for rank, row in enumerate(rows, start=1):
                     row["rank"] = rank
-            dataset["horizons"] = {h: horizons[h] for h in sorted(horizons, key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x))}
+            dataset["horizons"] = {
+                h: horizons[h] for h in sorted(horizons, key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x))
+            }
     return tracks

@@ -28,8 +28,16 @@ class InvertedForecaster(nn.Module):
     and a linear projector to the ``T``-step patch."""
 
     def __init__(
-        self, seq_len: int, patch_len: int, d_model: int, n_heads: int, e_layers: int,
-        d_ff: int, dropout: float, activation: str, use_norm: bool,
+        self,
+        seq_len: int,
+        patch_len: int,
+        d_model: int,
+        n_heads: int,
+        e_layers: int,
+        d_ff: int,
+        dropout: float,
+        activation: str,
+        use_norm: bool,
     ) -> None:
         super().__init__()
         self.use_norm = use_norm
@@ -115,7 +123,7 @@ class Model(nn.Module):
         for _ in range(self.rollout_steps):
             patch = self.forecaster(window)
             patches.append(patch)
-            window = torch.cat([window, patch.detach()], dim=1)[:, -self.seq_len:]
+            window = torch.cat([window, patch.detach()], dim=1)[:, -self.seq_len :]
         return patches
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
@@ -127,8 +135,7 @@ class Model(nn.Module):
         """Per-patch losses ``e_k = L(x_hat_patch_k, x_patch_k)`` over aligned
         ``[B, H, C']`` forecast and target."""
         return [
-            criterion(f, t)
-            for f, t in zip(forecast.split(self.patch_len, dim=1), target.split(self.patch_len, dim=1))
+            criterion(f, t) for f, t in zip(forecast.split(self.patch_len, dim=1), target.split(self.patch_len, dim=1))
         ]
 
     def rollout_loss(self, forecast: torch.Tensor, target: torch.Tensor, criterion) -> torch.Tensor:

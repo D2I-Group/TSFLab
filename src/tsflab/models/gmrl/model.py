@@ -23,7 +23,7 @@ LOG_2PI = math.log(2.0 * math.pi)
 
 def receptive_length(layers: int, kernel_size: int) -> int:
     """History length consumed by ``layers`` valid dilated convs (dilation ``2**i``)."""
-    return 1 + (kernel_size - 1) * (2 ** layers - 1)
+    return 1 + (kernel_size - 1) * (2**layers - 1)
 
 
 class GMRE(nn.Module):
@@ -136,9 +136,7 @@ class HRA(nn.Module):
     shape and concatenated before the two-layer ReLU predictor.
     """
 
-    def __init__(
-        self, channels: int, flat_size: int, memory_size: int, pred_len: int, use_memory: bool
-    ) -> None:
+    def __init__(self, channels: int, flat_size: int, memory_size: int, pred_len: int, use_memory: bool) -> None:
         super().__init__()
         self.use_memory = use_memory
         if use_memory:
@@ -206,7 +204,7 @@ class Model(nn.Module):
         self.layers = nn.ModuleList()
         time_len = seq_len
         for i in range(layers):
-            dilation = 2 ** i
+            dilation = 2**i
             self.layers.append(GMRETELayer(width, s, n, time_len, num_components, kernel_size, dilation))
             time_len -= dilation * (kernel_size - 1)
         self.hra = HRA(width, width * s * n, memory_size, pred_len, use_memory)
@@ -244,8 +242,8 @@ class Model(nn.Module):
         losses = []
         for layer in self.layers:
             out, sk, loss = layer(h)
-            h = out + h[..., -out.shape[-1]:]
-            skip = sk if skip is None else sk + skip[..., -sk.shape[-1]:]
+            h = out + h[..., -out.shape[-1] :]
+            skip = sk if skip is None else sk + skip[..., -sk.shape[-1] :]
             losses.append(loss)
         return skip, torch.stack(losses).mean()
 

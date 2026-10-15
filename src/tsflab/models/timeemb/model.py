@@ -1,4 +1,5 @@
 """Clean-room TimeEmb static/dynamic disentanglement implementation."""
+
 from __future__ import annotations
 
 import torch
@@ -10,6 +11,7 @@ from tsflab.models._inputs import check_window
 
 class GlobalCalendarEmbedding(nn.Module):
     """Persistent full-spectrum representations indexed by forecast calendar."""
+
     def __init__(self, slots, channels, bins):
         super().__init__()
         self.slots = slots
@@ -25,6 +27,7 @@ class GlobalCalendarEmbedding(nn.Module):
 
 class DynamicSpectrumFilter(nn.Module):
     """Efficient full-spectrum filter conditioned on the current spectrum."""
+
     def __init__(self, bins, hidden, scale):
         super().__init__()
         self.response_real = nn.Parameter(torch.ones(bins))
@@ -39,9 +42,19 @@ class DynamicSpectrumFilter(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, d_model=128, use_revin=True,
-                 use_hour_index=True, use_day_index=False, scale=0.02,
-                 hour_length=24, day_length=7):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        d_model=128,
+        use_revin=True,
+        use_hour_index=True,
+        use_day_index=False,
+        scale=0.02,
+        hour_length=24,
+        day_length=7,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.use_hour_index, self.use_day_index = use_hour_index, use_day_index
@@ -54,7 +67,11 @@ class Model(nn.Module):
         self.last_static_spectrum = None
 
     def _indices(self, x, x_mark_enc, x_mark_dec):
-        marks = x_mark_dec[:, -self.pred_len] if x_mark_dec is not None else (x_mark_enc[:, -1] if x_mark_enc is not None else None)
+        marks = (
+            x_mark_dec[:, -self.pred_len]
+            if x_mark_dec is not None
+            else (x_mark_enc[:, -1] if x_mark_enc is not None else None)
+        )
         if marks is None:
             zero = torch.zeros(x.shape[0], dtype=torch.long, device=x.device)
             return zero, zero

@@ -25,12 +25,17 @@ class _TimeEmbedding(nn.Module):
 
     def forward(self, times: torch.Tensor) -> torch.Tensor:
         linear = self.scale(times.unsqueeze(-1))
-        return linear if self.periodic is None else torch.cat((linear, torch.sin(self.periodic(times.unsqueeze(-1)))), dim=-1)
+        return (
+            linear
+            if self.periodic is None
+            else torch.cat((linear, torch.sin(self.periodic(times.unsqueeze(-1)))), dim=-1)
+        )
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 d_time: int = 8, num_patches: int = 8) -> None:
+    def __init__(
+        self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64, d_time: int = 8, num_patches: int = 8
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.num_patches = num_patches
@@ -62,7 +67,9 @@ class Model(nn.Module):
         right = left + self.log_width.exp()
         temp = F.softplus(self.temperature_raw).clamp_min(1e-4)
         t = times[:, None, :, None]
-        return torch.sigmoid((right[None, :, None, :] - t) / temp[None, :, None, None]) * torch.sigmoid((t - left[None, :, None, :]) / temp[None, :, None, None])
+        return torch.sigmoid((right[None, :, None, :] - t) / temp[None, :, None, None]) * torch.sigmoid(
+            (t - left[None, :, None, :]) / temp[None, :, None, None]
+        )
 
     def forward(
         self,
@@ -75,14 +82,24 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         times = self._times(x_enc, x_mark_enc)
         time_features = self.time_embedding(times)
-        augmented = torch.cat((x_enc.unsqueeze(-1), time_features[:, :, None, :].expand(-1, -1, self.enc_in, -1)), dim=-1)
+        augmented = torch.cat(
+            (x_enc.unsqueeze(-1), time_features[:, :, None, :].expand(-1, -1, self.enc_in, -1)), dim=-1
+        )
         weights = self.patch_weights(times)
         patches = torch.einsum("bclp,blcf->bcpf", weights, augmented)
         patches = patches / weights.sum(2).clamp_min(1e-6).unsqueeze(-1)
         patches = self.patch_projection(patches) + self.patch_position[None, None, :, :]
         scores = torch.einsum("bcpd,cd->bcp", patches, self.channel_query) / math.sqrt(patches.size(-1))
         context = self.context_norm(torch.einsum("bcp,bcpd->bcd", scores.softmax(-1), patches))
-        future_times = torch.linspace(1, 2, self.pred_len, device=x_enc.device, dtype=x_enc.dtype).expand(x_enc.size(0), -1)
+        future_times = torch.linspace(1, 2, self.pred_len, device=x_enc.device, dtype=x_enc.dtype).expand(
+            x_enc.size(0), -1
+        )
         future_features = self.time_embedding(future_times)
-        decoder_input = torch.cat((context[:, :, None, :].expand(-1, -1, self.pred_len, -1), future_features[:, None, :, :].expand(-1, self.enc_in, -1, -1)), dim=-1)
+        decoder_input = torch.cat(
+            (
+                context[:, :, None, :].expand(-1, -1, self.pred_len, -1),
+                future_features[:, None, :, :].expand(-1, self.enc_in, -1, -1),
+            ),
+            dim=-1,
+        )
         return self.decoder(decoder_input).squeeze(-1).transpose(1, 2)

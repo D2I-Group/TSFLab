@@ -1,5 +1,7 @@
 """Clean-room Non-stationary Transformer for forecasting."""
+
 from __future__ import annotations
+
 import torch
 from torch import nn
 
@@ -9,6 +11,7 @@ from tsflab.models._inputs import check_window
 
 class Projector(nn.Module):
     """Learn de-stationary factors from raw series and removed statistics."""
+
     def __init__(self, seq_len, channels, hidden_dims, output_dim):
         super().__init__()
         dims = [2 * channels, *hidden_dims, output_dim]
@@ -27,6 +30,7 @@ class Projector(nn.Module):
 
 class DeStationaryAttention(nn.Module):
     """Attention logits ``softmax((tau QK^T + delta) / sqrt(d))``."""
+
     def __init__(self, width, heads, dropout):
         super().__init__()
         self.heads, self.scale = heads, (width // heads) ** -0.5
@@ -38,10 +42,10 @@ class DeStationaryAttention(nn.Module):
         batch, length, width = query.shape
         q = self.qkv(query)[..., :width].reshape(batch, length, self.heads, -1)
         kv = self.qkv(context)
-        k = kv[..., width:2 * width].reshape(batch, context.shape[1], self.heads, -1)
-        v = kv[..., 2 * width:].reshape(batch, context.shape[1], self.heads, -1)
+        k = kv[..., width : 2 * width].reshape(batch, context.shape[1], self.heads, -1)
+        v = kv[..., 2 * width :].reshape(batch, context.shape[1], self.heads, -1)
         scores = torch.einsum("blhd,bshd->bhls", q, k) * tau[:, None, None, None]
-        scores = scores + delta[:, None, None, :context.shape[1]]
+        scores = scores + delta[:, None, None, : context.shape[1]]
         values = torch.einsum("bhls,bshd->blhd", self.dropout((scores * self.scale).softmax(-1)), v)
         return self.out(values.flatten(2))
 
@@ -59,9 +63,22 @@ class NSBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, label_len, enc_in, features="M", d_model=128,
-                 n_heads=8, e_layers=2, d_layers=1, d_ff=256, dropout=0.1,
-                 p_hidden_dims=None, p_hidden_layers=2):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        label_len,
+        enc_in,
+        features="M",
+        d_model=128,
+        n_heads=8,
+        e_layers=2,
+        d_layers=1,
+        d_ff=256,
+        dropout=0.1,
+        p_hidden_dims=None,
+        p_hidden_layers=2,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in, self.label_len = seq_len, pred_len, enc_in, label_len
         hidden = list(p_hidden_dims or [128, 128])[:p_hidden_layers]

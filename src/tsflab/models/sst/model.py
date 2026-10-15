@@ -51,9 +51,7 @@ class PatternsExpertLayer(nn.Module):
 
     def __init__(self, d_model: int, d_ff: int, d_state: int, d_conv: int) -> None:
         super().__init__()
-        self.mamba = MambaBlock(
-            d_model, 2 * d_model, math.ceil(d_model / 16), d_conv, d_state, reference_dt_init=True
-        )
+        self.mamba = MambaBlock(d_model, 2 * d_model, math.ceil(d_model / 16), d_conv, d_state, reference_dt_init=True)
         self.ff_in = nn.Linear(d_model, d_ff)
         self.ff_out = nn.Linear(d_ff, d_model)
 
@@ -110,9 +108,7 @@ class VariationsExpertLayer(nn.Module):
         self.attention = LocalWindowAttention(d_model, n_heads, window, dropout)
         self.attention_dropout = nn.Dropout(dropout)
         self.attention_norm = _BatchNormTokens(d_model)
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.ff_dropout = nn.Dropout(dropout)
         self.ff_norm = _BatchNormTokens(d_model)
 

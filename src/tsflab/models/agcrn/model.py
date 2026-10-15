@@ -80,10 +80,7 @@ class Model(nn.Module):
         history = to_spatiotemporal(x_enc, x_mark_enc)
         if history.shape[-1] < self.input_dim:
             raise ValueError("AGCRN received fewer input features than configured")
-        states = [
-            x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden_dim)
-            for cell in self.cells
-        ]
+        states = [x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden_dim) for cell in self.cells]
         for step in history[..., : self.input_dim].unbind(1):
             layer_input = step
             for index, cell in enumerate(self.cells):

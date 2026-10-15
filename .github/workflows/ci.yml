@@ -45,8 +45,8 @@ jobs:
       - name: Static checks
         run: |
           uv run python -m compileall -q src tests
-          uvx ruff check src tests --select F
-          uvx ruff check src/tsflab/models --select E701,E702
+          uvx ruff@0.17.0 check src tests scripts
+          uvx ruff@0.17.0 format --check src tests scripts
           uv run tsf repo check --only schema-export agent-tasks
           uv run tsf repo check --audit
       - name: Tests

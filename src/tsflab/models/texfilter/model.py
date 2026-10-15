@@ -8,8 +8,7 @@ import torch.nn as nn
 from tsflab.models._components.revin import RevIN
 
 
-def _complex_linear(values: torch.Tensor, real: torch.Tensor,
-                    imag: torch.Tensor) -> torch.Tensor:
+def _complex_linear(values: torch.Tensor, real: torch.Tensor, imag: torch.Tensor) -> torch.Tensor:
     weight = torch.complex(real, imag)
     return torch.einsum("bcf,fd->bcd", values, weight)
 
@@ -22,7 +21,7 @@ class ContextualShapingFilter(nn.Module):
         input_bins = input_length // 2 + 1
         output_bins = output_length // 2 + 1
         self.output_length = output_length
-        scale = input_bins ** -0.5
+        scale = input_bins**-0.5
         self.embed_real = nn.Parameter(torch.randn(input_bins, output_bins) * scale)
         self.embed_imag = nn.Parameter(torch.randn(input_bins, output_bins) * scale)
         self.context_real = nn.Parameter(torch.ones(2, output_bins))
@@ -40,14 +39,22 @@ class ContextualShapingFilter(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 embed_size: int = 128, hidden_size: int = 256,
-                 dropout: float = 0.0) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        embed_size: int = 128,
+        hidden_size: int = 256,
+        dropout: float = 0.0,
+    ) -> None:
         super().__init__()
         self.normalization = RevIN(enc_in)
         self.filter = ContextualShapingFilter(seq_len, embed_size)
         self.forecast = nn.Sequential(
-            nn.Linear(embed_size, hidden_size), nn.GELU(), nn.Dropout(dropout),
+            nn.Linear(embed_size, hidden_size),
+            nn.GELU(),
+            nn.Dropout(dropout),
             nn.Linear(hidden_size, pred_len),
         )
 

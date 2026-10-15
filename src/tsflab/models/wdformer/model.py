@@ -3,6 +3,7 @@ an inverted (variate-token) differential-attention encoder, and a learned
 linear map to pseudo-subband coefficients that a fixed inverse wavelet
 transform reassembles into the forecast.
 """
+
 from __future__ import annotations
 
 import math
@@ -132,9 +133,7 @@ class Model(nn.Module):
         embed_sizes = _subband_sizes(self.embed_wavelet, seq_len)
         band_dim = d_model // (wave_size + 1)
         band_dims = [band_dim] * wave_size + [d_model - wave_size * band_dim]
-        self.subband_embedding = nn.ModuleList(
-            nn.Linear(size, dim) for size, dim in zip(embed_sizes, band_dims)
-        )
+        self.subband_embedding = nn.ModuleList(nn.Linear(size, dim) for size, dim in zip(embed_sizes, band_dims))
         self.embedding_dropout = nn.Dropout(dropout)
 
         lambda_schedule = [0.7 - 0.5 * math.exp(-0.3 * layer) for layer in range(e_layers)]
@@ -166,9 +165,7 @@ class Model(nn.Module):
             variate_first = torch.cat([variate_first, x_mark_enc.transpose(1, 2)], dim=1)
 
         subbands = self.embed_wavelet.decompose(variate_first)
-        tokens = torch.cat(
-            [embed(subband) for embed, subband in zip(self.subband_embedding, subbands)], dim=-1
-        )
+        tokens = torch.cat([embed(subband) for embed, subband in zip(self.subband_embedding, subbands)], dim=-1)
         tokens = self.embedding_dropout(tokens)
 
         for layer in self.layers:

@@ -25,7 +25,7 @@ class ModelParameterConfig(BaseModel):
     use_norm: bool = True
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_state != 1:
             raise ValueError("this local implementation supports only d_state=1")
         return self

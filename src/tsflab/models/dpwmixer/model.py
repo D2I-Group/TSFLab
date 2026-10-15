@@ -1,4 +1,5 @@
 """Clean-room Dual-Path Wavelet Mixer (arXiv:2512.02070)."""
+
 from __future__ import annotations
 
 import math
@@ -90,9 +91,7 @@ class Model(nn.Module):
         self.down_sampling_layers = down_sampling_layers
 
         self.revin = RevIN(enc_in)
-        self.wavelets = nn.ModuleList(
-            DecimatedWaveletTransform("haar", level=1) for _ in range(down_sampling_layers)
-        )
+        self.wavelets = nn.ModuleList(DecimatedWaveletTransform("haar", level=1) for _ in range(down_sampling_layers))
 
         lengths = [seq_len]
         current = seq_len
@@ -101,8 +100,7 @@ class Model(nn.Module):
             lengths.append(current)
 
         self.mixers = nn.ModuleList(
-            DualPathTrendMixer(length, pred_len, patch_len, stride, d_model, dropout)
-            for length in lengths
+            DualPathTrendMixer(length, pred_len, patch_len, stride, d_model, dropout) for length in lengths
         )
         self.fusion_weight = nn.Parameter(torch.ones(len(lengths), enc_in))
         self.last_fusion_weights: torch.Tensor | None = None

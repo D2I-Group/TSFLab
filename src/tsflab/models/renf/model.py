@@ -93,9 +93,7 @@ class AlphaBlock(nn.Module):
     The activation is GELU except in the last block, which stays linear.
     """
 
-    def __init__(
-        self, width: int, horizon: int, d_ff: int, dropout: float, input_dropout: float, linear: bool
-    ) -> None:
+    def __init__(self, width: int, horizon: int, d_ff: int, dropout: float, input_dropout: float, linear: bool) -> None:
         super().__init__()
         self.norm = nn.LayerNorm(width)
         self.input_dropout = nn.Dropout(input_dropout)
@@ -201,9 +199,7 @@ class Model(nn.Module):
 
     def _normalized(self, x_enc: torch.Tensor) -> torch.Tensor:
         if x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(
-                f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+            raise ValueError(f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
         x = self.revin(x_enc, "norm")
         if self.position is not None:
             x = x + self.position

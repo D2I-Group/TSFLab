@@ -47,9 +47,7 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     options = dict(params)
     levels = options.pop("quantile_levels") or list(cfg.evaluation.quantile_levels)
-    return Model(
-        seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options
-    )
+    return Model(seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, quantile_levels=levels, **options)
 
 
 def training_objective(model, batch: TrainingBatch, criterion):

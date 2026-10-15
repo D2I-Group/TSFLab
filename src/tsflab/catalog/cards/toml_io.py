@@ -43,8 +43,7 @@ def dumps(data: dict[str, Any], *, inline: tuple[str, ...] = ()) -> str:
     lines: list[str] = []
 
     def emit(table: dict[str, Any], prefix: str) -> None:
-        plain = {k: v for k, v in table.items()
-                 if v is not None and not isinstance(v, dict) and not _is_table_array(v)}
+        plain = {k: v for k, v in table.items() if v is not None and not isinstance(v, dict) and not _is_table_array(v)}
         for key, value in plain.items():
             lines.append(f"{_key(key)} = {_scalar(value)}")
         for key, value in table.items():

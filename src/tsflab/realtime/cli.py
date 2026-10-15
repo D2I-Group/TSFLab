@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pandas as pd
 
 from tsflab.cli.args import add_option
-from tsflab.release.hub.uri import default_repo
+from tsflab.core.realtime import ForecastSubmission
 from tsflab.realtime import rounds as R
 from tsflab.realtime.store import PanelStore
 from tsflab.realtime.tracks import get_track, list_tracks
-from tsflab.core.realtime import ForecastSubmission
+from tsflab.release.hub.uri import default_repo
 
 SUMMARY_DIR = Path("apps") / "web" / "data" / "realtime"
 
@@ -35,7 +35,6 @@ def _latest_round(track: str, round_id: str | None):
 
 def _update(track_id: str, pull: bool, push: bool, repo: str) -> dict | None:
     from tsflab.realtime import sources
-
     from tsflab.realtime.publish import push_refusal
 
     track = get_track(track_id)
@@ -43,8 +42,10 @@ def _update(track_id: str, pull: bool, push: bool, repo: str) -> dict | None:
     refusal = push_refusal(track_id)
     if pull and not store.exists:
         if refusal:
-            print(f"{track_id}: not hosted on the Hub, nothing to pull; "
-                  f"build it with `tsf realtime update --bootstrap --track {track_id}`")
+            print(
+                f"{track_id}: not hosted on the Hub, nothing to pull; "
+                f"build it with `tsf realtime update --bootstrap --track {track_id}`"
+            )
         else:
             from tsflab.realtime.publish import pull_track
 
@@ -133,9 +134,12 @@ def _parse_overrides(pairs: list[str]) -> dict:
 def main(argv: list[str] | None = None) -> int:
     from tsflab.cli.inventory import group_usage
 
-    parser = argparse.ArgumentParser(prog="tsf realtime", description=group_usage("realtime"),
-                                     epilog=__doc__.split("\n\n", 1)[1].split(". ", 1)[1],
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="tsf realtime",
+        description=group_usage("realtime"),
+        epilog=__doc__.split("\n\n", 1)[1].split(". ", 1)[1],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("list")
     for name in ("update", "open", "baselines", "forecast", "score"):
@@ -146,10 +150,14 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--repo", default=default_repo("TSFLab-Datasets"))
             p.add_argument("--pull", action="store_true", help="fetch the published store first")
             mode = p.add_mutually_exclusive_group()
-            mode.add_argument("--bootstrap", action="store_true",
-                              help="create the store from the full history instead of appending")
-            mode.add_argument("--no-fetch", action="store_true",
-                              help="skip the source fetch; with --push, publish the local store as is")
+            mode.add_argument(
+                "--bootstrap", action="store_true", help="create the store from the full history instead of appending"
+            )
+            mode.add_argument(
+                "--no-fetch",
+                action="store_true",
+                help="skip the source fetch; with --push, publish the local store as is",
+            )
         if name == "open":
             p.add_argument("--now")
         if name in {"baselines", "forecast"}:
@@ -158,8 +166,15 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--model", required=True)
             p.add_argument("--submitter")
             p.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
-            add_option(p, "--records", "work_dir", "--work-dir", type=Path, default=Path("work_dirs") / "_realtime",
-                       help="run-records root for the model run (default work_dirs/_realtime)")
+            add_option(
+                p,
+                "--records",
+                "work_dir",
+                "--work-dir",
+                type=Path,
+                default=Path("work_dirs") / "_realtime",
+                help="run-records root for the model run (default work_dirs/_realtime)",
+            )
     validate = sub.add_parser("validate")
     validate.add_argument("files", nargs="+", type=Path)
     validate.add_argument("--received-at", help="trusted arrival time (e.g. PR creation) checked against the deadline")
@@ -198,7 +213,9 @@ def main(argv: list[str] | None = None) -> int:
 
                 store = PanelStore(args.track)
                 if not store.exists:
-                    raise RuntimeError(f"no local store for {args.track!r}; run `tsf realtime update --bootstrap` first")
+                    raise RuntimeError(
+                        f"no local store for {args.track!r}; run `tsf realtime update --bootstrap` first"
+                    )
                 if not args.push:
                     raise RuntimeError("--no-fetch only makes sense with --push")
                 # Publishing is the only action here, so a refused track is an error.
@@ -209,23 +226,33 @@ def main(argv: list[str] | None = None) -> int:
         if args.action == "open":
             now = pd.Timestamp(args.now).to_pydatetime() if args.now else None
             spec = R.open_round(get_track(args.track), PanelStore(args.track), now=now)
-            print(f"{spec.track} {spec.round_id}: cutoff {spec.cutoff}, targets "
-                  f"{spec.target_timestamps[0]} .. {spec.target_timestamps[-1]}, deadline {spec.deadline}")
+            print(
+                f"{spec.track} {spec.round_id}: cutoff {spec.cutoff}, targets "
+                f"{spec.target_timestamps[0]} .. {spec.target_timestamps[-1]}, deadline {spec.deadline}"
+            )
             return 0
         if args.action == "baselines":
             from tsflab.realtime.baselines import run_baselines
 
             spec = _latest_round(args.track, args.round)
-            results = [_write_validated(submission, spec)
-                       for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track))]
+            results = [
+                _write_validated(submission, spec)
+                for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track))
+            ]
             return 0 if all(results) else 1
         if args.action == "forecast":
             from tsflab.realtime.forecast import forecast_with_model
 
             spec = _latest_round(args.track, args.round)
-            submission = forecast_with_model(spec, PanelStore(args.track), get_track(args.track),
-                                             args.model, args.work_dir, _parse_overrides(args.set),
-                                             args.submitter)
+            submission = forecast_with_model(
+                spec,
+                PanelStore(args.track),
+                get_track(args.track),
+                args.model,
+                args.work_dir,
+                _parse_overrides(args.set),
+                args.submitter,
+            )
             return 0 if _write_validated(submission, spec) else 1
         if args.action == "validate":  # for files written elsewhere; forecast validates its own
             failures = 0
@@ -248,8 +275,9 @@ def main(argv: list[str] | None = None) -> int:
                 release = _update(track_id, args.pull, args.push, args.repo)
                 _score(track_id)
                 if release is not None:
-                    spec = R.open_round(get_track(track_id), PanelStore(track_id),
-                                        hf_revision=release.get("hf_revision"))
+                    spec = R.open_round(
+                        get_track(track_id), PanelStore(track_id), hf_revision=release.get("hf_revision")
+                    )
                     for submission in run_baselines(spec, PanelStore(track_id), get_track(track_id)):
                         R.write_forecast(submission, spec)
                     print(f"{track_id}: opened {spec.round_id} with baselines")
@@ -257,9 +285,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.action == "replay":
             from tsflab.realtime.replay import replay as run_replay
 
-            summary = run_replay(get_track(args.track), PanelStore(args.track), end=pd.Timestamp(args.end),
-                                 weeks=args.weeks, models=args.models,
-                                 overrides=_parse_overrides(args.set))
+            summary = run_replay(
+                get_track(args.track),
+                PanelStore(args.track),
+                end=pd.Timestamp(args.end),
+                weeks=args.weeks,
+                models=args.models,
+                overrides=_parse_overrides(args.set),
+            )
             text = json.dumps(summary, indent=2)
             if args.out:
                 args.out.write_text(text + "\n", encoding="utf-8")

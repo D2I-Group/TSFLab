@@ -14,7 +14,6 @@ from tsflab.catalog.component_audit import components_used_by
 from tsflab.catalog.registry.models import MODEL_CATALOG
 from tsflab.core.paths import repository_root
 
-
 ROOT = repository_root()
 MODEL_CONFIG_DIR = ROOT / "configs" / "models"
 SRC = ROOT / "src"
@@ -57,22 +56,21 @@ def _audit_model_forward(path: Path) -> str | None:
         (node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Model"),
         None,
     )
-    forward = next(
-        (
-            node
-            for node in model.body
-            if isinstance(node, ast.FunctionDef) and node.name == "forward"
-        ),
-        None,
-    ) if model is not None else None
+    forward = (
+        next(
+            (node for node in model.body if isinstance(node, ast.FunctionDef) and node.name == "forward"),
+            None,
+        )
+        if model is not None
+        else None
+    )
     if forward is None:
         return f"{path.relative_to(ROOT)} must define Model.forward"
     arguments = forward.args
     names = [argument.arg for argument in arguments.posonlyargs + arguments.args]
     expected = ["self", "x_enc", "x_mark_enc", "x_dec", "x_mark_dec"]
     defaults_are_none = len(arguments.defaults) == 3 and all(
-        isinstance(default, ast.Constant) and default.value is None
-        for default in arguments.defaults
+        isinstance(default, ast.Constant) and default.value is None for default in arguments.defaults
     )
     if (
         names != expected
@@ -92,13 +90,10 @@ def _audit_model_forward(path: Path) -> str | None:
 def _package_problems(name: str, package: Path, fields: dict[str, object]) -> list[str]:
     """Files, conventions, imports, and declared components of one discovered package."""
     problems: list[str] = []
-    descriptive_fields = sorted(
-        {"paper", "source", "evidence", "deviations", "implementation"} & fields.keys()
-    )
+    descriptive_fields = sorted({"paper", "source", "evidence", "deviations", "implementation"} & fields.keys())
     if descriptive_fields:
         problems.append(
-            f"{package.relative_to(ROOT)}/spec.py duplicates README metadata: "
-            f"{', '.join(descriptive_fields)}"
+            f"{package.relative_to(ROOT)}/spec.py duplicates README metadata: {', '.join(descriptive_fields)}"
         )
     for obsolete in (package / "registry.py", package / "schema.py"):
         if obsolete.exists():
@@ -126,9 +121,7 @@ def _package_problems(name: str, package: Path, fields: dict[str, object]) -> li
     if config_file.is_file():
         config_name = tomllib.loads(config_file.read_text(encoding="utf-8"))["model"]["name"]
         if config_name != name:
-            problems.append(
-                f"{config_file.relative_to(ROOT)} declares model.name={config_name!r}, expected {name!r}"
-            )
+            problems.append(f"{config_file.relative_to(ROOT)} declares model.name={config_name!r}, expected {name!r}")
     for path, line, module in _cross_model_imports(package):
         problems.append(
             f"{path.relative_to(ROOT)}:{line} imports peer model module {module!r}; "
@@ -137,9 +130,7 @@ def _package_problems(name: str, package: Path, fields: dict[str, object]) -> li
     actual_components = components_used_by(package)
     declared_components = tuple(fields.get("components", ()))
     if declared_components != actual_components:
-        problems.append(
-            f"{name!r} components={declared_components!r}, imported={actual_components!r}"
-        )
+        problems.append(f"{name!r} components={declared_components!r}, imported={actual_components!r}")
     return problems
 
 
@@ -176,10 +167,7 @@ def check() -> list[str]:
                 problems.append(f"{name!r} and {prior_smoke!r} both declare {smoke_config!r}")
             declared_smoke[str(smoke_config)] = name
 
-    smoke_files = {
-        str(path.relative_to(ROOT))
-        for path in (ROOT / "configs" / "runs").glob("smoke_*.toml")
-    }
+    smoke_files = {str(path.relative_to(ROOT)) for path in (ROOT / "configs" / "runs").glob("smoke_*.toml")}
     for path in sorted(smoke_files - set(declared_smoke)):
         problems.append(f"{path} is not declared by any ModelSpec")
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mofo.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

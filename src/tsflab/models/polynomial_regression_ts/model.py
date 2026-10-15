@@ -20,9 +20,7 @@ class Model(nn.Module):
 
     def polynomial_features(self, x: torch.Tensor) -> torch.Tensor:
         channel_first = x.transpose(1, 2)
-        return torch.cat(
-            [channel_first.pow(power) for power in range(1, self.degree + 1)], dim=-1
-        )
+        return torch.cat([channel_first.pow(power) for power in range(1, self.degree + 1)], dim=-1)
 
     def forward(
         self,

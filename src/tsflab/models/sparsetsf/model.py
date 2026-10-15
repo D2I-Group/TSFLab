@@ -12,8 +12,9 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Aggregate locally, forecast phase-aligned subsequences, and interleave them."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, period: int = 24,
-                 d_model: int = 64, model_type: str = "linear") -> None:
+    def __init__(
+        self, seq_len: int, pred_len: int, enc_in: int, period: int = 24, d_model: int = 64, model_type: str = "linear"
+    ) -> None:
         super().__init__()
         if period > seq_len:
             raise ValueError("period must not exceed seq_len")
@@ -26,7 +27,8 @@ class Model(nn.Module):
             nn.Linear(self.history_periods, self.future_periods)
             if model_type == "linear"
             else nn.Sequential(
-                nn.Linear(self.history_periods, d_model), nn.ReLU(),
+                nn.Linear(self.history_periods, d_model),
+                nn.ReLU(),
                 nn.Linear(d_model, self.future_periods),
             )
         )

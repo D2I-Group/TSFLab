@@ -102,13 +102,27 @@ class ProMamba(nn.Module):
 class ProBlock(nn.Module):
     """Bidirectional hyper-state mixer plus a position-wise MLP, each residual."""
 
-    def __init__(self, d_model: int, patch_num: int, d_state: int, d_conv: int, expand: float, dropout: float, mlp_ratio: float = 4.0) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        patch_num: int,
+        d_state: int,
+        d_conv: int,
+        expand: float,
+        dropout: float,
+        mlp_ratio: float = 4.0,
+    ) -> None:
         super().__init__()
         self.forward_scan = ProMamba(d_model, patch_num, d_state, d_conv, expand, dropout)
         self.backward_scan = ProMamba(d_model, patch_num, d_state, d_conv, expand, dropout)
         hidden = int(d_model * mlp_ratio)
         self.mlp = nn.Sequential(
-            nn.LayerNorm(d_model), nn.Linear(d_model, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, d_model), nn.Dropout(dropout)
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, hidden),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden, d_model),
+            nn.Dropout(dropout),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

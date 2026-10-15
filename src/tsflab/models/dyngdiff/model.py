@@ -97,8 +97,12 @@ def hippo_legs_nplr(state_size: int) -> tuple[torch.Tensor, torch.Tensor, torch.
     inverse = vectors.conj().transpose(-1, -2)
     b_tilde = inverse @ root.to(torch.complex128)
     p_tilde = inverse @ p.to(torch.complex128)
-    return (w.to(torch.complex64), p_tilde.to(torch.complex64), b_tilde.to(torch.complex64),
-            vectors.to(torch.complex64))
+    return (
+        w.to(torch.complex64),
+        p_tilde.to(torch.complex64),
+        b_tilde.to(torch.complex64),
+        vectors.to(torch.complex64),
+    )
 
 
 def _with_conjugates(x: torch.Tensor) -> torch.Tensor:
@@ -117,8 +121,9 @@ class NPLRKernel(nn.Module):
     truncated kernel ``K_l = C dA^l dB`` for ``l < L``.
     """
 
-    def __init__(self, features: int, state_size: int, channels: int,
-                 dt_min: float = 1e-3, dt_max: float = 1e-1) -> None:
+    def __init__(
+        self, features: int, state_size: int, channels: int, dt_min: float = 1e-3, dt_max: float = 1e-1
+    ) -> None:
         super().__init__()
         w, p, b, _ = hippo_legs_nplr(state_size)
         half = state_size // 2
@@ -210,8 +215,9 @@ class S4(nn.Module):
         """``y_t = sum_{s<=t} k^f_{t-s} u_s + sum_{s>t} k^b_{s-t-1} u_s`` via a length-``2L`` FFT."""
         length = u.shape[-1]
         kernel = cls.two_sided_kernel(forward_kernel, backward_kernel)
-        return torch.fft.irfft(torch.fft.rfft(u, n=2 * length) * torch.fft.rfft(kernel, n=2 * length),
-                               n=2 * length)[..., :length]
+        return torch.fft.irfft(torch.fft.rfft(u, n=2 * length) * torch.fft.rfft(kernel, n=2 * length), n=2 * length)[
+            ..., :length
+        ]
 
     def forward(self, u: torch.Tensor) -> torch.Tensor:
         forward_kernel, backward_kernel = self.kernel(u.shape[-1])
@@ -242,13 +248,11 @@ class S4ResidualBlock(nn.Module):
 class S4NoiseBackbone(nn.Module):
     """Unconditional noise predictor ``eps_theta(x_t, t)`` on ``[B, D, L]`` (App. B.1, Fig. B.1)."""
 
-    def __init__(self, channels: int, hidden: int, blocks: int, step_dim: int,
-                 state_size: int, dropout: float) -> None:
+    def __init__(self, channels: int, hidden: int, blocks: int, step_dim: int, state_size: int, dropout: float) -> None:
         super().__init__()
         self.step_dim = step_dim
         self.input_map = nn.Sequential(nn.Linear(channels, hidden), nn.ReLU())
-        self.step_map = nn.Sequential(nn.Linear(step_dim, hidden), nn.SiLU(),
-                                      nn.Linear(hidden, hidden), nn.SiLU())
+        self.step_map = nn.Sequential(nn.Linear(step_dim, hidden), nn.SiLU(), nn.Linear(hidden, hidden), nn.SiLU())
         self.blocks = nn.ModuleList(S4ResidualBlock(hidden, state_size, dropout) for _ in range(blocks))
         self.output_map = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, channels))
 
@@ -271,11 +275,15 @@ class StateAwarePolicyNetwork(nn.Module):
         self.step_dim = step_dim
         self.step_map = nn.Sequential(nn.Linear(step_dim, step_dim), nn.SiLU())
         self.encoder = nn.Sequential(
-            nn.Conv1d(2 * channels, hidden, kernel_size=3, padding=1), nn.BatchNorm1d(hidden), nn.SiLU(),
-            nn.Conv1d(hidden, hidden, kernel_size=3, padding=1), nn.SiLU(),
+            nn.Conv1d(2 * channels, hidden, kernel_size=3, padding=1),
+            nn.BatchNorm1d(hidden),
+            nn.SiLU(),
+            nn.Conv1d(hidden, hidden, kernel_size=3, padding=1),
+            nn.SiLU(),
         )
-        self.head = nn.Sequential(nn.Conv1d(hidden + step_dim, hidden, kernel_size=1), nn.SiLU(),
-                                  nn.Conv1d(hidden, channels, kernel_size=1))
+        self.head = nn.Sequential(
+            nn.Conv1d(hidden + step_dim, hidden, kernel_size=1), nn.SiLU(), nn.Conv1d(hidden, channels, kernel_size=1)
+        )
 
     def forward(self, x_t: torch.Tensor, x0_hat: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         hidden = self.encoder(torch.cat([x_t, x0_hat], dim=1))  # S_t = [x_t ; x0_hat], 2D channels
@@ -413,7 +421,8 @@ class Model(nn.Module):
         self.backbone.train()
         optimizer = torch.optim.Adam(self.backbone.parameters(), lr=self.backbone_lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=self.backbone_lr_patience)
+            optimizer, mode="min", factor=0.5, patience=self.backbone_lr_patience
+        )
         batches = iter(train_loader)
         for _ in range(self.backbone_epochs):
             total = 0.0
@@ -424,7 +433,7 @@ class Model(nn.Module):
                     batches = iter(train_loader)
                     batch = next(batches)
                 x, y = batch[0].float().to(device), batch[1].float().to(device)
-                x0, _ = self.scaled_window(x, y[:, -self.pred_len:])
+                x0, _ = self.scaled_window(x, y[:, -self.pred_len :])
                 optimizer.zero_grad()
                 loss = self.backbone_loss(x0)
                 loss.backward()
@@ -464,7 +473,8 @@ class Model(nn.Module):
         t = torch.full((x_t.shape[0],), step, device=x_t.device, dtype=torch.long)
         noise, score = self.guidance_score(x_t, t, observation, mask, kappa)
         mean = self._at("sqrt_recip_alphas", t) * (
-            x_t - self._at("betas", t) * noise / self._at("sqrt_one_minus_alpha_bar", t))
+            x_t - self._at("betas", t) * noise / self._at("sqrt_one_minus_alpha_bar", t)
+        )
         variance = self._at("posterior_variance", t)
         mean = mean + self.guidance_scale * variance * score
         if step == 0:
@@ -494,7 +504,7 @@ class Model(nn.Module):
             x = torch.randn_like(obs)
             for step in reversed(range(self.num_steps)):
                 x = self.reverse_step(x, step, obs, obs_mask, kappa)
-            future = x.detach()[..., self.seq_len:].transpose(1, 2).reshape(count, batch, self.pred_len, -1)
+            future = x.detach()[..., self.seq_len :].transpose(1, 2).reshape(count, batch, self.pred_len, -1)
             chunks.append(future * scale[None])
             offset += count
         return torch.cat(chunks, dim=0)

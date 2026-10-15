@@ -37,9 +37,7 @@ class SeriesDecomp(nn.Module):
 class EmbLayer(nn.Module):
     """Patch embedding block for PatchMLP."""
 
-    def __init__(
-        self, patch_len: int, patch_step: int, seq_len: int, d_model: int
-    ) -> None:
+    def __init__(self, patch_len: int, patch_step: int, seq_len: int, d_model: int) -> None:
         super().__init__()
         patch_num = int((seq_len - patch_len) / patch_step + 1)
         self.d_model = d_model // patch_num

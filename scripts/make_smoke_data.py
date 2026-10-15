@@ -25,14 +25,10 @@ def main() -> None:
     for c in range(n_channels - 1):
         # Daily + weekly seasonality plus noise.
         series = (
-            np.sin(2 * np.pi * t / 24 + c)
-            + 0.5 * np.sin(2 * np.pi * t / (24 * 7))
-            + 0.1 * rng.standard_normal(rows)
+            np.sin(2 * np.pi * t / 24 + c) + 0.5 * np.sin(2 * np.pi * t / (24 * 7)) + 0.1 * rng.standard_normal(rows)
         )
         data[f"ch{c}"] = series
-    data["OT"] = (
-        np.cos(2 * np.pi * t / 24) + 0.1 * rng.standard_normal(rows)
-    )
+    data["OT"] = np.cos(2 * np.pi * t / 24) + 0.1 * rng.standard_normal(rows)
 
     df = pd.DataFrame({"date": dates, **data})
     out_dir = os.path.join("dataset", "smoke")

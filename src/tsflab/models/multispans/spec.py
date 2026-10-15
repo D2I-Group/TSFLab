@@ -41,19 +41,12 @@ class ModelParameterConfig(BaseModel):
     position_routing: Literal["official", "matched"] = "official"
 
     @model_validator(mode="after")
-    def _contract(self) -> "ModelParameterConfig":
+    def _contract(self) -> ModelParameterConfig:
         _check_kernels(self.conv_kernels)
-        if (
-            self.embed_dim % (len(self.conv_kernels) * (self.gconv_hops + 1))
-            or self.embed_dim % self.num_heads
-        ):
-            raise ValueError(
-                "embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads"
-            )
+        if self.embed_dim % (len(self.conv_kernels) * (self.gconv_hops + 1)) or self.embed_dim % self.num_heads:
+            raise ValueError("embed_dim must be divisible by len(conv_kernels) * (gconv_hops + 1) and num_heads")
         if self.spatial_masks and self.max_tree_height >= self.num_heads:
-            raise ValueError(
-                "num_heads must exceed the masked heads (max_tree_height - 1 levels + adjacency)"
-            )
+            raise ValueError("num_heads must exceed the masked heads (max_tree_height - 1 levels + adjacency)")
         return self
 
 

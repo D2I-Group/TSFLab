@@ -183,10 +183,13 @@ def ppr_topk_edges(edge_index: np.ndarray, num_nodes: int, alpha: float, topk: i
     del matrix
     diffusion.mul_(alpha)
     keep = min(topk, num_nodes)
-    rows = torch.cat([
-        torch.argsort(diffusion[:, start : start + 1024], dim=0, descending=True, stable=True)[:keep]
-        for start in range(0, num_nodes, 1024)
-    ], dim=1)
+    rows = torch.cat(
+        [
+            torch.argsort(diffusion[:, start : start + 1024], dim=0, descending=True, stable=True)[:keep]
+            for start in range(0, num_nodes, 1024)
+        ],
+        dim=1,
+    )
     columns = torch.arange(num_nodes).repeat(keep)
     return torch.stack([rows.reshape(-1), columns]).numpy()
 
@@ -245,8 +248,19 @@ class DragonEncoder(nn.Module):
     """One MdBG encoder: graph state from the training split, GAT, mask, time-query pooling."""
 
     def __init__(
-        self, channels: int, seq_len: int, k: int, n_bins: int, d_graph: int, num_layers: int, node_feat_size: int,
-        heads: int, dropout: float, use_gdc: bool, gdc_topk: int, ppr_alpha: float,
+        self,
+        channels: int,
+        seq_len: int,
+        k: int,
+        n_bins: int,
+        d_graph: int,
+        num_layers: int,
+        node_feat_size: int,
+        heads: int,
+        dropout: float,
+        use_gdc: bool,
+        gdc_topk: int,
+        ppr_alpha: float,
     ) -> None:
         super().__init__()
         self.channels = channels
@@ -415,7 +429,8 @@ class TimesBlock(nn.Module):
         self.length = length
         self.top_k = top_k
         self.conv = nn.Sequential(
-            InceptionBlock2d(width, d_ff, num_kernels), nn.GELU(), InceptionBlock2d(d_ff, width, num_kernels))
+            InceptionBlock2d(width, d_ff, num_kernels), nn.GELU(), InceptionBlock2d(d_ff, width, num_kernels)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch, length, width = x.shape
@@ -435,11 +450,26 @@ class Model(nn.Module):
     """DRAGON encoders (one per alphabet size) concatenated with a TimesNet embedding."""
 
     def __init__(
-        self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 16, d_ff: int = 32, e_layers: int = 2,
-        top_k: int = 5, num_kernels: int = 6, dropout: float = 0.1, k: int = 4,
-        alphabet_sizes: tuple[int, ...] = (20, 25, 30), d_graph: int = 16, graph_layers: int = 2,
-        node_feat_size: int = 4, graph_heads: int = 16, graph_dropout: float = 0.4, use_gdc: bool = True,
-        gdc_topk: int = 32, ppr_alpha: float = 0.05,
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 16,
+        d_ff: int = 32,
+        e_layers: int = 2,
+        top_k: int = 5,
+        num_kernels: int = 6,
+        dropout: float = 0.1,
+        k: int = 4,
+        alphabet_sizes: tuple[int, ...] = (20, 25, 30),
+        d_graph: int = 16,
+        graph_layers: int = 2,
+        node_feat_size: int = 4,
+        graph_heads: int = 16,
+        graph_dropout: float = 0.4,
+        use_gdc: bool = True,
+        gdc_topk: int = 32,
+        ppr_alpha: float = 0.05,
     ) -> None:
         super().__init__()
         for failed, message in (
@@ -453,15 +483,32 @@ class Model(nn.Module):
         self.enc_in = enc_in
         self.d_graph = d_graph
         self.norm = RevIN(enc_in, eps=1e-5, affine=False)
-        self.embedding = DataEmbedding(enc_in, d_model, embed_type="timeF", freq="h", dropout=dropout, time_feature_dim=4)
-        self.encoders = nn.ModuleList(DragonEncoder(
-            enc_in, seq_len, k, size, d_graph, graph_layers, node_feat_size, graph_heads, graph_dropout, use_gdc,
-            gdc_topk, ppr_alpha) for size in alphabet_sizes)
+        self.embedding = DataEmbedding(
+            enc_in, d_model, embed_type="timeF", freq="h", dropout=dropout, time_feature_dim=4
+        )
+        self.encoders = nn.ModuleList(
+            DragonEncoder(
+                enc_in,
+                seq_len,
+                k,
+                size,
+                d_graph,
+                graph_layers,
+                node_feat_size,
+                graph_heads,
+                graph_dropout,
+                use_gdc,
+                gdc_topk,
+                ppr_alpha,
+            )
+            for size in alphabet_sizes
+        )
         self.encoder_weights = nn.Parameter(torch.randn(len(alphabet_sizes)))
         width = d_model + d_graph
         self.predict_linear = nn.Linear(seq_len, seq_len + pred_len)
         self.blocks = nn.ModuleList(
-            TimesBlock(seq_len + pred_len, width, d_ff, top_k, num_kernels) for _ in range(e_layers))
+            TimesBlock(seq_len + pred_len, width, d_ff, top_k, num_kernels) for _ in range(e_layers)
+        )
         self.layer_norm = nn.LayerNorm(width)
         self.projection = nn.Linear(width, enc_in)
 

@@ -1,11 +1,9 @@
 """Runtime specification for CoRe."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.core.model import Model
-
-"""Validated parameters for CoRe."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

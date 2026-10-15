@@ -76,9 +76,7 @@ class PostNormEncoderLayer(nn.Module):
         self.attention = nn.MultiheadAttention(d_model, n_heads, dropout=attn_dropout, batch_first=True)
         self.attn_drop = nn.Dropout(dropout)
         self.attn_norm = TokenBatchNorm(d_model)
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.ff_drop = nn.Dropout(dropout)
         self.ff_norm = TokenBatchNorm(d_model)
 
@@ -91,16 +89,27 @@ class MixtureOfArchitecturesBlock(nn.Module):
     """Mamba, feed-forward, convolution and self-attention layers in sequence."""
 
     def __init__(
-        self, d_model: int, n_heads: int, d_ff: int, d_state: int, ffn_expand: int,
-        mamba_dropout: float, ffn_dropout: float, block_dropout: float, conv_dropout: float,
-        attn_dropout: float, tf_dropout: float,
+        self,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        d_state: int,
+        ffn_expand: int,
+        mamba_dropout: float,
+        ffn_dropout: float,
+        block_dropout: float,
+        conv_dropout: float,
+        attn_dropout: float,
+        tf_dropout: float,
     ) -> None:
         super().__init__()
         self.mamba = MambaBlock(d_model, 2 * d_model, math.ceil(d_model / 16), 4, d_state)
         self.mamba_drop = nn.Dropout(mamba_dropout)
         self.mamba_norm = TokenBatchNorm(d_model)
         self.ffn = nn.Sequential(
-            nn.Linear(d_model, d_model * ffn_expand), nn.GELU(), nn.Dropout(ffn_dropout),
+            nn.Linear(d_model, d_model * ffn_expand),
+            nn.GELU(),
+            nn.Dropout(ffn_dropout),
             nn.Linear(d_model * ffn_expand, d_model),
         )
         self.conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
@@ -158,8 +167,17 @@ class Model(nn.Module):
         self.embed_drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
             MixtureOfArchitecturesBlock(
-                d_model, n_heads, d_ff, d_state, ffn_expand, mamba_dropout, ffn_dropout,
-                block_dropout, conv_dropout, attn_dropout, tf_dropout,
+                d_model,
+                n_heads,
+                d_ff,
+                d_state,
+                ffn_expand,
+                mamba_dropout,
+                ffn_dropout,
+                block_dropout,
+                conv_dropout,
+                attn_dropout,
+                tf_dropout,
             )
             for _ in range(e_layers)
         )

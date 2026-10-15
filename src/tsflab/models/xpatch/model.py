@@ -52,9 +52,7 @@ class Model(nn.Module):
         normalized = self.revin(x_enc, "norm")
         seasonal, trend = self.decomposition(normalized)
         batch = x_enc.shape[0]
-        seasonal_ci = seasonal.transpose(1, 2).reshape(
-            batch * self.enc_in, self.seq_len
-        )
+        seasonal_ci = seasonal.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len)
         trend_ci = trend.transpose(1, 2).reshape(batch * self.enc_in, self.seq_len)
         forecast = self.forecaster(seasonal_ci, trend_ci)
         forecast = forecast.reshape(batch, self.enc_in, self.pred_len).transpose(1, 2)

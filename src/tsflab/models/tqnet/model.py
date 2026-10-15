@@ -45,9 +45,7 @@ class Model(nn.Module):
             embed_dim=seq_len, num_heads=channel_aggre_heads, batch_first=True, dropout=attn_dropout
         )
         self.input_proj = nn.Linear(seq_len, d_model)
-        self.backbone = nn.Sequential(
-            nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, d_model), nn.GELU()
-        )
+        self.backbone = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, d_model), nn.GELU())
         self.output_proj = nn.Sequential(nn.Dropout(dropout), nn.Linear(d_model, pred_len))
 
     def _start_phase(self, marks: torch.Tensor | None, batch: int, device: torch.device) -> torch.Tensor:
@@ -87,4 +85,3 @@ class Model(nn.Module):
         hidden = self.backbone(projected)
         forecast = self.output_proj(hidden + projected).transpose(1, 2)
         return self.normalization(forecast, "denorm")
-

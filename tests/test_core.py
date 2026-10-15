@@ -19,8 +19,11 @@ def test_repository_resources_resolve_to_the_checkout() -> None:
 
 
 def test_python_modules_have_descriptions() -> None:
-    missing = [str(path.relative_to(ROOT)) for path in sorted((ROOT / "src").rglob("*.py"))
-               if not ast.get_docstring(ast.parse(path.read_text(encoding="utf-8")))]
+    missing = [
+        str(path.relative_to(ROOT))
+        for path in sorted((ROOT / "src").rglob("*.py"))
+        if not ast.get_docstring(ast.parse(path.read_text(encoding="utf-8")))
+    ]
     assert missing == []
 
 
@@ -35,13 +38,24 @@ def test_schema_drift_is_reported(tmp_path, capsys) -> None:
 
 
 def _record(model: str, mse: float, seed: int = 0, horizon: int = 12) -> dict:
-    return {"record_id": f"{model}-{seed}", "model": model, "dataset_id": "toy", "track": "time_series",
-            "results": [{"horizon": horizon, "metrics": {"mse": mse, "mae": mse / 2}}]}
+    return {
+        "record_id": f"{model}-{seed}",
+        "model": model,
+        "dataset_id": "toy",
+        "track": "time_series",
+        "results": [{"horizon": horizon, "metrics": {"mse": mse, "mae": mse / 2}}],
+    }
 
 
 def test_leaderboard_averages_runs_and_ranks_by_the_primary_metric() -> None:
-    tracks = aggregate([_record("A", 0.4), _record("A", 0.6, seed=1), _record("B", 0.3),
-                        {"manifest": {"submission_id": "s1"}, "records": [_record("C", float("nan"))]}])
+    tracks = aggregate(
+        [
+            _record("A", 0.4),
+            _record("A", 0.6, seed=1),
+            _record("B", 0.3),
+            {"manifest": {"submission_id": "s1"}, "records": [_record("C", float("nan"))]},
+        ]
+    )
     rows = tracks["time_series"]["datasets"]["toy"]["horizons"]["12"]
     assert [(row["model"], row["rank"]) for row in rows] == [("B", 1), ("A", 2), ("C", 3)]
     a = rows[1]

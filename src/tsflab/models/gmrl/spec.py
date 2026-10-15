@@ -30,8 +30,7 @@ class ModelParameterConfig(BaseModel):
     def _sources_divide_channels(self) -> "ModelParameterConfig":
         if self.enc_in % self.num_sources:
             raise ValueError(
-                f"enc_in={self.enc_in} must equal num_sources * num_locations "
-                f"(num_sources={self.num_sources})"
+                f"enc_in={self.enc_in} must equal num_sources * num_locations (num_sources={self.num_sources})"
             )
         return self
 

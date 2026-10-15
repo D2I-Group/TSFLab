@@ -32,7 +32,9 @@ class SamePadConv(nn.Module):
 class DilatedConvBlock(nn.Module):
     """Pre-activation residual block of two dilated ``SamePadConv`` layers."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int, final: bool = False) -> None:
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: int, dilation: int, final: bool = False
+    ) -> None:
         super().__init__()
         self.conv1 = SamePadConv(in_channels, out_channels, kernel_size, dilation)
         self.conv2 = SamePadConv(out_channels, out_channels, kernel_size, dilation)
@@ -54,10 +56,12 @@ class DilatedConvEncoder(nn.Module):
         if not channels or kernel_size < 1:
             raise ValueError("channels must be non-empty and kernel_size positive")
         widths = [in_channels, *channels]
-        self.net = nn.Sequential(*[
-            DilatedConvBlock(widths[i], widths[i + 1], kernel_size, 2**i, final=i == len(channels) - 1)
-            for i in range(len(channels))
-        ])
+        self.net = nn.Sequential(
+            *[
+                DilatedConvBlock(widths[i], widths[i + 1], kernel_size, 2**i, final=i == len(channels) - 1)
+                for i in range(len(channels))
+            ]
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)

@@ -52,7 +52,10 @@ def _records(work: Path) -> list[dict]:
 def test_autoresearch_chain(tmp_path, capsys):
     work = tmp_path / "work"
     # 1. profile the fixture dataset
-    assert main(["data", "analyze", "--path", "dataset/smoke/smoke.csv", "--out", str(tmp_path / "profile"), "--json"]) == 0
+    assert (
+        main(["data", "analyze", "--path", "dataset/smoke/smoke.csv", "--out", str(tmp_path / "profile"), "--json"])
+        == 0
+    )
     profile = json.loads((tmp_path / "profile" / "profile.json").read_text())
     assert "recommendations" in profile and "slots" in profile["recommendations"]
     capsys.readouterr()
@@ -63,14 +66,41 @@ def test_autoresearch_chain(tmp_path, capsys):
         spec = tmp_path / f"{name}.toml"
         spec.write_text(SPEC.format(name=name, decomposition=decomposition), encoding="utf-8")
         cfg = tmp_path / f"{name}_run.toml"
-        assert main(["model", "compose", str(spec), "--write-config", str(cfg), "--dataset",
-                     "configs/fixtures/smoke.toml", "--enc-in", "6", "--seq-len", "96", "--pred-len", "12", "--smoke",
-                     "--work-dir", str(work)]) == 0
+        assert (
+            main(
+                [
+                    "model",
+                    "compose",
+                    str(spec),
+                    "--write-config",
+                    str(cfg),
+                    "--dataset",
+                    "configs/fixtures/smoke.toml",
+                    "--enc-in",
+                    "6",
+                    "--seq-len",
+                    "96",
+                    "--pred-len",
+                    "12",
+                    "--smoke",
+                    "--work-dir",
+                    str(work),
+                ]
+            )
+            == 0
+        )
         configs.append(cfg)
     baseline = tmp_path / "baseline.toml"
     rel = lambda p: str(Path(ROOT / p).resolve())  # noqa: E731
-    baseline.write_text(BASELINE.format(base=rel("configs/base.toml"), data=rel("configs/fixtures/smoke.toml"),
-                                        model=rel("configs/models/RLinear.toml"), work=work), encoding="utf-8")
+    baseline.write_text(
+        BASELINE.format(
+            base=rel("configs/base.toml"),
+            data=rel("configs/fixtures/smoke.toml"),
+            model=rel("configs/models/RLinear.toml"),
+            work=work,
+        ),
+        encoding="utf-8",
+    )
     configs.append(baseline)
 
     # 4. smoke-run all three on CPU
@@ -80,8 +110,24 @@ def test_autoresearch_chain(tmp_path, capsys):
     records = _records(work)
     assert sorted(r["model"] for r in records) == ["Composed", "Composed", "RLinear"]
     capsys.readouterr()
-    assert main(["result", "board", "--dataset", "weather", "--horizon", "12", "--top", "5",
-                 "--records", str(work), "--json"]) == 0
+    assert (
+        main(
+            [
+                "result",
+                "board",
+                "--dataset",
+                "weather",
+                "--horizon",
+                "12",
+                "--top",
+                "5",
+                "--records",
+                str(work),
+                "--json",
+            ]
+        )
+        == 0
+    )
     rows = json.loads(capsys.readouterr().out)["horizons"][0]["rows"]
     local = [r for r in rows if r["source"] == "local"]
     assert {r["model"] for r in local} >= {"RLinear"} and len(local) == 3

@@ -35,9 +35,7 @@ class Model(nn.Module):
         self.use_revin = use_revin
 
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
-        self.forecaster = ChannelWiseLinear(
-            seq_len, pred_len, enc_in, individual=False
-        )
+        self.forecaster = ChannelWiseLinear(seq_len, pred_len, enc_in, individual=False)
 
     def _validate(self, x: torch.Tensor) -> None:
         check_window(x, self.seq_len, self.enc_in)
@@ -120,15 +118,9 @@ class Model(nn.Module):
         target_samples = target.transpose(1, 2).reshape(-1, self.pred_len)
         joint_target = torch.cat((history_samples, target_samples), dim=-1)
         joint_forecast = torch.cat((history_samples, forecast_samples), dim=-1)
-        mean_target, covariance_target = self._covariance(
-            joint_target, self.covariance_eps
-        )
-        mean_forecast, covariance_forecast = self._covariance(
-            joint_forecast, self.covariance_eps
-        )
-        return self.bures_wasserstein(
-            mean_target, mean_forecast, covariance_target, covariance_forecast
-        )
+        mean_target, covariance_target = self._covariance(joint_target, self.covariance_eps)
+        mean_forecast, covariance_forecast = self._covariance(joint_forecast, self.covariance_eps)
+        return self.bures_wasserstein(mean_target, mean_forecast, covariance_target, covariance_forecast)
 
     def training_objective(
         self, x: torch.Tensor, target: torch.Tensor

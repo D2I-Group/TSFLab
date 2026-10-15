@@ -66,20 +66,17 @@ class Model(nn.Module):
         self.tod_embedding = nn.Embedding(steps_per_day, tod_embedding_dim)
         self.dow_embedding = nn.Embedding(7, dow_embedding_dim)
         self.node_embedding = (
-            nn.Parameter(torch.empty(num_nodes, spatial_embedding_dim))
-            if spatial_embedding_dim else None
+            nn.Parameter(torch.empty(num_nodes, spatial_embedding_dim)) if spatial_embedding_dim else None
         )
-        self.adaptive_embedding = nn.Parameter(
-            torch.empty(seq_len, num_nodes, adaptive_embedding_dim)
+        self.adaptive_embedding = nn.Parameter(torch.empty(seq_len, num_nodes, adaptive_embedding_dim))
+        width = (
+            input_embedding_dim + tod_embedding_dim + dow_embedding_dim + spatial_embedding_dim + adaptive_embedding_dim
         )
-        width = input_embedding_dim + tod_embedding_dim + dow_embedding_dim + spatial_embedding_dim + adaptive_embedding_dim
         self.temporal_layers = nn.ModuleList(
-            AxisAttentionBlock(width, num_heads, feed_forward_dim, dropout)
-            for _ in range(num_layers)
+            AxisAttentionBlock(width, num_heads, feed_forward_dim, dropout) for _ in range(num_layers)
         )
         self.spatial_layers = nn.ModuleList(
-            AxisAttentionBlock(width, num_heads, feed_forward_dim, dropout)
-            for _ in range(num_layers)
+            AxisAttentionBlock(width, num_heads, feed_forward_dim, dropout) for _ in range(num_layers)
         )
         self.use_mixed_proj = use_mixed_proj
         self.output = (
@@ -105,13 +102,21 @@ class Model(nn.Module):
         dow = (data[..., 2] * 7).long().clamp(0, 6)
         pieces = [self.value_embedding(data[..., :1]), self.tod_embedding(tod), self.dow_embedding(dow)]
         if self.node_embedding is not None:
-            pieces.append(self.node_embedding.view(1, 1, self.num_nodes, -1).expand(x_enc.shape[0], self.seq_len, -1, -1))
+            pieces.append(
+                self.node_embedding.view(1, 1, self.num_nodes, -1).expand(x_enc.shape[0], self.seq_len, -1, -1)
+            )
         pieces.append(self.adaptive_embedding.unsqueeze(0).expand(x_enc.shape[0], -1, -1, -1))
         hidden = torch.cat(pieces, dim=-1)
         for temporal, spatial in zip(self.temporal_layers, self.spatial_layers):
             width = hidden.shape[-1]
-            hidden = temporal(hidden.transpose(1, 2).reshape(-1, self.seq_len, width)).reshape(x_enc.shape[0], self.num_nodes, self.seq_len, width).transpose(1, 2)
-            hidden = spatial(hidden.reshape(-1, self.num_nodes, width)).reshape(x_enc.shape[0], self.seq_len, self.num_nodes, width)
+            hidden = (
+                temporal(hidden.transpose(1, 2).reshape(-1, self.seq_len, width))
+                .reshape(x_enc.shape[0], self.num_nodes, self.seq_len, width)
+                .transpose(1, 2)
+            )
+            hidden = spatial(hidden.reshape(-1, self.num_nodes, width)).reshape(
+                x_enc.shape[0], self.seq_len, self.num_nodes, width
+            )
         if self.use_mixed_proj:
             return self.output(hidden.transpose(1, 2).flatten(2)).transpose(1, 2)
         projected = self.output(hidden.transpose(1, 2).reshape(-1, self.seq_len, hidden.shape[-1]))

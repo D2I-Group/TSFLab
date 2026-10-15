@@ -40,9 +40,7 @@ class TimesBlock(nn.Module):
             image = padded.reshape(batch, padded_length // period, period, channels)
             image = image.permute(0, 3, 1, 2).contiguous()
             encoded = self.convolution(image)
-            transformed.append(
-                encoded.permute(0, 2, 3, 1).reshape(batch, padded_length, channels)[:, :length]
-            )
+            transformed.append(encoded.permute(0, 2, 3, 1).reshape(batch, padded_length, channels)[:, :length])
         stacked = torch.stack(transformed, dim=-1)
         weights = torch.softmax(amplitudes, dim=-1)[:, None, None, :]
         self.last_periods = torch.as_tensor(periods, device=values.device)
@@ -52,7 +50,20 @@ class TimesBlock(nn.Module):
 class Model(nn.Module):
     """Forecast-only TimesNet with stacked residual TimesBlocks."""
 
-    def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, c_out: int, d_model: int, e_layers: int, d_ff: int, dropout: float, top_k: int = 3, num_kernels: int = 3) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        label_len: int,
+        pred_len: int,
+        enc_in: int,
+        c_out: int,
+        d_model: int,
+        e_layers: int,
+        d_ff: int,
+        dropout: float,
+        top_k: int = 3,
+        num_kernels: int = 3,
+    ) -> None:
         super().__init__()
         del label_len
         total_length = seq_len + pred_len
@@ -66,10 +77,7 @@ class Model(nn.Module):
         self.embedding_dropout = nn.Dropout(dropout)
         self.temporal_projection = nn.Linear(seq_len, total_length)
         self.blocks = nn.ModuleList(
-            [
-                TimesBlock(total_length, top_k, d_model, d_ff, num_kernels)
-                for _ in range(e_layers)
-            ]
+            [TimesBlock(total_length, top_k, d_model, d_ff, num_kernels) for _ in range(e_layers)]
         )
         self.block_norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(e_layers)])
         self.output_projection = nn.Linear(d_model, c_out)

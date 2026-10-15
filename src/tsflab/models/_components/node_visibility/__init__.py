@@ -45,9 +45,7 @@ def random_mask_tokens(
     return kept, keep_indices
 
 
-def shuffle_tokens(
-    x: torch.Tensor, generator: torch.Generator | None = None
-) -> tuple[torch.Tensor, torch.Tensor]:
+def shuffle_tokens(x: torch.Tensor, generator: torch.Generator | None = None) -> tuple[torch.Tensor, torch.Tensor]:
     """Apply an independent random per-sample permutation along dim 1.
 
     Args:
@@ -72,9 +70,7 @@ def unshuffle_tokens(x: torch.Tensor, perm: torch.Tensor) -> torch.Tensor:
     return torch.gather(x, 1, inverse.unsqueeze(-1).expand(-1, -1, x.shape[-1]))
 
 
-def group_into_subgraphs(
-    x: torch.Tensor, subgraph_size: int
-) -> tuple[torch.Tensor, int, int]:
+def group_into_subgraphs(x: torch.Tensor, subgraph_size: int) -> tuple[torch.Tensor, int, int]:
     """Partition tokens into zero-padded fixed-size subgraph groups.
 
     Args:
@@ -104,9 +100,7 @@ def group_into_subgraphs(
     return grouped, num_groups, length
 
 
-def ungroup_subgraphs(
-    x: torch.Tensor, num_groups: int, orig_length: int, subgraph_size: int
-) -> torch.Tensor:
+def ungroup_subgraphs(x: torch.Tensor, num_groups: int, orig_length: int, subgraph_size: int) -> torch.Tensor:
     """Invert :func:`group_into_subgraphs`, dropping any padding tokens."""
     if orig_length <= subgraph_size:
         return x

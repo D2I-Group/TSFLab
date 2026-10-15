@@ -125,7 +125,7 @@ class PeriodModulatedAttention(nn.Module):
         batch, count, width = tokens.shape
         qkv = self.qkv(tokens).view(batch, count, self.heads, 3 * self.head_width)
         query, key, value = (part.transpose(1, 2) for part in qkv.chunk(3, dim=-1))
-        scores = query @ key.transpose(-1, -2) * self.head_width ** -0.5
+        scores = query @ key.transpose(-1, -2) * self.head_width**-0.5
         weights = (scores + self.modulator().log()).softmax(-1)
         attended = (weights @ value).transpose(1, 2).reshape(batch, count, width)
         return self.output(attended)
@@ -147,9 +147,18 @@ class MoFoLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 d_model: int = 64, periodic: int = 24, head: int = 4,
-                 d_layers: int = 1, bias: int = 1, cias: int = 1) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        periodic: int = 24,
+        head: int = 4,
+        d_layers: int = 1,
+        bias: int = 1,
+        cias: int = 1,
+    ) -> None:
         super().__init__()
         if seq_len < periodic:
             raise ValueError(

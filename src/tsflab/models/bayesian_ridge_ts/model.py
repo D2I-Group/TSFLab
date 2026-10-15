@@ -22,9 +22,7 @@ class Model(nn.Module):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.projection = nn.Linear(seq_len, pred_len)
-        self.log_weight_precision = nn.Parameter(
-            torch.tensor(math.log(math.expm1(initial_weight_precision)))
-        )
+        self.log_weight_precision = nn.Parameter(torch.tensor(math.log(math.expm1(initial_weight_precision))))
         self.aux_loss: torch.Tensor | None = None
 
     @property

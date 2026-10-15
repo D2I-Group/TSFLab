@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 import matplotlib
 import numpy as np
 
 
-def _select_indices(
-    dataset_len: int, num_samples: int, index: int | None, seed: int | None
-) -> list[int]:
+def _select_indices(dataset_len: int, num_samples: int, index: int | None, seed: int | None) -> list[int]:
     if dataset_len <= 0:
         return []
     if index is not None:
@@ -39,9 +37,7 @@ def _parse_channels(channels: str | None, total_channels: int) -> list[int]:
     indices = [int(token) for token in tokens]
     for idx in indices:
         if idx < 0 or idx >= total_channels:
-            raise ValueError(
-                f"channel index {idx} is out of range (0-{total_channels - 1})"
-            )
+            raise ValueError(f"channel index {idx} is out of range (0-{total_channels - 1})")
     return indices
 
 
@@ -53,8 +49,17 @@ def _title_parts(config, split: str, sample_index: int, dataset) -> Iterable[str
         yield f"period={getattr(dataset, 'period')}"
 
 
-def plot_samples(config, split: str, save_path, *, num_samples: int = 3, index: int | None = None,
-                 channels: str = "all", seed: int | None = None, show: bool = False) -> None:
+def plot_samples(
+    config,
+    split: str,
+    save_path,
+    *,
+    num_samples: int = 3,
+    index: int | None = None,
+    channels: str = "all",
+    seed: int | None = None,
+    show: bool = False,
+) -> None:
     """Plot input and target windows of one split (``tsf data analyze --plot``) to ``save_path``."""
     from tsflab.cli.commands.dataset_characteristics import _build_dataset_for_inspect
 
@@ -85,7 +90,7 @@ def _plot_window(ax, dataset, sample_index: int, channels: str) -> None:
     input_series, output_series, _, _ = dataset[sample_index]
     input_arr = _normalize_series(input_series)
     output_arr = _normalize_series(output_series)
-    full_arr = np.concatenate([input_arr, output_arr[dataset.label_len:]], axis=0)
+    full_arr = np.concatenate([input_arr, output_arr[dataset.label_len :]], axis=0)
     t = np.arange(full_arr.shape[0])
     for ch in _parse_channels(channels, full_arr.shape[1]):
         ax.plot(t, full_arr[:, ch], label=f"ch{ch}")

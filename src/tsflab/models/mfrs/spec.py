@@ -66,9 +66,7 @@ def _training_series(train_loader, enc_in: int) -> torch.Tensor:
     for batch in train_loader:
         x, x_mark = torch.as_tensor(batch[0]).float(), batch[2]
         if x_mark is None or not bool((torch.as_tensor(x_mark)[..., 0] > 0).all()):
-            raise ValueError(
-                "MFRS needs a series-backed training dataset or dated windows to fit its patterns"
-            )
+            raise ValueError("MFRS needs a series-backed training dataset or dated windows to fit its patterns")
         starts.append(stamp_minutes(torch.as_tensor(x_mark)[:, 0]))
         rows.append(x[:, 0])
     order = torch.cat(starts).argsort()

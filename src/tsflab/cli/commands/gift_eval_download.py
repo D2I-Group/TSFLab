@@ -22,10 +22,10 @@ work out of the box.
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_option
 import os
 import sys
+
+from tsflab.cli.args import add_option
 
 # All 55 dataset/freq combinations in GIFT-EVAL
 ALL_DATASETS = [
@@ -145,8 +145,7 @@ def _make_symlink(output_dir: str) -> None:
         os.remove(link)
     elif os.path.exists(link):
         print(
-            f"Warning: {link} exists and is not a symlink. "
-            "Skipping symlink creation.",
+            f"Warning: {link} exists and is not a symlink. Skipping symlink creation.",
             file=sys.stderr,
         )
         return
@@ -156,18 +155,24 @@ def _make_symlink(output_dir: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="tsf data prepare --from gift-eval",
+    parser = argparse.ArgumentParser(
+        prog="tsf data prepare --from gift-eval",
         description="Download GIFT-EVAL datasets and symlink into the project.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    add_option(parser, "--out", "output_dir", "--output-dir", default=DEFAULT_OUTPUT,
-               help=f"Download destination (default: {DEFAULT_OUTPUT}).")
+    add_option(
+        parser,
+        "--out",
+        "output_dir",
+        "--output-dir",
+        default=DEFAULT_OUTPUT,
+        help=f"Download destination (default: {DEFAULT_OUTPUT}).",
+    )
     parser.add_argument(
         "--datasets",
         nargs="*",
         default=None,
-        help="Specific datasets to download (e.g. electricity/15T m4_monthly). "
-        "Omit to download all 55.",
+        help="Specific datasets to download (e.g. electricity/15T m4_monthly). Omit to download all 55.",
     )
     parser.add_argument(
         "--link-only",

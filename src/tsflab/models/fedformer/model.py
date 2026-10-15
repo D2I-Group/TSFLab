@@ -35,25 +35,17 @@ class FrequencyEnhancedBlock(nn.Module):
         count = len(indices)
         scale = 1.0 / max(1, self.head_dim)
         self.input_projection = nn.Linear(d_model, d_model)
-        self.weight_real = nn.Parameter(
-            scale * torch.randn(n_heads, count, self.head_dim, self.head_dim)
-        )
-        self.weight_imag = nn.Parameter(
-            scale * torch.randn(n_heads, count, self.head_dim, self.head_dim)
-        )
+        self.weight_real = nn.Parameter(scale * torch.randn(n_heads, count, self.head_dim, self.head_dim))
+        self.weight_imag = nn.Parameter(scale * torch.randn(n_heads, count, self.head_dim, self.head_dim))
         self.output_projection = nn.Linear(d_model, d_model)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         batch, length, width = values.shape
-        projected = self.input_projection(values).view(
-            batch, length, self.n_heads, self.head_dim
-        )
+        projected = self.input_projection(values).view(batch, length, self.n_heads, self.head_dim)
         spectrum = torch.fft.rfft(projected, dim=1)
         indices = self.mode_indices[self.mode_indices < spectrum.shape[1]]
         selected = spectrum[:, indices]
-        weight = torch.complex(
-            self.weight_real[:, : len(indices)], self.weight_imag[:, : len(indices)]
-        )
+        weight = torch.complex(self.weight_real[:, : len(indices)], self.weight_imag[:, : len(indices)])
         transformed = torch.einsum("bmhi,hmio->bmho", selected, weight)
         output_spectrum = torch.zeros_like(spectrum)
         output_spectrum[:, indices] = transformed
@@ -64,16 +56,14 @@ class FrequencyEnhancedBlock(nn.Module):
 class FrequencyEnhancedAttention(nn.Module):
     """Paper equations (6)-(7): cross-attention in selected Fourier modes."""
 
-    def __init__(self, d_model: int, n_heads: int, query_length: int, key_length: int, modes: int, mode_select: str) -> None:
+    def __init__(
+        self, d_model: int, n_heads: int, query_length: int, key_length: int, modes: int, mode_select: str
+    ) -> None:
         super().__init__()
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
-        self.register_buffer(
-            "query_modes", selected_modes(query_length, modes, mode_select), persistent=True
-        )
-        self.register_buffer(
-            "key_modes", selected_modes(key_length, modes, mode_select), persistent=True
-        )
+        self.register_buffer("query_modes", selected_modes(query_length, modes, mode_select), persistent=True)
+        self.register_buffer("key_modes", selected_modes(key_length, modes, mode_select), persistent=True)
         self.query = nn.Linear(d_model, d_model)
         self.key = nn.Linear(d_model, d_model)
         self.value = nn.Linear(d_model, d_model)
@@ -94,13 +84,9 @@ class FrequencyEnhancedAttention(nn.Module):
         selected_q = q_frequency[:, q_indices]
         selected_k = k_frequency[:, k_indices]
         selected_v = v_frequency[:, k_indices]
-        scores = torch.einsum(
-            "bmhd,bnhd->bhmn", selected_q, torch.conj(selected_k)
-        ).real / math.sqrt(self.head_dim)
+        scores = torch.einsum("bmhd,bnhd->bhmn", selected_q, torch.conj(selected_k)).real / math.sqrt(self.head_dim)
         weights = torch.tanh(scores)
-        mixed = torch.einsum(
-            "bhmn,bnhd->bmhd", weights.to(selected_v.dtype), selected_v
-        )
+        mixed = torch.einsum("bhmn,bnhd->bmhd", weights.to(selected_v.dtype), selected_v)
         mixed = mixed / max(1, len(k_indices))
         output_spectrum = torch.zeros_like(q_frequency)
         output_spectrum[:, q_indices] = mixed
@@ -110,19 +96,53 @@ class FrequencyEnhancedAttention(nn.Module):
 
 
 class FEDformerEncoderLayer(DecompositionEncoderLayer):
-    def __init__(self, d_model: int, n_heads: int, length: int, modes: int, mode_select: str, d_ff: int, moving_avg: int, dropout: float, activation: str) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        length: int,
+        modes: int,
+        mode_select: str,
+        d_ff: int,
+        moving_avg: int,
+        dropout: float,
+        activation: str,
+    ) -> None:
         super().__init__(
             FrequencyEnhancedBlock(d_model, n_heads, length, modes, mode_select),
-            d_model, d_ff, moving_avg, dropout, activation, mixer_name="frequency_block",
+            d_model,
+            d_ff,
+            moving_avg,
+            dropout,
+            activation,
+            mixer_name="frequency_block",
         )
 
 
 class FEDformerDecoderLayer(DecompositionDecoderLayer):
-    def __init__(self, d_model: int, n_heads: int, query_length: int, key_length: int, modes: int, mode_select: str, d_ff: int, moving_avg: int, dropout: float, activation: str, c_out: int) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        query_length: int,
+        key_length: int,
+        modes: int,
+        mode_select: str,
+        d_ff: int,
+        moving_avg: int,
+        dropout: float,
+        activation: str,
+        c_out: int,
+    ) -> None:
         super().__init__(
             FrequencyEnhancedBlock(d_model, n_heads, query_length, modes, mode_select),
             FrequencyEnhancedAttention(d_model, n_heads, query_length, key_length, modes, mode_select),
-            d_model, d_ff, moving_avg, dropout, activation, c_out,
+            d_model,
+            d_ff,
+            moving_avg,
+            dropout,
+            activation,
+            c_out,
             mixer_names=("self_frequency", "cross_frequency"),
         )
 
@@ -130,7 +150,25 @@ class FEDformerDecoderLayer(DecompositionDecoderLayer):
 class Model(nn.Module):
     """Forecast-only Fourier FEDformer with progressive decomposition."""
 
-    def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int, d_model: int, n_heads: int, e_layers: int, d_layers: int, d_ff: int, moving_avg: int, dropout: float, activation: str = "gelu", mode_select: str = "random", modes: int = 32) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        label_len: int,
+        pred_len: int,
+        enc_in: int,
+        dec_in: int,
+        c_out: int,
+        d_model: int,
+        n_heads: int,
+        e_layers: int,
+        d_layers: int,
+        d_ff: int,
+        moving_avg: int,
+        dropout: float,
+        activation: str = "gelu",
+        mode_select: str = "random",
+        modes: int = 32,
+    ) -> None:
         super().__init__()
         if label_len > seq_len:
             raise ValueError("label_len must not exceed seq_len")
@@ -142,15 +180,33 @@ class Model(nn.Module):
         self.decomposition = SeriesDecomposition(moving_avg)
         self.encoder_embedding = ForecastEmbedding(enc_in, d_model, dropout)
         self.decoder_embedding = ForecastEmbedding(dec_in, d_model, dropout)
-        self.encoder = nn.ModuleList([
-            FEDformerEncoderLayer(d_model, n_heads, seq_len, modes, mode_select, d_ff, moving_avg, dropout, activation)
-            for _ in range(e_layers)
-        ])
+        self.encoder = nn.ModuleList(
+            [
+                FEDformerEncoderLayer(
+                    d_model, n_heads, seq_len, modes, mode_select, d_ff, moving_avg, dropout, activation
+                )
+                for _ in range(e_layers)
+            ]
+        )
         self.encoder_norm = nn.LayerNorm(d_model)
-        self.decoder = nn.ModuleList([
-            FEDformerDecoderLayer(d_model, n_heads, decoder_length, seq_len, modes, mode_select, d_ff, moving_avg, dropout, activation, c_out)
-            for _ in range(d_layers)
-        ])
+        self.decoder = nn.ModuleList(
+            [
+                FEDformerDecoderLayer(
+                    d_model,
+                    n_heads,
+                    decoder_length,
+                    seq_len,
+                    modes,
+                    mode_select,
+                    d_ff,
+                    moving_avg,
+                    dropout,
+                    activation,
+                    c_out,
+                )
+                for _ in range(d_layers)
+            ]
+        )
         self.decoder_norm = nn.LayerNorm(d_model)
         self.seasonal_projection = nn.Linear(d_model, c_out)
 

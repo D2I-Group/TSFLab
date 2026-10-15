@@ -31,6 +31,6 @@ def time_marks(index: pd.DatetimeIndex) -> np.ndarray:
 
     Same layout as the CSV loaders' ``_build_time_stamp`` (raw integers).
     """
-    return np.column_stack(
-        [index.year, index.month, index.day, index.dayofweek, index.hour, index.minute]
-    ).astype(np.float32)
+    return np.column_stack([index.year, index.month, index.day, index.dayofweek, index.hour, index.minute]).astype(
+        np.float32
+    )

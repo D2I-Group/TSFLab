@@ -1,8 +1,9 @@
 """Runtime specification for MLPForecasterTS."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.mlp_forecaster_ts.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

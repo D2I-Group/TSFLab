@@ -48,15 +48,15 @@ class SpatialTemporalAttention(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         batch, steps, nodes, features = x.shape
         node_view = x.permute(0, 2, 1, 3).reshape(batch, nodes, steps * features)
-        spatial = torch.matmul(
-            self.spatial_query(node_view), self.spatial_key(node_view).transpose(-1, -2)
-        ) / self.scale
+        spatial = (
+            torch.matmul(self.spatial_query(node_view), self.spatial_key(node_view).transpose(-1, -2)) / self.scale
+        )
         spatial = torch.softmax(spatial + self.spatial_bias, dim=-1)
 
         time_view = x.reshape(batch, steps, nodes * features)
-        temporal = torch.matmul(
-            self.temporal_query(time_view), self.temporal_key(time_view).transpose(-1, -2)
-        ) / self.scale
+        temporal = (
+            torch.matmul(self.temporal_query(time_view), self.temporal_key(time_view).transpose(-1, -2)) / self.scale
+        )
         temporal = torch.softmax(temporal + self.temporal_bias, dim=-1)
         return spatial, temporal
 
@@ -94,9 +94,7 @@ class ASTGCNBlock(nn.Module):
     ) -> None:
         super().__init__()
         self.attention = SpatialTemporalAttention(seq_len, num_nodes, input_dim)
-        self.graph_convolution = AttentionChebyshevConvolution(
-            supports, input_dim, graph_dim
-        )
+        self.graph_convolution = AttentionChebyshevConvolution(supports, input_dim, graph_dim)
         self.time_filter = nn.Conv2d(graph_dim, time_dim, (1, 3), padding=(0, 1))
         self.time_gate = nn.Conv2d(graph_dim, time_dim, (1, 3), padding=(0, 1))
         self.residual = nn.Linear(input_dim, time_dim)
@@ -146,8 +144,12 @@ class Model(nn.Module):
         for _ in range(nb_block):
             blocks.append(
                 ASTGCNBlock(
-                    seq_len, enc_in, width, nb_chev_filter,
-                    nb_time_filter, supports,
+                    seq_len,
+                    enc_in,
+                    width,
+                    nb_chev_filter,
+                    nb_time_filter,
+                    supports,
                 )
             )
             width = nb_time_filter

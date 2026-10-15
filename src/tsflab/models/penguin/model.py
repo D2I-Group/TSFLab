@@ -31,8 +31,13 @@ class PeriodicNestedGroupAttention(nn.Module):
     """
 
     def __init__(
-        self, d_model: int, n_heads: int, periods: Sequence[int] | None, dropout: float,
-        alibi: bool, causal: bool,
+        self,
+        d_model: int,
+        n_heads: int,
+        periods: Sequence[int] | None,
+        dropout: float,
+        alibi: bool,
+        causal: bool,
     ) -> None:
         super().__init__()
         self.periods = tuple(periods) if periods else None
@@ -67,8 +72,16 @@ class EncoderLayer(nn.Module):
     """Attention and feed-forward sub-layers, each followed by residual add and norm."""
 
     def __init__(
-        self, d_model: int, d_ff: int, n_heads: int, periods: Sequence[int] | None, dropout: float,
-        activation: str, use_rmsnorm: bool, alibi: bool, causal: bool,
+        self,
+        d_model: int,
+        d_ff: int,
+        n_heads: int,
+        periods: Sequence[int] | None,
+        dropout: float,
+        activation: str,
+        use_rmsnorm: bool,
+        alibi: bool,
+        causal: bool,
     ) -> None:
         super().__init__()
         self.attention = PeriodicNestedGroupAttention(d_model, n_heads, periods, dropout, alibi, causal)

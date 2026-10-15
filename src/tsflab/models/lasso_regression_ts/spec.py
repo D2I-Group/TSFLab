@@ -1,8 +1,9 @@
 """Runtime specification for LassoRegressionTS."""
 
+from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.lasso_regression_ts.model import Model
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

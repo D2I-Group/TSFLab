@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.pyraformer.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -19,7 +19,7 @@ class ModelParameterConfig(BaseModel):
     inner_size: int = Field(default=5, gt=0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if not self.window_size or any(factor < 2 for factor in self.window_size):

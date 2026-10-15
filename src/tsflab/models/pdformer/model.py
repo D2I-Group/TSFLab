@@ -44,7 +44,7 @@ def laplacian_eigenvectors(adjacency: np.ndarray, count: int) -> np.ndarray:
     symmetric = np.maximum(adjacency, adjacency.T)
     isolated = int((symmetric.sum(axis=1) == 0).sum())
     _, vectors = np.linalg.eigh(symmetric_normalized_laplacian(symmetric))
-    chosen = vectors[:, isolated + 1: isolated + 1 + count]
+    chosen = vectors[:, isolated + 1 : isolated + 1 + count]
     out = np.zeros((adjacency.shape[0], count), dtype=np.float32)
     out[:, : chosen.shape[1]] = chosen
     return out
@@ -75,8 +75,8 @@ def dtw_distance_matrix(profiles: torch.Tensor, chunk: int = 32768) -> torch.Ten
     out = profiles.new_zeros(nodes, nodes)
     positions = torch.arange(length + 1)
     for begin in range(0, rows.numel(), chunk):
-        left = profiles[rows[begin:begin + chunk]]
-        right = profiles[cols[begin:begin + chunk]]
+        left = profiles[rows[begin : begin + chunk]]
+        right = profiles[cols[begin : begin + chunk]]
         pairs = left.shape[0]
         infinite = torch.full((pairs, length + 1), math.inf, dtype=profiles.dtype)
         two_back, one_back = infinite.clone(), infinite.clone()
@@ -84,13 +84,12 @@ def dtw_distance_matrix(profiles: torch.Tensor, chunk: int = 32768) -> torch.Ten
         for diagonal in range(2, 2 * length + 1):
             column = diagonal - positions
             valid = (positions >= 1) & (column >= 1) & (column <= length)
-            cost = (left[:, (positions - 1).clamp(0, length - 1)]
-                    - right[:, (column - 1).clamp(0, length - 1)]).abs()
+            cost = (left[:, (positions - 1).clamp(0, length - 1)] - right[:, (column - 1).clamp(0, length - 1)]).abs()
             from_above = torch.cat((infinite[:, :1], one_back[:, :-1]), dim=1)
             from_corner = torch.cat((infinite[:, :1], two_back[:, :-1]), dim=1)
             best = torch.minimum(torch.minimum(from_above, one_back), from_corner)
             two_back, one_back = one_back, torch.where(valid, cost + best, infinite)
-        out[rows[begin:begin + chunk], cols[begin:begin + chunk]] = one_back[:, length]
+        out[rows[begin : begin + chunk], cols[begin : begin + chunk]] = one_back[:, length]
     return out + out.transpose(0, 1)
 
 
@@ -133,12 +132,13 @@ def _kshape_run(data, clusters, iterations, generator, chunk):
     centering = torch.eye(length, dtype=data.dtype) - 1.0 / length
 
     def assign(centroids):
-        distances = torch.cat([_shape_based_distance(data[i:i + chunk], centroids)[0]
-                               for i in range(0, count, chunk)])
+        distances = torch.cat(
+            [_shape_based_distance(data[i : i + chunk], centroids)[0] for i in range(0, count, chunk)]
+        )
         best, labels = distances.min(dim=-1)
         if torch.bincount(labels, minlength=clusters).min() == 0:
             raise _EmptyCluster
-        return labels, float((best ** 2).mean())
+        return labels, float((best**2).mean())
 
     centroids = data[torch.randint(0, count, (clusters,), generator=generator)].clone()
     labels, _ = assign(centroids)
@@ -148,7 +148,7 @@ def _kshape_run(data, clusters, iterations, generator, chunk):
         updated = torch.empty_like(centroids)
         for k in range(clusters):
             members = data[labels == k]
-            _, shift = _shape_based_distance(members, previous[k:k + 1])
+            _, shift = _shape_based_distance(members, previous[k : k + 1])
             members = _align(members, shift[:, 0])
             scatter = centering.T @ (members.T @ members) @ centering
             candidate = torch.linalg.eigh(scatter)[1][:, -1]
@@ -163,8 +163,9 @@ def _kshape_run(data, clusters, iterations, generator, chunk):
     return centroids
 
 
-def kshape_centroids(series: torch.Tensor, clusters: int, iterations: int, seed: int = 0,
-                     chunk: int = 131072, attempts: int = 10) -> torch.Tensor:
+def kshape_centroids(
+    series: torch.Tensor, clusters: int, iterations: int, seed: int = 0, chunk: int = 131072, attempts: int = 10
+) -> torch.Tensor:
     """k-Shape clustering (Paparrizos & Gravano) of ``[M, S]`` series as configured upstream.
 
     Like the pinned tslearn 0.5.2 ``KShape``: inputs are used as given (not z-normalized),
@@ -207,7 +208,7 @@ class SpatialTemporalAttention(nn.Module):
         heads = geo_heads + sem_heads + t_heads
         self.head_width = width // heads
         self.heads = {"t": t_heads, "geo": geo_heads, "sem": sem_heads}
-        self.scale = self.head_width ** -0.5
+        self.scale = self.head_width**-0.5
         widths = {name: count * self.head_width for name, count in self.heads.items()}
         self.query = nn.ModuleDict({n: nn.Linear(width, w, bias=qkv_bias) for n, w in widths.items()})
         self.key = nn.ModuleDict({n: nn.Linear(width, w, bias=qkv_bias) for n, w in widths.items()})
@@ -236,33 +237,34 @@ class SpatialTemporalAttention(nn.Module):
     def forward(self, x, recent_patterns, pattern_keys, geo_blocked, sem_blocked):
         # x: [B, T, N, d]; recent_patterns: [B, T, N, d]; pattern_keys: [P, d]
         by_node = x.transpose(1, 2)  # [B, N, T, d]
-        temporal = self._attend(self.query["t"](by_node), self.key["t"](by_node),
-                                self.value["t"](by_node), self.heads["t"]).transpose(1, 2)
+        temporal = self._attend(
+            self.query["t"](by_node), self.key["t"](by_node), self.value["t"](by_node), self.heads["t"]
+        ).transpose(1, 2)
 
-        pattern_scores = torch.matmul(self.pattern_query(recent_patterns),
-                                      self.pattern_key(pattern_keys).T) * self.scale
+        pattern_scores = (
+            torch.matmul(self.pattern_query(recent_patterns), self.pattern_key(pattern_keys).T) * self.scale
+        )
         delay = torch.matmul(pattern_scores.softmax(dim=-1), self.pattern_value(pattern_keys))
         geo_keys = self.key["geo"](x) + delay
-        geographic = self._attend(self.query["geo"](x), geo_keys, self.value["geo"](x),
-                                  self.heads["geo"], geo_blocked)
-        semantic = self._attend(self.query["sem"](x), self.key["sem"](x), self.value["sem"](x),
-                                self.heads["sem"], sem_blocked)
+        geographic = self._attend(self.query["geo"](x), geo_keys, self.value["geo"](x), self.heads["geo"], geo_blocked)
+        semantic = self._attend(
+            self.query["sem"](x), self.key["sem"](x), self.value["sem"](x), self.heads["sem"], sem_blocked
+        )
         mixed = self.projection(torch.cat((temporal, geographic, semantic), dim=-1))
         return self.projection_dropout(mixed)
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, width, geo_heads, sem_heads, t_heads, mlp_ratio, qkv_bias, drop,
-                 attn_drop, drop_path, pre_norm):
+    def __init__(self, width, geo_heads, sem_heads, t_heads, mlp_ratio, qkv_bias, drop, attn_drop, drop_path, pre_norm):
         super().__init__()
         self.pre_norm = pre_norm
         self.norm1 = nn.LayerNorm(width, eps=1e-6)
         self.norm2 = nn.LayerNorm(width, eps=1e-6)
-        self.attention = SpatialTemporalAttention(width, geo_heads, sem_heads, t_heads,
-                                                  qkv_bias, attn_drop, drop)
+        self.attention = SpatialTemporalAttention(width, geo_heads, sem_heads, t_heads, qkv_bias, attn_drop, drop)
         hidden = int(width * mlp_ratio)
-        self.mlp = nn.Sequential(nn.Linear(width, hidden), nn.GELU(), nn.Dropout(drop),
-                                 nn.Linear(hidden, width), nn.Dropout(drop))
+        self.mlp = nn.Sequential(
+            nn.Linear(width, hidden), nn.GELU(), nn.Dropout(drop), nn.Linear(hidden, width), nn.Dropout(drop)
+        )
         self.drop_path = DropPath(drop_path)
 
     def forward(self, x, patterns, keys, geo_blocked, sem_blocked):
@@ -344,11 +346,23 @@ class Model(nn.Module):
         self.embedding_dropout = nn.Dropout(drop)
         self.pattern_embedding = nn.Linear(s_attn_size, embed_dim)
         rates = torch.linspace(0, drop_path, enc_depth).tolist()
-        self.blocks = nn.ModuleList([
-            EncoderBlock(embed_dim, geo_num_heads, sem_num_heads, t_num_heads, mlp_ratio, qkv_bias,
-                         drop, attn_drop, rates[i], pre_norm)
-            for i in range(enc_depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                EncoderBlock(
+                    embed_dim,
+                    geo_num_heads,
+                    sem_num_heads,
+                    t_num_heads,
+                    mlp_ratio,
+                    qkv_bias,
+                    drop,
+                    attn_drop,
+                    rates[i],
+                    pre_norm,
+                )
+                for i in range(enc_depth)
+            ]
+        )
         self.skip_convs = nn.ModuleList([nn.Linear(embed_dim, skip_dim) for _ in range(enc_depth)])
         self.time_conv = nn.Conv2d(seq_len, pred_len, kernel_size=1)  # Conv1 of Eq. 16
         self.output_conv = nn.Linear(skip_dim, 1)  # Conv2 of Eq. 16

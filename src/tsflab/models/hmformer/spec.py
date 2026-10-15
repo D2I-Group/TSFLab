@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.hmformer.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,7 +19,7 @@ class ModelParameterConfig(BaseModel):
     num_heads: int = Field(default=4, gt=0)
 
     @model_validator(mode="after")
-    def _even_head_dimension(self) -> "ModelParameterConfig":
+    def _even_head_dimension(self) -> ModelParameterConfig:
         # Every scale doubles d_model, so the first scale's heads decide the rule.
         if self.d_model % self.num_heads or (self.d_model // self.num_heads) % 2:
             raise ValueError("each attention head must have a positive even dimension")

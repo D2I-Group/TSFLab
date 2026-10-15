@@ -3,6 +3,7 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.micn.model import Model
 

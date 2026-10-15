@@ -126,9 +126,7 @@ class VariableSelection(nn.Module):
     def forward(self, tokens: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """``tokens [N, positions, width] -> (g [N, hidden], weights [N, positions])``."""
         weights = torch.softmax(self.selector(tokens.flatten(1)), dim=-1)
-        encoded = torch.stack(
-            [grn(tokens[:, index]) for index, grn in enumerate(self.position_grns)], dim=1
-        )
+        encoded = torch.stack([grn(tokens[:, index]) for index, grn in enumerate(self.position_grns)], dim=1)
         return (encoded * weights.unsqueeze(-1)).sum(1), weights
 
 
@@ -202,9 +200,7 @@ class Model(nn.Module):
         self.conv = nn.Conv1d(1, d_model, conv_kernel)
         self.position = PositionalEmbedding(d_model, max_len=positions)
         self.pos_dropout = nn.Dropout(pos_dropout)
-        self.layers = nn.ModuleList(
-            EncoderLayer(d_model, n_heads, d_k, d_ff) for _ in range(e_layers)
-        )
+        self.layers = nn.ModuleList(EncoderLayer(d_model, n_heads, d_k, d_ff) for _ in range(e_layers))
         self.selection = VariableSelection(d_model, positions, grn_hidden, dropout)
 
         # Probability pattern classifier (Sec. III-C) and relative prediction (Sec. III-D),
@@ -227,9 +223,7 @@ class Model(nn.Module):
         """Eqs. (1)-(2) per channel on the training series ``[T, C]``."""
         if series.ndim != 2 or series.shape[1] != self.enc_in:
             raise ValueError(f"expected a [T, {self.enc_in}] training series")
-        edges = torch.stack(
-            [group_edges(series[:, c], self.num_groups) for c in range(self.enc_in)]
-        )
+        edges = torch.stack([group_edges(series[:, c], self.num_groups) for c in range(self.enc_in)])
         self.edges.copy_(edges.to(self.edges))
 
     def extract(self, x_enc: torch.Tensor) -> torch.Tensor:
@@ -304,6 +298,4 @@ class Model(nn.Module):
             member = flat_labels == group
             if bool(member.any()):
                 loss_reg = loss_reg + squared[member].mean()
-        return (
-            self.lambda_conf * loss_conf + self.lambda_cls * loss_cls + self.lambda_reg * loss_reg
-        )
+        return self.lambda_conf * loss_conf + self.lambda_cls * loss_cls + self.lambda_reg * loss_reg

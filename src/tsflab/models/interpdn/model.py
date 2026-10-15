@@ -62,9 +62,7 @@ class Model(nn.Module):
         first, second = _normal_support(support_size, support_bound)
         self.register_buffer("support_first", first)
         self.register_buffer("support_second", second)
-        self.branches = nn.ModuleList(
-            [DistributionBranch(seq_len, pred_len, support_size) for _ in range(2)]
-        )
+        self.branches = nn.ModuleList([DistributionBranch(seq_len, pred_len, support_size) for _ in range(2)])
         self.last_probabilities: tuple[torch.Tensor, torch.Tensor] | None = None
 
     def _ema(self, x: torch.Tensor) -> torch.Tensor:

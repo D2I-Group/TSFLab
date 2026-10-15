@@ -10,8 +10,8 @@ from tsflab.research.rounds import (
     EVENT_KINDS,
     STATUSES,
     add_event,
-    create_round,
     claim_iteration,
+    create_round,
     list_rounds,
     load_round,
     read_events,
@@ -67,8 +67,15 @@ def research_command(rest: list[str]) -> int:
     screen.add_argument("--baseline", nargs="+", required=True, metavar="RUN_DIR")
     screen.add_argument("--candidate", nargs="+", required=True, metavar="RUN_DIR")
     screen.add_argument("--metric", choices=("mse", "mae"), default="mse")
-    screen.add_argument("--min-improvement", type=float, default=0.0, help="Required relative reduction, strict at every matched seed/horizon")
-    screen.add_argument("--stop-on-fail", action="store_true", help="Close the round when the task's stopping condition applies")
+    screen.add_argument(
+        "--min-improvement",
+        type=float,
+        default=0.0,
+        help="Required relative reduction, strict at every matched seed/horizon",
+    )
+    screen.add_argument(
+        "--stop-on-fail", action="store_true", help="Close the round when the task's stopping condition applies"
+    )
 
     for action, sub in subparsers.choices.items():
         if action != "list":  # these always print JSON; --json is accepted for uniformity
@@ -77,8 +84,13 @@ def research_command(rest: list[str]) -> int:
     try:
         if args.action == "start":
             from tsflab.experiments.infra.policy import load_policy
+
             policy = load_policy(args.policy) if args.policy else None
-            budget = policy.budget.model_dump(exclude_none=True, exclude_unset=True, exclude={"auto_parallel"}) if policy else {}
+            budget = (
+                policy.budget.model_dump(exclude_none=True, exclude_unset=True, exclude={"auto_parallel"})
+                if policy
+                else {}
+            )
             if policy and policy.budget.auto_parallel:
                 budget.pop("max_parallel_jobs", None)
             if args.max_iterations is not None:
@@ -96,12 +108,19 @@ def research_command(rest: list[str]) -> int:
             )
         elif args.action == "reference":
             from tsflab.research.screening import register_references
+
             _print(register_references(args.round_id, args.directories))
         elif args.action == "screen":
             from tsflab.research.screening import screen_candidate
-            result = screen_candidate(args.round_id, args.baseline, args.candidate,
-                                      metric=args.metric, min_improvement=args.min_improvement,
-                                      stop_on_fail=args.stop_on_fail)
+
+            result = screen_candidate(
+                args.round_id,
+                args.baseline,
+                args.candidate,
+                metric=args.metric,
+                min_improvement=args.min_improvement,
+                stop_on_fail=args.stop_on_fail,
+            )
             _print(result)
             return 0  # A valid no-winner screen is a scientific outcome, not a CLI error.
         elif args.action == "iteration":
@@ -113,10 +132,7 @@ def research_command(rest: list[str]) -> int:
             else:
                 for record in records:
                     limit = record["max_runs"] if record["max_runs"] is not None else "unlimited"
-                    print(
-                        f"{record['id']}  {record['status']:<9} "
-                        f"runs={record['runs_used']}/{limit}  {record['task']}"
-                    )
+                    print(f"{record['id']}  {record['status']:<9} runs={record['runs_used']}/{limit}  {record['task']}")
         elif args.action == "show":
             _print({"round": load_round(args.round_id), "events": read_events(args.round_id)})
         elif args.action == "note":

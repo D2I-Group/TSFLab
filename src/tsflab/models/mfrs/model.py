@@ -33,8 +33,13 @@ WAVEFORMS = ("sine", "sawtooth", "rectangle", "pulse")
 
 def informative_marks(marks: torch.Tensor | None, length: int) -> bool:
     """Marks carry real dates (a year is set) and at least two steps exist."""
-    return marks is not None and marks.ndim == 3 and marks.shape[-1] == 6 and length > 1 \
+    return (
+        marks is not None
+        and marks.ndim == 3
+        and marks.shape[-1] == 6
+        and length > 1
         and bool((marks[..., 0] > 0).all())
+    )
 
 
 # ------------------------------------------------------------- base patterns
@@ -76,15 +81,16 @@ def primary_base_patterns(spectrum: torch.Tensor, length: int, max_period: int) 
     psi = period_spectrum(spectrum, length, max_period)
     found = []
     for period in range(2, (psi.shape[0] - 1) // 2 + 1):
-        window = psi[1:2 * period + 1]
+        window = psi[1 : 2 * period + 1]
         if window.max() > 0 and int(window.argmax()) + 1 == period:
             found.append(period)
-            psi[1:2 * period + 1] = 0.0
+            psi[1 : 2 * period + 1] = 0.0
     return found
 
 
-def harmonic_base_patterns(spectra: torch.Tensor, length: int, primaries: list[int],
-                           count: int) -> list[tuple[int, int]]:
+def harmonic_base_patterns(
+    spectra: torch.Tensor, length: int, primaries: list[int], count: int
+) -> list[tuple[int, int]]:
     """Algorithm 2: score harmonics ``k f_P^m`` by ``sum_c Phi_c(k f) / Phi_c(f)``, keep the top ``count``.
 
     With periods ascending (``T_1 < ... < T_M``), ``k`` runs to ``floor(T_1 / 2)``
@@ -105,8 +111,9 @@ def harmonic_base_patterns(spectra: torch.Tensor, length: int, primaries: list[i
     return ranked[:count]
 
 
-def reference_waveform(steps: torch.Tensor, period: torch.Tensor, harmonic: torch.Tensor,
-                       waveform: str) -> torch.Tensor:
+def reference_waveform(
+    steps: torch.Tensor, period: torch.Tensor, harmonic: torch.Tensor, waveform: str
+) -> torch.Tensor:
     """Appendix B for integer steps ``t``: one reference value per pattern ``(T, k)``.
 
     ``phase = (t * k) mod T``; sine ``sin(2 pi phase / T)``, sawtooth ``phase``,
@@ -137,9 +144,7 @@ class ReferenceCrossAttentionLayer(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float, activation: str) -> None:
         super().__init__()
-        self.attention = AttentionLayer(
-            FullAttention(mask_flag=False, attention_dropout=dropout), d_model, n_heads
-        )
+        self.attention = AttentionLayer(FullAttention(mask_flag=False, attention_dropout=dropout), d_model, n_heads)
         self.ff1 = nn.Linear(d_model, d_ff)
         self.ff2 = nn.Linear(d_ff, d_model)
         self.norm1 = nn.LayerNorm(d_model)
@@ -209,7 +214,7 @@ class Model(nn.Module):
         self.pattern_period = torch.tensor([p for p, _ in chosen], dtype=torch.long, device=device)
         self.pattern_harmonic = torch.tensor([k for _, k in chosen], dtype=torch.long, device=device)
         span = min(length, int(self.pattern_period.max()) + self.seq_len)
-        self.align_series = series[length - span:].float().to(device)
+        self.align_series = series[length - span :].float().to(device)
         self.align_start = torch.tensor(length - span, dtype=torch.long, device=device)
 
     def _base_patterns(self, series: torch.Tensor) -> list[tuple[int, int]]:

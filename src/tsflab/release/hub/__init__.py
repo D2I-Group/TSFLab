@@ -10,7 +10,6 @@ checkpoints need ``tsflab[hub]``.
 """
 
 from tsflab.release.hub.bundle import bundle_path, find_run, load_manifest, load_state_dict, pack
-from tsflab.release.hub.fetch import default_cache_root, fetch, resolve_url
 from tsflab.release.hub.datasets import (
     DEFAULT_DATASETS_REPO,
     DEFAULT_STATIC_REPO,
@@ -18,6 +17,7 @@ from tsflab.release.hub.datasets import (
     fetch_preset,
     publish_presets,
 )
+from tsflab.release.hub.fetch import default_cache_root, fetch, resolve_url
 from tsflab.release.hub.publish import (
     DEFAULT_CHECKPOINTS_REPO,
     DEFAULT_WEIGHTS_REPO,

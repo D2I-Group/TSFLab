@@ -106,9 +106,7 @@ class AgentTaskTests(unittest.TestCase):
             render_task("autoresearch", {"question": "test", "max_runs": "13"})
 
     def test_intake_is_read_only_by_default_with_a_preimplementation_gate(self) -> None:
-        payload = render_task(
-            "intake", {"paper_url": "https://arxiv.org/abs/1", "model_name": "Example"}
-        )
+        payload = render_task("intake", {"paper_url": "https://arxiv.org/abs/1", "model_name": "Example"})
         self.assertIn("before writing code, confirm", payload["prompt"])
         self.assertIn("Read-only", payload["inputs"]["approval"])
         self.assertEqual(payload["budget"]["max_models"], 1)
@@ -149,8 +147,17 @@ class AgentTaskTests(unittest.TestCase):
 
 
 COMMANDS = {
-    "catalog", "data", "model", "run", "env", "result", "realtime",
-    "research", "repo", "agent", "init",
+    "catalog",
+    "data",
+    "model",
+    "run",
+    "env",
+    "result",
+    "realtime",
+    "research",
+    "repo",
+    "agent",
+    "init",
 }
 
 
@@ -203,7 +210,10 @@ def test_init_scaffolds_selected_modules(tmp_path, monkeypatch) -> None:
     assert "my note" in refreshed and "add-model" in refreshed
     assert (project / ".agents" / "tasks" / "intake.toml").is_file()
     assert tomllib.loads((project / "pyproject.toml").read_text())["tool"]["tsflab"]["modules"] == [
-        "data", "models", "autoresearch"]
+        "data",
+        "models",
+        "autoresearch",
+    ]
 
 
 # ---------------------------------------------------------------------------

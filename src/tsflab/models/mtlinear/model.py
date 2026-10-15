@@ -75,8 +75,7 @@ class Model(nn.Module):
         self.use_horizon_penalty = bool(use_horizon_penalty)
         self.use_variates_penalty = bool(use_variates_penalty)
         self.heads = nn.ModuleList(
-            GroupHead(layer_type, seq_len, pred_len, kernel_size)
-            for _ in range(self.num_groups)
+            GroupHead(layer_type, seq_len, pred_len, kernel_size) for _ in range(self.num_groups)
         )
         # Before ``fit_clusters`` runs the variates are spread round-robin; the
         # trainer fits the data-driven grouping once on the training split.
@@ -127,7 +126,7 @@ class Model(nn.Module):
     def penalty_weights(self, error: torch.Tensor) -> torch.Tensor:
         """Constant ``(H, C)`` weights from absolute errors ``(B, H, C)``, per group."""
         horizon, channels = error.shape[1:]
-        groups = self.group_of[self.enc_in - channels:]
+        groups = self.group_of[self.enc_in - channels :]
         weights = error.new_zeros(horizon, channels)
 
         def inverse(value: torch.Tensor) -> torch.Tensor:

@@ -21,8 +21,9 @@ class SegmentMLP(nn.Module):
     ``n`` Linear layers with the activation and dropout between them.
     """
 
-    def __init__(self, f_in: int, f_out: int, hidden_dim: int, hidden_layers: int,
-                 dropout: float, activation: str) -> None:
+    def __init__(
+        self, f_in: int, f_out: int, hidden_dim: int, hidden_layers: int, dropout: float, activation: str
+    ) -> None:
         super().__init__()
         if hidden_layers == 0:
             self.layers = nn.Sequential(nn.Linear(f_in, f_out))

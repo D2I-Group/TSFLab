@@ -79,8 +79,7 @@ class Model(nn.Module):
             raise ValueError("MQRNN temporal covariates must be rank-3 and batch-aligned")
         if marks.shape[-1] != self.future_covariate_size:
             raise ValueError(
-                "MQRNN expected temporal covariate width "
-                f"{self.future_covariate_size}, got {marks.shape[-1]}"
+                f"MQRNN expected temporal covariate width {self.future_covariate_size}, got {marks.shape[-1]}"
             )
 
     def _covariates(
@@ -111,9 +110,7 @@ class Model(nn.Module):
         """Evaluate the paper's global context equation."""
         batch_series = encoder_context.shape[0]
         repeated_future = future_covariates.repeat_interleave(self.enc_in, dim=0)
-        global_input = torch.cat(
-            [encoder_context, repeated_future.reshape(batch_series, -1)], dim=-1
-        )
+        global_input = torch.cat([encoder_context, repeated_future.reshape(batch_series, -1)], dim=-1)
         contexts = self.global_decoder(global_input)
         contexts = contexts.reshape(batch_series, self.pred_len + 1, self.context_size)
         return contexts[:, : self.pred_len], contexts[:, -1]
@@ -153,9 +150,7 @@ class Model(nn.Module):
         local_input = torch.cat([horizon_context, common, local_future], dim=-1)
         local_features = self.local_decoder(local_input)
         quantiles = self.quantile_head(local_features)
-        quantiles = quantiles.reshape(
-            batch, self.enc_in, self.pred_len, quantiles.shape[-1]
-        ).permute(0, 2, 1, 3)
+        quantiles = quantiles.reshape(batch, self.enc_in, self.pred_len, quantiles.shape[-1]).permute(0, 2, 1, 3)
         if self.features == "MS":
             quantiles = quantiles[:, :, -1:, :]
         return quantiles

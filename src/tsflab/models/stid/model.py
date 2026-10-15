@@ -57,9 +57,7 @@ class Model(nn.Module):
         self.weekday_embedding = nn.Embedding(num_day_in_week, embed_dim) if if_day_in_week else None
         identity_width = embed_dim * (2 + int(if_time_in_day) + int(if_day_in_week))
         self.context_projection = nn.Linear(identity_width, embed_dim)
-        self.encoder = nn.Sequential(
-            *[ResidualPointwiseBlock(embed_dim) for _ in range(num_layers)]
-        )
+        self.encoder = nn.Sequential(*[ResidualPointwiseBlock(embed_dim) for _ in range(num_layers)])
         self.forecast = nn.Linear(embed_dim, pred_len)
         nn.init.xavier_uniform_(self.node_embedding)
 

@@ -70,8 +70,13 @@ class Model(nn.Module):
 
         self.position = PositionalEmbedding(hidden_dim, max_len=seq_len)
         self.transformer = nn.TransformerEncoderLayer(
-            hidden_dim, n_heads, dim_feedforward=4 * hidden_dim, dropout=dropout,
-            activation="relu", batch_first=True, norm_first=False,
+            hidden_dim,
+            n_heads,
+            dim_feedforward=4 * hidden_dim,
+            dropout=dropout,
+            activation="relu",
+            batch_first=True,
+            norm_first=False,
         )
         self.head = nn.Sequential(
             nn.Linear(seq_len * hidden_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, pred_len)

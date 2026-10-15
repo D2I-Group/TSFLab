@@ -23,7 +23,7 @@ LOG_2PI = math.log(2.0 * math.pi)
 
 def receptive_length(layers: int, kernel_size: int) -> int:
     """History length consumed by ``layers`` valid dilated convs (dilation ``2**i``)."""
-    return 1 + (kernel_size - 1) * (2 ** layers - 1)
+    return 1 + (kernel_size - 1) * (2**layers - 1)
 
 
 def _pointwise(channels: int) -> nn.Sequential:
@@ -100,16 +100,14 @@ class MoSTEncoder(nn.Module):
 
     def __init__(self, channels: int, num_modalities: int, layers: int, kernel_size: int) -> None:
         super().__init__()
-        self.layers = nn.ModuleList(
-            MoSTLayer(channels, num_modalities, kernel_size, 2 ** i) for i in range(layers)
-        )
+        self.layers = nn.ModuleList(MoSTLayer(channels, num_modalities, kernel_size, 2**i) for i in range(layers))
 
     def forward(self, h: torch.Tensor) -> torch.Tensor:
         skip = None
         for layer in self.layers:
             out, sk = layer(h)
-            h = out + h[..., -out.shape[-1]:]
-            skip = sk if skip is None else sk + skip[..., -sk.shape[-1]:]
+            h = out + h[..., -out.shape[-1] :]
+            skip = sk if skip is None else sk + skip[..., -sk.shape[-1] :]
         return skip
 
 
@@ -293,13 +291,9 @@ class Model(nn.Module):
         self.self_supervised = self_supervised
         c, m, n = hidden_channels, num_modalities, self.num_nodes
 
-        self.input_proj = nn.Sequential(
-            nn.Conv3d(1, c // 2, 1), nn.ReLU(), nn.Conv3d(c // 2, c, 1), nn.ReLU()
-        )
+        self.input_proj = nn.Sequential(nn.Conv3d(1, c // 2, 1), nn.ReLU(), nn.Conv3d(c // 2, c, 1), nn.ReLU())
         self.encoder = MoSTEncoder(c, m, layers, kernel_size)
-        self.predictor = nn.Sequential(
-            nn.ReLU(), nn.Conv3d(c, c, 1), nn.ReLU(), nn.Conv3d(c, pred_len, 1)
-        )
+        self.predictor = nn.Sequential(nn.ReLU(), nn.Conv3d(c, c, 1), nn.ReLU(), nn.Conv3d(c, pred_len, 1))
         self.augmentation = MultiModalityAugmentation(c, seq_len, n, m, mask_ratio)
         self.gssl = GlobalSSL(c, m * n, num_components)
         self.mssl = ModalitySSL(c, n, m)

@@ -39,18 +39,14 @@ class Model(nn.Module):
         self.decay_rate = float(decay_rate)
         self.classification_weight = float(classification_weight)
 
-        self.register_buffer(
-            "interval_edges", torch.linspace(interval_min, interval_max, num_intervals + 1)
-        )
+        self.register_buffer("interval_edges", torch.linspace(interval_min, interval_max, num_intervals + 1))
         self.history_encoder = nn.Sequential(
             nn.Linear(seq_len, d_model),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(d_model, d_model),
         )
-        self.interval_encoder = nn.Sequential(
-            nn.Linear(2, d_model), nn.GELU(), nn.Linear(d_model, d_model)
-        )
+        self.interval_encoder = nn.Sequential(nn.Linear(2, d_model), nn.GELU(), nn.Linear(d_model, d_model))
         self.regression_head = nn.Linear(d_model, pred_len)
         self.classification_head = nn.Linear(d_model, pred_len)
         self.last_interval_predictions: torch.Tensor | None = None
@@ -70,17 +66,11 @@ class Model(nn.Module):
         half_width = (high - low) / 2
         return torch.exp(-self.decay_rate * torch.relu((target - midpoint).abs() - half_width))
 
-    def intersecting_intervals(
-        self, target_interval: tuple[float, float] | torch.Tensor | None
-    ) -> torch.Tensor:
+    def intersecting_intervals(self, target_interval: tuple[float, float] | torch.Tensor | None) -> torch.Tensor:
         """Implement Eq. (13), returning bins intersecting a query interval."""
         if target_interval is None:
-            return torch.ones(
-                self.num_intervals, dtype=torch.bool, device=self.interval_edges.device
-            )
-        query = torch.as_tensor(
-            target_interval, dtype=self.interval_edges.dtype, device=self.interval_edges.device
-        )
+            return torch.ones(self.num_intervals, dtype=torch.bool, device=self.interval_edges.device)
+        query = torch.as_tensor(target_interval, dtype=self.interval_edges.dtype, device=self.interval_edges.device)
         if query.shape != (2,) or bool(query[1] < query[0]):
             raise ValueError("target_interval must be an ordered pair [minimum, maximum]")
         bounds = self.interval_bounds
@@ -94,20 +84,17 @@ class Model(nn.Module):
         check_window(x, self.seq_len, self.enc_in)
         history = self.history_encoder(x.transpose(1, 2))
         bounds = self.interval_bounds
-        condition = torch.stack(
-            ((bounds[:, 0] + bounds[:, 1]) / 2, (bounds[:, 1] - bounds[:, 0]) / 2), -1
-        )
-        hidden = history.unsqueeze(2) + self.interval_encoder(condition).view(
-            1, 1, self.num_intervals, -1
-        )
+        condition = torch.stack(((bounds[:, 0] + bounds[:, 1]) / 2, (bounds[:, 1] - bounds[:, 0]) / 2), -1)
+        hidden = history.unsqueeze(2) + self.interval_encoder(condition).view(1, 1, self.num_intervals, -1)
         predictions = self.regression_head(F.gelu(hidden)).permute(0, 2, 3, 1)
-        confidence = torch.sigmoid(self.classification_head(F.gelu(hidden))).permute(
-            0, 2, 3, 1
-        )
+        confidence = torch.sigmoid(self.classification_head(F.gelu(hidden))).permute(0, 2, 3, 1)
         return predictions, confidence
 
     def goal_oriented_loss(
-        self, x: torch.Tensor, target: torch.Tensor, interval_index: int,
+        self,
+        x: torch.Tensor,
+        target: torch.Tensor,
+        interval_index: int,
         outputs: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """Regression-plus-membership objective corresponding to Eqs. (9)--(12)."""
@@ -116,27 +103,19 @@ class Model(nn.Module):
         predictions, confidence = outputs or self.interval_outputs(x)
         prediction = predictions[:, interval_index]
         membership = (
-            (target >= self.interval_bounds[interval_index, 0])
-            & (target <= self.interval_bounds[interval_index, 1])
+            (target >= self.interval_bounds[interval_index, 0]) & (target <= self.interval_bounds[interval_index, 1])
         ).to(target.dtype)
         # Official trainer: element-wise decay weights on the L1 regression term
         # and an unweighted mean BCE on the membership term.
         regression = ((prediction - target).abs() * self.decay(target, interval_index)).mean()
-        classification = F.binary_cross_entropy(
-            confidence[:, interval_index].clamp(1e-6, 1 - 1e-6), membership
-        )
+        classification = F.binary_cross_entropy(confidence[:, interval_index].clamp(1e-6, 1 - 1e-6), membership)
         return regression + self.classification_weight * classification
 
-    def goal_oriented_objective(
-        self, x: torch.Tensor, target: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def goal_oriented_objective(self, x: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Training pass: mean per-interval loss and the confidence-weighted forecast."""
         outputs = self.interval_outputs(x)
         loss = torch.stack(
-            [
-                self.goal_oriented_loss(x, target, index, outputs)
-                for index in range(self.num_intervals)
-            ]
+            [self.goal_oriented_loss(x, target, index, outputs) for index in range(self.num_intervals)]
         ).mean()
         predictions, confidence = outputs
         forecast = (predictions * confidence).sum(1) / confidence.sum(1).clamp_min(1e-6)

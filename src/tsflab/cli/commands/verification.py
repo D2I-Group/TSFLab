@@ -19,7 +19,11 @@ from tsflab.core.paths import repository_root
 
 def verification_command(argv: list[str]) -> int:
     from tsflab.catalog.admission import (
-        card_path, changed_models, run_contracts, unfinished_files, write_admission,
+        card_path,
+        changed_models,
+        run_contracts,
+        unfinished_files,
+        write_admission,
     )
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
@@ -27,8 +31,9 @@ def verification_command(argv: list[str]) -> int:
     parser.add_argument("names", nargs="*")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--all", action="store_true", help="every catalog model")
-    mode.add_argument("--changed", action="store_true",
-                      help="models whose package, preset, or used component changed since --base")
+    mode.add_argument(
+        "--changed", action="store_true", help="models whose package, preset, or used component changed since --base"
+    )
     parser.add_argument("--base", default="origin/dev", help="git ref for --changed (default origin/dev)")
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--json", action="store_true")
@@ -43,8 +48,10 @@ def verification_command(argv: list[str]) -> int:
     else:
         names = list(args.names)
     if not names:
-        print("no models to verify" if args.changed else "give model names, --all, or --changed",
-              file=sys.stderr if not args.changed else sys.stdout)
+        print(
+            "no models to verify" if args.changed else "give model names, --all, or --changed",
+            file=sys.stderr if not args.changed else sys.stdout,
+        )
         return 0 if args.changed else 2
     unknown = sorted(set(names) - set(MODEL_CATALOG.names()))
     if unknown:
@@ -56,6 +63,7 @@ def verification_command(argv: list[str]) -> int:
     if unfinished:
         print(f"skipping unfinished scaffold(s): {', '.join(unfinished)}", file=sys.stderr)
         names = [name for name in names if name not in unfinished]
+
     def progress(name: str, failure: dict[str, str] | None) -> None:
         if not args.json:  # stream, so a long run shows where it is
             print(f"{'FAILED' if failure else 'PASSED':6} {name}", flush=True)

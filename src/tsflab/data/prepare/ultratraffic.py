@@ -26,9 +26,9 @@ import argparse
 import hashlib
 import io
 import json
-from pathlib import Path
 import re
 import zipfile
+from pathlib import Path
 
 import pandas as pd
 
@@ -61,8 +61,12 @@ def convert(archive: Path, out: Path, regions: list[str] | None = None) -> dict:
             continue
         if variant == "CL" and part is None:
             continue  # identical to the Static full-year file
-        target = out / region / ("static" if variant == "Static" else "cl") / (
-            f"{year}.parquet" if part is None else f"{year}_{part}.parquet")
+        target = (
+            out
+            / region
+            / ("static" if variant == "Static" else "cl")
+            / (f"{year}.parquet" if part is None else f"{year}_{part}.parquet")
+        )
         entry = manifest["regions"].setdefault(region, {"district": REGIONS[region], "files": {}})
         key = str(target.relative_to(out / region))
         if target.is_file():
@@ -73,10 +77,14 @@ def convert(archive: Path, out: Path, regions: list[str] | None = None) -> dict:
         frame.columns = [str(c) for c in frame.columns]
         target.parent.mkdir(parents=True, exist_ok=True)
         frame.astype("float32").to_parquet(target)
-        facts = {"rows": int(len(frame)), "stations": int(frame.shape[1]),
-                 "start": frame.index.min().isoformat(), "end": frame.index.max().isoformat(),
-                 "missing": round(float(frame.isna().mean().mean()), 4),
-                 "csv_sha256": hashlib.sha256(payload).hexdigest()}
+        facts = {
+            "rows": int(len(frame)),
+            "stations": int(frame.shape[1]),
+            "start": frame.index.min().isoformat(),
+            "end": frame.index.max().isoformat(),
+            "missing": round(float(frame.isna().mean().mean()), 4),
+            "csv_sha256": hashlib.sha256(payload).hexdigest(),
+        }
         target.with_suffix(".json").write_text(json.dumps(facts, indent=1))
         entry["files"][key] = facts
         print(f"{region} {key}: {facts['stations']} stations, {facts['rows']} hours", flush=True)
@@ -86,7 +94,11 @@ def convert(archive: Path, out: Path, regions: list[str] | None = None) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="tsf data prepare --from ultratraffic", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="tsf data prepare --from ultratraffic",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--archive", type=Path, required=True, help="TrafficCL.zip or UltraTraffic_CL.zip")
     parser.add_argument("--out", type=Path, default=Path("dataset") / "ultratraffic")
     parser.add_argument("--regions", nargs="*", help="subset of " + ", ".join(REGIONS))

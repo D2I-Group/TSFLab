@@ -9,9 +9,7 @@ from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
 
-def periodic_correlation_initialization(
-    input_chunks: int, output_chunks: int, period_chunks: int
-) -> torch.Tensor:
+def periodic_correlation_initialization(input_chunks: int, output_chunks: int, period_chunks: int) -> torch.Tensor:
     """Construct the periodic peaks described by Section 3.3/Algorithm 1."""
     if period_chunks < 1:
         raise ValueError("period_chunks must be positive")
@@ -41,23 +39,17 @@ class CorrelationMixer(nn.Module):
         self.channels = channels
         input_chunks = seq_len // chunk_size
         output_chunks = pred_len // chunk_size
-        self.correlations = nn.Parameter(
-            torch.empty(num_correlations, input_chunks, output_chunks)
-        )
+        self.correlations = nn.Parameter(torch.empty(num_correlations, input_chunks, output_chunks))
         nn.init.xavier_uniform_(self.correlations)
         if period is not None:
             period_chunks = period // chunk_size
             with torch.no_grad():
                 self.correlations[0].copy_(
-                    periodic_correlation_initialization(
-                        input_chunks, output_chunks, period_chunks
-                    )
+                    periodic_correlation_initialization(input_chunks, output_chunks, period_chunks)
                 )
         stride = max(1, kernel_size // 2)
         summary_length = (seq_len - kernel_size) // stride + 1
-        self.aggregators = nn.ModuleList(
-            [nn.Conv1d(1, 1, kernel_size, stride=stride) for _ in range(channels)]
-        )
+        self.aggregators = nn.ModuleList([nn.Conv1d(1, 1, kernel_size, stride=stride) for _ in range(channels)])
         self.allocator = nn.Linear(summary_length, num_correlations)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
@@ -99,9 +91,7 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.channels = c_in
         self.revin = RevIN(c_in)
-        self.mixer = CorrelationMixer(
-            seq_len, pred_len, c_in, seg_size, num_map, kernel_size, period
-        )
+        self.mixer = CorrelationMixer(seq_len, pred_len, c_in, seg_size, num_map, kernel_size, period)
 
     def forward(
         self,

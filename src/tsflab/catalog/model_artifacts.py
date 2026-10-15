@@ -39,14 +39,10 @@ def artifact_status(spec: ModelSpec, cache_root: Path | None = None) -> list[dic
     return records
 
 
-def require_artifacts(
-    spec: ModelSpec, cache_root: Path | None = None
-) -> dict[str, Path]:
+def require_artifacts(spec: ModelSpec, cache_root: Path | None = None) -> dict[str, Path]:
     """Return verified artifact paths or fail before model construction."""
     records = artifact_status(spec, cache_root)
-    failures = [
-        record for record in records if record["required"] and not record["verified"]
-    ]
+    failures = [record for record in records if record["required"] and not record["verified"]]
     if failures:
         names = ", ".join(str(record["name"]) for record in failures)
         raise FileNotFoundError(
@@ -54,11 +50,7 @@ def require_artifacts(
             f"Inspect with `tsf model artifacts {spec.name}` and fetch each artifact "
             "explicitly with `--fetch <name>`."
         )
-    return {
-        str(record["name"]): Path(str(record["path"]))
-        for record in records
-        if record["verified"]
-    }
+    return {str(record["name"]): Path(str(record["path"])) for record in records if record["verified"]}
 
 
 def fetch_artifact(

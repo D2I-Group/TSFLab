@@ -39,9 +39,7 @@ class SMambaLayer(nn.Module):
         self.backward_scan = MambaBlock(**kwargs)
         self.scan_norm = nn.LayerNorm(d_model)
         act = nn.GELU() if activation == "gelu" else nn.ReLU()
-        self.temporal_ffn = nn.Sequential(
-            nn.Linear(d_model, d_ff), act, nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.temporal_ffn = nn.Sequential(nn.Linear(d_model, d_ff), act, nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.ffn_norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
@@ -74,10 +72,7 @@ class Model(nn.Module):
         self.use_norm = use_norm
         self.tokenization = InvertedTokenization(seq_len, d_model, dropout)
         self.layers = nn.ModuleList(
-            [
-                SMambaLayer(d_model, d_state, d_ff, d_conv, expand, dropout, activation)
-                for _ in range(e_layers)
-            ]
+            [SMambaLayer(d_model, d_state, d_ff, d_conv, expand, dropout, activation) for _ in range(e_layers)]
         )
         self.output_projection = nn.Linear(d_model, pred_len)
 

@@ -32,9 +32,7 @@ def _require(module: str):
     try:
         return __import__(module, fromlist=["_"])
     except ImportError as exc:
-        raise RuntimeError(
-            f"{module} is required for hub bundles; install `tsflab[hub]`"
-        ) from exc
+        raise RuntimeError(f"{module} is required for hub bundles; install `tsflab[hub]`") from exc
 
 
 def _record_for(run: str | Path, work_root: Path) -> Path:
@@ -44,8 +42,7 @@ def _record_for(run: str | Path, work_root: Path) -> Path:
     matches = sorted(work_root.glob(f"work_dirs/*/*/records/{run}.json"))
     if len(matches) != 1:
         raise FileNotFoundError(
-            f"expected exactly one record for run {run!r} under "
-            f"{work_root / 'work_dirs'}, found {len(matches)}"
+            f"expected exactly one record for run {run!r} under {work_root / 'work_dirs'}, found {len(matches)}"
         )
     return matches[0]
 
@@ -94,9 +91,7 @@ def _state_dict(checkpoint: Path) -> dict:
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     if isinstance(state, dict) and isinstance(state.get("model"), dict):
         state = state["model"]
-    if not isinstance(state, dict) or not all(
-        isinstance(value, torch.Tensor) for value in state.values()
-    ):
+    if not isinstance(state, dict) or not all(isinstance(value, torch.Tensor) for value in state.values()):
         raise ValueError(f"{checkpoint} does not contain a tensor state_dict")
     # safetensors rejects shared storage; clone so every tensor owns its bytes.
     return {key: value.detach().contiguous().clone() for key, value in state.items()}
@@ -105,25 +100,23 @@ def _state_dict(checkpoint: Path) -> dict:
 def _card(manifest: dict) -> str:
     metrics = manifest.get("metrics", {})
     rows = "\n".join(
-        f"| {name} | {value:.6g} |"
-        for name, value in sorted(metrics.items())
-        if isinstance(value, (int, float))
+        f"| {name} | {value:.6g} |" for name, value in sorted(metrics.items()) if isinstance(value, (int, float))
     )
     return f"""---
 library_name: tsflab
-tags: [time-series, forecasting, tsflab, {manifest['model']}]
+tags: [time-series, forecasting, tsflab, {manifest["model"]}]
 ---
 
-# {manifest['model']} · {manifest['dataset_id']} · pred_len {manifest['pred_len']}
+# {manifest["model"]} · {manifest["dataset_id"]} · pred_len {manifest["pred_len"]}
 
 Trained with [TSFLab](https://github.com/Diaugeia/TSFLab)
-{manifest.get('framework_version') or ''} (commit `{manifest.get('git_sha') or 'unknown'}`).
+{manifest.get("framework_version") or ""} (commit `{manifest.get("git_sha") or "unknown"}`).
 
 | Field | Value |
 | --- | --- |
-| run_id | `{manifest['run_id']}` |
-| seq_len / pred_len | {manifest['seq_len']} / {manifest['pred_len']} |
-| seed | {manifest['seed']} |
+| run_id | `{manifest["run_id"]}` |
+| seq_len / pred_len | {manifest["seq_len"]} / {manifest["pred_len"]} |
+| seed | {manifest["seed"]} |
 
 | Metric | Value |
 | --- | --- |
@@ -131,7 +124,7 @@ Trained with [TSFLab](https://github.com/Diaugeia/TSFLab)
 
 ```python
 from tsflab.release import hub
-state_dict, manifest = hub.load_state_dict("hf://<repo>@<revision>/{manifest['path']}")
+state_dict, manifest = hub.load_state_dict("hf://<repo>@<revision>/{manifest["path"]}")
 ```
 """
 
@@ -164,12 +157,8 @@ def pack(record_path: Path, checkpoint: Path, out_dir: Path) -> dict:
         "source_checkpoint": checkpoint.name,
         "path": bundle_path(record["dataset_id"], record["model"], run_id, record.get("track")),
     }
-    manifest["files"] = {
-        name: sha256_file(out_dir / name) for name in (WEIGHTS, RECORD)
-    }
-    (out_dir / MANIFEST).write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    manifest["files"] = {name: sha256_file(out_dir / name) for name in (WEIGHTS, RECORD)}
+    (out_dir / MANIFEST).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out_dir / CARD).write_text(_card(manifest), encoding="utf-8")
     return manifest
 
@@ -185,7 +174,10 @@ def bundle_path(dataset_id: str, model: str, run_id: str, track: str | None = No
 def load_manifest(uri: str | HubURI, cache_root: Path | None = None) -> dict:
     """Fetch the manifest of a bundle addressed by its directory URI."""
     base = parse(uri) if isinstance(uri, str) else uri
-    path = fetch(HubURI(base.repo_id, base.revision, f"{base.path.rstrip('/')}/{MANIFEST}", base.repo_type), cache_root=cache_root)
+    path = fetch(
+        HubURI(base.repo_id, base.revision, f"{base.path.rstrip('/')}/{MANIFEST}", base.repo_type),
+        cache_root=cache_root,
+    )
     return json.loads(path.read_text(encoding="utf-8"))
 
 

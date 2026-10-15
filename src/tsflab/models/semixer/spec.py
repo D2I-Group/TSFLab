@@ -30,7 +30,7 @@ class ModelParameterConfig(BaseModel):
     subtract_last: bool = False
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.enc_in != self.c_out:
             raise ValueError("enc_in and c_out must match")
         # Raises ValueError on a malformed or non-increasing scale schedule.

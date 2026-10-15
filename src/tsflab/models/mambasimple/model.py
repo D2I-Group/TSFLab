@@ -34,10 +34,7 @@ class Model(nn.Module):
         self.input_projection = nn.Linear(enc_in, d_model)
         self.input_dropout = nn.Dropout(dropout)
         self.layers = nn.ModuleList(
-            [
-                MambaResidualBlock(d_model, inner, rank, d_conv, d_state)
-                for _ in range(e_layers)
-            ]
+            [MambaResidualBlock(d_model, inner, rank, d_conv, d_state) for _ in range(e_layers)]
         )
         self.final_norm = RMSNorm(d_model)
         self.channel_projection = nn.Linear(d_model, enc_in)

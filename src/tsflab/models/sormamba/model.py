@@ -43,14 +43,11 @@ class CDMambaBlock(nn.Module):
 class SORMambaLayer(nn.Module):
     """Algorithm 1, lines 3-6: shared scans in both channel orders, residual sum, LN-MLP-LN."""
 
-    def __init__(self, d_model: int, d_state: int, d_ff: int, expand: int, dropout: float,
-                 mlp_residual: bool) -> None:
+    def __init__(self, d_model: int, d_state: int, d_ff: int, expand: int, dropout: float, mlp_residual: bool) -> None:
         super().__init__()
         self.block = CDMambaBlock(d_model, d_state, expand)
         self.norm_in = nn.LayerNorm(d_model)
-        self.mlp = nn.Sequential(
-            nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
-        )
+        self.mlp = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
         self.norm_out = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
         self.mlp_residual = mlp_residual

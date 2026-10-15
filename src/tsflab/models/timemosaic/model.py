@@ -16,10 +16,20 @@ from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 patch_sizes: tuple[int, ...] = (4, 8, 16), num_segments: int = 4,
-                 num_heads: int = 4, dropout: float = 0.1,
-                 use_revin: bool = True, selection_tau: float = 0.5, budget_weight: float = 0.001) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        patch_sizes: tuple[int, ...] = (4, 8, 16),
+        num_segments: int = 4,
+        num_heads: int = 4,
+        dropout: float = 0.1,
+        use_revin: bool = True,
+        selection_tau: float = 0.5,
+        budget_weight: float = 0.001,
+    ) -> None:
         super().__init__()
         sizes = tuple(sorted(set(patch_sizes)))
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
@@ -32,7 +42,9 @@ class Model(nn.Module):
         self.selection_tau, self.budget_weight = selection_tau, budget_weight
         self.aux_loss = None
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
-        self.granularity_classifier = nn.Sequential(nn.Linear(self.region_size, d_model), nn.GELU(), nn.Linear(d_model, len(sizes)))
+        self.granularity_classifier = nn.Sequential(
+            nn.Linear(self.region_size, d_model), nn.GELU(), nn.Linear(d_model, len(sizes))
+        )
         self.patch_projections = nn.ModuleList(nn.Linear(size, d_model) for size in sizes)
         token_count = self.num_regions * self.aligned_per_region
         self.position = nn.Parameter(torch.empty(token_count, d_model))
@@ -83,7 +95,9 @@ class Model(nn.Module):
         segments = []
         for prompt, head in zip(self.segment_prompts, self.segment_heads):
             prompt_token = prompt.reshape(1, 1, -1).expand(tokens.size(0), -1, -1)
-            attended, _ = self.attention(tokens, torch.cat((prompt_token, tokens), 1), torch.cat((prompt_token, tokens), 1), need_weights=False)
+            attended, _ = self.attention(
+                tokens, torch.cat((prompt_token, tokens), 1), torch.cat((prompt_token, tokens), 1), need_weights=False
+            )
             hidden = self.norm(tokens + attended)
             segments.append(head(hidden.flatten(1)))
         forecast = torch.cat(segments, dim=-1).reshape(batch, self.enc_in, self.pred_len).transpose(1, 2)

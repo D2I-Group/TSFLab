@@ -45,9 +45,7 @@ class TemporalField(nn.Module):
         super().__init__()
         self.channels, self.hidden_dim = channels, hidden_dim
         self.linear_in = nn.Linear(hidden_dim, hidden_hidden_dim)
-        self.linears = nn.ModuleList(
-            nn.Linear(hidden_hidden_dim, hidden_hidden_dim) for _ in range(num_layers - 1)
-        )
+        self.linears = nn.ModuleList(nn.Linear(hidden_hidden_dim, hidden_hidden_dim) for _ in range(num_layers - 1))
         self.linear_out = nn.Linear(hidden_hidden_dim, hidden_dim * channels)
 
     def forward(self, h: torch.Tensor) -> torch.Tensor:
@@ -143,7 +141,9 @@ class Model(nn.Module):
             else:
                 nn.init.uniform_(parameter)
 
-    def _control_path(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> tuple[torch.Tensor, NaturalCubicSpline]:
+    def _control_path(
+        self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None
+    ) -> tuple[torch.Tensor, NaturalCubicSpline]:
         if self.input_dim == 1:
             features = x_enc.unsqueeze(-1)
         else:

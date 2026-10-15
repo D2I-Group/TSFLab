@@ -170,9 +170,7 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, affine=False)
         self.value_embedding = nn.Linear(1, d_model)
         self.position = PositionalEmbedding(d_model, max_len=seq_len + pred_len)
-        self.encoders = nn.ModuleList(
-            EncoderStage(patch_size * 2**i, d_model, dropout) for i in range(num_stages)
-        )
+        self.encoders = nn.ModuleList(EncoderStage(patch_size * 2**i, d_model, dropout) for i in range(num_stages))
         self.decoders = nn.ModuleList(
             DecoderStage(patch_size * 2 ** (num_stages - 1 - i), d_model, dropout) for i in range(num_stages)
         )
@@ -207,9 +205,7 @@ class Model(nn.Module):
         padding = self.decoder_len - self.pred_len
         if padding > 0:
             queries = torch.cat([embedded[:, :, -padding:], queries], dim=2)
-        return queries.reshape(
-            batch, variates, self.decoder_len // self.top_patch, self.top_patch, self.d_model
-        )
+        return queries.reshape(batch, variates, self.decoder_len // self.top_patch, self.top_patch, self.d_model)
 
     def decode(self, queries: torch.Tensor, maps: list[torch.Tensor]) -> torch.Tensor:
         """Top-down stages, each attending to the encoder map of the same patch size."""
@@ -223,9 +219,7 @@ class Model(nn.Module):
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.shape[1] != self.seq_len or x_enc.shape[2] != self.enc_in:
-            raise ValueError(
-                f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+            raise ValueError(f"expected input [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
         x = self.revin(x_enc, "norm")
         embedded = self.embed(x)
         maps = self.encode(embedded)

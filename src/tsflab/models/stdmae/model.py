@@ -79,9 +79,7 @@ class DecoupledMaskedEncoder(nn.Module):
         super().__init__()
         self.patch_size, self.embed_dim, self.spatial = patch_size, embed_dim, spatial
         self.num_patches = seq_len // patch_size
-        self.patch_embedding = nn.Conv2d(
-            1, embed_dim, kernel_size=(patch_size, 1), stride=(patch_size, 1)
-        )
+        self.patch_embedding = nn.Conv2d(1, embed_dim, kernel_size=(patch_size, 1), stride=(patch_size, 1))
         self.encoder = TSTEncoder(
             embed_dim,
             num_heads,
@@ -91,9 +89,7 @@ class DecoupledMaskedEncoder(nn.Module):
             norm="LayerNorm",
             res_dropout=dropout,
         )
-        self.register_buffer(
-            "position", sincos_2d(num_nodes, self.num_patches, embed_dim), persistent=False
-        )
+        self.register_buffer("position", sincos_2d(num_nodes, self.num_patches, embed_dim), persistent=False)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         batch, length, nodes = values.shape
@@ -158,11 +154,7 @@ def receptive_field(blocks: int, layers: int, kernel_size: int) -> int:
 
 def _supports(adj_mx: np.ndarray | None, num_nodes: int):
     """Forward and reverse supports of ``adj_mx`` (the identity graph when absent)."""
-    adjacency = (
-        np.eye(num_nodes, dtype=np.float32)
-        if adj_mx is None
-        else square_adjacency(adj_mx, num_nodes)
-    )
+    adjacency = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
     return adj_to_supports(adjacency)
 
 
@@ -199,12 +191,26 @@ class Model(nn.Module):
         self.freeze_encoders = freeze_encoders
 
         self.temporal_encoder = DecoupledMaskedEncoder(
-            num_nodes, seq_len, patch_size, embed_dim, num_heads, mlp_ratio,
-            encoder_depth, encoder_dropout, spatial=False,
+            num_nodes,
+            seq_len,
+            patch_size,
+            embed_dim,
+            num_heads,
+            mlp_ratio,
+            encoder_depth,
+            encoder_dropout,
+            spatial=False,
         )
         self.spatial_encoder = DecoupledMaskedEncoder(
-            num_nodes, seq_len, patch_size, embed_dim, num_heads, mlp_ratio,
-            encoder_depth, encoder_dropout, spatial=True,
+            num_nodes,
+            seq_len,
+            patch_size,
+            embed_dim,
+            num_heads,
+            mlp_ratio,
+            encoder_depth,
+            encoder_dropout,
+            spatial=True,
         )
         if freeze_encoders:
             for encoder in (self.temporal_encoder, self.spatial_encoder):
@@ -219,8 +225,13 @@ class Model(nn.Module):
         self.start_conv = nn.Conv2d(in_dim, residual_channels, 1)
         self.blocks = nn.ModuleList(
             WaveNetGraphBlock(
-                residual_channels, dilation_channels, skip_channels, kernel_size,
-                2**layer, dropout, support_len=3,
+                residual_channels,
+                dilation_channels,
+                skip_channels,
+                kernel_size,
+                2**layer,
+                dropout,
+                support_len=3,
             )
             for _ in range(blocks)
             for layer in range(layers)

@@ -32,7 +32,8 @@ def parse_hourly(payload, variable: str, ids: list[str]) -> pd.DataFrame:
         hourly = location["hourly"]
         series[site] = pd.Series(
             [float(v) if v is not None else float("nan") for v in hourly[variable]],
-            index=pd.to_datetime(hourly["time"]), dtype="float64",
+            index=pd.to_datetime(hourly["time"]),
+            dtype="float64",
         )
     frame = pd.DataFrame(series).sort_index()
     frame.index.name = None
@@ -65,16 +66,21 @@ def fetch(track: TrackSpec, start: pd.Timestamp, end: pd.Timestamp, channels: li
     ids = list(sites)
     frames = []
     for lo in range(0, len(ids), batch):
-        chunk = ids[lo:lo + batch]
+        chunk = ids[lo : lo + batch]
         parts = []
         for day in pd.date_range(start.normalize(), end.normalize(), freq=f"{window}D"):
             last = min(day + pd.Timedelta(days=window - 1), end.normalize())
-            payload = _get({
-                "latitude": ",".join(str(sites[s][0]) for s in chunk),
-                "longitude": ",".join(str(sites[s][1]) for s in chunk),
-                "hourly": variable, "start_date": f"{day:%Y-%m-%d}", "end_date": f"{last:%Y-%m-%d}",
-                "timezone": "GMT", "cell_selection": "nearest",
-            })
+            payload = _get(
+                {
+                    "latitude": ",".join(str(sites[s][0]) for s in chunk),
+                    "longitude": ",".join(str(sites[s][1]) for s in chunk),
+                    "hourly": variable,
+                    "start_date": f"{day:%Y-%m-%d}",
+                    "end_date": f"{last:%Y-%m-%d}",
+                    "timezone": "GMT",
+                    "cell_selection": "nearest",
+                }
+            )
             parts.append(parse_hourly(payload, variable, chunk))
             time.sleep(float(track.source.get("pause_seconds", 1.0)))
         frames.append(pd.concat(parts))

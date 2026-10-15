@@ -22,7 +22,7 @@ class ModelParameterConfig(BaseModel):
     dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.enc_in != self.c_out:
             raise ValueError("enc_in and c_out must match (channel-preserving forecaster)")
         return self

@@ -54,9 +54,7 @@ class GaussianMixtureHead(nn.Module):
         self.num_components = len(anchors)
         # Reference values r and spacing s are fixed priors (Fig. 3, Eq. 9).
         self.register_buffer("anchors", torch.tensor(anchors, dtype=torch.float32))
-        self.register_buffer(
-            "spacing", torch.full((len(anchors),), float(spacing), dtype=torch.float32)
-        )
+        self.register_buffer("spacing", torch.full((len(anchors),), float(spacing), dtype=torch.float32))
         # Official code: a learnable relative correction of the spacing, initialized to zero.
         self.spacing_scale = nn.Parameter(torch.zeros(len(anchors)))
         self.projection = nn.Linear(in_dim, hidden_dim)
@@ -156,8 +154,7 @@ class Model(nn.Module):
         # The input is left padded by one step, so the stack must collapse seq_len + 1 to one step.
         if seq_len + 1 > receptive:
             raise ValueError(
-                f"seq_len + 1 = {seq_len + 1} exceeds the receptive field {receptive}; "
-                "increase blocks or layers"
+                f"seq_len + 1 = {seq_len + 1} exceeds the receptive field {receptive}; increase blocks or layers"
             )
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.in_dim, self.receptive_field = in_dim, receptive
@@ -165,13 +162,10 @@ class Model(nn.Module):
         self.target_nodes = nn.Parameter(torch.randn(node_embedding_dim, num_nodes))
         self.start = nn.Conv2d(in_dim, hidden_channels, 1)
         self.layers = nn.ModuleList(
-            WaveNetLayer(hidden_channels, skip_channels, kernel_size, dilation, dropout)
-            for dilation in dilations
+            WaveNetLayer(hidden_channels, skip_channels, kernel_size, dilation, dropout) for dilation in dilations
         )
         self.end = nn.Conv2d(skip_channels, end_channels, 1)
-        self.head = GaussianMixtureHead(
-            end_channels, end_channels, pred_len, tuple(anchors), spacing, dropout
-        )
+        self.head = GaussianMixtureHead(end_channels, end_channels, pred_len, tuple(anchors), spacing, dropout)
 
     def backbone(self, x_enc: torch.Tensor, x_mark_enc: torch.Tensor | None) -> torch.Tensor:
         """ST_Backbone of Eq. (3): ``[B, seq_len, N]`` -> location features ``[B, N, end_channels]``."""
@@ -202,9 +196,7 @@ class Model(nn.Module):
     def training_objective(self, x_enc, x_mark_enc, target):
         """Return the point forecast and the GMM NLL of Eq. (5) from one forward pass."""
         weights, means, log_variance = self.mixture(x_enc, x_mark_enc)
-        return self.point_forecast(weights, means), gmm_negative_log_likelihood(
-            weights, means, log_variance, target
-        )
+        return self.point_forecast(weights, means), gmm_negative_log_likelihood(weights, means, log_variance, target)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         del x_dec, x_mark_dec

@@ -35,9 +35,7 @@ class MixerBlock(nn.Module):
         time_delta = self.dropout(self.activation(self.time_projection(time_input)))
         x = x + time_delta.transpose(1, 2)
         feature_input = self.feature_norm(x)
-        feature_delta = self.feature_out(
-            self.dropout(self.activation(self.feature_in(feature_input)))
-        )
+        feature_delta = self.feature_out(self.dropout(self.activation(self.feature_in(feature_input))))
         return x + self.dropout(feature_delta)
 
 

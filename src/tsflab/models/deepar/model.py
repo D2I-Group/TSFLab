@@ -60,20 +60,14 @@ class Model(nn.Module):
         if self.cov_feat_size == 0:
             return self.value_embedding.weight.new_empty(batch * channels, steps, 0)
         if marks is None:
-            base = self.value_embedding.weight.new_zeros(
-                batch, steps, self.cov_feat_size
-            )
+            base = self.value_embedding.weight.new_zeros(batch, steps, self.cov_feat_size)
         else:
             if marks.ndim != 3 or marks.shape[:2] != (batch, steps):
                 raise ValueError(f"marks must have shape [batch, {steps}, features]")
             base = marks[..., : self.cov_feat_size]
             if base.shape[-1] < self.cov_feat_size:
-                base = torch.nn.functional.pad(
-                    base, (0, self.cov_feat_size - base.shape[-1])
-                )
-        return base.unsqueeze(1).expand(-1, channels, -1, -1).reshape(
-            batch * channels, steps, self.cov_feat_size
-        )
+                base = torch.nn.functional.pad(base, (0, self.cov_feat_size - base.shape[-1]))
+        return base.unsqueeze(1).expand(-1, channels, -1, -1).reshape(batch * channels, steps, self.cov_feat_size)
 
     def _decode(self, feedback, h, c, future_cov, native: bool):
         """Roll the decoder over ``future_cov.shape[1]`` steps from ``(feedback, h, c)``.
@@ -103,8 +97,7 @@ class Model(nn.Module):
                 feedback = location.unsqueeze(1)
         finally:
             torch.backends.cudnn.enabled = previous
-        return (feedback, *state, torch.stack(locations, dim=1),
-                torch.stack(scales, dim=1))
+        return (feedback, *state, torch.stack(locations, dim=1), torch.stack(scales, dim=1))
 
     def _future_marks(self, x_mark_dec: torch.Tensor | None) -> torch.Tensor | None:
         if x_mark_dec is None:
@@ -118,9 +111,7 @@ class Model(nn.Module):
         """``[series, pred_len, 1]`` decoder locations and scales from ``(feedback, state)``."""
         segment = self.checkpoint_steps
         if not (segment and self.training and torch.is_grad_enabled()):
-            _, _, _, location, scale = self._decode(
-                feedback, *state, future_cov, False
-            )
+            _, _, _, location, scale = self._decode(feedback, *state, future_cov, False)
             return location, scale
         # Recompute each decoder segment in backward: with autograd the full
         # rollout keeps every step of every series alive (about 50 GB for
@@ -132,9 +123,14 @@ class Model(nn.Module):
         locations, scales = [], []
         for start in range(0, self.pred_len, segment):
             feedback, h, c, location, scale = checkpoint(
-                self._decode, feedback, h, c,
-                future_cov[:, start : start + segment], native,
-                use_reentrant=False, preserve_rng_state=True,
+                self._decode,
+                feedback,
+                h,
+                c,
+                future_cov[:, start : start + segment],
+                native,
+                use_reentrant=False,
+                preserve_rng_state=True,
             )
             locations.append(location)
             scales.append(scale)
@@ -151,18 +147,12 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         batch = x_enc.shape[0]
         channels = self.enc_in
-        history_cov = self._covariates(
-            x_mark_enc, batch, self.seq_len, channels
-        )
-        history = x_enc.transpose(1, 2).reshape(
-            batch * channels, self.seq_len, 1
-        )
+        history_cov = self._covariates(x_mark_enc, batch, self.seq_len, channels)
+        history = x_enc.transpose(1, 2).reshape(batch * channels, self.seq_len, 1)
         encoded = torch.cat((self.value_embedding(history), history_cov), dim=-1)
         _, state = self.recurrent(encoded)
 
-        future_cov = self._covariates(
-            self._future_marks(x_mark_dec), batch, self.pred_len, channels
-        )
+        future_cov = self._covariates(self._future_marks(x_mark_dec), batch, self.pred_len, channels)
         location, scale = self._rollout(history[:, -1:], state, future_cov)
         location = location.view(batch, channels, self.pred_len)
         scale = scale.view(batch, channels, self.pred_len)

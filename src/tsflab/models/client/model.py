@@ -83,7 +83,5 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
-        combined = self.cross_variable_transformer(normalized) + self.w_lin * self.linear_module(
-            normalized
-        )
+        combined = self.cross_variable_transformer(normalized) + self.w_lin * self.linear_module(normalized)
         return self.revin(combined, "denorm")

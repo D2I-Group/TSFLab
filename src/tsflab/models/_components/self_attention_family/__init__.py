@@ -32,12 +32,8 @@ class FlowAttention(nn.Module):
         queries = self.kernel_method(queries)
         keys = self.kernel_method(keys)
 
-        normalizer_row = 1.0 / (
-            torch.einsum("nhld,nhd->nhl", queries + 1e-6, keys.sum(dim=2) + 1e-6)
-        )
-        normalizer_col = 1.0 / (
-            torch.einsum("nhsd,nhd->nhs", keys + 1e-6, queries.sum(dim=2) + 1e-6)
-        )
+        normalizer_row = 1.0 / (torch.einsum("nhld,nhd->nhl", queries + 1e-6, keys.sum(dim=2) + 1e-6))
+        normalizer_col = 1.0 / (torch.einsum("nhsd,nhd->nhs", keys + 1e-6, queries.sum(dim=2) + 1e-6))
 
         normalizer_row_refine = torch.einsum(
             "nhld,nhd->nhl",
@@ -50,18 +46,11 @@ class FlowAttention(nn.Module):
             (queries * normalizer_row[:, :, :, None]).sum(dim=2) + 1e-6,
         )
 
-        normalizer_row_refine = torch.sigmoid(
-            normalizer_row_refine * (float(queries.shape[2]) / float(keys.shape[2]))
-        )
-        normalizer_col_refine = (
-            torch.softmax(normalizer_col_refine, dim=-1) * keys.shape[2]
-        )
+        normalizer_row_refine = torch.sigmoid(normalizer_row_refine * (float(queries.shape[2]) / float(keys.shape[2])))
+        normalizer_col_refine = torch.softmax(normalizer_col_refine, dim=-1) * keys.shape[2]
 
         kv = keys.transpose(-2, -1) @ (values * normalizer_col_refine[:, :, :, None])
-        x = (
-            ((queries @ kv) * normalizer_row[:, :, :, None])
-            * normalizer_row_refine[:, :, :, None]
-        ).transpose(1, 2)
+        x = (((queries @ kv) * normalizer_row[:, :, :, None]) * normalizer_row_refine[:, :, :, None]).transpose(1, 2)
         return x.contiguous(), None
 
 
@@ -88,9 +77,7 @@ class FlashAttention(nn.Module):
         # Device-agnostic: follow the input tensor's device (was hardcoded "cuda").
         output = torch.zeros_like(queries, requires_grad=True)
         l_block = torch.zeros(queries.shape[:-1], device=queries.device)[..., None]
-        m_block = (
-            torch.ones(queries.shape[:-1], device=queries.device)[..., None] * neg_inf
-        )
+        m_block = torch.ones(queries.shape[:-1], device=queries.device)[..., None] * neg_inf
 
         q_block_size = min(block_size, queries.shape[-1])
         kv_block_size = block_size
@@ -138,10 +125,7 @@ class FlashAttention(nn.Module):
                 p_ij_vj = torch.einsum("... i j, ... j d -> ... i d", p_ij, v_j)
 
                 m_i_new = torch.maximum(m_block_ij, m_i)
-                l_i_new = (
-                    torch.exp(m_i - m_i_new) * l_i
-                    + torch.exp(m_block_ij - m_i_new) * l_block_ij
-                )
+                l_i_new = torch.exp(m_i - m_i_new) * l_i + torch.exp(m_block_ij - m_i_new) * l_block_ij
 
                 o_blocks[i] = (l_i / l_i_new) * torch.exp(m_i - m_i_new) * o_i + (
                     torch.exp(m_block_ij - m_i_new) / l_i_new
@@ -188,9 +172,7 @@ class FullAttention(nn.Module):
 
         if self.mask_flag:
             if attn_mask is None:
-                attn_mask = TriangularCausalMask(
-                    batch_size, length, device=queries.device
-                )
+                attn_mask = TriangularCausalMask(batch_size, length, device=queries.device)
 
             scores.masked_fill_(attn_mask.mask, -np.inf)
 
@@ -222,16 +204,10 @@ class ProbAttention(nn.Module):
         batch_size, num_heads, length_k, embed_dim = keys.shape
         _, _, length_q, _ = queries.shape
 
-        keys_expand = keys.unsqueeze(-3).expand(
-            batch_size, num_heads, length_q, length_k, embed_dim
-        )
+        keys_expand = keys.unsqueeze(-3).expand(batch_size, num_heads, length_q, length_k, embed_dim)
         index_sample = torch.randint(length_k, (length_q, sample_k))
-        keys_sample = keys_expand[
-            :, :, torch.arange(length_q).unsqueeze(1), index_sample, :
-        ]
-        qk_sample = torch.matmul(
-            queries.unsqueeze(-2), keys_sample.transpose(-2, -1)
-        ).squeeze(-2)
+        keys_sample = keys_expand[:, :, torch.arange(length_q).unsqueeze(1), index_sample, :]
+        qk_sample = torch.matmul(queries.unsqueeze(-2), keys_sample.transpose(-2, -1)).squeeze(-2)
 
         measurement = qk_sample.max(-1)[0] - torch.div(qk_sample.sum(-1), length_k)
         m_top = measurement.topk(n_top, sorted=False)[1]
@@ -251,9 +227,7 @@ class ProbAttention(nn.Module):
         if not self.mask_flag:
             values_sum = values.mean(dim=-2)
             context = (
-                values_sum.unsqueeze(-2)
-                .expand(batch_size, num_heads, length_q, values_sum.shape[-1])
-                .contiguous()
+                values_sum.unsqueeze(-2).expand(batch_size, num_heads, length_q, values_sum.shape[-1]).contiguous()
             )
         else:
             assert length_q == length_v
@@ -264,9 +238,7 @@ class ProbAttention(nn.Module):
         batch_size, num_heads, length_v, embed_dim = values.shape
 
         if self.mask_flag:
-            attn_mask = ProbMask(
-                batch_size, num_heads, length_q, index, scores, device=values.device
-            )
+            attn_mask = ProbMask(batch_size, num_heads, length_q, index, scores, device=values.device)
             scores.masked_fill_(attn_mask.mask, -np.inf)
 
         attn = torch.softmax(scores, dim=-1)
@@ -309,9 +281,7 @@ class ProbAttention(nn.Module):
         if scale is not None:
             scores_top = scores_top * scale
         context = self._get_initial_context(values, length_q)
-        context, attn = self._update_context(
-            context, values, scores_top, index, length_q, attn_mask
-        )
+        context, attn = self._update_context(context, values, scores_top, index, length_q, attn_mask)
 
         # [B, H, L_q, D] -> [B, L_q, H, D], as in the original Informer code, so
         # AttentionLayer's view(B, L, -1) concatenates heads per time step.
@@ -337,9 +307,7 @@ class AttentionLayer(nn.Module):
         _, length_k, _ = keys.shape
         num_heads = self.n_heads
 
-        queries = self.query_projection(queries).view(
-            batch_size, length_q, num_heads, -1
-        )
+        queries = self.query_projection(queries).view(batch_size, length_q, num_heads, -1)
         keys = self.key_projection(keys).view(batch_size, length_k, num_heads, -1)
         values = self.value_projection(values).view(batch_size, length_k, num_heads, -1)
 
@@ -370,10 +338,7 @@ class ReformerLayer(nn.Module):
     ):
         super().__init__()
         if LSHSelfAttention is None:
-            raise ImportError(
-                "reformer_pytorch is required for ReformerLayer. "
-                "Install it to use this attention type."
-            )
+            raise ImportError("reformer_pytorch is required for ReformerLayer. Install it to use this attention type.")
         self.bucket_size = bucket_size
         self.attn = LSHSelfAttention(
             dim=d_model,

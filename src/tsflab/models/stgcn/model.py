@@ -44,7 +44,9 @@ class ChebyshevGraphConvolution(nn.Module):
 
 
 class SpatioTemporalBlock(nn.Module):
-    def __init__(self, in_dim: int, hidden: int, bottleneck: int, kernel: int, supports: torch.Tensor, bias: bool, dropout: float) -> None:
+    def __init__(
+        self, in_dim: int, hidden: int, bottleneck: int, kernel: int, supports: torch.Tensor, bias: bool, dropout: float
+    ) -> None:
         super().__init__()
         self.temporal_in = TemporalGate(in_dim, hidden, kernel)
         self.graph = ChebyshevGraphConvolution(hidden, bottleneck, supports, bias)
@@ -62,7 +64,23 @@ class SpatioTemporalBlock(nn.Module):
 class Model(nn.Module):
     """Temporal-gated, Chebyshev-spatial, temporal-gated forecaster."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, input_dim: int = 3, Kt: int = 3, Ks: int = 3, hidden_dim: int = 64, bottleneck_dim: int = 16, out_hidden_dim: int = 128, act_func: str = "glu", graph_conv_type: str = "cheb_graph_conv", bias: bool = True, droprate: float = 0.5) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        input_dim: int = 3,
+        Kt: int = 3,
+        Ks: int = 3,
+        hidden_dim: int = 64,
+        bottleneck_dim: int = 16,
+        out_hidden_dim: int = 128,
+        act_func: str = "glu",
+        graph_conv_type: str = "cheb_graph_conv",
+        bias: bool = True,
+        droprate: float = 0.5,
+    ) -> None:
         super().__init__()
         if num_nodes < 1:
             raise ValueError("STGCN dimensions must be positive")
@@ -71,7 +89,9 @@ class Model(nn.Module):
         self.seq_len, self.pred_len, self.num_nodes, self.input_dim = seq_len, pred_len, num_nodes, input_dim
         self.block1 = SpatioTemporalBlock(input_dim, hidden_dim, bottleneck_dim, Kt, supports, bias, droprate)
         self.block2 = SpatioTemporalBlock(hidden_dim, hidden_dim, bottleneck_dim, Kt, supports, bias, droprate)
-        self.forecast = nn.Sequential(nn.Linear(seq_len * hidden_dim, out_hidden_dim), nn.ReLU(), nn.Linear(out_hidden_dim, pred_len))
+        self.forecast = nn.Sequential(
+            nn.Linear(seq_len * hidden_dim, out_hidden_dim), nn.ReLU(), nn.Linear(out_hidden_dim, pred_len)
+        )
 
     def forward(
         self,

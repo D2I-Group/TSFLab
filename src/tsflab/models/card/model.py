@@ -3,7 +3,9 @@
 This follows the paper's channel-aligned attention and token-blend ideas. It
 was written from the paper description; unlicensed reference code was not used.
 """
+
 from __future__ import annotations
+
 import torch
 from torch import nn
 
@@ -20,6 +22,7 @@ def exponential_smooth(tokens: torch.Tensor, alpha: float) -> torch.Tensor:
 
 class ChannelAlignedBlock(nn.Module):
     """Blend temporal-token attention with aligned cross-channel attention."""
+
     def __init__(self, d_model, n_heads, d_ff, dropout, alpha):
         super().__init__()
         self.alpha = alpha
@@ -44,9 +47,22 @@ class ChannelAlignedBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", patch_len=16, stride=8,
-                 d_model=128, n_heads=8, e_layers=2, d_ff=256, dropout=0.1,
-                 alpha=0.5, use_statistic=False):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        patch_len=16,
+        stride=8,
+        d_model=128,
+        n_heads=8,
+        e_layers=2,
+        d_ff=256,
+        dropout=0.1,
+        alpha=0.5,
+        use_statistic=False,
+    ):
         super().__init__()
         if patch_len > seq_len:
             raise ValueError("patch_len must be within the history")
@@ -56,7 +72,9 @@ class Model(nn.Module):
         self.patch_projection = nn.Linear(patch_len, d_model)
         self.position = nn.Parameter(torch.randn(1, 1, count, d_model) * 0.02)
         self.stat_projection = nn.Linear(2, d_model) if use_statistic else None
-        self.blocks = nn.ModuleList([ChannelAlignedBlock(d_model, n_heads, d_ff, dropout, alpha) for _ in range(e_layers)])
+        self.blocks = nn.ModuleList(
+            [ChannelAlignedBlock(d_model, n_heads, d_ff, dropout, alpha) for _ in range(e_layers)]
+        )
         self.head = nn.Linear((count + int(use_statistic)) * d_model, pred_len)
 
     def forward(

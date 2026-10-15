@@ -41,9 +41,7 @@ class BoundaryAwareDynamics(nn.Module):
         super().__init__()
         self.coefficient_estimator = nn.GRU(context_dim, 3, batch_first=True)
 
-    def coefficients(
-        self, history: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def coefficients(self, history: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # history: (B, N, T, C)
         batch, nodes, steps, channels = history.shape
         _, hidden = self.coefficient_estimator(history.reshape(batch * nodes, steps, channels))
@@ -67,9 +65,11 @@ class BoundaryAwareDynamics(nn.Module):
         laplacian = diagonal - diffusion_support
         diffusion = -torch.einsum("nm,bm->bn", laplacian, state)
         advection = torch.einsum("nm,bm->bn", advection_support - flow_diagonal, state)
-        return gate.squeeze(-1) * coefficient.squeeze(-1) * diffusion + (
-            1.0 - gate.squeeze(-1)
-        ) * advection + correction.squeeze(-1) * state
+        return (
+            gate.squeeze(-1) * coefficient.squeeze(-1) * diffusion
+            + (1.0 - gate.squeeze(-1)) * advection
+            + correction.squeeze(-1) * state
+        )
 
 
 class DataDrivenDynamics(nn.Module):
@@ -173,9 +173,7 @@ class Model(nn.Module):
         history = features.permute(0, 2, 1, 3)
         gate, coefficient, correction = self.physics.coefficients(history)
         physical = x_enc[:, -1]
-        sequence = history.reshape(
-            x_enc.shape[0] * self.enc_in, self.seq_len, 1 + self.cov_dim
-        )
+        sequence = history.reshape(x_enc.shape[0] * self.enc_in, self.seq_len, 1 + self.cov_dim)
         _, hidden = self.data_encoder(sequence)
         data = hidden[-1].reshape(x_enc.shape[0], self.enc_in, -1)
 
@@ -192,14 +190,10 @@ class Model(nn.Module):
                     correction,
                 ),
             )
-            data = self._integrate(
-                data, lambda state: self.data_field(state, self.diffusion_support)
-            )
+            data = self._integrate(data, lambda state: self.data_field(state, self.diffusion_support))
             joint = torch.cat([self.physics_encoder(physical.unsqueeze(-1)), data], dim=-1)
             local = self.graph_fusion[1](self.graph_fusion[0](joint))
             neighbors = torch.einsum("nm,bmd->bnd", self.diffusion_support, local)
-            fused = self.graph_fusion[3](
-                self.graph_fusion[2](torch.cat([local, neighbors], dim=-1))
-            )
+            fused = self.graph_fusion[3](self.graph_fusion[2](torch.cat([local, neighbors], dim=-1)))
             outputs.append(self.decoder(fused).squeeze(-1))
         return torch.stack(outputs, dim=1)

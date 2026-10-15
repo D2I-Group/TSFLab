@@ -70,8 +70,7 @@ def _gradient_norm(
 ) -> torch.Tensor:
     """Joint L2 norm of ``g`` (or ``|w| g`` when ``adaptive``) over parameters with a gradient."""
     weighted = [
-        None if g is None else ((p.detach().abs() if adaptive else 1.0) * g)
-        for p, g in zip(named.values(), grads)
+        None if g is None else ((p.detach().abs() if adaptive else 1.0) * g) for p, g in zip(named.values(), grads)
     ]
     return torch.sqrt(sum((w.detach() ** 2).sum() for w in weighted if w is not None))
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from tsflab.experiments.runner.objective import TrainingBatch
+from pydantic import BaseModel, Field, model_validator
 
 from tsflab.catalog.registry.models import ModelSpec
+from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.models.kronos.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,7 +18,7 @@ class ModelParameterConfig(BaseModel):
     num_heads: int = Field(default=4, gt=0)
 
     @model_validator(mode="after")
-    def _heads(self) -> "ModelParameterConfig":
+    def _heads(self) -> ModelParameterConfig:
         if self.d_model % self.num_heads:
             raise ValueError("d_model must be divisible by num_heads")
         return self

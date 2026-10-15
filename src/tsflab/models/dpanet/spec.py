@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     dropout: float = Field(default=0.2, ge=0.0, lt=1.0)
 
     @model_validator(mode="after")
-    def _heads(self) -> "ModelParameterConfig":
+    def _heads(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         return self

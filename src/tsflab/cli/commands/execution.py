@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from tsflab.cli.output import publish
-
 import argparse
 import os
 import sys
@@ -11,6 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from tsflab.cli.output import publish
 from tsflab.cli.runtime import ROOT, RUN_CONFIG_DIR, module_for_model, run_config
 from tsflab.research.rounds import load_round
 
@@ -18,6 +17,7 @@ from tsflab.research.rounds import load_round
 def _save_output(path: Path, result: dict) -> bool:
     """Keep a native execution receipt when a later request is rejected or previewed."""
     import json
+
     from tsflab.experiments.infra.storage import file_lock, write_json
 
     path = path.expanduser().resolve()
@@ -58,9 +58,7 @@ def smoke_command(rest: list[str]) -> int:
             from tsflab.catalog.registry.models import MODEL_CATALOG
 
             other_modules = {
-                path.split(".")[2]
-                for name, path in MODEL_CATALOG.refs().items()
-                if module_for_model(name) != prefix
+                path.split(".")[2] for name, path in MODEL_CATALOG.refs().items() if module_for_model(name) != prefix
             }
         except Exception:
             other_modules = set()
@@ -126,11 +124,16 @@ def _print_runs(result: dict) -> None:
     import json
 
     for run in result["runs"]:
-        print(f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}")
+        print(
+            f"{run.get('status', 'ready' if run.get('ok') else 'failed')}: {run.get('directory', run.get('model', ''))}"
+        )
         for error in run.get("errors", []):
             print(f"  {error}")
         if run.get("metrics"):
-            print("  " + json.dumps({k: run[k] for k in ("split", "metrics", "train_time_sec", "test_time_sec") if k in run}))
+            print(
+                "  "
+                + json.dumps({k: run[k] for k in ("split", "metrics", "train_time_sec", "test_time_sec") if k in run})
+            )
         if run.get("error"):
             print(f"  {run['error']}")
     if result.get("skipped"):
@@ -193,28 +196,57 @@ def _split_defaults(loaded: list, args) -> None:
 def _run_parser() -> argparse.ArgumentParser:
     from tsflab.cli.inventory import group_usage
 
-    parser = argparse.ArgumentParser(prog="tsf run", description=group_usage("run"),
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("configs", nargs="*",
-                        help="config paths; or status|wait|cancel|resume DIR; or evaluate RUN_DIR... --eval-split S")
+    parser = argparse.ArgumentParser(
+        prog="tsf run", description=group_usage("run"), formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "configs",
+        nargs="*",
+        help="config paths; or status|wait|cancel|resume DIR; or evaluate RUN_DIR... --eval-split S",
+    )
     parser.add_argument("--model", help="run a named model preset without authoring a TOML file")
-    parser.add_argument("--set", action="append", default=[], metavar="KEY=JSON",
-                        help="setting for --model, e.g. task.seq_len=96; strings may be unquoted")
-    parser.add_argument("--sweep", action="append", default=[], metavar="KEY=LIST",
-                        help="sweep axis for --model, e.g. task.pred_len=[96,192]")
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="KEY=JSON",
+        help="setting for --model, e.g. task.seq_len=96; strings may be unquoted",
+    )
+    parser.add_argument(
+        "--sweep",
+        action="append",
+        default=[],
+        metavar="KEY=LIST",
+        help="sweep axis for --model, e.g. task.pred_len=[96,192]",
+    )
     parser.add_argument("--jobs", default=None, help="worker count, or auto (CUDA matrix only)")
     parser.add_argument("--gpus", default=None, help="GPU indices/UUIDs, or auto (visible GPUs; waits for free leases)")
     parser.add_argument("--round", dest="round_id", default=None)
-    parser.add_argument("--eval-split", choices=("val", "test"), default=os.environ.get("TSFLAB_EVAL_SPLIT"),
-                        help="evaluation split of every new run (default: the config; val inside a research round)")
+    parser.add_argument(
+        "--eval-split",
+        choices=("val", "test"),
+        default=os.environ.get("TSFLAB_EVAL_SPLIT"),
+        help="evaluation split of every new run (default: the config; val inside a research round)",
+    )
     parser.add_argument("--policy", help="Optional execution policy TOML")
-    parser.add_argument("--prepare-only", action="store_true", help="Persist a validated matrix for queue or Slurm submission")
-    parser.add_argument("--dry-run", action="store_true", help="Preview the resolved matrix (coverage summary) and check it without executing")
+    parser.add_argument(
+        "--prepare-only", action="store_true", help="Persist a validated matrix for queue or Slurm submission"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the resolved matrix (coverage summary) and check it without executing",
+    )
     parser.add_argument("--json", action="store_true", help="Machine-readable result")
-    parser.add_argument("--compact", action="store_true",
-                        help="compact JSON: preflight keeps failures and coverage only")
-    parser.add_argument("--output", help="save the returned JSON; the path keys one matrix request, so a relaunch reuses its sweep")
-    parser.add_argument("--timeout", type=float, default=1800.0, help="wait: seconds before returning while runs continue")
+    parser.add_argument(
+        "--compact", action="store_true", help="compact JSON: preflight keeps failures and coverage only"
+    )
+    parser.add_argument(
+        "--output", help="save the returned JSON; the path keys one matrix request, so a relaunch reuses its sweep"
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=1800.0, help="wait: seconds before returning while runs continue"
+    )
     return parser
 
 
@@ -228,8 +260,9 @@ def _apply_overrides(policy, args) -> None:
         policy.budget.max_parallel_jobs = jobs
     if args.gpus is not None:
         policy.resources.auto_select = args.gpus == "auto"
-        policy.resources.gpus = [] if policy.resources.auto_select else [
-            gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
+        policy.resources.gpus = (
+            [] if policy.resources.auto_select else [gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
+        )
 
 
 def _manage(policy, args) -> dict:
@@ -247,10 +280,14 @@ def _manage(policy, args) -> dict:
         return cancel(directory)
     if args.eval_split:
         saved = status(directory)
-        if any(cell.get("config", {}).get("evaluation", {}).get("split") != args.eval_split
-               for cell in saved.get("runs", [saved])):
-            raise ValueError("saved evaluation split differs from --eval-split or TSFLAB_EVAL_SPLIT; "
-                             "create a new sweep instead of changing a saved run")
+        if any(
+            cell.get("config", {}).get("evaluation", {}).get("split") != args.eval_split
+            for cell in saved.get("runs", [saved])
+        ):
+            raise ValueError(
+                "saved evaluation split differs from --eval-split or TSFLAB_EVAL_SPLIT; "
+                "create a new sweep instead of changing a saved run"
+            )
     overridden = args.policy or args.jobs is not None or args.gpus is not None
     return execute(directory, policy if overridden else None, round_id=args.round_id)
 
@@ -332,6 +369,7 @@ def _save_failure(args, failure: dict, exc: Exception) -> None:
 def run_command(rest: list[str]) -> int:
     """Run, preview, smoke-test, cancel, or resume experiments through one public surface."""
     import json
+
     if "--smoke" in rest:
         return smoke_command([item for item in rest if item != "--smoke"])
     rest, backend = _extract_backend(rest)
@@ -350,6 +388,7 @@ def run_command(rest: list[str]) -> int:
         policy = load_policy(args.policy)
         if not args.policy and len(args.configs) == 2 and args.configs[0] == "resume":
             from tsflab.experiments.infra.execution import saved_policy
+
             policy = saved_policy(args.configs[1])
         _apply_overrides(policy, args)
         managing = args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}

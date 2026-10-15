@@ -95,9 +95,7 @@ class FrequencyGatedSSM(nn.Module):
         # Eq. (6): omega_base = [2 pi k / S]_{k=0}^{S-1}; learnable in the official code.
         self.omega_base = nn.Parameter(2 * math.pi * torch.arange(d_freq, dtype=torch.float32) / d_freq)
         # Eq. (7): Adapter = Linear -> ReLU -> Linear on the mean-pooled tokens.
-        self.adapter = nn.Sequential(
-            nn.Linear(d_model, d_model // 4), nn.ReLU(), nn.Linear(d_model // 4, d_freq)
-        )
+        self.adapter = nn.Sequential(nn.Linear(d_model, d_model // 4), nn.ReLU(), nn.Linear(d_model // 4, d_freq))
         # Eqs. (18)-(19): temporal (per d) and frequency (per S) forgetting gates.
         self.time_gate_z = nn.Linear(d_model, d_model)
         self.time_gate_u = nn.Linear(d_model, d_model)

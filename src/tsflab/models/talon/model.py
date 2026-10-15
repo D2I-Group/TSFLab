@@ -45,8 +45,9 @@ def _loess_row(n: int, window: int, degree: int, xs: int, left: int, right: int)
         h += (window - n) // 2
     positions = np.arange(left, right + 1, dtype=np.float64)
     distance = np.abs(positions - xs)
-    weights = np.where(distance <= 0.001 * h, 1.0, (1.0 - (distance / h) ** 3) ** 3) if h > 0 \
-        else np.ones_like(distance)
+    weights = (
+        np.where(distance <= 0.001 * h, 1.0, (1.0 - (distance / h) ** 3) ** 3) if h > 0 else np.ones_like(distance)
+    )
     weights = np.where(distance <= 0.999 * h, weights, 0.0)
     total = weights.sum()
     if total <= 0:
@@ -58,7 +59,7 @@ def _loess_row(n: int, window: int, degree: int, xs: int, left: int, right: int)
         if math.sqrt(spread) > 0.001 * (n - 1):
             weights = weights * ((xs - center) / spread * (positions - center) + 1.0)
     row = np.zeros(n)
-    row[left - 1:right] = weights
+    row[left - 1 : right] = weights
     return row
 
 
@@ -81,7 +82,7 @@ def _moving_average(n: int, length: int) -> np.ndarray:
     """``[n - length + 1, n]`` running mean of ``length`` points."""
     out = np.zeros((n - length + 1, n))
     for i in range(n - length + 1):
-        out[i, i:i + length] = 1.0 / length
+        out[i, i : i + length] = 1.0 / length
     return out
 
 
@@ -101,7 +102,7 @@ def stl_operators(n: int, period: int, seasonal: int = 7, inner_iter: int = 5) -
         index = np.arange(count) * period + j
         inner = _loess_matrix(count, seasonal)
         rows = np.zeros((count + 2, count))
-        rows[1:count + 1] = inner
+        rows[1 : count + 1] = inner
         first = _loess_row(count, seasonal, 1, 0, 1, min(seasonal, count))
         rows[0] = first if first is not None else rows[1]
         last = _loess_row(count, seasonal, 1, count + 1, max(1, count - seasonal + 1), count)
@@ -120,7 +121,7 @@ def stl_operators(n: int, period: int, seasonal: int = 7, inner_iter: int = 5) -
     season = np.zeros((n, n))
     for _ in range(inner_iter):
         smoothed = cycle @ (identity - trend)
-        season = smoothed[period:period + n] - low_pass @ smoothed
+        season = smoothed[period : period + n] - low_pass @ smoothed
         trend = trend_smoother @ (identity - season)
     return season, trend
 
@@ -158,8 +159,11 @@ class PatchComplexity(nn.Module):
         centered = p - p.mean(dim=-1, keepdim=True)
         energy = centered.square().sum(dim=-1)
         lag1 = (centered[..., :-1] * centered[..., 1:]).sum(dim=-1)
-        autocorr = torch.where(nonconstant, (lag1 / torch.where(nonconstant, energy, torch.ones_like(energy))).abs(),
-                               torch.zeros_like(energy))
+        autocorr = torch.where(
+            nonconstant,
+            (lag1 / torch.where(nonconstant, energy, torch.ones_like(energy))).abs(),
+            torch.zeros_like(energy),
+        )
         features = torch.stack([strength, variation, autocorr], dim=-1)
         features = torch.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
         return (torch.round(features * 1000) / 1000).to(patches.dtype)
@@ -220,22 +224,25 @@ class HeterogeneousTemporalEncoder(nn.Module):
     routing scores get Gaussian noise with scale ``Softplus(c~) + noise_epsilon``.
     """
 
-    def __init__(self, token_len: int, width: int, hidden: int, top_k: int,
-                 noise_epsilon: float = 1e-2) -> None:
+    def __init__(self, token_len: int, width: int, hidden: int, top_k: int, noise_epsilon: float = 1e-2) -> None:
         super().__init__()
         self.top_k = top_k
         self.noise_epsilon = noise_epsilon
         # Eq. (1): z~ = ReLU(s W0t) W1t ; Eq. (2): c~ = ReLU(c W0c) W1c (no biases).
-        self.segment_gate = nn.Sequential(nn.Linear(token_len, hidden, bias=False), nn.ReLU(),
-                                          nn.Linear(hidden, NUM_EXPERTS, bias=False))
-        self.complexity_gate = nn.Sequential(nn.Linear(3, hidden, bias=False), nn.ReLU(),
-                                             nn.Linear(hidden, NUM_EXPERTS, bias=False))
+        self.segment_gate = nn.Sequential(
+            nn.Linear(token_len, hidden, bias=False), nn.ReLU(), nn.Linear(hidden, NUM_EXPERTS, bias=False)
+        )
+        self.complexity_gate = nn.Sequential(
+            nn.Linear(3, hidden, bias=False), nn.ReLU(), nn.Linear(hidden, NUM_EXPERTS, bias=False)
+        )
         self.projection = nn.Parameter(torch.eye(NUM_EXPERTS))  # W_H, Eq. (4)
-        self.experts = nn.ModuleList([
-            LinearExpert(token_len, width),
-            CNNExpert(token_len, hidden, width),
-            LSTMExpert(hidden, width),
-        ])
+        self.experts = nn.ModuleList(
+            [
+                LinearExpert(token_len, width),
+                CNNExpert(token_len, hidden, width),
+                LSTMExpert(hidden, width),
+            ]
+        )
 
     def route(self, s: torch.Tensor, c: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Sparse gates ``[M, K]`` (Eqs. 3-6) and the per-expert load ``[K]``."""
@@ -267,8 +274,8 @@ class HeterogeneousTemporalEncoder(nn.Module):
         """
         std = torch.sqrt((scale.unsqueeze(-1) * self.projection.unsqueeze(0)).square().sum(dim=1)) + 1e-12
         ranked = noisy_scores.gather(1, top_index)
-        threshold_in = ranked[:, self.top_k: self.top_k + 1]  # (k+1)-th score
-        threshold_out = ranked[:, self.top_k - 1: self.top_k]  # k-th score
+        threshold_in = ranked[:, self.top_k : self.top_k + 1]  # (k+1)-th score
+        threshold_out = ranked[:, self.top_k - 1 : self.top_k]  # k-th score
         is_in = noisy_scores > threshold_in
         normal = torch.distributions.Normal(clean_scores.new_zeros(()), clean_scores.new_ones(()))
         prob_in = normal.cdf((clean_scores - threshold_in) / std)
@@ -282,7 +289,7 @@ class HeterogeneousTemporalEncoder(nn.Module):
         for j, expert in enumerate(self.experts):
             rows = torch.nonzero(gates[:, j] > 0, as_tuple=True)[0]
             if rows.numel():
-                out = out.index_add(0, rows, gates[rows, j: j + 1] * expert(s[rows]))  # Eq. (10)
+                out = out.index_add(0, rows, gates[rows, j : j + 1] * expert(s[rows]))  # Eq. (10)
         return out, balance
 
 
@@ -323,8 +330,7 @@ class Model(nn.Module):
         self.normalizer = RevIN(1, affine=False)
         self.complexity = PatchComplexity(token_len)
         self.encoder = HeterogeneousTemporalEncoder(token_len, width, expert_hidden, top_k)
-        self.decoder = SegmentMLP(width, token_len, mlp_hidden_dim, mlp_hidden_layers,
-                                  dropout, mlp_activation)
+        self.decoder = SegmentMLP(width, token_len, mlp_hidden_dim, mlp_hidden_layers, dropout, mlp_activation)
 
     def next_segments(self, x_enc: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Map segments ``s_1..s_N`` of ``[B, N*S, C]`` to predictions of ``s_2..s_{N+1}``.
@@ -351,7 +357,7 @@ class Model(nn.Module):
         """Next-segment loss on the history shifted by one segment plus ``alpha * L_MoE`` (Eq. 14
         without the alignment term)."""
         available = min(self.token_len, future.shape[1])
-        target = torch.cat([x_enc, future[:, :available]], dim=1)[:, self.token_len:]
+        target = torch.cat([x_enc, future[:, :available]], dim=1)[:, self.token_len :]
         predicted, balance = self.next_segments(x_enc)
         return criterion(predicted[:, : target.shape[1]], target) + balance
 
@@ -362,8 +368,8 @@ class Model(nn.Module):
         window, outputs = x_enc, []
         for _ in range(math.ceil(self.pred_len / self.token_len)):
             predicted, _ = self.next_segments(window)
-            segment = predicted[:, -self.token_len:]
+            segment = predicted[:, -self.token_len :]
             outputs.append(segment)
             # Slide the context; the routing cues are recomputed for the new window.
-            window = torch.cat([window[:, self.token_len:], segment], dim=1)
+            window = torch.cat([window[:, self.token_len :], segment], dim=1)
         return torch.cat(outputs, dim=1)[:, : self.pred_len]

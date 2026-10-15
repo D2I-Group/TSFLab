@@ -128,9 +128,7 @@ class ARBlock(nn.Module):
     halves the length and doubles the width (Fig. 5a: Res-P then Res-C, or one fused
     stride-2 widening unit as in the official default extractor)."""
 
-    def __init__(
-        self, c_in: int, n_heads: int, kernel: int, dropout: float, fused_conv: bool
-    ) -> None:
+    def __init__(self, c_in: int, n_heads: int, kernel: int, dropout: float, fused_conv: bool) -> None:
         super().__init__()
         self.attention = ARSelfAttention(c_in, n_heads, dropout)
         if fused_conv:
@@ -208,8 +206,16 @@ class AutoRegressionStage(nn.Module):
             raise ValueError("ar_len is too short for the pyramid depth")
         self.branches = nn.ModuleList(
             ARPyramidBranch(
-                ar_len // 2**i, pred_len, c_in, c_out, fd_model, blocks - i,
-                n_heads, kernel, dropout, fused_conv,
+                ar_len // 2**i,
+                pred_len,
+                c_in,
+                c_out,
+                fd_model,
+                blocks - i,
+                n_heads,
+                kernel,
+                dropout,
+                fused_conv,
             )
             for i in range(pyramid)
         )
@@ -316,13 +322,20 @@ class Model(nn.Module):
         self.ar_lr = ar_lr
         width = 1 if channel_independent else enc_in
         self.auto_regression = AutoRegressionStage(
-            self.ar_len, pred_len, width, width, fd_model, ar_blocks, pyramid,
-            n_heads, kernel, dropout, fused_conv,
+            self.ar_len,
+            pred_len,
+            width,
+            width,
+            fd_model,
+            ar_blocks,
+            pyramid,
+            n_heads,
+            kernel,
+            dropout,
+            fused_conv,
         )
         self.embedding = PointwiseEmbedding(width, d_model, dropout, position=True)
-        self.decoder = nn.ModuleList(
-            SRDecoderLayer(d_model, n_heads, dropout, mix) for _ in range(d_layers)
-        )
+        self.decoder = nn.ModuleList(SRDecoderLayer(d_model, n_heads, dropout, mix) for _ in range(d_layers))
         self.norm = nn.LayerNorm(d_model)
         self.projection = nn.Linear(d_model, width)
         self._auto_regression_frozen = False

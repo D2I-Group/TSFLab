@@ -56,7 +56,7 @@ def _front(text: str, path: Path) -> tuple[dict[str, str], str]:
         key, _, raw = line.partition(":")
         raw = raw.strip()
         front[key.strip()] = json.loads(raw) if raw.startswith('"') else raw
-    return front, "\n".join(lines[end + 1:]).strip()
+    return front, "\n".join(lines[end + 1 :]).strip()
 
 
 def split_sections(text: str) -> tuple[tuple[str, str], ...]:
@@ -150,8 +150,9 @@ def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
 
 def card_directories(root: Path) -> dict[str, list[Path]]:
     """Every card directory by kind (models: registered packages are filtered by callers)."""
-    models = sorted(p.parent for p in (root / "src/tsflab/models").glob("*/card.toml")
-                    if not p.parent.name.startswith("_"))
+    models = sorted(
+        p.parent for p in (root / "src/tsflab/models").glob("*/card.toml") if not p.parent.name.startswith("_")
+    )
     components = sorted(p.parent for p in (root / "src/tsflab/models/_components").glob("*/card.toml"))
     datasets = sorted(p.parent for p in (root / "catalog/datasets").rglob("card.toml"))
     return {"model": models, "component": components, "dataset": datasets}

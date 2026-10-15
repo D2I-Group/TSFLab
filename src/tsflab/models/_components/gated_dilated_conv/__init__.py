@@ -29,9 +29,7 @@ def causal_pad(x: torch.Tensor, dilation: int, kernel_size: int) -> torch.Tensor
     raise ValueError("causal_pad expects a rank-3 or rank-4 tensor")
 
 
-def gated_dilated_conv(
-    x: torch.Tensor, filter_conv: nn.Module, gate_conv: nn.Module
-) -> torch.Tensor:
+def gated_dilated_conv(x: torch.Tensor, filter_conv: nn.Module, gate_conv: nn.Module) -> torch.Tensor:
     """Apply the WaveNet gated activation unit to ``x``.
 
     ``filter_conv`` and ``gate_conv`` are caller-owned ``Conv1d`` or ``Conv2d``

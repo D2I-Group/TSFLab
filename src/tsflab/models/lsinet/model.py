@@ -173,8 +173,7 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, enabled=use_norm)
         self.patch_encoder = PatchEncoder(patch_len, stride, num_patches, d_model, dropout)
         self.blocks = nn.ModuleList(
-            SparseTemporalInteractionBlock(num_patches, d_model, n_heads, density, dropout)
-            for _ in range(e_layers)
+            SparseTemporalInteractionBlock(num_patches, d_model, n_heads, density, dropout) for _ in range(e_layers)
         )
         self.head = FlattenForecastHead(
             individual=False,

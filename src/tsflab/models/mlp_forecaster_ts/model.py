@@ -12,8 +12,16 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Map each channel's complete lag window directly to its forecast."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 128,
-                 dropout: float = 0.1, num_layers: int = 1, use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 128,
+        dropout: float = 0.1,
+        num_layers: int = 1,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)

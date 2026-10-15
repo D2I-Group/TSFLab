@@ -10,9 +10,9 @@ commit or tag so the same URI always resolves to the same bytes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import re
+from dataclasses import dataclass
 from urllib.parse import quote
 
 SCHEME = "hf://"
@@ -25,6 +25,8 @@ DEFAULT_OWNER = os.environ.get("TSFLAB_HUB_OWNER", "Diaugeia")
 def default_repo(name: str) -> str:
     """Return ``<owner>/<name>`` in the configured publishing namespace."""
     return f"{DEFAULT_OWNER}/{name}"
+
+
 _REPO_TYPES = {"datasets": "dataset", "spaces": "space"}
 _NAME = r"[A-Za-z0-9][A-Za-z0-9._-]*"
 _URI = re.compile(
@@ -52,8 +54,7 @@ class HubURI:
         """Return the pinned HTTPS download URL for this file."""
         prefix = {"dataset": "datasets/", "space": "spaces/"}.get(self.repo_type, "")
         return (
-            f"{endpoint.rstrip('/')}/{prefix}{self.repo_id}/resolve/"
-            f"{quote(self.revision, safe='')}/{quote(self.path)}"
+            f"{endpoint.rstrip('/')}/{prefix}{self.repo_id}/resolve/{quote(self.revision, safe='')}/{quote(self.path)}"
         )
 
 
@@ -66,8 +67,7 @@ def parse(value: str) -> HubURI:
     match = _URI.match(value)
     if match is None:
         raise ValueError(
-            f"invalid hub URI {value!r}; expected "
-            "hf://[datasets/|spaces/]<owner>/<repo>@<revision>/<path>"
+            f"invalid hub URI {value!r}; expected hf://[datasets/|spaces/]<owner>/<repo>@<revision>/<path>"
         )
     path = match["path"]
     if any(part in {"", ".", ".."} for part in path.split("/")):

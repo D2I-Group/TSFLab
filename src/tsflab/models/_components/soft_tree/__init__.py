@@ -31,9 +31,7 @@ def binary_routes(depth: int) -> tuple[torch.Tensor, torch.Tensor]:
     return nodes, right
 
 
-def _checked_split_mask(
-    split_mask: torch.Tensor | None, split_count: int, input_dim: int
-) -> torch.Tensor:
+def _checked_split_mask(split_mask: torch.Tensor | None, split_count: int, input_dim: int) -> torch.Tensor:
     if split_mask is None:
         split_mask = torch.ones(split_count, input_dim)
     if split_mask.shape != (split_count, input_dim):
@@ -145,9 +143,7 @@ class SoftObliviousTree(nn.Module):
     def leaf_probabilities(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim != 2 or x.shape[-1] != self.input_dim:
             raise ValueError(f"expected [batch, {self.input_dim}], got {tuple(x.shape)}")
-        right_probability = torch.sigmoid(
-            (x @ self.split_weight.transpose(0, 1) - self.threshold) / self.temperature
-        )
+        right_probability = torch.sigmoid((x @ self.split_weight.transpose(0, 1) - self.threshold) / self.temperature)
         selected = right_probability.unsqueeze(1).expand(-1, 2**self.depth, -1)
         branch = self.route_right.unsqueeze(0)
         return torch.where(branch, selected, 1.0 - selected).prod(dim=-1)

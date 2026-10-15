@@ -4,12 +4,25 @@ from __future__ import annotations
 
 import re
 
-
 #: Architecture families; every card names at least one so retrieval by family works.
-FAMILY_TAGS = frozenset({
-    "linear", "mlp", "transformer", "cnn", "rnn", "gnn", "ssm", "kan", "llm",
-    "foundation", "diffusion", "tree", "statistical", "hybrid",
-})
+FAMILY_TAGS = frozenset(
+    {
+        "linear",
+        "mlp",
+        "transformer",
+        "cnn",
+        "rnn",
+        "gnn",
+        "ssm",
+        "kan",
+        "llm",
+        "foundation",
+        "diffusion",
+        "tree",
+        "statistical",
+        "hybrid",
+    }
+)
 #: The recombination slots shared with autoresearch, in this order.
 COMPOSITION_SLOTS = ("normalization", "decomposition", "temporal", "channel", "head", "loss")
 _PART = re.compile(r"^(component|local|loss):[A-Za-z0-9_.+/-]+$")
@@ -39,5 +52,3 @@ def _composition_problems(entries: list[object], where: str) -> list[str]:
             if kind == "loss" and (slot != "loss" or name not in losses):
                 problems.append(f"{where} composition {slot}: {part!r} is not a registered loss in the loss slot")
     return problems
-
-

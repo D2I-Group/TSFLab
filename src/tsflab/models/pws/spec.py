@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.pws.model import Model
-
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.models.pws.model import Model
 
 
 class ModelParameterConfig(BaseModel):

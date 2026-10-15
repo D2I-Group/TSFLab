@@ -67,9 +67,7 @@ class Model(nn.Module):
         coefficients_t = torch.cat((approx_t, detail_t), dim=-1)
         return (coefficients_f - coefficients_t).abs().mean()
 
-    def olma_loss(
-        self, forecast: torch.Tensor, target: torch.Tensor
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def olma_loss(self, forecast: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Eq. (15): ``w * (alpha L_c + beta L_tF + gamma L_tW)`` on ``[B, L, C]`` tensors."""
         if forecast.shape != target.shape or forecast.ndim != 3:
             raise ValueError("forecast and target must share a [batch, time, channels] shape")

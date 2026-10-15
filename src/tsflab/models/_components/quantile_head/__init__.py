@@ -19,7 +19,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 DEFAULT_QUANTILE_LEVELS = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 
@@ -29,9 +28,7 @@ def validate_quantile_levels(
     """Return a validated, strictly increasing quantile-level list."""
     levels = list(values) if values is not None else list(DEFAULT_QUANTILE_LEVELS)
     if not levels or any(not 0.0 < level < 1.0 for level in levels):
-        raise ValueError(
-            "quantile levels must be non-empty and lie strictly inside (0, 1)"
-        )
+        raise ValueError("quantile levels must be non-empty and lie strictly inside (0, 1)")
     if any(left >= right for left, right in zip(levels, levels[1:])):
         raise ValueError("quantile levels must be strictly increasing")
     return levels
@@ -57,9 +54,7 @@ class QuantileHead(nn.Module):
         super().__init__()
         levels = validate_quantile_levels(quantile_levels)
         # Ensure ascending order is the contract; the head emits in this order.
-        self.register_buffer(
-            "_levels", torch.tensor(levels, dtype=torch.float32), persistent=False
-        )
+        self.register_buffer("_levels", torch.tensor(levels, dtype=torch.float32), persistent=False)
         self.q = len(levels)
         # Median index: the level closest to 0.5. The anchor passes through here.
         self.median_idx = int(torch.argmin((self._levels - 0.5).abs()).item())
@@ -88,15 +83,13 @@ class QuantileHead(nn.Module):
             Quantile grid ``(B, L, C, Q)``, ascending along the last axis,
             equal to the anchor at ``median_idx``.
         """
-        anchor = self.anchor_proj(base).squeeze(-1)          # (B, L, C)
+        anchor = self.anchor_proj(base).squeeze(-1)  # (B, L, C)
         if self.q == 1:
-            return anchor.unsqueeze(-1)                       # (B, L, C, 1)
-        gaps = F.softplus(self.offset_proj(base))             # (B, L, C, Q-1) >= 0
+            return anchor.unsqueeze(-1)  # (B, L, C, 1)
+        gaps = F.softplus(self.offset_proj(base))  # (B, L, C, Q-1) >= 0
 
         m = self.median_idx
-        out = torch.empty(
-            (*anchor.shape, self.q), dtype=anchor.dtype, device=anchor.device
-        )
+        out = torch.empty((*anchor.shape, self.q), dtype=anchor.dtype, device=anchor.device)
         out[..., m] = anchor
         # Above median: q_{i} = anchor + sum_{j=m..i-1} gap_j  (gap index = j)
         cum_up = 0.0
@@ -108,4 +101,4 @@ class QuantileHead(nn.Module):
         for i in range(m - 1, -1, -1):
             cum_dn = cum_dn + gaps[..., i]
             out[..., i] = anchor - cum_dn
-        return out                                            # (B, L, C, Q)
+        return out  # (B, L, C, Q)

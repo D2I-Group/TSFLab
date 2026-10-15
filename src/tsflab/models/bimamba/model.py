@@ -19,9 +19,7 @@ def patchify(values: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
     count = math.ceil(max(length - patch_len, 0) / stride) + 1
     needed = (count - 1) * stride + patch_len
     if needed > length:
-        values = F.pad(
-            values.transpose(1, 2), (0, needed - length), mode="replicate"
-        ).transpose(1, 2)
+        values = F.pad(values.transpose(1, 2), (0, needed - length), mode="replicate").transpose(1, 2)
     return values.transpose(1, 2).unfold(-1, patch_len, stride)
 
 
@@ -46,9 +44,7 @@ class SeriesRelationDecider(nn.Module):
         channels = values.shape[-1]
         off_diagonal = ~torch.eye(channels, dtype=torch.bool, device=values.device)
         relation = correlation[:, off_diagonal].clamp_min(0).mean(dim=1)
-        return torch.sigmoid((relation - self.threshold) * self.temperature).view(
-            -1, 1, 1
-        )
+        return torch.sigmoid((relation - self.threshold) * self.temperature).view(-1, 1, 1)
 
 
 class MambaPlus(nn.Module):
@@ -56,9 +52,7 @@ class MambaPlus(nn.Module):
 
     def __init__(self, d_model, d_state, expand, d_conv):
         super().__init__()
-        self.scan = MambaBlock(
-            d_model, d_model * expand, math.ceil(d_model / 16), d_conv, d_state
-        )
+        self.scan = MambaBlock(d_model, d_model * expand, math.ceil(d_model / 16), d_conv, d_state)
         self.new_gate = nn.Linear(d_model, d_model)
         self.norm = nn.LayerNorm(d_model)
 
@@ -123,16 +117,10 @@ class Model(nn.Module):
         self.independent_projection = nn.Linear(patch_len, d_model)
         self.mixing_projection = nn.Linear(patch_len * enc_in, d_model)
         self.independent_encoder = nn.ModuleList(
-            [
-                BiMambaPlusEncoder(d_model, d_state, d_ff, expand, d_conv, dropout)
-                for _ in range(e_layers)
-            ]
+            [BiMambaPlusEncoder(d_model, d_state, d_ff, expand, d_conv, dropout) for _ in range(e_layers)]
         )
         self.mixing_encoder = nn.ModuleList(
-            [
-                BiMambaPlusEncoder(d_model, d_state, d_ff, expand, d_conv, dropout)
-                for _ in range(e_layers)
-            ]
+            [BiMambaPlusEncoder(d_model, d_state, d_ff, expand, d_conv, dropout) for _ in range(e_layers)]
         )
         self.independent_head = nn.Linear(self.patch_count * d_model, pred_len)
         self.mixing_head = nn.Linear(self.patch_count * d_model, pred_len * enc_in)
@@ -150,26 +138,18 @@ class Model(nn.Module):
         patches = patchify(values, self.patch_len, self.stride)
         batch, channels, count, width = patches.shape
 
-        independent = self.dropout(self.independent_projection(patches)).reshape(
-            batch * channels, count, -1
-        )
+        independent = self.dropout(self.independent_projection(patches)).reshape(batch * channels, count, -1)
         for layer in self.independent_encoder:
             independent = layer(independent)
         independent = (
-            self.independent_head(independent.flatten(1))
-            .reshape(batch, channels, self.pred_len)
-            .transpose(1, 2)
+            self.independent_head(independent.flatten(1)).reshape(batch, channels, self.pred_len).transpose(1, 2)
         )
 
-        mixing_patches = patches.permute(0, 2, 1, 3).reshape(
-            batch, count, channels * width
-        )
+        mixing_patches = patches.permute(0, 2, 1, 3).reshape(batch, count, channels * width)
         mixing = self.dropout(self.mixing_projection(mixing_patches))
         for layer in self.mixing_encoder:
             mixing = layer(mixing)
-        mixing = self.mixing_head(mixing.flatten(1)).reshape(
-            batch, self.pred_len, channels
-        )
+        mixing = self.mixing_head(mixing.flatten(1)).reshape(batch, self.pred_len, channels)
 
         gate = self.decider(values)
         forecast = (1.0 - gate) * independent + gate * mixing

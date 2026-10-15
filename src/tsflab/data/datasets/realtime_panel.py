@@ -19,7 +19,6 @@ mean/std from the training rows, as in ``export_bundle``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -52,9 +51,16 @@ def _open_store(root_path: str, track: str, revision: str | None, repo_id: str |
     return store
 
 
-def load_panel(root_path: str, track: str, version: str | None = None, revision: str | None = None,
-               repo_id: str | None = None, start: str | None = None, end: str | None = None,
-               freq: str | None = None) -> pd.DataFrame:
+def load_panel(
+    root_path: str,
+    track: str,
+    version: str | None = None,
+    revision: str | None = None,
+    repo_id: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    freq: str | None = None,
+) -> pd.DataFrame:
     """Return the frozen, gap-filled ``(T, N)`` panel on a regular grid."""
     from tsflab.realtime.tracks import get_track
 
@@ -83,11 +89,24 @@ def load_panel(root_path: str, track: str, version: str | None = None, revision:
 class _RealtimePanelBase(Dataset):
     spatiotemporal = True
 
-    def __init__(self, root_path: str, data_path: str, size: tuple[int, int, int], flag: str = "train",
-                 features: str = "M", track: str = "", version: str | None = None,
-                 revision: str | None = None, repo_id: str | None = None, start: str | None = None,
-                 end: str | None = None, split_ratio: tuple[float, float, float] = (0.7, 0.1, 0.2),
-                 scale: bool = True, calendar: bool = True, max_windows: int | None = None) -> None:
+    def __init__(
+        self,
+        root_path: str,
+        data_path: str,
+        size: tuple[int, int, int],
+        flag: str = "train",
+        features: str = "M",
+        track: str = "",
+        version: str | None = None,
+        revision: str | None = None,
+        repo_id: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        split_ratio: tuple[float, float, float] = (0.7, 0.1, 0.2),
+        scale: bool = True,
+        calendar: bool = True,
+        max_windows: int | None = None,
+    ) -> None:
         super().__init__()
         self.seq_len, self.label_len, self.pred_len = size
         panel = load_panel(root_path, track, version, revision, repo_id, start, end)
@@ -108,8 +127,7 @@ class _RealtimePanelBase(Dataset):
         self.num_nodes = values.shape[1]
         self.adj_mx = None
         self.marks = self._marks(panel.index, calendar)
-        start_row, end_row = {"train": (0, train_end), "val": (train_end, val_end),
-                              "test": (val_end, total)}[flag]
+        start_row, end_row = {"train": (0, train_end), "val": (train_end, val_end), "test": (val_end, total)}[flag]
         # A window centred at ``c`` predicts rows ``c+1 .. c+pred_len``: the first
         # target of val/test is the first split row, its input borrows earlier rows.
         first = self.seq_len - 1 if flag == "train" else max(start_row - 1, self.seq_len - 1)
@@ -146,13 +164,15 @@ class Dataset_RealtimePanel_ST(_RealtimePanelBase):
             return np.zeros((len(index), self.num_nodes, 0), np.float32)
         return node_calendar(index, self.num_nodes)
 
-    def __getitem__(self, i: int) -> Tuple:
+    def __getitem__(self, i: int) -> tuple:
         c = int(self.idx[i])
         h0 = c - self.seq_len + 1
-        return (np.ascontiguousarray(self.values[h0:c + 1]),
-                np.ascontiguousarray(self.values[c + 1:c + 1 + self.pred_len]),
-                np.ascontiguousarray(self.marks[h0:c + 1]),
-                np.ascontiguousarray(self.marks[c + 1:c + 1 + self.pred_len]))
+        return (
+            np.ascontiguousarray(self.values[h0 : c + 1]),
+            np.ascontiguousarray(self.values[c + 1 : c + 1 + self.pred_len]),
+            np.ascontiguousarray(self.marks[h0 : c + 1]),
+            np.ascontiguousarray(self.marks[c + 1 : c + 1 + self.pred_len]),
+        )
 
 
 class Dataset_RealtimePanel_TS(_RealtimePanelBase):
@@ -161,27 +181,43 @@ class Dataset_RealtimePanel_TS(_RealtimePanelBase):
     spatiotemporal = False
 
     def _marks(self, index, calendar):
-        stamp = pd.DataFrame({"year": index.year, "month": index.month, "day": index.day,
-                              "weekday": index.weekday, "hour": index.hour, "minute": index.minute})
+        stamp = pd.DataFrame(
+            {
+                "year": index.year,
+                "month": index.month,
+                "day": index.day,
+                "weekday": index.weekday,
+                "hour": index.hour,
+                "minute": index.minute,
+            }
+        )
         marks = stamp.to_numpy(np.float32)
         return marks if calendar else np.zeros_like(marks)
 
-    def __getitem__(self, i: int) -> Tuple:
+    def __getitem__(self, i: int) -> tuple:
         c = int(self.idx[i])
         h0 = c - self.seq_len + 1
-        return (np.ascontiguousarray(self.values[h0:c + 1]),
-                np.ascontiguousarray(self.values[c + 1:c + 1 + self.pred_len]),
-                np.ascontiguousarray(self.marks[h0:c + 1]),
-                np.ascontiguousarray(self.marks[c + 1:c + 1 + self.pred_len]))
+        return (
+            np.ascontiguousarray(self.values[h0 : c + 1]),
+            np.ascontiguousarray(self.values[c + 1 : c + 1 + self.pred_len]),
+            np.ascontiguousarray(self.marks[h0 : c + 1]),
+            np.ascontiguousarray(self.marks[c + 1 : c + 1 + self.pred_len]),
+        )
 
 
 def register() -> None:
     """Register the real-time panel datasets."""
     DATASET_REGISTRY.register(
-        "realtime_panel_st", Dataset_RealtimePanel_ST, DatasetParameterConfig,
-        task_modes=frozenset({"spatiotemporal", "covariate"}), storage="directory",
+        "realtime_panel_st",
+        Dataset_RealtimePanel_ST,
+        DatasetParameterConfig,
+        task_modes=frozenset({"spatiotemporal", "covariate"}),
+        storage="directory",
     )
     DATASET_REGISTRY.register(
-        "realtime_panel_ts", Dataset_RealtimePanel_TS, DatasetParameterConfig,
-        task_modes=frozenset({"time_series"}), storage="directory",
+        "realtime_panel_ts",
+        Dataset_RealtimePanel_TS,
+        DatasetParameterConfig,
+        task_modes=frozenset({"time_series"}),
+        storage="directory",
     )

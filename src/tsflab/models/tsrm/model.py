@@ -125,7 +125,12 @@ class EncodingLayer(nn.Module):
             )
             self.merges.append(
                 nn.ConvTranspose1d(
-                    d_model, d_model, kernel, stride=kernel, dilation=dilation, groups=groups,
+                    d_model,
+                    d_model,
+                    kernel,
+                    stride=kernel,
+                    dilation=dilation,
+                    groups=groups,
                     output_padding=seq_len - restored,
                 )
             )

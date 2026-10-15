@@ -31,9 +31,7 @@ class AgentEncoderLayer(nn.Module):
 
     def __init__(self, dimension: int, num_heads: int, dropout: float) -> None:
         super().__init__()
-        self.attention = nn.MultiheadAttention(
-            dimension, num_heads, dropout=dropout, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(dimension, num_heads, dropout=dropout, batch_first=True)
         self.attention_norm = nn.LayerNorm(dimension)
         self.feed_forward = nn.Sequential(
             nn.Linear(dimension, 4 * dimension),
@@ -70,63 +68,40 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.num_agents = num_agents
-        self.input_embeddings = nn.ModuleList(
-            [nn.Linear(seq_len, d_model) for _ in range(num_agents)]
-        )
+        self.input_embeddings = nn.ModuleList([nn.Linear(seq_len, d_model) for _ in range(num_agents)])
         self.agent_layers = nn.ModuleList(
             [
-                nn.ModuleList(
-                    [AgentEncoderLayer(d_model, num_heads, dropout) for _ in range(num_layers)]
-                )
+                nn.ModuleList([AgentEncoderLayer(d_model, num_heads, dropout) for _ in range(num_layers)])
                 for _ in range(num_agents)
             ]
         )
-        self.communication = nn.ModuleList(
-            [nn.Linear(d_model, d_model, bias=False) for _ in range(num_layers)]
-        )
+        self.communication = nn.ModuleList([nn.Linear(d_model, d_model, bias=False) for _ in range(num_layers)])
         self.edge_logits = nn.Parameter(torch.zeros(num_agents, num_agents))
         self.register_buffer("topology_mask", _topology_mask(num_agents, topology))
         self.confidence_gate = nn.Linear(num_agents * d_model, num_agents * d_model)
-        self.voter = nn.Sequential(
-            nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, num_agents)
-        )
-        self.agent_heads = nn.ModuleList(
-            [nn.Linear(d_model, pred_len) for _ in range(num_agents)]
-        )
+        self.voter = nn.Sequential(nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, num_agents))
+        self.agent_heads = nn.ModuleList([nn.Linear(d_model, pred_len) for _ in range(num_agents)])
         self.final_head = nn.Linear(d_model, pred_len)
         self.last_adjacency: torch.Tensor | None = None
         self.last_voting_weights: torch.Tensor | None = None
 
     def normalized_adjacency(self, adaptive: bool = True) -> torch.Tensor:
         """Equation (5): masked, symmetrized, self-looped graph normalization."""
-        weighted = (
-            torch.sigmoid(self.edge_logits) * self.topology_mask
-            if adaptive
-            else self.topology_mask
-        )
+        weighted = torch.sigmoid(self.edge_logits) * self.topology_mask if adaptive else self.topology_mask
         symmetric = (weighted + weighted.T) / 2
-        adjacency = symmetric + torch.eye(
-            self.num_agents, dtype=weighted.dtype, device=weighted.device
-        )
+        adjacency = symmetric + torch.eye(self.num_agents, dtype=weighted.dtype, device=weighted.device)
         degree = adjacency.sum(-1).clamp_min(1e-6).rsqrt()
         return degree[:, None] * adjacency * degree[None, :]
 
     def specialization_targets(self, target: torch.Tensor) -> list[torch.Tensor]:
         """Homogeneous multi-scale targets from Appendix A."""
         check_window(target, self.pred_len, self.enc_in, name="target")
-        return [
-            target[:, : max(1, self.pred_len * (index + 1) // self.num_agents)]
-            for index in range(self.num_agents)
-        ]
+        return [target[:, : max(1, self.pred_len * (index + 1) // self.num_agents)] for index in range(self.num_agents)]
 
-    def agent_representations(
-        self, x: torch.Tensor, adaptive_topology: bool = True
-    ) -> torch.Tensor:
+    def agent_representations(self, x: torch.Tensor, adaptive_topology: bool = True) -> torch.Tensor:
         check_window(x, self.seq_len, self.enc_in)
         variates = x.transpose(1, 2)
-        states = torch.stack(
-            [embedding(variates) for embedding in self.input_embeddings], dim=1
-        )
+        states = torch.stack([embedding(variates) for embedding in self.input_embeddings], dim=1)
         adjacency = self.normalized_adjacency(adaptive_topology)
         for layer_index, communication in enumerate(self.communication):
             encoded = torch.stack(
@@ -146,9 +121,7 @@ class Model(nn.Module):
         targets = self.specialization_targets(target)
         states = self.agent_representations(x, adaptive_topology=False)
         losses = []
-        for index, (head, specialized_target) in enumerate(
-            zip(self.agent_heads, targets, strict=True)
-        ):
+        for index, (head, specialized_target) in enumerate(zip(self.agent_heads, targets, strict=True)):
             prediction = head(states[:, index]).transpose(1, 2)
             losses.append(F.mse_loss(prediction[:, : specialized_target.shape[1]], specialized_target))
         return torch.stack(losses).mean()
@@ -164,9 +137,11 @@ class Model(nn.Module):
         batch, _, channels, dimension = states.shape
         context = torch.einsum("ij,bjcd->bicd", self.normalized_adjacency(), states)
         concatenated = context.permute(0, 2, 1, 3).reshape(batch, channels, -1)
-        gates = torch.sigmoid(self.confidence_gate(concatenated)).reshape(
-            batch, channels, self.num_agents, dimension
-        ).permute(0, 2, 1, 3)
+        gates = (
+            torch.sigmoid(self.confidence_gate(concatenated))
+            .reshape(batch, channels, self.num_agents, dimension)
+            .permute(0, 2, 1, 3)
+        )
         adjusted = gates * states + (1 - gates) * context
 
         encoded_input = states.mean(dim=(1, 2))
@@ -175,10 +150,7 @@ class Model(nn.Module):
         representation_forecast = self.final_head(aggregate).transpose(1, 2)
 
         agent_forecasts = torch.stack(
-            [
-                head(adjusted[:, index]).transpose(1, 2)
-                for index, head in enumerate(self.agent_heads)
-            ],
+            [head(adjusted[:, index]).transpose(1, 2) for index, head in enumerate(self.agent_heads)],
             dim=1,
         )
         voted_forecast = (agent_forecasts * voting[:, :, None, None]).sum(1)

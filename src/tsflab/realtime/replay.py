@@ -28,10 +28,17 @@ def weekly_cutoffs(store: PanelStore, track: TrackSpec, end: pd.Timestamp, weeks
     return [index[index < monday].max() for monday in mondays if (index < monday).any()]
 
 
-def replay(track: TrackSpec, store: PanelStore, *, end: pd.Timestamp, weeks: int,
-           models: list[str] | None = None, root: Path = REPLAY_ROOT,
-           work_dir: Path = Path("work_dirs") / "_realtime_replay_runs",
-           overrides: dict | None = None) -> dict:
+def replay(
+    track: TrackSpec,
+    store: PanelStore,
+    *,
+    end: pd.Timestamp,
+    weeks: int,
+    models: list[str] | None = None,
+    root: Path = REPLAY_ROOT,
+    work_dir: Path = Path("work_dirs") / "_realtime_replay_runs",
+    overrides: dict | None = None,
+) -> dict:
     for cutoff in weekly_cutoffs(store, track, end, weeks):
         opened = (cutoff + pd.Timedelta(hours=1)).tz_localize(track.tz)
         spec = R.open_round(track, store, now=opened.to_pydatetime(), root=root, cutoff=cutoff)
@@ -45,13 +52,16 @@ def replay(track: TrackSpec, store: PanelStore, *, end: pd.Timestamp, weeks: int
             from tsflab.realtime.forecast import forecast_with_model
 
             try:
-                submission = forecast_with_model(spec, store, track, model, work_dir,
-                                                 json.loads(json.dumps(overrides or {})))
+                submission = forecast_with_model(
+                    spec, store, track, model, work_dir, json.loads(json.dumps(overrides or {}))
+                )
             except Exception as exc:  # one failing model must not stop the replay
                 print(f"{track.id} {spec.round_id}: {model} failed: {exc}")
                 continue
             R.write_forecast(submission.model_copy(update={"submitted_at": spec.opened_at}), spec, root)
         scores = R.score_round(spec, store, track.min_coverage, root)
-        print(f"{track.id} {spec.round_id}: cutoff {spec.cutoff} "
-              f"{'scored ' + str(len(scores)) if scores else 'incomplete truth'}")
+        print(
+            f"{track.id} {spec.round_id}: cutoff {spec.cutoff} "
+            f"{'scored ' + str(len(scores)) if scores else 'incomplete truth'}"
+        )
     return R.track_summary(track.id, root)

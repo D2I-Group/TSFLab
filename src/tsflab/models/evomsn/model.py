@@ -43,7 +43,7 @@ def slice_pad(series: torch.Tensor, period: int) -> torch.Tensor:
     length = series.shape[1]
     missing = -length % period
     if missing:
-        series = torch.cat([series, series[:, length - missing:]], dim=1)
+        series = torch.cat([series, series[:, length - missing :]], dim=1)
     return series.reshape(series.shape[0], -1, period, series.shape[2])
 
 
@@ -133,8 +133,7 @@ class Model(nn.Module):
     def _build_statistics(self, periods: tuple[int, ...]) -> None:
         self.periods = periods
         self.statistics = nn.ModuleList(
-            ScaleStatisticsPredictor(self.seq_len, self.pred_len, self.enc_in, p, self.stat_hidden)
-            for p in periods
+            ScaleStatisticsPredictor(self.seq_len, self.pred_len, self.enc_in, p, self.stat_hidden) for p in periods
         )
 
     def _validate(self, x: torch.Tensor) -> None:
@@ -230,7 +229,7 @@ class Model(nn.Module):
         for _ in range(self.stat_pretrain_epochs):
             for batch in train_loader:
                 x = batch[0].float().to(device)
-                y = batch[1].float().to(device)[:, -self.pred_len:, : self.enc_in]
+                y = batch[1].float().to(device)[:, -self.pred_len :, : self.enc_in]
                 optimizer.zero_grad()
                 self.statistics_loss(x, y).backward()
                 optimizer.step()

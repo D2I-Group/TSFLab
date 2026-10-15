@@ -26,15 +26,9 @@ class FlattenForecastHead(nn.Module):
         self.individual = individual
         self.n_vars = n_vars
         if individual:
-            self.flattens = nn.ModuleList(
-                nn.Flatten(start_dim=-2) for _ in range(n_vars)
-            )
-            self.linears = nn.ModuleList(
-                nn.Linear(nf, target_window) for _ in range(n_vars)
-            )
-            self.dropouts = nn.ModuleList(
-                nn.Dropout(head_dropout) for _ in range(n_vars)
-            )
+            self.flattens = nn.ModuleList(nn.Flatten(start_dim=-2) for _ in range(n_vars))
+            self.linears = nn.ModuleList(nn.Linear(nf, target_window) for _ in range(n_vars))
+            self.dropouts = nn.ModuleList(nn.Dropout(head_dropout) for _ in range(n_vars))
         else:
             self.flatten = nn.Flatten(start_dim=-2)
             self.linear = nn.Linear(nf, target_window)
@@ -45,11 +39,10 @@ class FlattenForecastHead(nn.Module):
         if not self.individual:
             return self.dropout(self.linear(self.flatten(x)))
         outputs = [
-            self.dropouts[index](
-                self.linears[index](self.flattens[index](x[:, index, :, :]))
-            )
+            self.dropouts[index](self.linears[index](self.flattens[index](x[:, index, :, :])))
             for index in range(self.n_vars)
         ]
         return torch.stack(outputs, dim=1)
+
 
 __all__ = ["FlattenForecastHead"]

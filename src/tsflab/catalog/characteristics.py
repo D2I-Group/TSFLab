@@ -74,11 +74,14 @@ def term_problems(label: str, field: str, terms: object, *, allow_any: bool) -> 
     problems = []
     unknown = sorted(set(terms) - set(vocabulary()))
     if unknown:
-        problems.append(f"{label}: {field} terms {unknown} are not in the vocabulary "
-                        "(tsflab.catalog.characteristics; data terms come from profile_rules.toml)")
+        problems.append(
+            f"{label}: {field} terms {unknown} are not in the vocabulary "
+            "(tsflab.catalog.characteristics; data terms come from profile_rules.toml)"
+        )
     if "any" in terms and (not allow_any or len(terms) > 1):
-        problems.append(f"{label}: {field} 'any' must stand alone" if allow_any
-                        else f"{label}: {field} cannot be 'any'")
+        problems.append(
+            f"{label}: {field} 'any' must stand alone" if allow_any else f"{label}: {field} cannot be 'any'"
+        )
     if len(set(terms)) != len(terms):
         problems.append(f"{label}: {field} has duplicate terms")
     return problems

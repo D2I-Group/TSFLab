@@ -125,10 +125,7 @@ def test_sweep_association_counts_resolved_runs(monkeypatch) -> None:
 
     assert sweep_module.run_sweep([loaded]) == [result]
     assert load_round(state["id"])["runs_used"] == 1
-    assert any(
-        event.get("details", {}).get("run_id") == "run-1"
-        for event in read_events(state["id"])
-    )
+    assert any(event.get("details", {}).get("run_id") == "run-1" for event in read_events(state["id"]))
 
     with pytest.raises(ResearchRoundError, match="exhausted"):
         sweep_module.run_sweep([loaded])
@@ -177,7 +174,10 @@ def test_valid_composition_yields_scaffold_and_provenance():
         (lambda s: s.update(name="RLinear"), "already exists"),
         (lambda s: s.update(parents=["Nope"]), "not in the catalog"),
         (lambda s: s["slots"].update(head=["revin"]), "prefix"),
-        (lambda s: s.update(free_form=[{"slot": "temporal", "name": "A", "description": "d", "max_lines": 500}]), "max_lines"),
+        (
+            lambda s: s.update(free_form=[{"slot": "temporal", "name": "A", "description": "d", "max_lines": 500}]),
+            "max_lines",
+        ),
         (lambda s: s["slots"].pop("temporal"), "temporal slot"),
     ],
 )
@@ -220,8 +220,14 @@ def _spec(**slots):
 
 
 def _assignment(**over):
-    a = {"normalization": "revin", "decomposition": "none", "temporal": "linear", "channel": "independent",
-         "head": "flatten_forecast_head", "loss": "mse"}
+    a = {
+        "normalization": "revin",
+        "decomposition": "none",
+        "temporal": "linear",
+        "channel": "independent",
+        "head": "flatten_forecast_head",
+        "loss": "mse",
+    }
     a.update(over)
     return a
 
@@ -277,8 +283,20 @@ def test_write_config_is_a_runnable_config(tmp_path):
     )
     out = tmp_path / "cfg" / "run.toml"
     rc = compose_command(
-        [str(spec_path), "--write-config", str(out), "--dataset", "configs/fixtures/smoke.toml", "--enc-in", "6",
-         "--pred-len", "12", "--smoke", "--work-dir", str(tmp_path / "work")],
+        [
+            str(spec_path),
+            "--write-config",
+            str(out),
+            "--dataset",
+            "configs/fixtures/smoke.toml",
+            "--enc-in",
+            "6",
+            "--pred-len",
+            "12",
+            "--smoke",
+            "--work-dir",
+            str(tmp_path / "work"),
+        ],
         ROOT,
     )
     assert rc == 0
@@ -301,8 +319,18 @@ def test_write_config_refuses_probabilistic_head_without_register(tmp_path):
         'temporal = ["component:channel_wise_linear"]\nhead = ["component:quantile_head"]\nloss = ["loss:quantile"]\n',
         encoding="utf-8",
     )
-    rc = compose_command([str(spec_path), "--write-config", str(tmp_path / "r.toml"), "--dataset",
-                          "configs/fixtures/smoke.toml", "--enc-in", "6"], ROOT)
+    rc = compose_command(
+        [
+            str(spec_path),
+            "--write-config",
+            str(tmp_path / "r.toml"),
+            "--dataset",
+            "configs/fixtures/smoke.toml",
+            "--enc-in",
+            "6",
+        ],
+        ROOT,
+    )
     assert rc == 1 and not (tmp_path / "r.toml").exists()
 
 
@@ -337,18 +365,47 @@ def test_register_scaffolds_a_package_and_dry_run_writes_nothing(tmp_path):
 
 def test_board_merges_committed_rows_with_local_records(tmp_path):
     board_file = tmp_path / "leaderboard.json"
-    board_file.write_text(json.dumps({
-        "generated_at": "2026-01-01",
-        "tracks": {"time_series": {"datasets": {"Toy": {"horizons": {"12": [
-            {"model": "A", "mse": 0.5, "mae": 0.4, "n_runs": 1}, {"model": "B", "mse": 0.3, "mae": 0.3, "n_runs": 1}]}}}}},
-    }))
+    board_file.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-01-01",
+                "tracks": {
+                    "time_series": {
+                        "datasets": {
+                            "Toy": {
+                                "horizons": {
+                                    "12": [
+                                        {"model": "A", "mse": 0.5, "mae": 0.4, "n_runs": 1},
+                                        {"model": "B", "mse": 0.3, "mae": 0.3, "n_runs": 1},
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        )
+    )
     records = tmp_path / "work" / "Toy" / "Composed" / "records"
     records.mkdir(parents=True)
-    (records / "r1.json").write_text(json.dumps({
-        "record_id": "r1", "model": "Composed", "dataset_id": "Toy", "track": "time_series",
-        "results": [{"horizon": 12, "metrics": {"mse": 0.2, "mae": 0.2}}],
-        "config": {"seq_len": 96, "snapshot": {"training": {"epochs": 1}, "model": {"params": {"temporal": "linear", "normalization": "revin"}}}},
-    }))
+    (records / "r1.json").write_text(
+        json.dumps(
+            {
+                "record_id": "r1",
+                "model": "Composed",
+                "dataset_id": "Toy",
+                "track": "time_series",
+                "results": [{"horizon": 12, "metrics": {"mse": 0.2, "mae": 0.2}}],
+                "config": {
+                    "seq_len": 96,
+                    "snapshot": {
+                        "training": {"epochs": 1},
+                        "model": {"params": {"temporal": "linear", "normalization": "revin"}},
+                    },
+                },
+            }
+        )
+    )
     result = board("toy", horizon="12", top=3, metric="mse", records=[tmp_path / "work"], board_file=str(board_file))
     rows = result["horizons"][0]["rows"]
     assert [r["model"] for r in rows] == ["Composed[revin/-/linear/-]", "B", "A"]

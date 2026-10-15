@@ -14,8 +14,7 @@ def frequency_upsample(values: torch.Tensor, target_length: int) -> torch.Tensor
     source_length = values.shape[1]
     spectrum = torch.fft.rfft(values, dim=1)
     target_bins = target_length // 2 + 1
-    padded = values.new_zeros(values.shape[0], target_bins, values.shape[2],
-                              dtype=spectrum.dtype)
+    padded = values.new_zeros(values.shape[0], target_bins, values.shape[2], dtype=spectrum.dtype)
     copied = min(target_bins, spectrum.shape[1])
     padded[:, :copied] = spectrum[:, :copied]
     restored = torch.fft.irfft(padded, n=target_length, dim=1)
@@ -46,8 +45,7 @@ class MultiOrderKAN(nn.Module):
     def __init__(self, width: int, order: int) -> None:
         super().__init__()
         self.kan = ChebyshevKAN(width, order)
-        self.temporal = nn.Conv1d(width, width, kernel_size=3, padding=1,
-                                  padding_mode="circular", groups=width)
+        self.temporal = nn.Conv1d(width, width, kernel_size=3, padding=1, padding_mode="circular", groups=width)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         temporal = self.temporal(values.transpose(1, 2)).transpose(1, 2)
@@ -57,10 +55,9 @@ class MultiOrderKAN(nn.Module):
 class TimeKANBlock(nn.Module):
     def __init__(self, width: int, levels: int, begin_order: int) -> None:
         super().__init__()
-        self.learners = nn.ModuleList([
-            MultiOrderKAN(width, begin_order + levels - index - 1)
-            for index in range(levels)
-        ])
+        self.learners = nn.ModuleList(
+            [MultiOrderKAN(width, begin_order + levels - index - 1) for index in range(levels)]
+        )
 
     def forward(self, hierarchy: list[torch.Tensor]) -> list[torch.Tensor]:
         bands = []
@@ -76,12 +73,23 @@ class TimeKANBlock(nn.Module):
 
 class Model(nn.Module):
     def __init__(
-        self, seq_len: int, pred_len: int, label_len: int, features: str,
-        enc_in: int, c_out: int | None = None, d_model: int = 16,
-        e_layers: int = 1, down_sampling_window: int = 2,
-        down_sampling_layers: int = 1, begin_order: int = 0,
-        moving_avg: int = 25, dropout: float = 0.1, embed: str = "timeF",
-        freq: str = "h", use_norm: int = 1,
+        self,
+        seq_len: int,
+        pred_len: int,
+        label_len: int,
+        features: str,
+        enc_in: int,
+        c_out: int | None = None,
+        d_model: int = 16,
+        e_layers: int = 1,
+        down_sampling_window: int = 2,
+        down_sampling_layers: int = 1,
+        begin_order: int = 0,
+        moving_avg: int = 25,
+        dropout: float = 0.1,
+        embed: str = "timeF",
+        freq: str = "h",
+        use_norm: int = 1,
     ) -> None:
         super().__init__()
         del label_len, features, moving_avg, dropout, embed, freq
@@ -91,17 +99,14 @@ class Model(nn.Module):
         self.levels = down_sampling_layers + 1
         self.normalization = RevIN(enc_in, affine=False, enabled=bool(use_norm))
         self.embedding = nn.Linear(1, d_model)
-        self.blocks = nn.ModuleList([
-            TimeKANBlock(d_model, self.levels, begin_order) for _ in range(e_layers)
-        ])
+        self.blocks = nn.ModuleList([TimeKANBlock(d_model, self.levels, begin_order) for _ in range(e_layers)])
         self.readout = nn.Linear(d_model, 1)
         self.forecast = nn.Linear(seq_len, pred_len)
 
     def _hierarchy(self, values: torch.Tensor) -> list[torch.Tensor]:
         levels = [values]
         for _ in range(self.levels - 1):
-            pooled = F.avg_pool1d(levels[-1].transpose(1, 2), self.window,
-                                  stride=self.window).transpose(1, 2)
+            pooled = F.avg_pool1d(levels[-1].transpose(1, 2), self.window, stride=self.window).transpose(1, 2)
             levels.append(pooled)
         return levels
 

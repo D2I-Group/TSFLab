@@ -69,9 +69,7 @@ class TimeBaseModel(nn.Module):
             self.ts2basis = nn.Linear(self.seg_num_x, self.basis_num)
             self.basis2ts = nn.Linear(self.basis_num, self.seg_num_y)
 
-    def _normalize_input(
-        self, x: torch.Tensor, batch_size: int, channels: int
-    ) -> tuple[torch.Tensor, dict]:
+    def _normalize_input(self, x: torch.Tensor, batch_size: int, channels: int) -> tuple[torch.Tensor, dict]:
         if self.use_period_norm:
             period_mean = torch.mean(x, dim=-1, keepdim=True)
             x = x - period_mean
@@ -95,9 +93,7 @@ class TimeBaseModel(nn.Module):
         x = x + norm_stats["mean"]
         return x.reshape(-1, self.period_len, self.seg_num_y)
 
-    def _project(
-        self, x: torch.Tensor, batch_size: int, channels: int
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _project(self, x: torch.Tensor, batch_size: int, channels: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Basis coefficients and forecast segments of the normalized ``[B*C, period, seg_x]`` input."""
         if self.individual:
             x = x.reshape(batch_size, channels, self.period_len, self.seg_num_x)
@@ -128,9 +124,7 @@ class TimeBaseModel(nn.Module):
 
         if self.pad_seq_len > 0:
             pad_start = (self.seg_num_x - 1) * self.period_len
-            x = torch.cat(
-                [x, x[:, :, pad_start - self.pad_seq_len : pad_start]], dim=-1
-            )
+            x = torch.cat([x, x[:, :, pad_start - self.pad_seq_len : pad_start]], dim=-1)
 
         x = x.reshape(batch_size, self.enc_in, self.seg_num_x, self.period_len)
         x = x.permute(0, 1, 3, 2).reshape(-1, self.period_len, self.seg_num_x)
@@ -141,9 +135,7 @@ class TimeBaseModel(nn.Module):
 
         x = self._denormalize_output(x, norm_stats, batch_size, channels)
 
-        x = x.reshape(batch_size, self.enc_in, self.period_len, self.seg_num_y).permute(
-            0, 1, 3, 2
-        )
+        x = x.reshape(batch_size, self.enc_in, self.period_len, self.seg_num_y).permute(0, 1, 3, 2)
         x = x.reshape(batch_size, self.enc_in, -1).permute(0, 2, 1)
 
         self.aux_loss = (

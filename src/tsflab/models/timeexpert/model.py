@@ -2,6 +2,7 @@
 Transformer whose vanilla self-attention is replaced by the cataloged
 top-k local expert attention.
 """
+
 from __future__ import annotations
 
 import torch
@@ -65,9 +66,7 @@ class Model(nn.Module):
 
         padding = stride
         self.patch_embedding = PatchEmbedding(d_model, patch_len, stride, padding, dropout)
-        self.layers = nn.ModuleList(
-            TMOEBlock(d_model, n_heads, topk, shared, dropout) for _ in range(e_layers)
-        )
+        self.layers = nn.ModuleList(TMOEBlock(d_model, n_heads, topk, shared, dropout) for _ in range(e_layers))
         self.encoder_norm = nn.LayerNorm(d_model)
 
         num_patches = (seq_len - patch_len) // stride + 2

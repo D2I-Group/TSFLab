@@ -56,8 +56,8 @@ class Model(nn.Module):
     ):
         check_window(x_enc, self.seq_len, self.enc_in)
         B = x_enc.shape[0]
-        h = self.backbone(x_enc.reshape(B, -1))             # (B, hidden)
+        h = self.backbone(x_enc.reshape(B, -1))  # (B, hidden)
         loc, scale = self.parameter_head(h)
         loc = loc.reshape(B, self.pred_len, self.c_out)
         scale = scale.reshape(B, self.pred_len, self.c_out)
-        return torch.stack([loc, scale], dim=-1)         # (B, pred_len, c_out, 2)
+        return torch.stack([loc, scale], dim=-1)  # (B, pred_len, c_out, 2)

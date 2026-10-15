@@ -15,8 +15,7 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     if cfg.task.seq_len < 13:
         raise ValueError("RhyMix needs seq_len >= 13 (reflect padding of the 25-step moving average)")
-    return Model(c_in=params["enc_in"], seq_len=cfg.task.seq_len,
-                 pred_len=cfg.task.pred_len, dropout=params["dropout"])
+    return Model(c_in=params["enc_in"], seq_len=cfg.task.seq_len, pred_len=cfg.task.pred_len, dropout=params["dropout"])
 
 
 SPEC = ModelSpec(

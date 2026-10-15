@@ -25,7 +25,6 @@ from tsflab.models._components.quantile_head import QuantileHead, validate_quant
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.series_decomposition import SeriesDecomposition
 from tsflab.models._components.tst_transformer import TSTEncoder
-
 from tsflab.models._slots.registry import OPTIONS, check_assignment
 
 # --------------------------------------------------------------- normalization
@@ -80,7 +79,9 @@ class LastValueNorm(nn.Module):
 
 
 def build_normalization(name: str, c_in: int) -> nn.Module:
-    return {"none": lambda: NoNorm(), "revin": lambda: RevINNorm(c_in), "last_value_center": lambda: LastValueNorm()}[name]()
+    return {"none": lambda: NoNorm(), "revin": lambda: RevINNorm(c_in), "last_value_center": lambda: LastValueNorm()}[
+        name
+    ]()
 
 
 # --------------------------------------------------------------- decomposition
@@ -164,8 +165,14 @@ class TSTTemporal(_PatchTokens):
         super().__init__(seq_len, patch_len, stride, d_model)
         self.position = positional_encoding("sincos", False, self.n_patches, d_model)
         self.encoder = TSTEncoder(
-            d_model, n_heads, n_layers=n_layers, d_ff=2 * d_model,
-            attn_dropout=dropout, res_dropout=dropout, ffn_dropout=dropout, proj_dropout=dropout,
+            d_model,
+            n_heads,
+            n_layers=n_layers,
+            d_ff=2 * d_model,
+            attn_dropout=dropout,
+            res_dropout=dropout,
+            ffn_dropout=dropout,
+            proj_dropout=dropout,
         )
 
     def encode(self, x):

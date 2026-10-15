@@ -1,7 +1,10 @@
 """Independent DSformer implementation from dual-sampling paper structure."""
+
 from __future__ import annotations
+
 import torch
 from torch import nn
+
 from tsflab.models._components.revin import RevIN
 from tsflab.models._inputs import check_window
 
@@ -40,8 +43,19 @@ class TVABlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M", num_layer=1,
-                 muti_head=2, num_samp=2, dropout=0.15, if_node=True):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        label_len=0,
+        features="M",
+        num_layer=1,
+        muti_head=2,
+        num_samp=2,
+        dropout=0.15,
+        if_node=True,
+    ):
         super().__init__()
         if seq_len % num_samp:
             raise ValueError("seq_len must be divisible by num_samp")

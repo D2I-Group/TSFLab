@@ -114,9 +114,7 @@ class Model(nn.Module):
         self.encoder = patch_mlp(patch_width, 2 * dynamic_dim, hidden_dim, hidden_layers, dropout)
         # Latent dynamics (Eq. 4): flatten N past latents, project to M future latents.
         flat = self.past_patches * dynamic_dim
-        self.latent_projection = patch_mlp(
-            flat, self.future_patches * dynamic_dim, flat // 2, 2, dropout
-        )
+        self.latent_projection = patch_mlp(flat, self.future_patches * dynamic_dim, flat // 2, 2, dropout)
         # Shared dual-head decoder: location MLP (Eq. 5) and GRU scale path (Eqs. 6-7).
         self.location_head = patch_mlp(dynamic_dim, patch_width, hidden_dim, hidden_layers, dropout)
         self.scale_head = VolatilityDynamics(dynamic_dim, vol_hidden_dim, patch_width, xi)
@@ -126,7 +124,7 @@ class Model(nn.Module):
         """``[B, L, C] -> [B, N, P*C]``; a short history is front-filled with its own tail."""
         batch = normalized.shape[0]
         if self.padding_len > 0:
-            normalized = torch.cat([normalized[:, -self.padding_len:], normalized], dim=1)
+            normalized = torch.cat([normalized[:, -self.padding_len :], normalized], dim=1)
         patches = normalized.reshape(batch, self.past_patches, self.patch_len, self.enc_in)
         return patches.reshape(batch, self.past_patches, -1)
 
@@ -190,9 +188,7 @@ class Model(nn.Module):
         return empirical_quantiles(self.sample(x_enc), self.quantile_levels, dim=1)
 
     # -------------------------------------------------------------- objective
-    def training_loss(
-        self, x_enc: torch.Tensor, target: torch.Tensor, target_start: int = 0
-    ) -> torch.Tensor:
+    def training_loss(self, x_enc: torch.Tensor, target: torch.Tensor, target_start: int = 0) -> torch.Tensor:
         """Eq. (8): ``NLL(X) + NLL(Y) + beta * KL`` with one reparameterized latent draw.
 
         ``target`` is the forecast target ``[B, pred_len, C']`` holding the model

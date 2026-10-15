@@ -77,12 +77,8 @@ class SCITree(nn.Module):
         self.levels = levels
         self.interaction = SCIInteraction(channels, hidden_size, kernel_size, dropout)
         if levels > 1:
-            self.even_tree = SCITree(
-                channels, levels - 1, hidden_size, kernel_size, dropout
-            )
-            self.odd_tree = SCITree(
-                channels, levels - 1, hidden_size, kernel_size, dropout
-            )
+            self.even_tree = SCITree(channels, levels - 1, hidden_size, kernel_size, dropout)
+            self.odd_tree = SCITree(channels, levels - 1, hidden_size, kernel_size, dropout)
 
     def forward(self, values):
         even, odd = self.interaction(values)
@@ -92,9 +88,7 @@ class SCITree(nn.Module):
 
 
 class SCINetStack(nn.Module):
-    def __init__(
-        self, seq_len, pred_len, channels, levels, hidden_size, kernel_size, dropout
-    ):
+    def __init__(self, seq_len, pred_len, channels, levels, hidden_size, kernel_size, dropout):
         super().__init__()
         self.tree = SCITree(channels, levels, hidden_size, kernel_size, dropout)
         self.forecast = nn.Linear(seq_len, pred_len, bias=False)
@@ -107,20 +101,44 @@ class SCINetStack(nn.Module):
 class Model(nn.Module):
     """Original single/two-stack forecast path with optional PE and RIN."""
 
-    def __init__(self, seq_len, pred_len, enc_in, num_stacks=1, num_levels=3,
-                 hidden_size=None, kernel_size=5, dropout=0.0,
-                 positional_encoding=False, instance_norm=False):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        num_stacks=1,
+        num_levels=3,
+        hidden_size=None,
+        kernel_size=5,
+        dropout=0.0,
+        positional_encoding=False,
+        instance_norm=False,
+    ):
         super().__init__()
         hidden_size = enc_in if hidden_size is None else hidden_size
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.positional_encoding, self.instance_norm = positional_encoding, instance_norm
-        self.stacks = nn.ModuleList([SCINetStack(
-            seq_len if i == 0 else seq_len + pred_len, pred_len, enc_in,
-            num_levels, hidden_size, kernel_size, dropout) for i in range(num_stacks)])
+        self.stacks = nn.ModuleList(
+            [
+                SCINetStack(
+                    seq_len if i == 0 else seq_len + pred_len,
+                    pred_len,
+                    enc_in,
+                    num_levels,
+                    hidden_size,
+                    kernel_size,
+                    dropout,
+                )
+                for i in range(num_stacks)
+            ]
+        )
         pe_width = enc_in + enc_in % 2
         frequency = torch.exp(torch.arange(pe_width // 2) * (-math.log(10000.0) / max(pe_width // 2 - 1, 1)))
         position = torch.arange(seq_len).unsqueeze(1)
-        self.register_buffer("position_encoding", torch.cat((torch.sin(position * frequency), torch.cos(position * frequency)), -1)[:, :enc_in])
+        self.register_buffer(
+            "position_encoding",
+            torch.cat((torch.sin(position * frequency), torch.cos(position * frequency)), -1)[:, :enc_in],
+        )
         if instance_norm:
             self.affine_weight = nn.Parameter(torch.ones(1, 1, enc_in))
             self.affine_bias = nn.Parameter(torch.zeros(1, 1, enc_in))

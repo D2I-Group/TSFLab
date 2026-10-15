@@ -34,9 +34,7 @@ class PatchWisePeriodMap(nn.Module):
         self.period_len = period_len
         self.patch_size = patch_size
         self.patch_count = math.ceil(period_len / patch_size)
-        self.weight = nn.Parameter(
-            torch.empty(self.patch_count, input_periods, output_periods)
-        )
+        self.weight = nn.Parameter(torch.empty(self.patch_count, input_periods, output_periods))
         nn.init.xavier_uniform_(self.weight)
 
     def forward(self, periods: torch.Tensor) -> torch.Tensor:
@@ -44,13 +42,8 @@ class PatchWisePeriodMap(nn.Module):
             self.input_periods,
             self.period_len,
         ):
-            raise ValueError(
-                "PatchWisePeriodMap expects "
-                f"(batch, {self.input_periods}, {self.period_len})"
-            )
-        output = periods.new_empty(
-            periods.shape[0], self.output_periods, self.period_len
-        )
+            raise ValueError(f"PatchWisePeriodMap expects (batch, {self.input_periods}, {self.period_len})")
+        output = periods.new_empty(periods.shape[0], self.output_periods, self.period_len)
         for patch in range(self.patch_count):
             start = patch * self.patch_size
             stop = min(start + self.patch_size, self.period_len)
@@ -83,11 +76,7 @@ class SVTimeModel(nn.Module):
         self.pred_len = pred_len
         self.patch_size = patch_size
         self.revin = revin
-        self.revin_layer = (
-            RevIN(c_in, affine=affine, subtract_last=subtract_last)
-            if revin
-            else None
-        )
+        self.revin_layer = RevIN(c_in, affine=affine, subtract_last=subtract_last) if revin else None
 
         self.history_periods = seq_len // period
         self.used_history = self.history_periods * period
@@ -98,14 +87,10 @@ class SVTimeModel(nn.Module):
             period,
             patch_size,
         )
-        self.trend_projection = nn.Linear(
-            self.used_history, self.future_periods * period
-        )
+        self.trend_projection = nn.Linear(self.used_history, self.future_periods * period)
         self.trend_gate_logit = nn.Parameter(torch.zeros(()))
 
-    def period_backcast_forecast(
-        self, history: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def period_backcast_forecast(self, history: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return seasonal backcast/forecast before the trend correction."""
         periods = history.reshape(-1, self.history_periods, self.period)
         mapped = self.period_map(periods)
@@ -124,9 +109,7 @@ class SVTimeModel(nn.Module):
         history = history.reshape(batch * self.c_in, self.used_history)
         backcast_periods, forecast_periods = self.period_backcast_forecast(history)
         backcast = backcast_periods.reshape(batch * self.c_in, self.used_history)
-        seasonal = forecast_periods.reshape(
-            batch * self.c_in, self.future_periods * self.period
-        )
+        seasonal = forecast_periods.reshape(batch * self.c_in, self.future_periods * self.period)
 
         residual = history - backcast
         trend = self.trend_projection(residual)

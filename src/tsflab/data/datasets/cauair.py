@@ -31,7 +31,6 @@ Two registered names share this class:
 from __future__ import annotations
 
 import os
-from typing import Tuple
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -145,7 +144,7 @@ class Dataset_CauAir_ST(_CauAirBase):
 
     spatiotemporal = True
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return ``(value_hist, value_fut, cov_hist, cov_fut)``.
 
         Shapes: value ``(T, N)``; covariates ``(T, N, F)`` with
@@ -166,7 +165,7 @@ class Dataset_CauAir_TS(_CauAirBase):
 
     spatiotemporal = False
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return ``(value_hist, value_fut, zero_stamp, zero_stamp)``.
 
         Value tensors are ``(T, N)`` (nodes as channels); covariates are
@@ -185,12 +184,16 @@ class Dataset_CauAir_TS(_CauAirBase):
 def register() -> None:
     """Register the CauAir spatiotemporal and time-series datasets."""
     DATASET_REGISTRY.register(
-        "cauair_st", Dataset_CauAir_ST, DatasetParameterConfig,
+        "cauair_st",
+        Dataset_CauAir_ST,
+        DatasetParameterConfig,
         task_modes=frozenset({"spatiotemporal", "covariate"}),
         storage="directory",
     )
     DATASET_REGISTRY.register(
-        "cauair_ts", Dataset_CauAir_TS, DatasetParameterConfig,
+        "cauair_ts",
+        Dataset_CauAir_TS,
+        DatasetParameterConfig,
         task_modes=frozenset({"time_series"}),
         storage="directory",
     )

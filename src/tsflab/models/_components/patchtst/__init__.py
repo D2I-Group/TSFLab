@@ -55,9 +55,7 @@ class PatchTSTBackbone(nn.Module):
         self.patch_len = patch_len
         self.stride = stride
         self.pad_end = padding_patch == "end"
-        self.normalizer = RevIN(
-            c_in, affine=affine, subtract_last=subtract_last, enabled=revin
-        )
+        self.normalizer = RevIN(c_in, affine=affine, subtract_last=subtract_last, enabled=revin)
         effective_length = context_window + (stride if self.pad_end else 0)
         patch_count = 1 + (effective_length - patch_len) // stride
         self.patch_projection = nn.Linear(patch_len, d_model)
@@ -88,15 +86,11 @@ class PatchTSTBackbone(nn.Module):
 
     def forward(self, values: torch.Tensor, *_: object) -> torch.Tensor:
         if values.ndim != 3 or values.shape[1] != self.context_window:
-            raise ValueError(
-                f"expected [batch, {self.context_window}, channels], got {tuple(values.shape)}"
-            )
+            raise ValueError(f"expected [batch, {self.context_window}, channels], got {tuple(values.shape)}")
         normalized = self.normalizer(values, "norm")
         channels_first = normalized.transpose(1, 2)
         if self.pad_end:
-            channels_first = torch.nn.functional.pad(
-                channels_first, (0, self.stride), mode="replicate"
-            )
+            channels_first = torch.nn.functional.pad(channels_first, (0, self.stride), mode="replicate")
         patches = channels_first.unfold(-1, self.patch_len, self.stride)
         embedded = self.patch_projection(patches)
         batch, channels, patch_count, width = embedded.shape

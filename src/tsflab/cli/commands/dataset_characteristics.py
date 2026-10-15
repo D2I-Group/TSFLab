@@ -27,19 +27,29 @@ import csv
 import os
 import tomllib
 from dataclasses import dataclass, replace
-from typing import Optional
 
 import numpy as np
 
 from tsflab.catalog.registry.datasets import DATASET_REGISTRY, register_dataset_by_name
 from tsflab.data.series_stats import (
-    dominant_period as _dominant_period,
-    trend_and_seasonal_strength as _trend_and_seasonal_strength,
-    stationarity as _stationarity,
-    shifting as _shifting,
-    transition as _transition,
     channel_correlation as _channel_correlation,
 )
+from tsflab.data.series_stats import (
+    dominant_period as _dominant_period,
+)
+from tsflab.data.series_stats import (
+    shifting as _shifting,
+)
+from tsflab.data.series_stats import (
+    stationarity as _stationarity,
+)
+from tsflab.data.series_stats import (
+    transition as _transition,
+)
+from tsflab.data.series_stats import (
+    trend_and_seasonal_strength as _trend_and_seasonal_strength,
+)
+
 
 # --------------------------------------------------------------------------- #
 # Config loading shared with the dataset plotting command.
@@ -55,7 +65,7 @@ def _params_to_dict(params) -> dict:
 @dataclass(frozen=True)
 class _DatasetConfig:
     name: str
-    alias: Optional[str]
+    alias: str | None
     path: str
     id: str | None
     params: dict
@@ -114,9 +124,7 @@ def _build_dataset(config, split: str):
     register_dataset_by_name(config.dataset.name)
     spec = DATASET_REGISTRY.get(config.dataset.name)
     dataset_cls = spec.dataset_class
-    root_path, data_path = spec.resolve_location(
-        config.dataset.path, config.dataset.id
-    )
+    root_path, data_path = spec.resolve_location(config.dataset.path, config.dataset.id)
     params = _params_to_dict(config.dataset.params)
     size = (config.task.seq_len, config.task.label_len, config.task.pred_len)
     return dataset_cls(
@@ -143,11 +151,7 @@ def _build_dataset_for_inspect(config, split: str):
     except (RuntimeError, ValueError) as exc:
         dataset, error = None, exc
     task = config.task
-    shrinkable = (
-        isinstance(config, _PartialConfig)
-        and not task.seq_len_from_preset
-        and task.seq_len > task.pred_len
-    )
+    shrinkable = isinstance(config, _PartialConfig) and not task.seq_len_from_preset and task.seq_len > task.pred_len
     if (dataset is None or len(dataset) == 0) and shrinkable:
         print(
             f"Inherited seq_len={task.seq_len} leaves no '{split}' windows; "
@@ -175,10 +179,7 @@ def _extract_series(dataset) -> np.ndarray:
     elif hasattr(dataset, "data"):
         raw = dataset.data
     else:
-        raise RuntimeError(
-            "Dataset has neither `series_array()` nor a `.data` attribute; "
-            "cannot extract raw series."
-        )
+        raise RuntimeError("Dataset has neither `series_array()` nor a `.data` attribute; cannot extract raw series.")
     arr = np.asarray(raw, dtype=np.float64)
     if arr.ndim == 1:
         arr = arr[:, None]
@@ -227,9 +228,7 @@ def _per_series(x: np.ndarray, period: int, scope: str) -> Characteristics:
     )
 
 
-def compute_characteristics(
-    series: np.ndarray, period: Optional[int], per_channel: bool
-) -> list[Characteristics]:
+def compute_characteristics(series: np.ndarray, period: int | None, per_channel: bool) -> list[Characteristics]:
     """Compute dataset-level (and optionally per-channel) characteristics."""
     series = np.asarray(series, dtype=np.float64)
     if series.ndim == 1:
@@ -262,9 +261,7 @@ def compute_characteristics(
 
     if per_channel:
         for r in per_ch:
-            ch_period = period if period is not None else _dominant_period(
-                series[:, int(r.scope[2:])]
-            )
+            ch_period = period if period is not None else _dominant_period(series[:, int(r.scope[2:])])
             if ch_period != r.period:
                 r = _per_series(series[:, int(r.scope[2:])], ch_period, r.scope)
             rows.append(r)

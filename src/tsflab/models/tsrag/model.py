@@ -20,9 +20,7 @@ from tsflab.models._inputs import check_window
 class AdaptiveRetrievalMixer(nn.Module):
     def __init__(self, d_model: int, num_heads: int, dropout: float) -> None:
         super().__init__()
-        self.attention = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.attention_norm = nn.LayerNorm(d_model)
         self.feedforward = nn.Sequential(
             nn.Linear(d_model, 2 * d_model),
@@ -34,9 +32,7 @@ class AdaptiveRetrievalMixer(nn.Module):
         # A shared scalar bias would cancel exactly inside the item-wise softmax.
         self.scoring = nn.Linear(d_model, 1, bias=False)
 
-    def forward(
-        self, query: torch.Tensor, retrieved: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, query: torch.Tensor, retrieved: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         combined = torch.cat([query.unsqueeze(1), retrieved], dim=1)
         attended, _ = self.attention(combined, combined, combined, need_weights=False)
         attended = self.attention_norm(combined + attended)
@@ -90,14 +86,10 @@ class Model(nn.Module):
         """Create a deterministic compact retrieval descriptor."""
         flattened = contexts.flatten(-2)
         leading = flattened.shape[:-1]
-        pooled = F.adaptive_avg_pool1d(
-            flattened.reshape(-1, 1, flattened.shape[-1]), self.d_model
-        ).squeeze(1)
+        pooled = F.adaptive_avg_pool1d(flattened.reshape(-1, 1, flattened.shape[-1]), self.d_model).squeeze(1)
         return pooled.reshape(*leading, self.d_model)
 
-    def build_local_knowledge(
-        self, normalized: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def build_local_knowledge(self, normalized: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Construct the documented standalone fallback knowledge pairs."""
         contexts = []
         futures = []
@@ -114,16 +106,12 @@ class Model(nn.Module):
             )
         return torch.stack(contexts, dim=1), torch.stack(futures, dim=1)
 
-    def retrieve(
-        self, query: torch.Tensor, contexts: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def retrieve(self, query: torch.Tensor, contexts: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return top-k candidate indices and Euclidean distances (Eq. 2--4)."""
         query_embedding = self.retrieval_embedding(query).unsqueeze(1)
         context_embedding = self.retrieval_embedding(contexts)
         distances = torch.linalg.vector_norm(context_embedding - query_embedding, dim=-1)
-        selected_distances, indices = torch.topk(
-            distances, k=min(self.top_k, contexts.shape[1]), largest=False
-        )
+        selected_distances, indices = torch.topk(distances, k=min(self.top_k, contexts.shape[1]), largest=False)
         return indices, selected_distances
 
     def _knowledge(
@@ -146,9 +134,7 @@ class Model(nn.Module):
             raise ValueError("retrieval_contexts must have shape (N,L,C) or (B,N,L,C)")
         if contexts.shape[2:] != (self.seq_len, self.enc_in):
             raise ValueError("retrieval context shape does not match the model contract")
-        if futures.shape != (
-            batch, contexts.shape[1], self.pred_len, self.enc_in
-        ):
+        if futures.shape != (batch, contexts.shape[1], self.pred_len, self.enc_in):
             raise ValueError("retrieval future shape does not match the model contract")
 
     def forecast_with_retrieval(
@@ -160,20 +146,14 @@ class Model(nn.Module):
     ) -> torch.Tensor:
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.revin(x_enc, "norm")
-        contexts, futures = self._knowledge(
-            normalized, retrieval_contexts, retrieval_futures
-        )
+        contexts, futures = self._knowledge(normalized, retrieval_contexts, retrieval_futures)
         indices, _ = self.retrieve(normalized, contexts)
-        gather_index = indices[:, :, None, None].expand(
-            -1, -1, self.pred_len, self.enc_in
-        )
+        gather_index = indices[:, :, None, None].expand(-1, -1, self.pred_len, self.enc_in)
         retrieved_futures = torch.gather(futures, 1, gather_index)
         retrieved = self.retrieved_projector(retrieved_futures.flatten(-2))
         query = self.query_backbone(normalized.flatten(1))
         mixed, _ = self.arm(query, retrieved)
-        forecast = self.output_projection(mixed).reshape(
-            x_enc.shape[0], self.pred_len, self.enc_in
-        )
+        forecast = self.output_projection(mixed).reshape(x_enc.shape[0], self.pred_len, self.enc_in)
         return self.revin(forecast, "denorm")
 
     def forward(

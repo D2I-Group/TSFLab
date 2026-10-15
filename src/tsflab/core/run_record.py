@@ -125,7 +125,7 @@ class RunRecord(BaseModel):
     created_at: str | None = Field(default=None, description="ISO-8601 UTC timestamp.")
 
     @model_validator(mode="after")
-    def _consistency(self) -> "RunRecord":
+    def _consistency(self) -> RunRecord:
         horizons = [r.horizon for r in self.results]
         if len(set(horizons)) != len(horizons):
             raise ValueError("RunRecord.results has duplicate horizon entries")

@@ -11,13 +11,11 @@ and ``tsf model verify`` refuses it until the code and card are finished. Then r
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_name, resolve_name
 import re
 import sys
 
+from tsflab.cli.args import add_name, resolve_name
 from tsflab.core.paths import repository_root, require_checkout
-
 
 ROOT = repository_root()
 MODELS_DIR = ROOT / "src" / "tsflab" / "models"
@@ -67,11 +65,16 @@ def _python_literal(kind: str, value: str) -> str:
 
 def _schema(name: str, params: list[tuple[str, str, str | None]], graph: bool) -> str:
     lines = [
-        f'"""Validated parameters for {name}."""', "",
-        "from pydantic import BaseModel, ConfigDict", "", "",
+        f'"""Validated parameters for {name}."""',
+        "",
+        "from pydantic import BaseModel, ConfigDict",
+        "",
+        "",
         "class ModelParameterConfig(BaseModel):",
-        '    """Parameters supplied through ``model.params``."""', "",
-        '    model_config = ConfigDict(extra="forbid")', "",
+        '    """Parameters supplied through ``model.params``."""',
+        "",
+        '    model_config = ConfigDict(extra="forbid")',
+        "",
         "    enc_in: int",
     ]
     if graph:
@@ -100,9 +103,7 @@ def _spec(
         '        enc_in=params["enc_in"],',
     ]
     if graph:
-        arguments.extend(
-            ('        adj_mx=params.get("adj_mx"),', '        cov_dim=params.get("cov_dim", 2),')
-        )
+        arguments.extend(('        adj_mx=params.get("adj_mx"),', '        cov_dim=params.get("cov_dim", 2),'))
     for field, kind, default in params:
         if field in {"enc_in", "cov_dim"}:
             continue
@@ -158,22 +159,33 @@ def _card(
         "fits": [],
         "fidelity": "reference-checked" if codebase else "paper-only",
         "paper": {"title": paper_title, "url": paper_url, "venue": venue, "year": year},
-        "code": ({"url": codebase[0], "revision": codebase[1], "license": codebase[2], "reference_sources": []}
-                 if codebase else None),
-        "composition": {slot: "SCAFFOLD" for slot in
-                        ("normalization", "decomposition", "temporal", "channel", "head", "loss")},
+        "code": (
+            {"url": codebase[0], "revision": codebase[1], "license": codebase[2], "reference_sources": []}
+            if codebase
+            else None
+        ),
+        "composition": {
+            slot: "SCAFFOLD" for slot in ("normalization", "decomposition", "temporal", "channel", "head", "loss")
+        },
         "issues_checked": "SCAFFOLD: list upstream issues as [[issues]] tables, or say what was checked.",
         "admission": {"status": "pending"},
     }
     planned = ", ".join(f"`{item}`" for item in components) or "none"
-    return card_files("model", facts, "SCAFFOLD: what the method is. Use for ...; not for ...", {
-        "Idea": "- SCAFFOLD: 2-6 bullets naming the defining mechanisms and the code that implements them.",
-        "When to use": "- SCAFFOLD: data/task conditions the method targets, and when not to use it.",
-        "Configure": ("- SCAFFOLD: data-dependent parameters only (period, frequency, channels, divisibility, "
-                      "graph, train-split statistics), mirrored in card.toml [data_params].\n"
-                      f"Other hyperparameters: preset defaults in `configs/models/{name}.toml`; tune generically."),
-        "Differences": f"SCAFFOLD: material differences from the paper/official code. Planned components: {planned}.",
-    })
+    return card_files(
+        "model",
+        facts,
+        "SCAFFOLD: what the method is. Use for ...; not for ...",
+        {
+            "Idea": "- SCAFFOLD: 2-6 bullets naming the defining mechanisms and the code that implements them.",
+            "When to use": "- SCAFFOLD: data/task conditions the method targets, and when not to use it.",
+            "Configure": (
+                "- SCAFFOLD: data-dependent parameters only (period, frequency, channels, divisibility, "
+                "graph, train-split statistics), mirrored in card.toml [data_params].\n"
+                f"Other hyperparameters: preset defaults in `configs/models/{name}.toml`; tune generically."
+            ),
+            "Differences": f"SCAFFOLD: material differences from the paper/official code. Planned components: {planned}.",
+        },
+    )
 
 
 def _model(name: str, params: list[tuple[str, str, str | None]], graph: bool) -> str:
@@ -184,22 +196,25 @@ def _model(name: str, params: list[tuple[str, str, str | None]], graph: bool) ->
         suffix = "" if default is None else f" = {_python_literal(kind, default)}"
         extras.append(f"        {field}: {kind}{suffix},")
     extra_text = "\n".join(extras)
-    graph_imports = "import numpy as np\n\nfrom tsflab.models._components.marks import to_spatiotemporal\n" if graph else ""
+    graph_imports = (
+        "import numpy as np\n\nfrom tsflab.models._components.marks import to_spatiotemporal\n" if graph else ""
+    )
     inputs = "square_adjacency" if graph else "check_window"
     graph_args = '        adj_mx: "np.ndarray | None" = None,\n        cov_dim: int = 2,\n' if graph else ""
     setup = (
         "        adj_mx = np.eye(enc_in, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, enc_in)\n"
-        "        self.register_buffer(\"adj_mx\", torch.as_tensor(adj_mx, dtype=torch.float32))\n"
+        '        self.register_buffer("adj_mx", torch.as_tensor(adj_mx, dtype=torch.float32))\n'
         "        self.cov_dim = cov_dim\n"
-        if graph else ""
+        if graph
+        else ""
     )
     forward = (
         "        if x_mark_enc is None:\n"
         "            x_mark_enc = x_enc.new_zeros((x_enc.shape[0], x_enc.shape[1], 6))\n"
         "        values = to_spatiotemporal(x_enc, x_mark_enc)[..., 0]\n"
         "        return self.placeholder(values.transpose(1, 2)).transpose(1, 2)\n"
-        if graph else
-        "        check_window(x_enc, self.seq_len, self.enc_in)\n"
+        if graph
+        else "        check_window(x_enc, self.seq_len, self.enc_in)\n"
         "        return self.placeholder(x_enc.transpose(1, 2)).transpose(1, 2)\n"
     )
     return f'''"""SCAFFOLD for the local {name} implementation; replace before admission."""
@@ -286,7 +301,8 @@ def main() -> None:
     parser.add_argument("--license")
     parser.add_argument("--components", required=True, help="comma-separated names or 'none'")
     parser.add_argument(
-        "--task-mode", choices=["time_series", "spatiotemporal", "covariate"],
+        "--task-mode",
+        choices=["time_series", "spatiotemporal", "covariate"],
         default="time_series",
     )
     parser.add_argument("--force", action="store_true")
@@ -301,8 +317,10 @@ def main() -> None:
     if any(source_values) and not all(source_values):
         parser.error("--code-url, --revision, and --license must be supplied together")
     codebase = source_values if all(source_values) else None
-    components = () if args.components.strip().lower() == "none" else tuple(
-        item.strip() for item in args.components.split(",") if item.strip()
+    components = (
+        ()
+        if args.components.strip().lower() == "none"
+        else tuple(item.strip() for item in args.components.split(",") if item.strip())
     )
     from tsflab.catalog.components import COMPONENT_CATALOG
 
@@ -311,7 +329,8 @@ def main() -> None:
     unknown_components = sorted(set(components) - set(COMPONENT_CATALOG.names()))
     if unknown_components:
         parser.error(
-            "unknown component(s): " + ", ".join(unknown_components)
+            "unknown component(s): "
+            + ", ".join(unknown_components)
             + "; run 'tsf catalog search --kind component <terms>' first"
         )
     if args.task_mode != "time_series" and "marks" not in components:
@@ -326,10 +345,18 @@ def main() -> None:
         package / "__init__.py": _package_init(name),
         package / "model.py": _model(name, params, graph),
         package / "spec.py": _spec(name, module, params, args.task_mode, components),
-        **{package / filename: text for filename, text in _card(
-            name, args.paper_title, args.paper_url, args.venue, args.year,
-            codebase, components,
-        ).items()},
+        **{
+            package / filename: text
+            for filename, text in _card(
+                name,
+                args.paper_title,
+                args.paper_url,
+                args.venue,
+                args.year,
+                codebase,
+                components,
+            ).items()
+        },
         MODEL_CONFIG_DIR / f"{name}.toml": _model_config(name, params, graph),
         RUN_CONFIG_DIR / f"smoke_{module}.toml": _smoke(name, module, args.task_mode),
     }
@@ -343,8 +370,7 @@ def main() -> None:
     for path, content in targets.items():
         path.write_text(content, encoding="utf-8")
 
-    print(f"Created model workspace {name!r} ({module}); it is discovered from spec.py, "
-          "no registry edit needed")
+    print(f"Created model workspace {name!r} ({module}); it is discovered from spec.py, no registry edit needed")
     for path in targets:
         print(f"  + {path.relative_to(ROOT)}")
     print("Next: replace SCAFFOLD code and card text (card.toml, README.md); the audit stays red")

@@ -219,8 +219,17 @@ class Model(nn.Module):
         self.embeddings = nn.ModuleList(nn.Linear(length, wavelet_dim) for length in self.input_lengths)
         self.layers = nn.ModuleList(
             WaveRoRAEncoderLayer(
-                series, wavelet_dim, d_model, d_ff, n_heads, self.router_num, kernel_size, dropout,
-                rotary, residual, gate,
+                series,
+                wavelet_dim,
+                d_model,
+                d_ff,
+                n_heads,
+                self.router_num,
+                kernel_size,
+                dropout,
+                rotary,
+                residual,
+                gate,
             )
             for _ in range(e_layers)
         )

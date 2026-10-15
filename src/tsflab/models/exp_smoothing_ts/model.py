@@ -13,9 +13,7 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Learn one smoothing coefficient per channel and repeat the final level."""
 
-    def __init__(
-        self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5
-    ) -> None:
+    def __init__(self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         initial_logit = math.log(initial_alpha / (1.0 - initial_alpha))

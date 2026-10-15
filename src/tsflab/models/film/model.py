@@ -43,10 +43,7 @@ def legendre_basis(length: int, order: int) -> torch.Tensor:
     if order > 1:
         basis.append(points)
     for degree in range(2, order):
-        basis.append(
-            ((2 * degree - 1) * points * basis[-1] - (degree - 1) * basis[-2])
-            / degree
-        )
+        basis.append(((2 * degree - 1) * points * basis[-1] - (degree - 1) * basis[-2]) / degree)
     return torch.stack(basis, dim=-1)
 
 
@@ -56,9 +53,7 @@ class LegendreProjection(nn.Module):
     def __init__(self, order: int, input_length: int, output_length: int) -> None:
         super().__init__()
         continuous_a, continuous_b = legt_transition(order)
-        discrete_a, discrete_b = bilinear_discretize(
-            continuous_a, continuous_b, 1.0 / input_length
-        )
+        discrete_a, discrete_b = bilinear_discretize(continuous_a, continuous_b, 1.0 / input_length)
         self.register_buffer("transition", discrete_a)
         self.register_buffer("input_vector", discrete_b)
         self.register_buffer("reconstruction", legendre_basis(output_length, order))
@@ -109,9 +104,7 @@ def math_ceil(value: float) -> int:
 
 
 class FiLMExpert(nn.Module):
-    def __init__(
-        self, input_length: int, pred_len: int, order: int, rank: int, ratio: float
-    ) -> None:
+    def __init__(self, input_length: int, pred_len: int, order: int, rank: int, ratio: float) -> None:
         super().__init__()
         self.input_length = input_length
         self.projection = LegendreProjection(order, input_length, pred_len)
@@ -146,9 +139,7 @@ class Model(nn.Module):
         self.channels = enc_in
         self.revin = RevIN(enc_in)
         lengths = [min(seq_len, scale * pred_len) for scale in multiscale]
-        self.experts = nn.ModuleList(
-            [FiLMExpert(length, pred_len, order, rank, ratio) for length in lengths]
-        )
+        self.experts = nn.ModuleList([FiLMExpert(length, pred_len, order, rank, ratio) for length in lengths])
         self.expert_mixture = nn.Linear(len(lengths), 1)
 
     def forward(

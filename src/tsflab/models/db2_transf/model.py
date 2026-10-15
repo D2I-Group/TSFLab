@@ -89,9 +89,9 @@ class MultiLevelDB2(nn.Module):
         tokens = x.shape[1]
         out = torch.zeros_like(x)
         for part in (approx, *details):
-            out = out + F.interpolate(
-                part.transpose(1, 2), size=tokens, mode="linear", align_corners=False
-            ).transpose(1, 2)
+            out = out + F.interpolate(part.transpose(1, 2), size=tokens, mode="linear", align_corners=False).transpose(
+                1, 2
+            )
         return out
 
 

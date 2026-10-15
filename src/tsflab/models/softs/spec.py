@@ -1,6 +1,7 @@
 """Runtime specification for SOFTS."""
 
 from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.softs.model import Model
 

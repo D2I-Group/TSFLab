@@ -8,7 +8,8 @@ form CosDir-UW (Eq. 3).
 
 from __future__ import annotations
 
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Literal
 
 import torch
 import torch.nn as nn
@@ -75,9 +76,7 @@ class Model(nn.Module):
         self.dir_lambda = float(dir_lambda)
         self.eps = float(eps)
 
-        self.backbone = DLinearBackbone(
-            enc_in, seq_len, pred_len, kernel_size=kernel_size, individual=individual
-        )
+        self.backbone = DLinearBackbone(enc_in, seq_len, pred_len, kernel_size=kernel_size, individual=individual)
         self._uniform_projection_init()
         # CosDir-UW log-variances (s1 for the base loss, s2 for L_dir), Eq. (3).
         if weighting == "uw":

@@ -51,9 +51,14 @@ def _modules_command(tail: list[str]) -> int:
     found = find_project()
     chosen = found[1] if found else list(ALL_MODULES)
     records = [
-        {"module": name, "purpose": MODULES[name]["purpose"], "skills": MODULES[name]["skills"],
-         "tasks": MODULES[name]["tasks"], "commands": MODULES[name]["commands"],
-         "context": MODULES[name]["context"]}
+        {
+            "module": name,
+            "purpose": MODULES[name]["purpose"],
+            "skills": MODULES[name]["skills"],
+            "tasks": MODULES[name]["tasks"],
+            "commands": MODULES[name]["commands"],
+            "context": MODULES[name]["context"],
+        }
         for name in chosen
     ]
     if tail == ["--json"]:
@@ -133,8 +138,7 @@ def agent_command(args: list[str]) -> int:
                 prompt_path = payload["prompt_path"]
                 if not parsed.json:
                     print(
-                        f"Prepared research round: {round_state['id']}\n"
-                        f"Prompt: {prompt_path}\n\n",
+                        f"Prepared research round: {round_state['id']}\nPrompt: {prompt_path}\n\n",
                         end="",
                     )
                     print(render_text(payload["task"]), end="")

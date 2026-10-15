@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Callable
-from pathlib import Path
 import re
 import sys
+from collections.abc import Callable
+from pathlib import Path
 
 from tsflab.catalog.cards.depth import (
     card_l0,
@@ -36,10 +36,16 @@ def _model_resources(root: Path) -> list[tuple[dict[str, object], dict[str, str]
     resources = []
     for fields in model_records(root):
         card = (root / str(fields["model_card"])).read_text(encoding="utf-8")
-        tags = list(dict.fromkeys(
-            [*fields.get("tags", ()), *fields.get("fits", ()), *sorted(set(fields.get("capabilities", ()))),
-             *fields.get("components", ())]
-        ))
+        tags = list(
+            dict.fromkeys(
+                [
+                    *fields.get("tags", ()),
+                    *fields.get("fits", ()),
+                    *sorted(set(fields.get("capabilities", ()))),
+                    *fields.get("components", ()),
+                ]
+            )
+        )
         paper = dict(fields["paper"])
         surfaces = {
             "name": str(fields["name"]).casefold(),
@@ -49,27 +55,25 @@ def _model_resources(root: Path) -> list[tuple[dict[str, object], dict[str, str]
             "card": card.casefold(),
         }
         resources.append(
-            (l0_record(str(fields["name"]), "model",
-                       str(fields.get("tagline") or fields["summary"]), tags), surfaces, fields)
+            (
+                l0_record(str(fields["name"]), "model", str(fields.get("tagline") or fields["summary"]), tags),
+                surfaces,
+                fields,
+            )
         )
     return resources
 
 
 def _card_resources(root: Path, kind: str) -> list[tuple[dict[str, object], dict[str, str], dict]]:
     if kind == "component":
-        from tsflab.catalog.components import COMPONENT_CATALOG
         from tsflab.catalog.cards.components import component_card_path
+        from tsflab.catalog.components import COMPONENT_CATALOG
 
-        entries = [
-            (spec.name, component_card_path(root, spec.name), spec) for spec in COMPONENT_CATALOG.specs()
-        ]
+        entries = [(spec.name, component_card_path(root, spec.name), spec) for spec in COMPONENT_CATALOG.specs()]
     else:
         from tsflab.catalog.cards.resources import dataset_card_path, dataset_records
 
-        entries = [
-            (record.name, dataset_card_path(root, record.name), record)
-            for record in dataset_records(root)
-        ]
+        entries = [(record.name, dataset_card_path(root, record.name), record) for record in dataset_records(root)]
     resources = []
     for name, path, source in entries:
         try:
@@ -80,15 +84,26 @@ def _card_resources(root: Path, kind: str) -> list[tuple[dict[str, object], dict
         extra = ""
         if kind == "component":
             extra = " ".join(
-                (source.contract, *source.public_symbols, str(card.front.get("category", "")),
-                 str(card.front.get("slot", "")), *card.front.get("fits", ()),
-                 str(card.front.get("summary", "")))
+                (
+                    source.contract,
+                    *source.public_symbols,
+                    str(card.front.get("category", "")),
+                    str(card.front.get("slot", "")),
+                    *card.front.get("fits", ()),
+                    str(card.front.get("summary", "")),
+                )
             )
         else:
             extra = " ".join(
-                (source.alias, source.loader, source.dataset_id or source.path, source.track,
-                 str(card.front.get("domain", "")), str(card.front.get("topic", "")),
-                 *card.front.get("benchmarks", ()))
+                (
+                    source.alias,
+                    source.loader,
+                    source.dataset_id or source.path,
+                    source.track,
+                    str(card.front.get("domain", "")),
+                    str(card.front.get("topic", "")),
+                    *card.front.get("benchmarks", ()),
+                )
             )
         surfaces = {
             "name": f"{name} {getattr(source, 'alias', '')}".casefold(),
@@ -152,7 +167,9 @@ def search_command(
         parser.add_argument("--kind", choices=KINDS, help="restrict to one catalog")
     if kind in (None, "model"):
         parser.add_argument(
-            "--capability", action="append", default=[],
+            "--capability",
+            action="append",
+            default=[],
             help="require a model capability; repeat for intersection",
         )
     parser.add_argument("--limit", type=int, default=10)

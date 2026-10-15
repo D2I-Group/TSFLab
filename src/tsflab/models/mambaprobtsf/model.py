@@ -89,8 +89,7 @@ class SMambaForecaster(nn.Module):
         self.normalizer = RevIN(enc_in, eps=1e-5, affine=False, enabled=use_norm)
         self.embedding = DataEmbedding_inverted(seq_len, d_model, dropout=dropout)
         self.layers = nn.ModuleList(
-            SMambaEncoderLayer(d_model, d_state, d_ff, d_conv, expand, dropout, activation)
-            for _ in range(e_layers)
+            SMambaEncoderLayer(d_model, d_state, d_ff, d_conv, expand, dropout, activation) for _ in range(e_layers)
         )
         self.final_norm = nn.LayerNorm(d_model)
         self.projection = nn.Linear(d_model, pred_len)
@@ -159,9 +158,18 @@ class Model(nn.Module):
         if use_marks:
             tslib_time_feature_dimension(freq)  # validates the calendar layout early
         backbone = dict(
-            seq_len=seq_len, pred_len=pred_len, enc_in=enc_in, d_model=d_model, d_state=d_state,
-            d_ff=d_ff, e_layers=e_layers, d_conv=d_conv, expand=expand, dropout=dropout,
-            activation=activation, use_norm=use_norm,
+            seq_len=seq_len,
+            pred_len=pred_len,
+            enc_in=enc_in,
+            d_model=d_model,
+            d_state=d_state,
+            d_ff=d_ff,
+            e_layers=e_layers,
+            d_conv=d_conv,
+            expand=expand,
+            dropout=dropout,
+            activation=activation,
+            use_norm=use_norm,
         )
         self.mean_network = SMambaForecaster(**backbone)
         self.sigma_net: nn.Module = (

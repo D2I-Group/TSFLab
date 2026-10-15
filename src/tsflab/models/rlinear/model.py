@@ -26,9 +26,7 @@ class Model(nn.Module):
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.enc_in = c_in
-        self.normalization = RevIN(
-            c_in, affine=affine, subtract_last=subtract_last
-        )
+        self.normalization = RevIN(c_in, affine=affine, subtract_last=subtract_last)
         self.input_dropout = nn.Dropout(dropout)
         self.projection = ChannelWiseLinear(seq_len, pred_len, c_in, individual)
 
@@ -42,7 +40,5 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
         normalized = self.normalization(x_enc, "norm")
-        forecast = self.projection(
-            self.input_dropout(normalized).transpose(1, 2)
-        ).transpose(1, 2)
+        forecast = self.projection(self.input_dropout(normalized).transpose(1, 2)).transpose(1, 2)
         return self.normalization(forecast, "denorm")

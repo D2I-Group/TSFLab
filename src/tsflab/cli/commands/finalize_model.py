@@ -10,20 +10,18 @@ runs the gates (structure, components, cards, audits). Executed verification
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_name, resolve_name
 import importlib
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from tsflab.catalog.admission import unfinished_files
 from tsflab.catalog.cards.metadata import declared_model_fields
 from tsflab.catalog.component_audit import components_used_by
 from tsflab.catalog.components import COMPONENT_CATALOG
 from tsflab.catalog.registry.models import MODEL_CATALOG, ModelSpec
+from tsflab.cli.args import add_name, resolve_name
 from tsflab.core.paths import repository_root, require_checkout
-
 
 ROOT = repository_root()
 
@@ -35,9 +33,7 @@ def _workspace(name: str) -> tuple[Path, dict[str, object]]:
     if module_path is None:
         skipped = MODEL_CATALOG.problems()
         detail = f"; skipped packages: {'; '.join(skipped)}" if skipped else ""
-        raise ValueError(
-            f"no discoverable model package declares SPEC = ModelSpec(name={name!r}){detail}"
-        )
+        raise ValueError(f"no discoverable model package declares SPEC = ModelSpec(name={name!r}){detail}")
     spec_path = ROOT / "src" / Path(*module_path.split(".")).with_suffix(".py")
     return spec_path.parent, declared_model_fields(spec_path)
 
@@ -107,15 +103,18 @@ def _report_reuse(slug: str) -> None:
     print("Reuse candidates (similar shared components; switch only if numerically identical):")
     for pair in hits:
         own, shared = (pair.right, pair.left) if pair.left.is_component else (pair.left, pair.right)
-        print(f"  {own.qualname} ({own.path}:{own.line}) ~ {shared.owner.removeprefix('component:')}"
-              f".{shared.qualname}  score {pair.score:.2f}")
+        print(
+            f"  {own.qualname} ({own.path}:{own.line}) ~ {shared.owner.removeprefix('component:')}"
+            f".{shared.qualname}  score {pair.score:.2f}"
+        )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="tsf model add", description=__doc__)
     add_name(parser, "name", flag="--name", help="public model name of the scaffolded package")
-    parser.add_argument("--verify", action="store_true",
-                        help="also run `tsf model verify` and the strict runtime contracts")
+    parser.add_argument(
+        "--verify", action="store_true", help="also run `tsf model verify` and the strict runtime contracts"
+    )
     args = parser.parse_args()
     resolve_name(parser, args, "name")
     try:
@@ -140,8 +139,10 @@ def main() -> int:
     if args.verify:
         print(f"Admitted verified model {args.name!r} (discovered from its package)")
     else:
-        print(f"Admitted model {args.name!r} (discovered from its package); verification pending "
-              f"(`tsf model verify {args.name}`, required before a final release)")
+        print(
+            f"Admitted model {args.name!r} (discovered from its package); verification pending "
+            f"(`tsf model verify {args.name}`, required before a final release)"
+        )
     return 0
 
 

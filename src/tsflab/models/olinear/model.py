@@ -61,9 +61,7 @@ class Model(nn.Module):
         self.decoder = nn.Linear(seq_len * d_model, pred_len)
 
     @torch.no_grad()
-    def set_orthogonal_bases(
-        self, input_basis: torch.Tensor, output_basis: torch.Tensor
-    ) -> None:
+    def set_orthogonal_bases(self, input_basis: torch.Tensor, output_basis: torch.Tensor) -> None:
         """Install Pearson-correlation eigenvector bases computed on training data."""
         if input_basis.shape != (self.seq_len, self.seq_len):
             raise ValueError("input basis has the wrong shape")

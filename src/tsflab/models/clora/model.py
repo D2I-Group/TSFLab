@@ -96,9 +96,7 @@ class Model(nn.Module):
             # Non-stationary-Transformer normalization: no affine parameters.
             self.revin = RevIN(enc_in, affine=False)
         else:
-            self.temporal = nn.Sequential(
-                nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
-            )
+            self.temporal = nn.Sequential(nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model))
             self.revin = RevIN(enc_in, affine=True)
         self.projection = nn.Linear(d_model, pred_len)
 

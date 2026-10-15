@@ -56,7 +56,7 @@ class BSplineKANLinear(nn.Module):
         nn.init.kaiming_uniform_(self.base_weight, a=math.sqrt(5))
         nn.init.kaiming_uniform_(self.spline_scaler, a=math.sqrt(5))
         interior = self.grid[:, self.spline_order : self.grid.shape[1] - self.spline_order]  # [in, s+1]
-        noise = (torch.rand(self.in_features, interior.shape[1], self.out_features) - 0.5)
+        noise = torch.rand(self.in_features, interior.shape[1], self.out_features) - 0.5
         noise = noise * scale_noise / self.grid_size
         basis = self.b_splines(interior.T)  # [s+1, in, s+k]
         coeff = torch.linalg.lstsq(basis.transpose(0, 1), noise).solution  # [in, s+k, out]

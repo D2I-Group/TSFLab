@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 
 from tsflab.catalog.registry import DATASET_REGISTRY
@@ -56,20 +54,16 @@ class Dataset_trend(ForecastingDataset):
         """Return number of independent samples in the split."""
         return len(self.data)
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return one sample window and optional timestamps."""
         sample = self.data[index]
         input_series = sample[: self.seq_len]
-        output_series = sample[
-            self.seq_len - self.label_len : self.seq_len + self.pred_len
-        ]
+        output_series = sample[self.seq_len - self.label_len : self.seq_len + self.pred_len]
 
         if self.time_stamp is not None:
             stamp = self.time_stamp[index]
             input_stamp = stamp[: self.seq_len]
-            output_stamp = stamp[
-                self.seq_len - self.label_len : self.seq_len + self.pred_len
-            ]
+            output_stamp = stamp[self.seq_len - self.label_len : self.seq_len + self.pred_len]
         else:
             input_stamp, output_stamp = None, None
 
@@ -90,7 +84,7 @@ class Dataset_trend(ForecastingDataset):
         target: str,
         split_ratio: tuple[float, float, float],
         scale: bool,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Generate polynomial trend data and return split series and timestamps."""
         total_len = self.seq_len + self.pred_len
         num_samples = self.num_samples
@@ -109,9 +103,7 @@ class Dataset_trend(ForecastingDataset):
             degree_min = degree_max
         t_powers = np.stack([np.power(t, k) for k in range(degree_max + 1)], axis=0)
 
-        degrees = np.random.randint(
-            degree_min, degree_max + 1, size=(num_samples, self.channel_number)
-        )
+        degrees = np.random.randint(degree_min, degree_max + 1, size=(num_samples, self.channel_number))
         coeff_low, coeff_high = self.coeff_range
         coeffs = np.random.uniform(
             coeff_low,
@@ -125,9 +117,7 @@ class Dataset_trend(ForecastingDataset):
         trend = np.transpose(trend, (0, 2, 1))
 
         if self.noise_std > 0:
-            noise = np.random.normal(0.0, self.noise_std, size=trend.shape).astype(
-                np.float32
-            )
+            noise = np.random.normal(0.0, self.noise_std, size=trend.shape).astype(np.float32)
             data = trend + noise
         else:
             data = trend
@@ -173,9 +163,7 @@ class Dataset_trend(ForecastingDataset):
         flag_map = {"train": 0, "val": 1, "test": 2}
         idx = flag_map[flag]
         total_ratio = sum(split_ratio)
-        cum_ratios = [
-            sum(split_ratio[: i + 1]) / total_ratio for i in range(len(split_ratio))
-        ]
+        cum_ratios = [sum(split_ratio[: i + 1]) / total_ratio for i in range(len(split_ratio))]
         border1 = int(cum_ratios[idx - 1] * num_samples) if idx > 0 else 0
         border2 = int(cum_ratios[idx] * num_samples)
         return border1, border2
@@ -184,6 +172,8 @@ class Dataset_trend(ForecastingDataset):
 def register() -> None:
     """Register the trend dataset."""
     DATASET_REGISTRY.register(
-        "trend", Dataset_trend, DatasetParameterConfig,
+        "trend",
+        Dataset_trend,
+        DatasetParameterConfig,
         task_modes=frozenset({"time_series"}),
     )

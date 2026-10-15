@@ -22,7 +22,7 @@ class ModelParameterConfig(BaseModel):
     use_revin: bool = True
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         return self
 
 

@@ -27,9 +27,7 @@ def test_real_subprocess_sweep_and_resume_skip_completed(tmp_path):
     assert (path / "checkpoints" / "latest.pth").is_file()
     assert (path / "attempt-1.log").is_file()
     saved = read_run(path)
-    record = json.loads(
-        next((tmp_path / "weather" / "CRIB" / "records").glob("*.json")).read_text()
-    )
+    record = json.loads(next((tmp_path / "weather" / "CRIB" / "records").glob("*.json")).read_text())
     assert record["config"]["snapshot"] and record["config"]["config_sha256"]
     resumed = execute(directory)
     assert resumed["ok"] and resumed["skipped"] == 1

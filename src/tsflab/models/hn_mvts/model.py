@@ -16,9 +16,16 @@ from tsflab.models._inputs import check_window
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 embedding_dim: int = 8, hyper_hidden: int = 32,
-                 use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        embedding_dim: int = 8,
+        hyper_hidden: int = 32,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.d_model, self.use_revin = d_model, use_revin
@@ -26,7 +33,8 @@ class Model(nn.Module):
         self.temporal_encoder = nn.Sequential(nn.Linear(seq_len, d_model), nn.GELU())
         self.channel_embedding = nn.Parameter(torch.empty(enc_in, embedding_dim))
         self.hypernetwork = nn.Sequential(
-            nn.Linear(embedding_dim, hyper_hidden), nn.ReLU(),
+            nn.Linear(embedding_dim, hyper_hidden),
+            nn.ReLU(),
             nn.Linear(hyper_hidden, pred_len * d_model + pred_len),
         )
         nn.init.normal_(self.channel_embedding, std=0.02)

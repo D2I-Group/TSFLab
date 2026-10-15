@@ -58,10 +58,7 @@ class Model(nn.Module):
         self.patch_embedding = PatchEmbedding(d_model, patch_len, stride, stride, dropout)
         num_patches = (seq_len - patch_len) // stride + 2
         self.blocks = nn.ModuleList(
-            [
-                GlobalPatchCompressionAttention(d_model, n_heads, d_ff, dropout)
-                for _ in range(layers)
-            ]
+            [GlobalPatchCompressionAttention(d_model, n_heads, d_ff, dropout) for _ in range(layers)]
         )
         self.head = FlattenForecastHead(
             individual=False,

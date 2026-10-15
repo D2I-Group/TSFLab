@@ -31,7 +31,7 @@ class ModelParameterConfig(BaseModel):
         return values
 
     @model_validator(mode="after")
-    def _heads(self) -> "ModelParameterConfig":
+    def _heads(self) -> ModelParameterConfig:
         if self.d_model % self.num_heads:
             raise ValueError("d_model must be a multiple of num_heads")
         return self

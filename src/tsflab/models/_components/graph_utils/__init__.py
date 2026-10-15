@@ -37,22 +37,15 @@ def _with_self_loops(adjacency: np.ndarray) -> list[np.ndarray]:
 _SUPPORT_BUILDERS = {
     "normlap": lambda adjacency: [symmetric_normalized_laplacian(adjacency)],
     "scalap": lambda adjacency: [scaled_laplacian(adjacency)],
-    "symadj": lambda adjacency: [
-        np.eye(adjacency.shape[0])
-        - symmetric_normalized_laplacian(adjacency)
-    ],
+    "symadj": lambda adjacency: [np.eye(adjacency.shape[0]) - symmetric_normalized_laplacian(adjacency)],
     "transition": lambda adjacency: [transition_matrix(adjacency)],
-    "doubletransition": lambda adjacency: [
-        transition_matrix(adjacency), reverse_transition_matrix(adjacency)
-    ],
+    "doubletransition": lambda adjacency: [transition_matrix(adjacency), reverse_transition_matrix(adjacency)],
     "identity": lambda adjacency: [np.eye(adjacency.shape[0])],
     "origin": _with_self_loops,
 }
 
 
-def normalize_adj_mx(
-    adj_mx: np.ndarray, adj_type: str, return_type: str = "dense"
-) -> list[np.ndarray | sp.coo_matrix]:
+def normalize_adj_mx(adj_mx: np.ndarray, adj_type: str, return_type: str = "dense") -> list[np.ndarray | sp.coo_matrix]:
     """Return the requested finite adjacency supports.
 
     ``doubletransition`` yields forward and reverse random-walk matrices; all
@@ -80,10 +73,7 @@ def adj_to_supports(
 ) -> list[torch.Tensor]:
     """Convert an adjacency matrix to dense float32 support tensors."""
     normalized = normalize_adj_mx(adj_mx, adj_type, return_type="dense")
-    return [
-        torch.as_tensor(support, dtype=torch.float32, device=device)
-        for support in normalized
-    ]
+    return [torch.as_tensor(support, dtype=torch.float32, device=device) for support in normalized]
 
 
 def cheb_poly(matrix: np.ndarray, order: int) -> np.ndarray:

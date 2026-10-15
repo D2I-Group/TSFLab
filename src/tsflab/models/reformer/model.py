@@ -31,16 +31,12 @@ class LSHSelfAttention(nn.Module):
     ):
         super().__init__()
         if max_sequence_length < 1:
-            raise ValueError(
-                "bucket_size, n_hashes, and maximum length must be positive"
-            )
+            raise ValueError("bucket_size, n_hashes, and maximum length must be positive")
         self.dim, self.heads, self.head_dim = dim, heads, dim // heads
         self.bucket_size, self.n_hashes, self.causal = bucket_size, n_hashes, causal
         max_buckets = max(2, 2 * math.ceil(max_sequence_length / (2 * bucket_size)))
         generator = torch.Generator().manual_seed(20010405 + dim + heads + n_hashes)
-        rotations = torch.randn(
-            n_hashes, self.head_dim, max_buckets // 2, generator=generator
-        )
+        rotations = torch.randn(n_hashes, self.head_dim, max_buckets // 2, generator=generator)
         self.register_buffer("rotations", rotations)
         self.to_qk = nn.Linear(dim, dim, bias=False)
         self.to_v = nn.Linear(dim, dim, bias=False)
@@ -68,22 +64,15 @@ class LSHSelfAttention(nn.Module):
     def _attend_chunk(self, state, sample, query_indices, key_indices):
         """Accumulate one chunk's attention output and normalizer into ``state``."""
         qk, projected_values, buckets, accumulated, normalizer = state
-        self.last_candidate_width = max(
-            self.last_candidate_width, key_indices.numel()
-        )
-        scores = qk[sample, query_indices] @ qk[
-            sample, key_indices
-        ].transpose(0, 1)
+        self.last_candidate_width = max(self.last_candidate_width, key_indices.numel())
+        scores = qk[sample, query_indices] @ qk[sample, key_indices].transpose(0, 1)
         scores = scores / math.sqrt(self.head_dim)
         allowed = torch.ones_like(scores, dtype=torch.bool)
         if self.causal:
             allowed = key_indices[None, :] <= query_indices[:, None]
         # Count repeated query-key collisions over all hash rounds.
         duplicate_count = (
-            (
-                buckets[:, sample, query_indices, None]
-                == buckets[:, sample, key_indices][..., None, :]
-            )
+            (buckets[:, sample, query_indices, None] == buckets[:, sample, key_indices][..., None, :])
             .sum(dim=0)
             .clamp_min(1)
         )
@@ -91,10 +80,7 @@ class LSHSelfAttention(nn.Module):
         scores = scores.masked_fill(~allowed, -torch.inf)
         weights = torch.softmax(scores, dim=-1)
         weights = torch.nan_to_num(weights, nan=0.0)
-        update = (
-            self.dropout(weights)
-            @ projected_values[sample, key_indices]
-        )
+        update = self.dropout(weights) @ projected_values[sample, key_indices]
         accumulated[sample].index_add_(0, query_indices, update)
         normalizer[sample].index_add_(
             0,
@@ -109,23 +95,15 @@ class LSHSelfAttention(nn.Module):
         batch, length, _ = values.shape
         heads, width = self.heads, self.head_dim
         qk = (
-            self.to_qk(qk_input)
-            .view(batch, length, heads, width)
-            .transpose(1, 2)
-            .reshape(batch * heads, length, width)
+            self.to_qk(qk_input).view(batch, length, heads, width).transpose(1, 2).reshape(batch * heads, length, width)
         )
         qk = qk / qk.norm(dim=-1, keepdim=True).clamp_min(1e-6)
         projected_values = (
-            self.to_v(values)
-            .view(batch, length, heads, width)
-            .transpose(1, 2)
-            .reshape(batch * heads, length, width)
+            self.to_v(values).view(batch, length, heads, width).transpose(1, 2).reshape(batch * heads, length, width)
         )
         buckets = self.hash_vectors(qk.detach())
         accumulated = torch.zeros_like(projected_values)
-        normalizer = torch.zeros(
-            batch * heads, length, 1, device=values.device, dtype=values.dtype
-        )
+        normalizer = torch.zeros(batch * heads, length, 1, device=values.device, dtype=values.dtype)
         positions = torch.arange(length, device=values.device)
         self.last_candidate_width = 0
 
@@ -140,11 +118,7 @@ class LSHSelfAttention(nn.Module):
                 for bucket_index in bucket.unique(sorted=True):
                     self._attend_bucket(state, sample, order[bucket[order] == bucket_index])
         output = accumulated / normalizer.clamp_min(1.0)
-        output = (
-            output.view(batch, heads, length, width)
-            .transpose(1, 2)
-            .reshape(batch, length, self.dim)
-        )
+        output = output.view(batch, heads, length, width).transpose(1, 2).reshape(batch, length, self.dim)
         return self.to_out(output)
 
 
@@ -253,25 +227,15 @@ class Model(nn.Module):
         """Decoder placeholders for the horizon: zeros, or the last ``pred_len`` steps of ``x_dec``."""
         if x_dec is None:
             return x_enc.new_zeros(x_enc.shape[0], self.pred_len, self.enc_in)
-        if (
-            x_dec.shape[0] != x_enc.shape[0]
-            or x_dec.shape[-1] != self.enc_in
-            or x_dec.shape[1] < self.pred_len
-        ):
-            raise ValueError(
-                "x_dec must supply at least pred_len future placeholders"
-            )
+        if x_dec.shape[0] != x_enc.shape[0] or x_dec.shape[-1] != self.enc_in or x_dec.shape[1] < self.pred_len:
+            raise ValueError("x_dec must supply at least pred_len future placeholders")
         return x_dec[:, -self.pred_len :]
 
     def _marks(self, x_mark_enc, x_mark_dec):
         """History and horizon marks concatenated, or ``None`` when neither is given."""
         if x_mark_enc is None and x_mark_dec is None:
             return None
-        if (
-            x_mark_enc is None
-            or x_mark_dec is None
-            or x_mark_dec.shape[1] < self.pred_len
-        ):
+        if x_mark_enc is None or x_mark_dec is None or x_mark_dec.shape[1] < self.pred_len:
             raise ValueError("encoder and decoder marks must be supplied together")
         return torch.cat((x_mark_enc, x_mark_dec[:, -self.pred_len :]), dim=1)
 

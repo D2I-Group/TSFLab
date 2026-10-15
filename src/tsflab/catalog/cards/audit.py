@@ -41,8 +41,12 @@ def _model_problems(root: Path) -> list[str]:
         composition = [f"{k}={v}" for k, v in (card.facts.get("composition") or {}).items()]
         out += _composition_problems(composition, where)
         used = set(component_dependency_closure(set(components_used_by(directory))))
-        named = {part.split(":", 1)[1] for value in (card.facts.get("composition") or {}).values()
-                 for part in str(value).split("+") if part.startswith("component:")}
+        named = {
+            part.split(":", 1)[1]
+            for value in (card.facts.get("composition") or {}).values()
+            for part in str(value).split("+")
+            if part.startswith("component:")
+        }
         for component in sorted(named - used):
             out.append(f"{where}: composition names component {component!r} that the model does not import")
     for directory in card_directories(root)["model"]:
@@ -104,6 +108,9 @@ def audit_cards(root: Path) -> list[str]:
     declined, declined_problems = load_declined(root)
     out += declined_problems
     admitted = {str(record["name"]) for record in model_records(root)}
-    out += [f"catalog/declined.toml lists {p['name']!r}, which is an admitted model"
-            for p in declined if p.get("name") in admitted]
+    out += [
+        f"catalog/declined.toml lists {p['name']!r}, which is an admitted model"
+        for p in declined
+        if p.get("name") in admitted
+    ]
     return out

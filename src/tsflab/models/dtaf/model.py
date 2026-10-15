@@ -4,6 +4,7 @@ Temporal Stabilizing Fusion removes sample-dependent nuisance patterns before
 causal aggregation. Frequency Wave Modeling selects bins with strong adjacent
 spectral change. No source from the reference-only repository is used here.
 """
+
 from __future__ import annotations
 
 import torch
@@ -21,12 +22,12 @@ def patchify(values: torch.Tensor, patch_len: int, stride: int) -> torch.Tensor:
 
 class TemporalStabilizingFusion(nn.Module):
     """TFS nuisance-MoE subtraction followed by history/current fusion."""
+
     def __init__(self, width: int, experts: int, hidden: int, dropout: float):
         super().__init__()
-        self.experts = nn.ModuleList([
-            nn.Sequential(nn.Linear(width, hidden), nn.SiLU(), nn.Linear(hidden, width))
-            for _ in range(experts)
-        ])
+        self.experts = nn.ModuleList(
+            [nn.Sequential(nn.Linear(width, hidden), nn.SiLU(), nn.Linear(hidden, width)) for _ in range(experts)]
+        )
         self.router = nn.Linear(width, experts)
         self.history_score = nn.Linear(width, 1)
         self.current_gate = nn.Linear(width, width)
@@ -48,6 +49,7 @@ class TemporalStabilizingFusion(nn.Module):
 
 class FrequencyWaveModeling(nn.Module):
     """FWM emphasizes bins with the largest adjacent spectral shifts."""
+
     def __init__(self, width: int, top_k: int, heads: int, dropout: float):
         super().__init__()
         self.top_k = top_k
@@ -86,9 +88,23 @@ class DTAFBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M",
-                 d_model=32, e_layers=1, patch_len=16, stride=8, heads=2,
-                 dropout=0.1, expert_num=2, expert_hidden=8, top_k=1):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        label_len=0,
+        features="M",
+        d_model=32,
+        e_layers=1,
+        patch_len=16,
+        stride=8,
+        heads=2,
+        dropout=0.1,
+        expert_num=2,
+        expert_hidden=8,
+        top_k=1,
+    ):
         super().__init__()
         if patch_len > seq_len + stride:
             raise ValueError("invalid patch length")
@@ -96,12 +112,10 @@ class Model(nn.Module):
         self.patch_len, self.stride = patch_len, stride
         self.patch_count = 1 + (seq_len + stride - patch_len) // stride
         self.embedding = nn.Linear(patch_len, d_model)
-        self.blocks = nn.ModuleList([
-            DTAFBlock(d_model, expert_num, expert_hidden, top_k, heads, dropout)
-            for _ in range(e_layers)
-        ])
-        self.head = nn.Sequential(nn.Flatten(-2), nn.Dropout(dropout),
-                                  nn.Linear(self.patch_count * d_model, pred_len))
+        self.blocks = nn.ModuleList(
+            [DTAFBlock(d_model, expert_num, expert_hidden, top_k, heads, dropout) for _ in range(e_layers)]
+        )
+        self.head = nn.Sequential(nn.Flatten(-2), nn.Dropout(dropout), nn.Linear(self.patch_count * d_model, pred_len))
 
     def forward(
         self,

@@ -74,8 +74,7 @@ class Model(nn.Module):
         self.pred_len = pred_len
         self.enc_in = enc_in
         self.blocks = nn.ModuleList(
-            RPMixerBlock(seq_len, enc_in, random_dim, 104729 + index)
-            for index in range(e_layers)
+            RPMixerBlock(seq_len, enc_in, random_dim, 104729 + index) for index in range(e_layers)
         )
         self.decoder = ChannelWiseLinear(seq_len, pred_len, enc_in)
 

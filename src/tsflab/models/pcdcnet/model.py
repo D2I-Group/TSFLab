@@ -1,8 +1,11 @@
 """Clean-room PCDCNet following equations (3)--(9) of arXiv:2505.19842."""
+
 from __future__ import annotations
+
 import numpy as np
 import torch
 from torch import nn
+
 from tsflab.models._components.marks import TIME_FEATURES, coerce_time_length, future_time_features, to_spatiotemporal
 from tsflab.models._inputs import check_window, square_adjacency
 
@@ -18,11 +21,13 @@ def _normalized_laplacian(adjacency: np.ndarray, nodes: int) -> torch.Tensor:
 
 class LocalInteractionDynamics(nn.Module):
     """Eq. (4): RMS-normalized MLP for local chemical interactions."""
+
     def __init__(self, width: int, dropout: float) -> None:
         super().__init__()
         self.norm = nn.RMSNorm(width)
-        self.mlp = nn.Sequential(nn.Linear(width, 2 * width), nn.SiLU(),
-                                 nn.Dropout(dropout), nn.Linear(2 * width, width))
+        self.mlp = nn.Sequential(
+            nn.Linear(width, 2 * width), nn.SiLU(), nn.Dropout(dropout), nn.Linear(2 * width, width)
+        )
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
         return self.mlp(self.norm(hidden))
@@ -30,6 +35,7 @@ class LocalInteractionDynamics(nn.Module):
 
 class SpatialTransportDynamics(nn.Module):
     """Eq. (5): normalized-Laplacian pollutant transport."""
+
     def __init__(self, laplacian: torch.Tensor, width: int) -> None:
         super().__init__()
         self.register_buffer("laplacian", laplacian)
@@ -41,9 +47,17 @@ class SpatialTransportDynamics(nn.Module):
 
 class Model(nn.Module):
     """Iterative local/transport/accumulation surrogate forecaster."""
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 adj_mx: np.ndarray | None = None, cov_dim: int | None = None,
-                 d_model: int = 64, dropout: float = 0.1) -> None:
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        adj_mx: np.ndarray | None = None,
+        cov_dim: int | None = None,
+        d_model: int = 64,
+        dropout: float = 0.1,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.cov_dim = TIME_FEATURES if cov_dim is None else cov_dim
@@ -57,8 +71,9 @@ class Model(nn.Module):
         self.transport_readout = nn.Linear(d_model, 1, bias=False)
         self.last_transport: torch.Tensor | None = None
 
-    def _step(self, value: torch.Tensor, covariates: torch.Tensor,
-              state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _step(
+        self, value: torch.Tensor, covariates: torch.Tensor, state: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         hidden = self.embed(torch.cat((value.unsqueeze(-1), covariates), -1))
         hidden = hidden + self.local(hidden)
         message = self.transport(hidden)
@@ -83,7 +98,7 @@ class Model(nn.Module):
         check_window(x_enc, self.seq_len, self.enc_in)
         b = x_enc.shape[0]
         history = to_spatiotemporal(x_enc, x_mark_enc)
-        history_cov = history[..., 1:1 + self.cov_dim]
+        history_cov = history[..., 1 : 1 + self.cov_dim]
         if history_cov.shape[-1] < self.cov_dim:
             history_cov = torch.nn.functional.pad(history_cov, (0, self.cov_dim - history_cov.shape[-1]))
         state = x_enc.new_zeros(b, self.enc_in, self.embed.out_features)
@@ -94,7 +109,7 @@ class Model(nn.Module):
             future_cov = x_enc.new_zeros(b, self.pred_len, self.enc_in, self.cov_dim)
         else:
             future_cov = future_time_features(coerce_time_length(marks, self.pred_len), self.enc_in)
-            future_cov = future_cov[..., :self.cov_dim]
+            future_cov = future_cov[..., : self.cov_dim]
             if future_cov.shape[-1] < self.cov_dim:
                 future_cov = torch.nn.functional.pad(future_cov, (0, self.cov_dim - future_cov.shape[-1]))
         value = x_enc[:, -1]

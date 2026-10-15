@@ -19,7 +19,9 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 class ResidualBlock(nn.Module):
     """The paper's dense-ReLU-dense-dropout block plus projected skip."""
 
-    def __init__(self, input_width: int, hidden_width: int, output_width: int, dropout: float, bias: bool, normalize: bool = True) -> None:
+    def __init__(
+        self, input_width: int, hidden_width: int, output_width: int, dropout: float, bias: bool, normalize: bool = True
+    ) -> None:
         super().__init__()
         self.hidden = nn.Linear(input_width, hidden_width, bias=bias)
         self.output = nn.Linear(hidden_width, output_width, bias=bias)
@@ -57,16 +59,12 @@ class Model(nn.Module):
         encoder_input = seq_len + (seq_len + pred_len) * feature_encode_dim
         self.encoder_input = ResidualBlock(encoder_input, d_model, d_model, dropout, bias)
         self.encoder_blocks = nn.ModuleList(
-            ResidualBlock(d_model, d_model, d_model, dropout, bias)
-            for _ in range(e_layers - 1)
+            ResidualBlock(d_model, d_model, d_model, dropout, bias) for _ in range(e_layers - 1)
         )
         self.decoder_blocks = nn.ModuleList(
-            ResidualBlock(d_model, d_model, d_model, dropout, bias)
-            for _ in range(d_layers - 1)
+            ResidualBlock(d_model, d_model, d_model, dropout, bias) for _ in range(d_layers - 1)
         )
-        self.dense_decoder = ResidualBlock(
-            d_model, d_model, pred_len * decoder_output_dim, dropout, bias
-        )
+        self.dense_decoder = ResidualBlock(d_model, d_model, pred_len * decoder_output_dim, dropout, bias)
         # LayerNorm over a scalar would erase the nonlinear branch, so the
         # temporal decoder intentionally uses the paper's optional no-norm form.
         self.temporal_decoder = ResidualBlock(
@@ -75,7 +73,9 @@ class Model(nn.Module):
         self.global_residual = nn.Linear(seq_len, pred_len, bias=bias)
         self.decoder_output_dim = decoder_output_dim
 
-    def _covariates(self, x: torch.Tensor, historical: torch.Tensor | None, future: torch.Tensor | None) -> torch.Tensor:
+    def _covariates(
+        self, x: torch.Tensor, historical: torch.Tensor | None, future: torch.Tensor | None
+    ) -> torch.Tensor:
         batch = x.shape[0]
         if historical is None:
             historical = x.new_zeros(batch, self.seq_len, self.time_feat_dim)
@@ -133,9 +133,7 @@ class Model(nn.Module):
         decoded = encoded
         for block in self.decoder_blocks:
             decoded = block(decoded)
-        decoded = self.dense_decoder(decoded).reshape(
-            batch, channels, self.pred_len, self.decoder_output_dim
-        )
+        decoded = self.dense_decoder(decoded).reshape(batch, channels, self.pred_len, self.decoder_output_dim)
         future_projected = projected[:, self.seq_len :].unsqueeze(1).expand(-1, channels, -1, -1)
         nonlinear = self.temporal_decoder(torch.cat((decoded, future_projected), dim=-1)).squeeze(-1)
         return nonlinear + self.global_residual(history)

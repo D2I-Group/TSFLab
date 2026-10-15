@@ -12,8 +12,8 @@ the first value it saw, like every real-time track.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import io
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 
@@ -29,8 +29,15 @@ def hour_url(hour: pd.Timestamp) -> str:
 
 def parse_hourly_file(text: str, parameter: str = "PM2.5", prefix: str = "840") -> pd.Series:
     """One ``HourlyData`` file -> values indexed by (UTC timestamp, AQSID) for one parameter."""
-    frame = pd.read_csv(io.StringIO(text), sep="|", header=None, names=COLUMNS, dtype={"aqsid": str},
-                        usecols=range(len(COLUMNS)), on_bad_lines="skip")
+    frame = pd.read_csv(
+        io.StringIO(text),
+        sep="|",
+        header=None,
+        names=COLUMNS,
+        dtype={"aqsid": str},
+        usecols=range(len(COLUMNS)),
+        on_bad_lines="skip",
+    )
     frame = frame[(frame["parameter"] == parameter) & frame["aqsid"].str.startswith(prefix, na=False)]
     stamp = pd.to_datetime(frame["date"] + " " + frame["time"], format="%m/%d/%y %H:%M", errors="coerce")
     value = pd.to_numeric(frame["value"], errors="coerce")
@@ -59,8 +66,7 @@ def fetch(track: TrackSpec, start: pd.Timestamp, end: pd.Timestamp, channels: li
     hours = pd.date_range(start.floor("h"), end.floor("h"), freq="h")
     with ThreadPoolExecutor(max_workers=int(track.source.get("workers", 8))) as pool:
         texts = list(pool.map(_download, hours))
-    parts = [parse_hourly_file(text, parameter, track.source.get("aqsid_prefix", "840"))
-             for text in texts if text]
+    parts = [parse_hourly_file(text, parameter, track.source.get("aqsid_prefix", "840")) for text in texts if text]
     if not parts:
         return pd.DataFrame()
     panel = pd.concat(parts).unstack("aqsid").sort_index()

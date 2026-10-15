@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, field_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.patchmlp.model import Model
-
-from pydantic import BaseModel, Field, field_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -14,9 +14,7 @@ class ModelParameterConfig(BaseModel):
     e_layers: int = Field(default=1, gt=0)
     use_norm: bool = True
     moving_avg: int = Field(default=13, gt=0)
-    patch_len: list[int] = Field(
-        default_factory=lambda: [48, 24, 12, 6], min_length=4, max_length=4
-    )
+    patch_len: list[int] = Field(default_factory=lambda: [48, 24, 12, 6], min_length=4, max_length=4)
 
     @field_validator("moving_avg")
     @classmethod

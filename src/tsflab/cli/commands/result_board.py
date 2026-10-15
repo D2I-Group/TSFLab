@@ -14,12 +14,11 @@ smoke or short run is not comparable with a published row.
 from __future__ import annotations
 
 import argparse
+import json
+import sys
+from pathlib import Path
 
 from tsflab.cli.args import add_name, resolve_name
-import json
-from pathlib import Path
-import sys
-
 from tsflab.core.leaderboard import aggregate
 
 BOARD_RELATIVE = Path("apps") / "web" / "data" / "leaderboard.json"
@@ -121,8 +120,17 @@ def _line(rank: int, row: dict, metric: str) -> str:
     return "  ".join(parts)
 
 
-def board(dataset: str, *, horizon: str | None, top: int, metric: str, records: list[Path],
-          board_file: str | None, include_board: bool = True, split: str = "test") -> dict:
+def board(
+    dataset: str,
+    *,
+    horizon: str | None,
+    top: int,
+    metric: str,
+    records: list[Path],
+    board_file: str | None,
+    include_board: bool = True,
+    split: str = "test",
+) -> dict:
     rows: list[dict] = []
     if split not in {"val", "test"}:
         raise ValueError("split must be val or test")
@@ -153,12 +161,25 @@ def board_command(args: list[str]) -> int:
     )
     add_name(parser, "dataset", flag="--dataset", help="dataset id, e.g. ETTh1 (case-insensitive)")
     parser.add_argument("--horizon", default=None, help="prediction length; default all horizons found")
-    parser.add_argument("--split", choices=("val", "test"), default="test",
-                        help="Score split; val reads only local validation records, never the published test board")
+    parser.add_argument(
+        "--split",
+        choices=("val", "test"),
+        default="test",
+        help="Score split; val reads only local validation records, never the published test board",
+    )
     parser.add_argument("--top", type=int, default=5, help="rows per horizon (default 5)")
     parser.add_argument("--metric", default="mse", help="ranking metric, lower is better (default mse)")
-    parser.add_argument("--records", action="append", default=None, help="work_dir to scan for local records (repeatable; default ./work_dirs)")
-    parser.add_argument("--board-file", default=None, help="leaderboard JSON; default apps/web/data/leaderboard.json, else the published board on the Hub")
+    parser.add_argument(
+        "--records",
+        action="append",
+        default=None,
+        help="work_dir to scan for local records (repeatable; default ./work_dirs)",
+    )
+    parser.add_argument(
+        "--board-file",
+        default=None,
+        help="leaderboard JSON; default apps/web/data/leaderboard.json, else the published board on the Hub",
+    )
     parser.add_argument("--json", action="store_true")
     parsed = parser.parse_args(args)
     resolve_name(parser, parsed, "dataset")
@@ -177,7 +198,9 @@ def board_command(args: list[str]) -> int:
     if not any(g["rows"] for g in result["horizons"]):
         print(f"no board or local rows for dataset {parsed.dataset!r}; baseline panel needed", file=sys.stderr)
         return 1
-    print(f"# board {result['dataset']} metric={result['metric']} (lower is better); board generated {result['board_generated_at']}")
+    print(
+        f"# board {result['dataset']} metric={result['metric']} (lower is better); board generated {result['board_generated_at']}"
+    )
     for group in result["horizons"]:
         for rank, row in enumerate(group["rows"], start=1):
             print(_line(rank, row, parsed.metric))

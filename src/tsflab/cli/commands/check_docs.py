@@ -6,15 +6,15 @@ from card facts), unindexed guides, prose about the retired verification system,
 and Agent-only implementation details leaking into user documentation.
 Pure text/file checks keep this safe and fast enough for every PR.
 """
+
 from __future__ import annotations
 
 import argparse
 import re
 import sys
 
-from tsflab.core.paths import repository_root, require_checkout
-
 from tsflab.catalog.cards.metadata import model_records
+from tsflab.core.paths import repository_root, require_checkout
 
 ROOT = repository_root()
 DOC_DIR = ROOT / "docs" / "en"
@@ -131,9 +131,7 @@ def _docs_index_problems() -> list[str]:
         if page.name == "README.md":
             continue
         if page.name not in linked:
-            problems.append(
-                f"{page.relative_to(ROOT)} has no link in {readme.relative_to(ROOT)}"
-            )
+            problems.append(f"{page.relative_to(ROOT)} has no link in {readme.relative_to(ROOT)}")
     return problems
 
 
@@ -157,17 +155,13 @@ def _audience_boundary_problems() -> list[str]:
         text = path.read_text(encoding="utf-8")
         for token in AGENT_ONLY_TOKENS:
             if token in text:
-                problems.append(
-                    f"{path.relative_to(ROOT)} exposes Agent-only detail {token!r}"
-                )
+                problems.append(f"{path.relative_to(ROOT)} exposes Agent-only detail {token!r}")
 
     for path in (ROOT / ".agents").rglob("*.md"):
         text = path.read_text(encoding="utf-8")
         for token in ("docs/en/", "CONTRIBUTING.md"):
             if token in text:
-                problems.append(
-                    f"{path.relative_to(ROOT)} depends on human documentation {token!r}"
-                )
+                problems.append(f"{path.relative_to(ROOT)} depends on human documentation {token!r}")
     return problems
 
 
@@ -190,9 +184,7 @@ def _relative_link_problems() -> list[str]:
                 continue
             resolved = path.parent / target
             if not resolved.exists():
-                problems.append(
-                    f"{path.relative_to(ROOT)} has broken relative link {raw_target!r}"
-                )
+                problems.append(f"{path.relative_to(ROOT)} has broken relative link {raw_target!r}")
     return problems
 
 
@@ -205,8 +197,14 @@ def command_reference_problems(paths=None) -> list[str]:
     from tsflab.cli.inventory import RETIRED, known
 
     if paths is None:
-        paths = [ROOT / "README.md", ROOT / "CONTRIBUTING.md", ROOT / "AGENTS.md", *DOC_DIR.glob("*.md"),
-                 *(ROOT / ".agents").rglob("*.md"), *(ROOT / ".agents").rglob("*.toml")]
+        paths = [
+            ROOT / "README.md",
+            ROOT / "CONTRIBUTING.md",
+            ROOT / "AGENTS.md",
+            *DOC_DIR.glob("*.md"),
+            *(ROOT / ".agents").rglob("*.md"),
+            *(ROOT / ".agents").rglob("*.toml"),
+        ]
     problems = []
     for path in paths:
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -223,8 +221,8 @@ def command_reference_problems(paths=None) -> list[str]:
 
 def check() -> list[str]:
     return (
-        command_reference_problems() +
-        _generated_model_doc_problems()
+        command_reference_problems()
+        + _generated_model_doc_problems()
         + _readme_count_problems()
         + _docs_index_problems()
         + _obsolete_reference_problems()

@@ -4,15 +4,18 @@ The design follows Fourier separation, learned measurement functions, and
 linear Koopman evolution inside a residual stack. No reference source is
 reproduced here.
 """
+
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
 
 
 class FourierDynamicsSplit(nn.Module):
     """Separate dominant spectral modes from remaining local variation."""
+
     def __init__(self, alpha: float = 0.2) -> None:
         super().__init__()
         self.alpha = float(alpha)
@@ -29,6 +32,7 @@ class FourierDynamicsSplit(nn.Module):
 
 class MeasurementFunction(nn.Module):
     """Nonlinear observable map and decoder around Koopman evolution."""
+
     def __init__(self, channels: int, latent_dim: int, hidden_dim: int, hidden_layers: int) -> None:
         super().__init__()
         encoder: list[nn.Module] = [nn.Linear(channels, hidden_dim), nn.Tanh()]
@@ -64,6 +68,7 @@ def estimate_operator(states: torch.Tensor) -> torch.Tensor:
 
 class LocalKoopmanPredictor(nn.Module):
     """Context-aware operator estimated from the most recent local segment."""
+
     def __init__(self, channels: int, latent_dim: int, hidden_dim: int, hidden_layers: int, seg_len: int) -> None:
         super().__init__()
         self.seg_len = seg_len
@@ -71,7 +76,7 @@ class LocalKoopmanPredictor(nn.Module):
 
     def forward(self, values: torch.Tensor, horizon: int) -> tuple[torch.Tensor, torch.Tensor]:
         states = self.measure.encode(values)
-        operator = estimate_operator(states[:, -max(2, min(self.seg_len, states.size(1))):])
+        operator = estimate_operator(states[:, -max(2, min(self.seg_len, states.size(1))) :])
         reconstructed = self.measure.decode(torch.cat((states[:, :1], states[:, :-1] @ operator), dim=1))
         current, future = states[:, -1:], []
         for _ in range(horizon):
@@ -82,6 +87,7 @@ class LocalKoopmanPredictor(nn.Module):
 
 class GlobalKoopmanPredictor(nn.Module):
     """Shared long-range transition for time-invariant dynamics."""
+
     def __init__(self, channels: int, latent_dim: int, hidden_dim: int, hidden_layers: int) -> None:
         super().__init__()
         self.measure = MeasurementFunction(channels, latent_dim, hidden_dim, hidden_layers)
@@ -99,7 +105,10 @@ class GlobalKoopmanPredictor(nn.Module):
 
 class KoopmanBlock(nn.Module):
     """One residual hierarchy level over variant and invariant dynamics."""
-    def __init__(self, channels: int, latent_dim: int, hidden_dim: int, hidden_layers: int, seg_len: int, alpha: float) -> None:
+
+    def __init__(
+        self, channels: int, latent_dim: int, hidden_dim: int, hidden_layers: int, seg_len: int, alpha: float
+    ) -> None:
         super().__init__()
         self.split = FourierDynamicsSplit(alpha)
         self.local = LocalKoopmanPredictor(channels, latent_dim, hidden_dim, hidden_layers, seg_len)
@@ -113,10 +122,21 @@ class KoopmanBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, label_len: int = 0,
-                 features: str = "M", seg_len: int | None = None, dynamic_dim: int = 128,
-                 hidden_dim: int = 64, hidden_layers: int = 2, num_blocks: int = 3,
-                 multistep: bool = False, alpha: float = 0.2) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        label_len: int = 0,
+        features: str = "M",
+        seg_len: int | None = None,
+        dynamic_dim: int = 128,
+        hidden_dim: int = 64,
+        hidden_layers: int = 2,
+        num_blocks: int = 3,
+        multistep: bool = False,
+        alpha: float = 0.2,
+    ) -> None:
         super().__init__()
         if seq_len < 2:
             raise ValueError("Koopa requires seq_len >= 2")
@@ -124,7 +144,9 @@ class Model(nn.Module):
         if segment < 2:
             raise ValueError("seg_len must be at least 2")
         self.seq_len, self.pred_len = seq_len, pred_len
-        self.blocks = nn.ModuleList(KoopmanBlock(enc_in, dynamic_dim, hidden_dim, hidden_layers, segment, alpha) for _ in range(num_blocks))
+        self.blocks = nn.ModuleList(
+            KoopmanBlock(enc_in, dynamic_dim, hidden_dim, hidden_layers, segment, alpha) for _ in range(num_blocks)
+        )
 
     def forward(
         self,

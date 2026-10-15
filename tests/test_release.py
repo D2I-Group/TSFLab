@@ -187,11 +187,18 @@ def test_fetch_preset_downloads_only_pinned_files_and_verifies(tmp_path, monkeyp
     root = tmp_path / "repo"
     shutil.copytree(ROOT / "configs" / "datasets", root / "configs" / "datasets")
     payload = b"date,OT\n2020-01-01,1\n"
-    manifest = {"schema_version": 1, "repo": "o/r", "files": {
-        "ETT-small/ETTh1.csv": {"revision": "abc", "sha256": hashlib.sha256(payload).hexdigest(),
-                                "size": len(payload)},
-        "ETT-small/ETTh2.csv": {"revision": "abc", "sha256": "0" * 64, "size": 1},
-    }}
+    manifest = {
+        "schema_version": 1,
+        "repo": "o/r",
+        "files": {
+            "ETT-small/ETTh1.csv": {
+                "revision": "abc",
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "size": len(payload),
+            },
+            "ETT-small/ETTh2.csv": {"revision": "abc", "sha256": "0" * 64, "size": 1},
+        },
+    }
     _write_bytes(root / hd.MANIFEST_RELATIVE, json.dumps(manifest).encode())
     calls = []
 
@@ -222,10 +229,11 @@ def test_v2_manifest_urls_use_the_prefix_and_v1_urls_the_root() -> None:
     entry = {"revision": "abc", "sha256": "0" * 64, "size": 1}
     v2 = {"schema_version": 2, "repo": "o/TSFLab-Datasets", "prefix": "static", "files": {}}
     v1 = {"schema_version": 1, "repo": "o/TSFLab-Static", "files": {}}
-    assert hd._entry_url(v2, "ETT-small/ETTh1.csv", entry) == \
-        "hf://datasets/o/TSFLab-Datasets@abc/static/ETT-small/ETTh1.csv"
-    assert hd._entry_url(v1, "ETT-small/ETTh1.csv", entry) == \
-        "hf://datasets/o/TSFLab-Static@abc/ETT-small/ETTh1.csv"
+    assert (
+        hd._entry_url(v2, "ETT-small/ETTh1.csv", entry)
+        == "hf://datasets/o/TSFLab-Datasets@abc/static/ETT-small/ETTh1.csv"
+    )
+    assert hd._entry_url(v1, "ETT-small/ETTh1.csv", entry) == "hf://datasets/o/TSFLab-Static@abc/ETT-small/ETTh1.csv"
     upstream = {"url": "https://example.org/x.csv", "sha256": "0" * 64, "size": 1}
     assert hd._entry_url(v2, "x.csv", upstream) == "https://example.org/x.csv"
     assert hd.DEFAULT_STATIC_REPO == hd.DEFAULT_DATASETS_REPO == hub.DEFAULT_DATASETS_REPO
@@ -255,8 +263,10 @@ def test_publish_uploads_under_the_static_prefix(tmp_path, monkeypatch) -> None:
     import huggingface_hub
 
     upstream = {"x/x.csv": {"url": "https://example.org/x.csv", "sha256": "0" * 64, "size": 1}}
-    root = _fixture_repo(tmp_path, {"schema_version": 2, "repo": "o/TSFLab-Datasets", "prefix": "static",
-                                    "files": {}, "upstream": upstream})
+    root = _fixture_repo(
+        tmp_path,
+        {"schema_version": 2, "repo": "o/TSFLab-Datasets", "prefix": "static", "files": {}, "upstream": upstream},
+    )
     data = tmp_path / "dataset"
     _write_bytes(data / "ETT-small/ETTh1.csv", b"date,OT\n2020-01-01,1\n")
     _FakeHfApi.uploads = []
@@ -268,8 +278,10 @@ def test_publish_uploads_under_the_static_prefix(tmp_path, monkeypatch) -> None:
     manifest = hd.load_manifest(root)
     assert manifest["schema_version"] == 2 and manifest["prefix"] == "static"
     assert manifest["upstream"] == upstream
-    assert hd._entry_url(manifest, "ETT-small/ETTh1.csv", manifest["files"]["ETT-small/ETTh1.csv"]) == \
-        "hf://datasets/o/TSFLab-Datasets@rev1/static/ETT-small/ETTh1.csv"
+    assert (
+        hd._entry_url(manifest, "ETT-small/ETTh1.csv", manifest["files"]["ETT-small/ETTh1.csv"])
+        == "hf://datasets/o/TSFLab-Datasets@rev1/static/ETT-small/ETTh1.csv"
+    )
     # Unchanged files are not uploaded again.
     assert hd.publish_presets(["etth1"], data, "o/TSFLab-Datasets", root=root) == {"etth1": "unchanged"}
     assert len(_FakeHfApi.uploads) == 1
@@ -296,7 +308,10 @@ def test_hub_init_creates_one_datasets_repo_with_both_folders() -> None:
 
     plan = publish.repository_plan("o")
     assert [(item["repo_id"], item["repo_type"]) for item in plan] == [
-        ("o/TSFLab-Datasets", "dataset"), ("o/TSFLab-Checkpoints", "model"), ("o/TSFLab", "space")]
+        ("o/TSFLab-Datasets", "dataset"),
+        ("o/TSFLab-Checkpoints", "model"),
+        ("o/TSFLab", "space"),
+    ]
     card = plan[0]["card"]
     assert "## `static/`" in card and "## `realtime/`" in card
     hosted, fetched = (line for line in card.splitlines() if line.startswith(("- Hosted", "- Not redistributed")))
@@ -380,16 +395,29 @@ def test_hf_token_falls_back_to_the_login_file(tmp_path, monkeypatch) -> None:
 
 def _record_doc(model: str, dataset: str, run_id: str, mse: float, seed: int = 0, horizon: int = 12) -> dict:
     return {
-        "record_id": f"{model}__{dataset}__seed{seed}__pl{horizon}", "model": model, "dataset_id": dataset,
-        "track": "time_series", "mode": "time_series", "seed": seed,
+        "record_id": f"{model}__{dataset}__seed{seed}__pl{horizon}",
+        "model": model,
+        "dataset_id": dataset,
+        "track": "time_series",
+        "mode": "time_series",
+        "seed": seed,
         "results": [{"horizon": horizon, "run_id": run_id, "metrics": {"mse": mse, "mae": mse / 2}}],
         "config": {"mode": "time_series", "seq_len": 96, "label_len": 0, "pred_len": horizon, "features": "M"},
         "env": {"git_sha": "abc"},
     }
 
 
-def _runner_run(work_dirs: Path, model: str, dataset: str, run_id: str, mse: float, seed: int = 0,
-                *, checkpoint: bool = True, recorded_path: str | None = None) -> Path:
+def _runner_run(
+    work_dirs: Path,
+    model: str,
+    dataset: str,
+    run_id: str,
+    mse: float,
+    seed: int = 0,
+    *,
+    checkpoint: bool = True,
+    recorded_path: str | None = None,
+) -> Path:
     """Lay out one run as the managed runner writes it (records + _runs/<run_id>/)."""
     records = work_dirs / dataset / model / "records"
     records.mkdir(parents=True, exist_ok=True)
@@ -401,9 +429,17 @@ def _runner_run(work_dirs: Path, model: str, dataset: str, run_id: str, mse: flo
     if checkpoint:
         torch.manual_seed(seed)
         torch.save(nn.Linear(96, 12).state_dict(), best)
-    (run_dir / "result.json").write_text(json.dumps({
-        "metrics": {"mse": mse}, "train_time_sec": 1.0, "test_time_sec": 0.1,
-        "checkpoint_path": recorded_path or str(best), "run_id": run_id}))
+    (run_dir / "result.json").write_text(
+        json.dumps(
+            {
+                "metrics": {"mse": mse},
+                "train_time_sec": 1.0,
+                "test_time_sec": 0.1,
+                "checkpoint_path": recorded_path or str(best),
+                "run_id": run_id,
+            }
+        )
+    )
     return record
 
 
@@ -414,8 +450,14 @@ def test_find_run_supports_the_managed_runner_layout(tmp_path: Path) -> None:
     assert record == work / "weather" / "DLinear" / "records" / "DLinear-1-aa.json"
     assert checkpoint == work / "_runs" / "DLinear-1-aa" / "checkpoints" / "best_checkpoint.pth"
     # A run copied back from another machine keeps a foreign absolute checkpoint_path.
-    _runner_run(work, "DLinear", "weather", "DLinear-2-bb", 0.4,
-                recorded_path="/gpu-node/work_dirs/_runs/DLinear-2-bb/checkpoints/best_checkpoint.pth")
+    _runner_run(
+        work,
+        "DLinear",
+        "weather",
+        "DLinear-2-bb",
+        0.4,
+        recorded_path="/gpu-node/work_dirs/_runs/DLinear-2-bb/checkpoints/best_checkpoint.pth",
+    )
     expected = work / "_runs" / "DLinear-2-bb" / "checkpoints" / "best_checkpoint.pth"
     assert hub.find_run("DLinear-2-bb", tmp_path)[1] == expected
     _runner_run(work, "DLinear", "weather", "DLinear-3-cc", 0.3, checkpoint=False)
@@ -445,8 +487,9 @@ class _FakeApi:
         return type("Commit", (), {"oid": f"c{len(self.commits)}"})()
 
     def upload_folder(self, repo_id, repo_type, folder_path, commit_message, **_):
-        self.folders.append(sorted(p.relative_to(folder_path).as_posix()
-                                   for p in Path(folder_path).rglob("*") if p.is_file()))
+        self.folders.append(
+            sorted(p.relative_to(folder_path).as_posix() for p in Path(folder_path).rglob("*") if p.is_file())
+        )
         return type("Commit", (), {"oid": "f1"})()
 
 
@@ -490,8 +533,10 @@ def test_results_push_maps_bundles_and_skips_present_ones(tmp_path: Path, monkey
     api = _FakeApi(["results/time_series/ETTh1/DLinear/me__DLinear-1-aa/submission.json"])
     summary = results.push_results([out], "o/r", batch=1, api=api)
     assert summary["skipped"] == 1 and summary["uploaded"] == 2 and summary["commits"] == ["c1", "c2"]
-    assert api.commits[0][1] == [f"results/time_series/ETTh1/PatchTST/me__PatchTST-1-bb/{name}"
-                                 for name in ("submission.json", "trajectory.jsonl", "report.md")]
+    assert api.commits[0][1] == [
+        f"results/time_series/ETTh1/PatchTST/me__PatchTST-1-bb/{name}"
+        for name in ("submission.json", "trajectory.jsonl", "report.md")
+    ]
     (out / "broken").mkdir()
     (out / "broken" / "submission.json").write_text("{}")
     with pytest.raises(ValueError, match="1 invalid submission"):
@@ -523,8 +568,8 @@ def test_push_top_selects_the_best_run_of_each_top_row(tmp_path: Path) -> None:
 
     work = tmp_path / "work_dirs"
     _runner_run(work, "A", "toy", "A-1", 0.30, seed=0)
-    _runner_run(work, "A", "toy", "A-2", 0.20, seed=1)   # A mean 0.25, best run A-2
-    _runner_run(work, "B", "toy", "B-1", 0.22, seed=0)   # B mean 0.22 -> rank 1
+    _runner_run(work, "A", "toy", "A-2", 0.20, seed=1)  # A mean 0.25, best run A-2
+    _runner_run(work, "B", "toy", "B-1", 0.22, seed=0)  # B mean 0.22 -> rank 1
     _runner_run(work, "C", "toy", "C-1", 0.90, seed=0, checkpoint=False)
     picked = results.select_top_runs("toy", horizon="12", top=2, metric="mse", records=[work])
     assert [(e["rank"], e["model"], e["run_id"]) for e in picked] == [(1, "B", "B-1"), (2, "A", "A-2")]
@@ -566,8 +611,11 @@ def test_empty_results_build_an_empty_board(tmp_path: Path) -> None:
 
 def test_site_fetch_installs_board_files_and_attaches_realtime(tmp_path: Path, monkeypatch) -> None:
     fetch_board = _load_script(ROOT / "apps" / "web" / "pipeline" / "fetch_board.py", "fetch_board")
-    for name, target in (("BOARD", "data/leaderboard.json"), ("MODEL_META", "data/model-meta.json"),
-                         ("VISUALIZATION", "public/visualization_data.json")):
+    for name, target in (
+        ("BOARD", "data/leaderboard.json"),
+        ("MODEL_META", "data/model-meta.json"),
+        ("VISUALIZATION", "public/visualization_data.json"),
+    ):
         monkeypatch.setattr(fetch_board, name, tmp_path / "site" / target)
     source = tmp_path / "board"
     source.mkdir()

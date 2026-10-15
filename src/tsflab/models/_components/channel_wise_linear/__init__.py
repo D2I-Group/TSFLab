@@ -27,17 +27,13 @@ class ChannelWiseLinear(nn.Module):
         self.channels = channels
         self.individual = individual
         if individual:
-            self.linears = nn.ModuleList(
-                nn.Linear(input_length, output_length) for _ in range(channels)
-            )
+            self.linears = nn.ModuleList(nn.Linear(input_length, output_length) for _ in range(channels))
         else:
             self.linear = nn.Linear(input_length, output_length)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim != 3:
-            raise ValueError(
-                "ChannelWiseLinear expects (batch, channels, input_length)"
-            )
+            raise ValueError("ChannelWiseLinear expects (batch, channels, input_length)")
         if x.shape[1:] != (self.channels, self.input_length):
             raise ValueError("input shape does not match the configured channels/length")
         if self.individual:

@@ -164,18 +164,14 @@ class Model(nn.Module):
 
         self.revin = RevIN(enc_in, affine=True, subtract_last=False)
         self.decomposition = SpectralDecomposition(spectral_top_k)
-        self.temporal_flow = SparseTemporalFlow(
-            enc_in, seq_len, d_ff, channel_sparse_ratio, dropout
-        )
+        self.temporal_flow = SparseTemporalFlow(enc_in, seq_len, d_ff, channel_sparse_ratio, dropout)
         self.frequency_flow = FrequencyFlow(enc_in)
         self.cross_mixer = SparseCrossMixer(enc_in, attn_sparse_ratio)
         self.head = nn.Linear(seq_len, pred_len)
 
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None):
         if x_enc.shape[1] != self.seq_len or x_enc.shape[-1] != self.enc_in:
-            raise ValueError(
-                f"expected input shaped [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}"
-            )
+            raise ValueError(f"expected input shaped [batch, {self.seq_len}, {self.enc_in}], got {tuple(x_enc.shape)}")
         x = self.revin(x_enc, "norm")
         season, trend = self.decomposition(x)  # Eq. (3)-(5)
         f_trend = self.temporal_flow(trend)  # Eq. (7)-(10)

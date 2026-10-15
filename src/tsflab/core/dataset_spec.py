@@ -50,12 +50,14 @@ class DatasetSpec(BaseModel):
     num_nodes: int | None = Field(default=None, description="Node count (spatiotemporal/covariate).")
     num_channels: int | None = Field(default=None, description="Channel count (time_series).")
     target: str | None = Field(default=None, description="Target variable/feature name, if applicable.")
-    hf_path: str | None = Field(default=None, description="Hugging Face repo path, e.g. 'Diaugeia/TSFLab-Datasets:static/ett1'.")
+    hf_path: str | None = Field(
+        default=None, description="Hugging Face repo path, e.g. 'Diaugeia/TSFLab-Datasets:static/ett1'."
+    )
     hf_revision: str | None = Field(default=None, description="Pinned HF commit/tag the version resolves to.")
     source_config: str | None = Field(default=None, description="Originating TSFLab dataset TOML path.")
 
     @model_validator(mode="after")
-    def _default_track_from_mode(self) -> "DatasetSpec":
+    def _default_track_from_mode(self) -> DatasetSpec:
         if self.track is None:
             self.track = self.mode
         return self

@@ -92,9 +92,7 @@ class Model(nn.Module):
         context = self._prepare_context(context, base_forecast.shape[0])
         augmented = torch.cat((base_forecast.transpose(1, 2), context), dim=-1)
         correction = self.residual(augmented)
-        return (base_forecast.transpose(1, 2) + self.gate.tanh() * correction).transpose(
-            1, 2
-        )
+        return (base_forecast.transpose(1, 2) + self.gate.tanh() * correction).transpose(1, 2)
 
     def forecast_with_context(
         self,

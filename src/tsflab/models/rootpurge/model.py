@@ -56,9 +56,7 @@ class Model(nn.Module):
             self.in_bins = seq_len // 2 + 1
             self.out_bins = self.total_len // 2 + 1
             bound = 1.0 / math.sqrt(self.in_bins)
-            self.weight_real = nn.Parameter(
-                torch.empty(groups, self.out_bins, self.in_bins).uniform_(-bound, bound)
-            )
+            self.weight_real = nn.Parameter(torch.empty(groups, self.out_bins, self.in_bins).uniform_(-bound, bound))
             # Real-valued initial filter: the imaginary part starts at zero.
             self.weight_imag = nn.Parameter(torch.zeros(groups, self.out_bins, self.in_bins))
 
@@ -76,12 +74,8 @@ class Model(nn.Module):
         spectrum = torch.fft.rfft(z, dim=1)  # [B, L//2+1, C]
         real = self.weight_real.expand(self.enc_in, -1, -1)
         imag = self.weight_imag.expand(self.enc_in, -1, -1)
-        out_real = torch.einsum("bfc,cof->boc", spectrum.real, real) - torch.einsum(
-            "bfc,cof->boc", spectrum.imag, imag
-        )
-        out_imag = torch.einsum("bfc,cof->boc", spectrum.real, imag) + torch.einsum(
-            "bfc,cof->boc", spectrum.imag, real
-        )
+        out_real = torch.einsum("bfc,cof->boc", spectrum.real, real) - torch.einsum("bfc,cof->boc", spectrum.imag, imag)
+        out_imag = torch.einsum("bfc,cof->boc", spectrum.real, imag) + torch.einsum("bfc,cof->boc", spectrum.imag, real)
         extended = torch.fft.irfft(torch.complex(out_real, out_imag), n=self.total_len, dim=1)
         # Energy compensation for the longer inverse transform, then keep the horizon.
         extended = extended * (self.total_len / self.seq_len)
@@ -106,9 +100,7 @@ class Model(nn.Module):
             return residual
         if horizon > self.seq_len:
             return residual[:, : self.seq_len, :]
-        start = torch.randint(
-            0, self.seq_len - horizon + 1, (batch, 1, channels), device=residual.device
-        )
+        start = torch.randint(0, self.seq_len - horizon + 1, (batch, 1, channels), device=residual.device)
         index = start + torch.arange(horizon, device=residual.device).view(1, horizon, 1)
         padded = residual.new_zeros(batch, self.seq_len, channels)
         return padded.scatter(1, index, residual)

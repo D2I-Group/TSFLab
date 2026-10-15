@@ -188,7 +188,8 @@ class InceptionBlock(nn.Module):
         super().__init__()
         self.lift = nn.Conv1d(seq_len, width, kernel_size=1)
         self.branches = nn.ModuleList(
-            nn.Conv1d(width, seq_len, kernel_size=k, dilation=d, padding="same") for k, d in ((3, 1), (3, 2), (5, 1), (5, 2))
+            nn.Conv1d(width, seq_len, kernel_size=k, dilation=d, padding="same")
+            for k, d in ((3, 1), (3, 2), (5, 1), (5, 2))
         )
         self.bottleneck = nn.Conv1d(4 * seq_len, seq_len, kernel_size=1)
         self.residual = nn.Conv1d(width, seq_len, kernel_size=1)
@@ -229,7 +230,9 @@ class Model(nn.Module):
         self.static_end = nn.Conv2d(conv_channel, seq_len, kernel_size=(1, seq_len))
         self.static_norm = nn.LayerNorm(seq_len)
 
-        self.register_buffer("band_projections", wavelet_band_projections(seq_len, decomp_level).float(), persistent=False)
+        self.register_buffer(
+            "band_projections", wavelet_band_projections(seq_len, decomp_level).float(), persistent=False
+        )
         self.dynamic_start = nn.Conv2d(1, conv_channel, kernel_size=1)
         self.dynamic_gcn = DynamicMixProp(conv_channel, gcn_depth, propalpha)
         self.dynamic_end = nn.Conv2d(conv_channel, seq_len, kernel_size=(1, seq_len))

@@ -32,12 +32,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
 
-from tsflab.experiments.config import load_config
-from tsflab.catalog.registry.loader import register_from_config
 from tsflab.catalog.registry.datasets import DATASET_REGISTRY
+from tsflab.catalog.registry.loader import register_from_config
 from tsflab.catalog.registry.models import MODEL_CATALOG
-from tsflab.experiments.runner.model_io import call_forecaster
 from tsflab.data.provider import build_data_loader
+from tsflab.experiments.config import load_config
+from tsflab.experiments.runner.model_io import call_forecaster
 
 
 def _find_checkpoint(work_dir: str, dataset: str, model: str) -> str | None:
@@ -69,12 +69,17 @@ def main() -> None:
         if hasattr(config.dataset.params, "model_dump")
         else dict(config.dataset.params)
     )
-    root_path, data_path = DATASET_REGISTRY.get(dataset_name).resolve_location(
-        config.dataset.path, config.dataset.id
-    )
+    root_path, data_path = DATASET_REGISTRY.get(dataset_name).resolve_location(config.dataset.path, config.dataset.id)
     test_set, test_loader = build_data_loader(
-        dataset_name, root_path, data_path, size,
-        "test", config.task.features, dataset_params, args.num_samples, 0,
+        dataset_name,
+        root_path,
+        data_path,
+        size,
+        "test",
+        config.task.features,
+        dataset_params,
+        args.num_samples,
+        0,
     )
 
     spec = MODEL_CATALOG.get(model_name)
@@ -85,15 +90,15 @@ def main() -> None:
         params.setdefault("num_nodes", test_set.num_nodes)
     model = spec.factory(config, params)
 
-    ckpt = args.checkpoint or _find_checkpoint(
-        config.experiment.work_dir, dataset_name, model_name
-    )
+    ckpt = args.checkpoint or _find_checkpoint(config.experiment.work_dir, dataset_name, model_name)
     if ckpt and os.path.exists(ckpt):
         model.load_state_dict(torch.load(ckpt, map_location="cpu"))
         print(f"Loaded checkpoint: {ckpt}")
     else:
-        print("WARNING: no checkpoint found — plotting with UNTRAINED weights. "
-              "Train the model first (uv run tsf run <config> ).")
+        print(
+            "WARNING: no checkpoint found — plotting with UNTRAINED weights. "
+            "Train the model first (uv run tsf run <config> )."
+        )
     model.eval()
 
     # One batch is enough — batch_size was set to num_samples above.
@@ -130,9 +135,7 @@ def main() -> None:
             ax.legend(fontsize=8, loc="upper left")
     fig.tight_layout()
 
-    out = args.out or os.path.join(
-        config.experiment.work_dir, dataset_name, model_name, "cases.png"
-    )
+    out = args.out or os.path.join(config.experiment.work_dir, dataset_name, model_name, "cases.png")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=120)
     print(f"Wrote {out}  ({n} cases, channel {ch})")

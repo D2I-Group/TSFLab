@@ -66,7 +66,16 @@ class TemporalMixer(nn.Module):
 class PastDecomposableMixing(nn.Module):
     """Paper equations (3)-(5): seasonal bottom-up and trend top-down mixing."""
 
-    def __init__(self, lengths: tuple[int, ...], d_model: int, d_ff: int, moving_avg: int, top_k: int, decomp_method: str, dropout: float) -> None:
+    def __init__(
+        self,
+        lengths: tuple[int, ...],
+        d_model: int,
+        d_ff: int,
+        moving_avg: int,
+        top_k: int,
+        decomp_method: str,
+        dropout: float,
+    ) -> None:
         super().__init__()
         if decomp_method == "moving_avg":
             self.decomposition: nn.Module = MovingAverageDecomposition(moving_avg)
@@ -93,9 +102,7 @@ class PastDecomposableMixing(nn.Module):
             contribution = mixer(seasonal[index].transpose(1, 2)).transpose(1, 2)
             seasonal[index + 1] = seasonal[index + 1] + contribution
         for index in reversed(range(len(self.trend_top_down))):
-            contribution = self.trend_top_down[index](
-                trend[index + 1].transpose(1, 2)
-            ).transpose(1, 2)
+            contribution = self.trend_top_down[index](trend[index + 1].transpose(1, 2)).transpose(1, 2)
             trend[index] = trend[index] + contribution
         return [
             original + self.feed_forward(season + trend_component)
@@ -121,22 +128,32 @@ def _check_top_k(decomp_method: str, top_k: int, scale_lengths: tuple[int, ...])
 class Model(nn.Module):
     """Forecast-only TimeMixer using average-pooled scales and sum-ensemble FMM."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, c_out: int, e_layers: int, d_model: int, d_ff: int, down_sampling_window: int, down_sampling_layers: int, moving_avg: int, top_k: int, dropout: float, use_norm: bool, decomp_method: str) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        c_out: int,
+        e_layers: int,
+        d_model: int,
+        d_ff: int,
+        down_sampling_window: int,
+        down_sampling_layers: int,
+        moving_avg: int,
+        top_k: int,
+        dropout: float,
+        use_norm: bool,
+        decomp_method: str,
+    ) -> None:
         super().__init__()
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = enc_in
         self.down_sampling_window = down_sampling_window
-        self.scale_lengths = multiscale_lengths(
-            seq_len, down_sampling_window, down_sampling_layers
-        )
+        self.scale_lengths = multiscale_lengths(seq_len, down_sampling_window, down_sampling_layers)
         _check_top_k(decomp_method, top_k, self.scale_lengths)
-        self.normalizers = nn.ModuleList(
-            [RevIN(enc_in, affine=True, enabled=use_norm) for _ in self.scale_lengths]
-        )
-        self.embeddings = nn.ModuleList(
-            [nn.Linear(enc_in, d_model) for _ in self.scale_lengths]
-        )
+        self.normalizers = nn.ModuleList([RevIN(enc_in, affine=True, enabled=use_norm) for _ in self.scale_lengths])
+        self.embeddings = nn.ModuleList([nn.Linear(enc_in, d_model) for _ in self.scale_lengths])
         self.pdm_blocks = nn.ModuleList(
             [
                 PastDecomposableMixing(
@@ -151,12 +168,8 @@ class Model(nn.Module):
                 for _ in range(e_layers)
             ]
         )
-        self.temporal_predictors = nn.ModuleList(
-            [nn.Linear(length, pred_len) for length in self.scale_lengths]
-        )
-        self.channel_predictors = nn.ModuleList(
-            [nn.Linear(d_model, c_out) for _ in self.scale_lengths]
-        )
+        self.temporal_predictors = nn.ModuleList([nn.Linear(length, pred_len) for length in self.scale_lengths])
+        self.channel_predictors = nn.ModuleList([nn.Linear(d_model, c_out) for _ in self.scale_lengths])
 
     def _downsample(self, values: torch.Tensor) -> list[torch.Tensor]:
         scales = [values]
@@ -179,19 +192,12 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.channels)
         raw_scales = self._downsample(x_enc)
-        normalized = [
-            normalizer(scale, "norm")
-            for normalizer, scale in zip(self.normalizers, raw_scales)
-        ]
-        encoded = [
-            embedding(scale) for embedding, scale in zip(self.embeddings, normalized)
-        ]
+        normalized = [normalizer(scale, "norm") for normalizer, scale in zip(self.normalizers, raw_scales)]
+        encoded = [embedding(scale) for embedding, scale in zip(self.embeddings, normalized)]
         for block in self.pdm_blocks:
             encoded = block(encoded)
         predictions = []
-        for representation, temporal, channel in zip(
-            encoded, self.temporal_predictors, self.channel_predictors
-        ):
+        for representation, temporal, channel in zip(encoded, self.temporal_predictors, self.channel_predictors):
             future_features = temporal(representation.transpose(1, 2)).transpose(1, 2)
             predictions.append(channel(future_features))
         forecast = torch.stack(predictions, dim=-1).sum(dim=-1)

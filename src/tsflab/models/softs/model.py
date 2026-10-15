@@ -1,4 +1,5 @@
 """Clean-room SOFTS implementation from the NeurIPS 2024 paper."""
+
 from __future__ import annotations
 
 import torch
@@ -9,6 +10,7 @@ from tsflab.models._components.instance_norm import destandardize, standardize
 
 class SeriesCoreFusion(nn.Module):
     """STAR: aggregate all series into one core, then redistribute it."""
+
     def __init__(self, d_series: int, d_core: int, dropout: float = 0.0) -> None:
         super().__init__()
         self.core_candidates = nn.Sequential(nn.Linear(d_series, d_core), nn.GELU())
@@ -17,7 +19,9 @@ class SeriesCoreFusion(nn.Module):
         # zero-gradient parameter without changing STAR's aggregation.
         self.core_scores = nn.Linear(d_core, 1, bias=False)
         self.redistribute = nn.Sequential(
-            nn.Linear(d_series + d_core, d_series), nn.GELU(), nn.Dropout(dropout),
+            nn.Linear(d_series + d_core, d_series),
+            nn.GELU(),
+            nn.Dropout(dropout),
             nn.Linear(d_series, d_series),
         )
 
@@ -41,7 +45,9 @@ class SOFTSBlock(nn.Module):
         self.norm_core = nn.LayerNorm(d_model)
         self.core = SeriesCoreFusion(d_model, d_core, dropout)
         self.norm_ff = nn.LayerNorm(d_model)
-        self.ff = nn.Sequential(nn.Linear(d_model, d_ff), activation_layer(), nn.Dropout(dropout), nn.Linear(d_ff, d_model))
+        self.ff = nn.Sequential(
+            nn.Linear(d_model, d_ff), activation_layer(), nn.Dropout(dropout), nn.Linear(d_ff, d_model)
+        )
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
@@ -50,9 +56,21 @@ class SOFTSBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, features: str = "M", label_len: int = 0,
-                 d_model: int = 128, d_core: int = 64, d_ff: int = 256, e_layers: int = 2,
-                 dropout: float = 0.1, activation: str = "gelu", use_norm: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        features: str = "M",
+        label_len: int = 0,
+        d_model: int = 128,
+        d_core: int = 64,
+        d_ff: int = 256,
+        e_layers: int = 2,
+        dropout: float = 0.1,
+        activation: str = "gelu",
+        use_norm: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.use_norm = seq_len, pred_len, use_norm
         self.history_embedding = nn.Linear(seq_len, d_model)

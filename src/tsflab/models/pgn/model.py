@@ -64,9 +64,7 @@ class ParallelGatedNetwork(nn.Module):
         self.features = features
         self.hidden = hidden
         bound = 1.0 / math.sqrt(features * self.window)
-        self.hie_weight = nn.Parameter(
-            torch.empty(variates, hidden, features, self.window).uniform_(-bound, bound)
-        )
+        self.hie_weight = nn.Parameter(torch.empty(variates, hidden, features, self.window).uniform_(-bound, bound))
         self.hie_bias = nn.Parameter(torch.empty(variates, hidden).uniform_(-bound, bound))
         self.gate = VariateLinear(variates, features + hidden, 2 * hidden)
 

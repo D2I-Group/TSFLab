@@ -120,14 +120,10 @@ class Model(nn.Module):
         self.coarse_embedding = nn.Linear(self.half_bits, d_model, bias=False)
         self.fine_embedding = nn.Linear(self.half_bits, d_model, bias=False)
         self.fusion = nn.Linear(2 * d_model, d_model)
-        self.blocks = nn.ModuleList(
-            [CausalBlock(d_model, num_heads, dropout) for _ in range(num_layers)]
-        )
+        self.blocks = nn.ModuleList([CausalBlock(d_model, num_heads, dropout) for _ in range(num_layers)])
         vocabulary = 2**self.half_bits
         self.coarse_head = nn.Linear(d_model, vocabulary)
-        self.fine_context = nn.MultiheadAttention(
-            d_model, num_heads, dropout=dropout, batch_first=True
-        )
+        self.fine_context = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.fine_head = nn.Linear(d_model, vocabulary)
         self.register_buffer("subtoken_codebook", _binary_codebook(self.half_bits))
         self.last_coarse_probabilities: list[torch.Tensor] = []

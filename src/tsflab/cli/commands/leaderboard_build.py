@@ -12,13 +12,12 @@ build ranks exactly as the published board does. No torch, no LLM.
 from __future__ import annotations
 
 import argparse
+import json
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 from tsflab.cli.args import add_option
-from datetime import datetime, timezone
-import json
-from pathlib import Path
-import sys
-
 from tsflab.core.leaderboard import PRIMARY_METRIC, aggregate, load_submissions
 
 # Tracks that always appear, in this order, so empty tracks read as "open for
@@ -28,12 +27,18 @@ CANONICAL_TRACKS = ("time_series", "spatiotemporal", "covariate", "realtime")
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="tsf result leaderboard", description=__doc__)
-    add_option(ap, "--records", "source", "--source", default="work_dirs/_submissions",
-               help="submission-records root searched for submission.json files "
-                    "(default work_dirs/_submissions)")
+    add_option(
+        ap,
+        "--records",
+        "source",
+        "--source",
+        default="work_dirs/_submissions",
+        help="submission-records root searched for submission.json files (default work_dirs/_submissions)",
+    )
     ap.add_argument("--out", default="leaderboard.json", help="Output path")
-    ap.add_argument("--primary-metric", default=PRIMARY_METRIC,
-                    help="Metric used to rank (lower is better; default: mse)")
+    ap.add_argument(
+        "--primary-metric", default=PRIMARY_METRIC, help="Metric used to rank (lower is better; default: mse)"
+    )
     args = ap.parse_args(argv)
 
     source = Path(args.source)
@@ -46,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     rejections = [f"{p}: {'; '.join(errs[:3])}" for p, errs in rejected.items()]
     leaderboard = {
         "schema_version": "1.1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "primary_metric": args.primary_metric,
         "n_submissions": len(valid),
         "n_rejected": len(rejected),

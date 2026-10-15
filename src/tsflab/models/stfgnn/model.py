@@ -163,8 +163,14 @@ class STFGNL(nn.Module):
         self.spatial_embedding = self._embedding((1, 1, num_nodes, width), magnitude) if spatial_emb else None
         # Official crop: rows N:2N (block 1 of the 4-step window).
         self.module = SynchronousGraphModule(
-            num_nodes, _WINDOW, width, filters, activation="GLU",
-            num_modules=windows, crop=1, init_magnitude=magnitude,
+            num_nodes,
+            _WINDOW,
+            width,
+            filters,
+            activation="GLU",
+            num_modules=windows,
+            crop=1,
+            init_magnitude=magnitude,
         )
         self.gated_conv = GatedDilatedConv(width, magnitude) if gated_conv else None
 
@@ -322,8 +328,9 @@ def fit_from_loader(model: Model, train_loader) -> bool:
     """Fit ``A_TG`` from the loader's training split; warn and keep the identity graph otherwise."""
     series = training_series(getattr(train_loader, "dataset", None), model.num_nodes)
     if series is None:
-        warnings.warn("STFGNN: no ordered training series available; the temporal graph stays the identity",
-                      stacklevel=2)
+        warnings.warn(
+            "STFGNN: no ordered training series available; the temporal graph stays the identity", stacklevel=2
+        )
         return False
     model.fit_temporal_graph(series)
     return True

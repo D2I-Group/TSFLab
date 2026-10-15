@@ -25,14 +25,11 @@ class PlainShapingFilter(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 hidden_size: int = 256) -> None:
+    def __init__(self, seq_len: int, pred_len: int, enc_in: int, hidden_size: int = 256) -> None:
         super().__init__()
         self.normalization = RevIN(enc_in)
         self.filter = PlainShapingFilter(seq_len)
-        self.forecast = nn.Sequential(
-            nn.Linear(seq_len, hidden_size), nn.GELU(), nn.Linear(hidden_size, pred_len)
-        )
+        self.forecast = nn.Sequential(nn.Linear(seq_len, hidden_size), nn.GELU(), nn.Linear(hidden_size, pred_len))
 
     def forward(
         self,

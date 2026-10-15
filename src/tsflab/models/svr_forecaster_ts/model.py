@@ -11,7 +11,16 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Forecast with learned RBF support centres and epsilon-insensitive loss."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, num_support: int = 16, kernel_gamma: float = 0.1, epsilon: float = 0.1, l2_penalty: float = 1e-4) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        num_support: int = 16,
+        kernel_gamma: float = 0.1,
+        epsilon: float = 0.1,
+        l2_penalty: float = 1e-4,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.kernel_gamma, self.epsilon, self.l2_penalty = kernel_gamma, epsilon, l2_penalty

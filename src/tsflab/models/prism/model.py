@@ -54,7 +54,7 @@ def split_halves(x: torch.Tensor, overlap: int) -> tuple[torch.Tensor, torch.Ten
     size = split_length(length, overlap)
     if 2 * size < length:
         raise ValueError("a segment without overlap must have even length")
-    return x[..., :size], x[..., length - size:]
+    return x[..., :size], x[..., length - size :]
 
 
 def haar_bands(x: torch.Tensor, levels: int) -> torch.Tensor:
@@ -67,7 +67,7 @@ def haar_bands(x: torch.Tensor, levels: int) -> torch.Tensor:
     their own (zero for every other coefficient), so band 0 is the finest detail,
     band ``levels`` the coarsest approximation, and the bands sum exactly to ``x``.
     """
-    scale = 2.0 ** -0.5
+    scale = 2.0**-0.5
     lengths = [x.shape[-1]]
     details = []
     approx = x
@@ -184,9 +184,7 @@ class SqueezeExcitationGate(nn.Module):
 
     def __init__(self, bands: int) -> None:
         super().__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(bands, bands, bias=False), nn.ReLU(), nn.Linear(bands, bands, bias=False)
-        )
+        self.fc = nn.Sequential(nn.Linear(bands, bands, bias=False), nn.ReLU(), nn.Linear(bands, bands, bias=False))
 
     def forward(self, y: torch.Tensor) -> torch.Tensor:
         return y * torch.sigmoid(self.fc(y.mean(dim=-1))).unsqueeze(-1)
@@ -297,8 +295,6 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
         series, mean, std = self.normalize(x_enc.transpose(1, 2))
-        forecasts = [
-            heads(bands) for heads, bands in zip(self.heads, self.routed_levels(series))
-        ]
+        forecasts = [heads(bands) for heads, bands in zip(self.heads, self.routed_levels(series))]
         output = self.gate(torch.cat(forecasts, dim=2)).sum(dim=2)
         return (output * std + mean).transpose(1, 2)

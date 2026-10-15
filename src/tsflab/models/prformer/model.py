@@ -77,9 +77,7 @@ class PyramidChain(nn.Module):
             nn.Conv1d(1 if level == 0 else conv_channels, conv_channels, kernel, stride=kernel)
             for level, kernel in enumerate(self.kernels)
         )
-        self.grus = nn.ModuleList(
-            nn.GRU(conv_channels, hidden[window], batch_first=True) for window in windows
-        )
+        self.grus = nn.ModuleList(nn.GRU(conv_channels, hidden[window], batch_first=True) for window in windows)
 
     def bottom_up(self, series: torch.Tensor) -> list[torch.Tensor]:
         """Eq. (2): ``x_l = Conv1d(x_{l-1}, kernel=K_l, stride=K_l)``; input ``[N, 1, L]``."""
@@ -132,9 +130,7 @@ class PyramidalRNNEmbedding(nn.Module):
         if min(self.hidden.values()) < 1:
             raise ValueError("d_model is too small for the number of pyramid scales")
         self.temperature = float(temperature)
-        self.chains = nn.ModuleList(
-            PyramidChain(chain, conv_channels, self.hidden) for chain in self.chain_windows
-        )
+        self.chains = nn.ModuleList(PyramidChain(chain, conv_channels, self.hidden) for chain in self.chain_windows)
         self.scale_count = sum(len(chain) for chain in self.chain_windows)
         # alpha_i initialised to 1 / l (Multi-Scale RNN block).
         self.alpha = nn.Parameter(torch.full((self.scale_count,), 1.0 / self.scale_count))
@@ -156,9 +152,7 @@ class PyramidalRNNEmbedding(nn.Module):
         batch, _, channels = values.shape
         beta = self.scale_weights()
         # h = concat(beta_1 h^(1), ..., beta_l h^(l))
-        embedding = torch.cat(
-            [beta[i] * state for i, state in enumerate(self.scale_states(values))], dim=-1
-        )
+        embedding = torch.cat([beta[i] * state for i, state in enumerate(self.scale_states(values))], dim=-1)
         return self.out_linear(embedding).view(batch, channels, -1)
 
 
@@ -191,9 +185,7 @@ class Model(nn.Module):
             raise ValueError(f"no conv window fits in seq_len {seq_len}: {list(conv_windows)}")
         self.conv_windows = windows
         self.revin = RevIN(enc_in, affine=True)
-        self.embedding = PyramidalRNNEmbedding(
-            seq_len, windows, d_model, conv_channels, rnn_mix_temperature
-        )
+        self.embedding = PyramidalRNNEmbedding(seq_len, windows, d_model, conv_channels, rnn_mix_temperature)
         # Eq. (5): softmax(Q K^T / sqrt(d_k)) V across the C variate tokens.
         self.encoder = Encoder(
             [

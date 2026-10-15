@@ -68,9 +68,7 @@ class MultiScaleDecomposableMixing(nn.Module):
 class DualDependencyInteraction(nn.Module):
     """DDI: sequential patch aggregation plus an optional channel MLP."""
 
-    def __init__(
-        self, seq_len: int, channels: int, patch: int, alpha: float, dropout: float, batchnorm: bool
-    ) -> None:
+    def __init__(self, seq_len: int, channels: int, patch: int, alpha: float, dropout: float, batchnorm: bool) -> None:
         super().__init__()
         self.seq_len, self.patch, self.alpha = seq_len, patch, alpha
         self.norm = FlatBatchNorm(seq_len * channels) if batchnorm else None
@@ -81,8 +79,12 @@ class DualDependencyInteraction(nn.Module):
             hidden = 2 ** math.ceil(math.log2(channels))
             self.channel_norm = FlatBatchNorm(patch * channels)
             self.channel_mlp = nn.Sequential(
-                nn.Linear(channels, hidden), nn.GELU(), nn.Dropout(dropout),
-                nn.Linear(hidden, channels), nn.GELU(), nn.Dropout(dropout),
+                nn.Linear(channels, hidden),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden, channels),
+                nn.GELU(),
+                nn.Dropout(dropout),
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -128,16 +130,20 @@ class AdaptiveMultiPredictorSynthesis(nn.Module):
     """AMS: shared expert MLPs mixed per channel by a time-embedding gate."""
 
     def __init__(
-        self, seq_len: int, pred_len: int, experts: int, top_k: int, ff_dim: int,
-        dropout: float, loss_coef: float,
+        self,
+        seq_len: int,
+        pred_len: int,
+        experts: int,
+        top_k: int,
+        ff_dim: int,
+        dropout: float,
+        loss_coef: float,
     ) -> None:
         super().__init__()
         self.pred_len, self.loss_coef = pred_len, loss_coef
         self.gating = NoisyTopKGate(seq_len, experts, top_k)
         self.experts = nn.ModuleList(
-            nn.Sequential(
-                nn.Linear(seq_len, ff_dim), nn.GELU(), nn.Dropout(dropout), nn.Linear(ff_dim, pred_len)
-            )
+            nn.Sequential(nn.Linear(seq_len, ff_dim), nn.GELU(), nn.Dropout(dropout), nn.Linear(ff_dim, pred_len))
             for _ in range(experts)
         )
 
@@ -188,12 +194,9 @@ class Model(nn.Module):
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.aux_loss: torch.Tensor | None = None
         self.revin = RevIN(enc_in, affine=True, enabled=use_revin)
-        self.past_mixing = MultiScaleDecomposableMixing(
-            seq_len, enc_in, mix_layer_num, mix_layer_scale, batchnorm
-        )
+        self.past_mixing = MultiScaleDecomposableMixing(seq_len, enc_in, mix_layer_num, mix_layer_scale, batchnorm)
         self.blocks = nn.ModuleList(
-            DualDependencyInteraction(seq_len, enc_in, patch, alpha, dropout, batchnorm)
-            for _ in range(n_block)
+            DualDependencyInteraction(seq_len, enc_in, patch, alpha, dropout, batchnorm) for _ in range(n_block)
         )
         self.synthesis = AdaptiveMultiPredictorSynthesis(
             seq_len, pred_len, num_experts, top_k, ff_dim, dropout, moe_loss_coef

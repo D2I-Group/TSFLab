@@ -25,8 +25,11 @@ def parse_station_5min(payload: bytes) -> pd.DataFrame:
     if payload[:2] == b"\x1f\x8b":
         payload = gzip.decompress(payload)
     frame = pd.read_csv(
-        io.BytesIO(payload), header=None, usecols=[TIMESTAMP, STATION, TOTAL_FLOW],
-        names=None, dtype={STATION: str},
+        io.BytesIO(payload),
+        header=None,
+        usecols=[TIMESTAMP, STATION, TOTAL_FLOW],
+        names=None,
+        dtype={STATION: str},
     )
     frame.columns = ["timestamp", "station", "flow"]
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], format="%m/%d/%Y %H:%M:%S")
@@ -55,8 +58,14 @@ def _session():
 def _daily_files(session, district: int, year: int) -> list[dict]:
     response = session.get(
         BASE,
-        params={"srq": "clearinghouse", "district_id": district, "geotag": "null",
-                "yy": year, "type": "station_5min", "returnformat": "text"},
+        params={
+            "srq": "clearinghouse",
+            "district_id": district,
+            "geotag": "null",
+            "yy": year,
+            "type": "station_5min",
+            "returnformat": "text",
+        },
         timeout=60,
     )
     response.raise_for_status()

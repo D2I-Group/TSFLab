@@ -12,14 +12,27 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Encode a history with a tanh RNN and decode its final state directly."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 dropout: float = 0.1, num_layers: int = 1, use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        dropout: float = 0.1,
+        num_layers: int = 1,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)
-        self.encoder = nn.RNN(enc_in, d_model, num_layers=num_layers,
-                              nonlinearity="tanh", batch_first=True,
-                              dropout=dropout if num_layers > 1 else 0.0)
+        self.encoder = nn.RNN(
+            enc_in,
+            d_model,
+            num_layers=num_layers,
+            nonlinearity="tanh",
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0.0,
+        )
         self.head = nn.Linear(d_model, pred_len * enc_in)
         self.aux_loss: torch.Tensor | None = None
 

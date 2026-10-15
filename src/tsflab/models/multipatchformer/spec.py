@@ -1,6 +1,7 @@
 """Runtime specification for MultiPatchFormer."""
 
 from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.multipatchformer.model import Model
 

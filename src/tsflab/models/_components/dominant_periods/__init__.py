@@ -6,9 +6,7 @@ import numpy as np
 import torch
 
 
-def dominant_periods(
-    x: torch.Tensor, k: int = 2
-) -> tuple[np.ndarray, torch.Tensor]:
+def dominant_periods(x: torch.Tensor, k: int = 2) -> tuple[np.ndarray, torch.Tensor]:
     """Return top-k integer periods and per-sample FFT amplitudes for BLC data."""
     if x.ndim != 3:
         raise ValueError("dominant_periods expects (batch, time, channels)")

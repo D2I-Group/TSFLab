@@ -77,7 +77,8 @@ Three workflows, organized by module:
 - `weekly.yml`: the real-time cycle (merged after `tsf repo check`) and the
   pinned-data link check.
 
-Run `uv run tsf repo check --scope changed` before opening a pull request.
+Run `uv run tsf repo check --scope changed` before opening a pull request, and format
+with `uvx ruff@0.17.0 format src tests scripts` (CI also runs `ruff check` and `ruff format --check`).
 
 ## Submitting results and real-time forecasts
 

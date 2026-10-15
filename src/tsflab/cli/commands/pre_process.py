@@ -27,18 +27,18 @@ Usage examples
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_option
 import os
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from tsflab.cli.args import add_option
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _select_features(df: pd.DataFrame, features: str, target: str) -> pd.DataFrame:
     if features in {"M", "MS"}:
@@ -52,14 +52,16 @@ def _build_stamp(df: pd.DataFrame) -> np.ndarray:
     if "date" not in df.columns:
         return np.zeros((len(df), 6), dtype=np.float32)
     ts = pd.to_datetime(df["date"])
-    return np.column_stack([
-        ts.dt.year,
-        ts.dt.month,
-        ts.dt.day,
-        ts.dt.weekday,
-        ts.dt.hour,
-        ts.dt.minute,
-    ]).astype(np.float32)
+    return np.column_stack(
+        [
+            ts.dt.year,
+            ts.dt.month,
+            ts.dt.day,
+            ts.dt.weekday,
+            ts.dt.hour,
+            ts.dt.minute,
+        ]
+    ).astype(np.float32)
 
 
 def _make_windows(
@@ -73,9 +75,7 @@ def _make_windows(
     n = len(data)
     n_windows = n - seq_len - pred_len + 1
     if n_windows <= 0:
-        raise ValueError(
-            f"Not enough rows ({n}) for seq_len={seq_len} + pred_len={pred_len}."
-        )
+        raise ValueError(f"Not enough rows ({n}) for seq_len={seq_len} + pred_len={pred_len}.")
 
     x_list, y_list, xm_list, ym_list = [], [], [], []
     for i in range(n_windows):
@@ -100,9 +100,7 @@ def _save_splits(
     # Fit scaler on train only
     scaler: StandardScaler | None = None
     if args.scale and len(splits.get("train", [])) > 0:
-        train_data = _select_features(
-            splits["train"], args.features, args.target
-        ).to_numpy()
+        train_data = _select_features(splits["train"], args.features, args.target).to_numpy()
         scaler = StandardScaler()
         scaler.fit(train_data)
 
@@ -116,28 +114,22 @@ def _save_splits(
         data = scaler.transform(raw).astype(np.float32) if scaler else raw
         stamp = _build_stamp(df)
 
-        x, y, x_mark, y_mark = _make_windows(
-            data, stamp, args.seq_len, args.label_len, args.pred_len
-        )
+        x, y, x_mark, y_mark = _make_windows(data, stamp, args.seq_len, args.label_len, args.pred_len)
 
-        save_kwargs: dict[str, np.ndarray] = dict(
-            x=x, y=y, x_mark=x_mark, y_mark=y_mark
-        )
+        save_kwargs: dict[str, np.ndarray] = dict(x=x, y=y, x_mark=x_mark, y_mark=y_mark)
         if scaler is not None:
             save_kwargs["scaler_mean"] = scaler.mean_.astype(np.float32)
             save_kwargs["scaler_scale"] = scaler.scale_.astype(np.float32)
 
         out_path = os.path.join(args.output_dir, f"{split_name}.npz")
         np.savez(out_path, **save_kwargs)
-        print(
-            f"  {split_name:5s}  {x.shape[0]:>6d} samples  "
-            f"x{list(x.shape[1:])}  y{list(y.shape[1:])}  →  {out_path}"
-        )
+        print(f"  {split_name:5s}  {x.shape[0]:>6d} samples  x{list(x.shape[1:])}  y{list(y.shape[1:])}  →  {out_path}")
 
 
 # ---------------------------------------------------------------------------
 # Split strategies
 # ---------------------------------------------------------------------------
+
 
 def _process_single_csv(args: argparse.Namespace) -> None:
     df = pd.read_csv(args.input_csv)
@@ -150,13 +142,10 @@ def _process_single_csv(args: argparse.Namespace) -> None:
     n_val = int(n * ratios[1] / total)
     splits = {
         "train": df.iloc[:n_train].reset_index(drop=True),
-        "val":   df.iloc[n_train : n_train + n_val].reset_index(drop=True),
-        "test":  df.iloc[n_train + n_val :].reset_index(drop=True),
+        "val": df.iloc[n_train : n_train + n_val].reset_index(drop=True),
+        "test": df.iloc[n_train + n_val :].reset_index(drop=True),
     }
-    print(
-        f"Split sizes — train: {len(splits['train'])}, "
-        f"val: {len(splits['val'])}, test: {len(splits['test'])}"
-    )
+    print(f"Split sizes — train: {len(splits['train'])}, val: {len(splits['val'])}, test: {len(splits['test'])}")
     _save_splits(splits, args)
 
 
@@ -174,10 +163,11 @@ def _process_split_dir(args: argparse.Namespace) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="tsf data prepare",
-        description="Convert time-series CSV(s) to pre-windowed .npz splits "
-                    "for use with the 'pre_processed' dataset.",
+    parser = argparse.ArgumentParser(
+        prog="tsf data prepare",
+        description="Convert time-series CSV(s) to pre-windowed .npz splits for use with the 'pre_processed' dataset.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -193,20 +183,29 @@ def main() -> None:
         help="Folder containing train.csv, val.csv, and test.csv.",
     )
 
-    add_option(parser, "--out", "output_dir", "--output-dir", metavar="DIR", required=True,
-               help="Where to write train.npz, val.npz, test.npz.")
-    parser.add_argument("--seq-len",   type=int, required=True, help="Input sequence length.")
+    add_option(
+        parser,
+        "--out",
+        "output_dir",
+        "--output-dir",
+        metavar="DIR",
+        required=True,
+        help="Where to write train.npz, val.npz, test.npz.",
+    )
+    parser.add_argument("--seq-len", type=int, required=True, help="Input sequence length.")
     parser.add_argument("--label-len", type=int, required=True, help="Decoder label length.")
-    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, required=True,
-               help="Prediction horizon.")
-    parser.add_argument("--features",  choices=["M", "S", "MS"], default="M",
-                        help="Feature mode (default: M).")
-    parser.add_argument("--target",    default="OT",
-                        help="Target column for S/MS mode (default: OT).")
-    parser.add_argument("--scale",     action=argparse.BooleanOptionalAction, default=True,
-                        help="Apply StandardScaler (default: --scale).")
-    parser.add_argument("--split-ratio", default="0.7,0.1,0.2", metavar="T,V,TE",
-                        help="Train/val/test ratio for --input-csv (default: 0.7,0.1,0.2).")
+    add_option(parser, "--horizon", "pred_len", "--pred-len", type=int, required=True, help="Prediction horizon.")
+    parser.add_argument("--features", choices=["M", "S", "MS"], default="M", help="Feature mode (default: M).")
+    parser.add_argument("--target", default="OT", help="Target column for S/MS mode (default: OT).")
+    parser.add_argument(
+        "--scale", action=argparse.BooleanOptionalAction, default=True, help="Apply StandardScaler (default: --scale)."
+    )
+    parser.add_argument(
+        "--split-ratio",
+        default="0.7,0.1,0.2",
+        metavar="T,V,TE",
+        help="Train/val/test ratio for --input-csv (default: 0.7,0.1,0.2).",
+    )
 
     args = parser.parse_args()
 

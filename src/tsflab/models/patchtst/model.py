@@ -33,10 +33,7 @@ def _position_encoding(length: int, width: int, kind: str) -> torch.Tensor:
     if kind == "zeros":
         return torch.zeros(1, length, width)
     position = torch.arange(length, dtype=torch.float32).unsqueeze(1)
-    divisor = torch.exp(
-        torch.arange(0, width, 2, dtype=torch.float32)
-        * (-math.log(10000.0) / width)
-    )
+    divisor = torch.exp(torch.arange(0, width, 2, dtype=torch.float32) * (-math.log(10000.0) / width))
     encoding = torch.zeros(length, width)
     encoding[:, 0::2] = torch.sin(position * divisor)
     encoding[:, 1::2] = torch.cos(position * divisor[: encoding[:, 1::2].shape[1]])
@@ -46,12 +43,21 @@ def _position_encoding(length: int, width: int, kind: str) -> torch.Tensor:
 class PatchEncoderLayer(nn.Module):
     """Shared Transformer block applied independently to every channel."""
 
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, activation: str, norm: str, attn_dropout: float, ffn_dropout: float, res_dropout: float, pre_norm: bool) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        activation: str,
+        norm: str,
+        attn_dropout: float,
+        ffn_dropout: float,
+        res_dropout: float,
+        pre_norm: bool,
+    ) -> None:
         super().__init__()
         self.pre_norm = pre_norm
-        self.attention = nn.MultiheadAttention(
-            d_model, n_heads, dropout=attn_dropout, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(d_model, n_heads, dropout=attn_dropout, batch_first=True)
         nonlinear: nn.Module = nn.GELU() if activation == "gelu" else nn.ReLU()
         self.feed_forward = nn.Sequential(
             nn.Linear(d_model, d_ff),
@@ -160,9 +166,7 @@ class Model(nn.Module):
         head_input = patch_count * d_model
         self.individual = individual
         if individual:
-            self.head: nn.Module = nn.ModuleList(
-                [nn.Linear(head_input, target_window) for _ in range(c_in)]
-            )
+            self.head: nn.Module = nn.ModuleList([nn.Linear(head_input, target_window) for _ in range(c_in)])
         else:
             self.head = nn.Linear(head_input, target_window)
         self.head_dropout = nn.Dropout(head_dropout)
@@ -177,13 +181,9 @@ class Model(nn.Module):
         del x_mark_enc, x_dec, x_mark_dec
         check_window(x_enc, self.context_window, self.channels)
         normalized = self.revin(x_enc, "norm")
-        patches = patchify(
-            normalized, self.patch_len, self.stride, self.padding_patch
-        )
+        patches = patchify(normalized, self.patch_len, self.stride, self.padding_patch)
         batch = patches.shape[0]
-        tokens = self.patch_projection(patches).reshape(
-            batch * self.channels, self.patch_count, -1
-        )
+        tokens = self.patch_projection(patches).reshape(batch * self.channels, self.patch_count, -1)
         tokens = self.projection_dropout(tokens + self.position)
         for layer in self.encoder_layers:
             tokens = layer(tokens)

@@ -50,7 +50,7 @@ def _extract_splits(datasets: dict[str, object]) -> dict[str, np.ndarray]:
         return {"train": full[:b1], "val": full[b1:b2], "test": full[b2:]}
     # Chronological loaders prepend ``seq_len`` history rows to validation and
     # test windows; a profile describes disjoint target periods, so drop them.
-    return {flag: _full_array(ds)[getattr(ds, "_history_context_rows", 0):] for flag, ds in datasets.items()}
+    return {flag: _full_array(ds)[getattr(ds, "_history_context_rows", 0) :] for flag, ds in datasets.items()}
 
 
 def _frequency_from_file(ds_path: Path) -> Any:
@@ -102,15 +102,21 @@ def load_dataset_config(path: Path):
         dataset, task = resolved.dataset, resolved.task
         return dc._PartialConfig(
             dataset=dc._DatasetConfig(
-                name=dataset.name, alias=dataset.alias, path=dataset.path or "",
-                id=getattr(dataset, "id", None), params=dc._params_to_dict(dataset.params)),
-            task=dc._TaskConfig(seq_len=task.seq_len, label_len=task.label_len,
-                                pred_len=task.pred_len, features=task.features),
+                name=dataset.name,
+                alias=dataset.alias,
+                path=dataset.path or "",
+                id=getattr(dataset, "id", None),
+                params=dc._params_to_dict(dataset.params),
+            ),
+            task=dc._TaskConfig(
+                seq_len=task.seq_len, label_len=task.label_len, pred_len=task.pred_len, features=task.features
+            ),
         )
 
 
-def load_preset(name_or_path: str, freq: str | None, data_path: str | None = None,
-                include_test: bool = False) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+def load_preset(
+    name_or_path: str, freq: str | None, data_path: str | None = None, include_test: bool = False
+) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Load train/val (and test on request, unscaled) for a dataset preset or run config TOML.
 
     ``data_path`` replaces the preset's file while keeping its native loader and split.
@@ -199,14 +205,16 @@ def analyze(splits: dict[str, np.ndarray], meta: dict[str, Any], max_channels: i
         max_channels=max_channels,
         split_ratio=tuple(meta["split_ratio"]) if meta.get("split_ratio") else None,
     )
-    profile["dataset"].update(loader=meta.get("loader", "raw-file"),
-                              split_source=meta.get("split_source", "raw-file-ratio"))
+    profile["dataset"].update(
+        loader=meta.get("loader", "raw-file"), split_source=meta.get("split_source", "raw-file-ratio")
+    )
     profile["recommendations"] = prof.evaluate_rules(profile)
     return profile
 
 
-def tfb_characteristics(splits: dict[str, np.ndarray], split: str, period: int | None,
-                        per_channel: bool) -> list[dict[str, Any]]:
+def tfb_characteristics(
+    splits: dict[str, np.ndarray], split: str, period: int | None, per_channel: bool
+) -> list[dict[str, Any]]:
     """TFB-style characteristics (trend, seasonality, stationarity, shifting, transition,
     correlation) of one unscaled split: a dataset row, plus one row per channel on request."""
     from tsflab.cli.commands import dataset_characteristics as dc
@@ -224,8 +232,12 @@ def _characteristics_markdown(rows: list[dict[str, Any]], split: str) -> str:
     from tsflab.cli.commands import dataset_characteristics as dc
 
     table = [[dc._fmt(row[column]) for column in dc._COLUMNS] for row in rows]
-    lines = [f"## TFB characteristics ({split} split)", "",
-             "| " + " | ".join(dc._COLUMNS) + " |", "|" + "---|" * len(dc._COLUMNS)]
+    lines = [
+        f"## TFB characteristics ({split} split)",
+        "",
+        "| " + " | ".join(dc._COLUMNS) + " |",
+        "|" + "---|" * len(dc._COLUMNS),
+    ]
     lines += ["| " + " | ".join(cells) + " |" for cells in table]
     return "\n".join(lines) + "\n"
 
@@ -235,22 +247,39 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tsf data analyze",
         description="Profile a dataset (train-only statistics, train/val/test shift, TFB "
-                    "characteristics) and map it to catalog facts; --plot also draws sample windows.",
+        "characteristics) and map it to catalog facts; --plot also draws sample windows.",
     )
-    parser.add_argument("preset", nargs="?", metavar="dataset", help="dataset preset name (configs/datasets/<name>.toml)")
+    parser.add_argument(
+        "preset", nargs="?", metavar="dataset", help="dataset preset name (configs/datasets/<name>.toml)"
+    )
     parser.add_argument("--config", help="dataset preset or run config TOML (overrides <preset>)")
     parser.add_argument("--dataset", dest="dataset_alias", help=hidden)
     parser.add_argument("--path", help="raw csv/txt/parquet/npy/npz file or realtime store directory")
     parser.add_argument("--data-path", help="override a preset's data file while keeping its native loader and split")
-    parser.add_argument("--split-ratio", type=float, nargs=3, default=DEFAULT_RATIO,
-                        metavar=("TRAIN", "VAL", "TEST"), help="chronological split for --path")
+    parser.add_argument(
+        "--split-ratio",
+        type=float,
+        nargs=3,
+        default=DEFAULT_RATIO,
+        metavar=("TRAIN", "VAL", "TEST"),
+        help="chronological split for --path",
+    )
     parser.add_argument("--freq", help="sampling interval override such as 10min or 1h")
-    parser.add_argument("--max-channels", type=int, default=128,
-                        help="channels sampled for spectral statistics (default 128)")
-    parser.add_argument("--split", choices=("train", "val", "test"), default="train",
-                        help="split for the TFB characteristics and the sample plot (default train)")
-    parser.add_argument("--period", type=int, default=None,
-                        help="seasonal period for the TFB characteristics (default: dominant FFT period)")
+    parser.add_argument(
+        "--max-channels", type=int, default=128, help="channels sampled for spectral statistics (default 128)"
+    )
+    parser.add_argument(
+        "--split",
+        choices=("train", "val", "test"),
+        default="train",
+        help="split for the TFB characteristics and the sample plot (default train)",
+    )
+    parser.add_argument(
+        "--period",
+        type=int,
+        default=None,
+        help="seasonal period for the TFB characteristics (default: dominant FFT period)",
+    )
     parser.add_argument("--per-channel", action="store_true", help="one TFB characteristics row per channel")
     parser.add_argument("--plot", action="store_true", help="also plot sample windows (preset or --config)")
     parser.add_argument("--num-samples", type=int, default=3, help="windows to plot (default 3)")
@@ -259,12 +288,19 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=None, help="random seed for the plotted windows")
     parser.add_argument("--out", help="output directory (default work_dirs/profiles/<name>)")
     parser.add_argument("--json", action="store_true", help="print the JSON profile instead of markdown")
-    parser.add_argument("--compact", action="store_true",
-                        help="with --json, print the summary and artifact path instead of the full profile")
-    parser.add_argument("--include-test", action="store_true",
-                        help="opt into test-split diagnostics after decisions are frozen (default: train/val only)")
-    parser.add_argument("--write-card", action="store_true",
-                        help="record the fired data characteristics in the preset's dataset card")
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help="with --json, print the summary and artifact path instead of the full profile",
+    )
+    parser.add_argument(
+        "--include-test",
+        action="store_true",
+        help="opt into test-split diagnostics after decisions are frozen (default: train/val only)",
+    )
+    parser.add_argument(
+        "--write-card", action="store_true", help="record the fired data characteristics in the preset's dataset card"
+    )
     # Spellings of the retired `data inspect` and `data plot`: CSV and image paths, a plot window.
     parser.add_argument("--characteristics-csv", help=hidden)
     parser.add_argument("--plot-file", "--save", dest="plot_file", help=hidden)
@@ -295,8 +331,10 @@ def _write_card(config: Path, report: dict[str, Any]) -> tuple[Path, list[str]]:
     from tsflab.core.paths import repository_root
 
     fired = [str(rule["id"]) for rule in report["recommendations"]["fired"]]
-    basis = (f"measured by tsf data analyze ({prof.SCHEMA}, decision-safe train/val metrics, "
-             f"thresholds in profile_rules.toml) on {date.today().isoformat()}")
+    basis = (
+        f"measured by tsf data analyze ({prof.SCHEMA}, decision-safe train/val metrics, "
+        f"thresholds in profile_rules.toml) on {date.today().isoformat()}"
+    )
     return write_characteristics(repository_root(), config.as_posix(), fired, basis), fired
 
 
@@ -324,8 +362,9 @@ def main(argv: list[str] | None = None) -> int:
     report = analyze(splits, meta, args.max_channels)
     rows = tfb_characteristics(splits, args.split, args.period, args.per_channel)
     report["tfb_characteristics"] = {"split": args.split, "rows": rows}
-    markdown = prof.render_markdown(report, report["recommendations"]) + "\n" + \
-        _characteristics_markdown(rows, args.split)
+    markdown = (
+        prof.render_markdown(report, report["recommendations"]) + "\n" + _characteristics_markdown(rows, args.split)
+    )
     out = Path(args.out or Path("work_dirs/profiles") / meta["name"])
     out.mkdir(parents=True, exist_ok=True)
     (out / "profile.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -341,8 +380,16 @@ def main(argv: list[str] | None = None) -> int:
         from tsflab.cli.commands.visual_data import plot_samples
 
         image = Path(args.plot_file or out / f"samples_{args.split}.png")
-        plot_samples(config, args.split, image, num_samples=args.num_samples, index=args.index,
-                     channels=args.channels, seed=args.seed, show=args.show)
+        plot_samples(
+            config,
+            args.split,
+            image,
+            num_samples=args.num_samples,
+            index=args.index,
+            channels=args.channels,
+            seed=args.seed,
+            show=args.show,
+        )
         outputs.append(image)
     print("Output: " + ", ".join(str(path) for path in outputs), file=note)
     if args.write_card:

@@ -53,13 +53,9 @@ def build_model(cfg, params):
     )
 
 
-def horizon_weighted_l1(
-    prediction: torch.Tensor, target: torch.Tensor, alpha: float
-) -> torch.Tensor:
+def horizon_weighted_l1(prediction: torch.Tensor, target: torch.Tensor, alpha: float) -> torch.Tensor:
     """Sec. 4.1 weighted sequence loss: L1 error weighted by ``(h + 1) ** -alpha`` along the horizon."""
-    steps = torch.arange(
-        1, prediction.shape[1] + 1, device=prediction.device, dtype=prediction.dtype
-    )
+    steps = torch.arange(1, prediction.shape[1] + 1, device=prediction.device, dtype=prediction.dtype)
     weights = steps.pow(-alpha).view(1, -1, 1)
     return ((prediction - target).abs() * weights).mean()
 

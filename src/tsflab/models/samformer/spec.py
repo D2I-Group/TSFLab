@@ -1,11 +1,9 @@
 """Runtime specification for SAMformer."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.samformer.model import Model
-
-"""Validated parameters for SAMformer."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

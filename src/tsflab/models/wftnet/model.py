@@ -75,7 +75,7 @@ def morlet_cwt_operator(length: int, scales: torch.Tensor) -> torch.Tensor:
         coef = -math.sqrt(scale) * torch.diff(full, dim=-1)
         excess = (coef.shape[-1] - length) / 2
         if excess > 0:
-            coef = coef[..., math.floor(excess): coef.shape[-1] - math.ceil(excess)]
+            coef = coef[..., math.floor(excess) : coef.shape[-1] - math.ceil(excess)]
         operators.append(coef)
     return torch.stack(operators)
 
@@ -84,8 +84,16 @@ class WFTBlock(nn.Module):
     """One Wavelet-Fourier Transform block on ``[B, T_e, D]`` (Section 3.3)."""
 
     def __init__(
-        self, total_length: int, d_model: int, d_ff: int, num_kernels: int, top_k: int,
-        wavelet_scale: int, period_coeff: float, pwc_power: int, scale_count: int = 8,
+        self,
+        total_length: int,
+        d_model: int,
+        d_ff: int,
+        num_kernels: int,
+        top_k: int,
+        wavelet_scale: int,
+        period_coeff: float,
+        pwc_power: int,
+        scale_count: int = 8,
     ) -> None:
         super().__init__()
         self.total_length, self.top_k = total_length, top_k
@@ -158,7 +166,11 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, affine=False)
         # Value (circular conv) + sinusoidal position + hourly timeF calendar features.
         self.embedding = DataEmbedding(
-            enc_in, d_model, embed_type="timeF", freq="h", dropout=dropout,
+            enc_in,
+            d_model,
+            embed_type="timeF",
+            freq="h",
+            dropout=dropout,
             time_feature_dim=tslib_time_feature_dimension("h"),
         )
         self.predict_linear = nn.Linear(seq_len, total)
@@ -185,4 +197,4 @@ class Model(nn.Module):
             # One LayerNorm shared by every block, as in the official encoder loop.
             hidden = self.layer_norm(block(hidden))
         output = self.revin(self.projection(hidden), "denorm")
-        return output[:, -self.pred_len:]
+        return output[:, -self.pred_len :]

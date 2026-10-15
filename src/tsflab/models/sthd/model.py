@@ -91,16 +91,12 @@ class Model(nn.Module):
         # a bias-free linear patch projection plus the time sinusoidal code (dropout applied below).
         self.patch_embedding = PatchEmbedding(d_model, patch_len, stride, stride, dropout=0.0)
         self.patch_num = (seq_len - patch_len) // stride + 2
-        self.register_buffer(
-            "channel_position", channel_position_table(self.k + 1, d_model), persistent=False
-        )
+        self.register_buffer("channel_position", channel_position_table(self.k + 1, d_model), persistent=False)
         self.embedding_dropout = nn.Dropout(dropout)
         self.encoder = Encoder(
             [
                 EncoderLayer(
-                    AttentionLayer(
-                        FullAttention(False, attention_dropout=dropout), d_model, n_heads
-                    ),
+                    AttentionLayer(FullAttention(False, attention_dropout=dropout), d_model, n_heads),
                     d_model,
                     d_ff,
                     dropout=dropout,
@@ -110,9 +106,7 @@ class Model(nn.Module):
             ],
             norm_layer=nn.LayerNorm(d_model),
         )
-        self.head = FlattenForecastHead(
-            False, enc_in, d_model * self.patch_num, pred_len, head_dropout=dropout
-        )
+        self.head = FlattenForecastHead(False, enc_in, d_model * self.patch_num, pred_len, head_dropout=dropout)
         channels = torch.arange(enc_in)
         cyclic = (channels.unsqueeze(1) + torch.arange(1, self.k + 1).unsqueeze(0)) % enc_in
         self.register_buffer("related", cyclic.long())

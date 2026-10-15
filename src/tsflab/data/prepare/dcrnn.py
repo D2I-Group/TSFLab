@@ -18,9 +18,9 @@ If Google Drive refuses the download, open the folder URL in a browser, save
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 
 from tsflab.data.prepare.fetch import cache_dir, download_gdrive, download_url, sha256_file, verify_sha256
 
@@ -71,23 +71,29 @@ def build(h5: Path, adj: Path, out: Path) -> list[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="tsf data prepare --from dcrnn", description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        prog="tsf data prepare --from dcrnn", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--h5", type=Path, help="an already downloaded metr-la.h5")
     parser.add_argument("--adj", type=Path, help="an already downloaded adj_mx.pkl")
-    parser.add_argument("--out", type=Path, default=Path("dataset") / "metr_la",
-                        help="bundle directory (default: ./dataset/metr_la)")
+    parser.add_argument(
+        "--out", type=Path, default=Path("dataset") / "metr_la", help="bundle directory (default: ./dataset/metr_la)"
+    )
     args = parser.parse_args(argv)
     raw = cache_dir("dcrnn")
     try:
         h5 = args.h5 or download_gdrive(
-            H5_ID, raw / "metr-la.h5", H5_SHA256,
-            manual=f"Download metr-la.h5 from {FOLDER_URL} in a browser and pass it with --h5 PATH.")
+            H5_ID,
+            raw / "metr-la.h5",
+            H5_SHA256,
+            manual=f"Download metr-la.h5 from {FOLDER_URL} in a browser and pass it with --h5 PATH.",
+        )
         adj = args.adj or download_url(ADJ_URL, raw / "adj_mx.pkl", ADJ_SHA256)
         verify_sha256(h5, H5_SHA256)
         verify_sha256(adj, ADJ_SHA256)
-        if all((args.out / name).is_file() and sha256_file(args.out / name) == digest
-               for name, digest in OUTPUTS.items()):
+        if all(
+            (args.out / name).is_file() and sha256_file(args.out / name) == digest for name, digest in OUTPUTS.items()
+        ):
             print(f"{args.out} already verified")
             return 0
         for path in build(h5, adj, args.out):

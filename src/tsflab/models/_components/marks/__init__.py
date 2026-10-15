@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import torch
 
-
 # Index positions inside the raw 6-column time-stamp produced by
 # ``ForecastingDataset._build_time_stamp``.
 _WEEKDAY = 3
@@ -56,23 +55,16 @@ def tslib_time_feature_dimension(freq: str) -> int:
         return TSLIB_TIME_FEATURE_DIMS[freq.lower()]
     except KeyError as error:
         supported = ", ".join(sorted(TSLIB_TIME_FEATURE_DIMS))
-        raise ValueError(
-            f"unsupported Time-Series-Library frequency {freq!r}; "
-            f"expected one of: {supported}"
-        ) from error
+        raise ValueError(f"unsupported Time-Series-Library frequency {freq!r}; expected one of: {supported}") from error
 
 
 def _hourly_tslib_time_features(marks: torch.Tensor) -> torch.Tensor:
     """Reproduce the pinned TSLib hourly ``utils.timefeatures`` pipeline."""
     year, month, day = marks[..., 0], marks[..., 1], marks[..., 2]
     weekday, hour = marks[..., 3], marks[..., 4]
-    month_offsets = marks.new_tensor(
-        [0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-    )
+    month_offsets = marks.new_tensor([0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
     month_index = month.long().clamp(1, 12)
-    leap = (year.long() % 4 == 0) & (
-        (year.long() % 100 != 0) | (year.long() % 400 == 0)
-    )
+    leap = (year.long() % 4 == 0) & ((year.long() % 100 != 0) | (year.long() % 400 == 0))
     day_of_year = month_offsets[month_index] + day
     day_of_year = day_of_year + (leap & (month_index > 2)).to(day.dtype)
     return torch.stack(
@@ -108,9 +100,7 @@ def adapt_tslib_marks(
     if marks is None:
         return None
     if marks.ndim != 3:
-        raise ValueError(
-            "Time-Series-Library marks must have shape [batch, time, features]"
-        )
+        raise ValueError("Time-Series-Library marks must have shape [batch, time, features]")
 
     if embed_type != "timeF":
         if marks.shape[-1] == 6:
@@ -273,9 +263,7 @@ def to_spatiotemporal(values: torch.Tensor, marks: torch.Tensor) -> torch.Tensor
     return torch.cat([value_channel, feats], dim=-1)
 
 
-def to_calendar_spatiotemporal(
-    values: torch.Tensor, marks: torch.Tensor
-) -> torch.Tensor:
+def to_calendar_spatiotemporal(values: torch.Tensor, marks: torch.Tensor) -> torch.Tensor:
     """Build ``(B, T, N, 1 + 2)`` = ``[value, time_in_day, day_in_week]``.
 
     For the *calendar-embedding* models (``BiST`` / ``MAGE`` / ``STOP``), which
@@ -366,7 +354,5 @@ def coerce_time_length(marks: torch.Tensor, length: int) -> torch.Tensor:
         return marks
     if have > length:
         return marks[:, -length:]
-    pad = marks[:, -1:].expand(
-        marks.shape[0], length - have, *marks.shape[2:]
-    )
+    pad = marks[:, -1:].expand(marks.shape[0], length - have, *marks.shape[2:])
     return torch.cat([marks, pad], dim=1)

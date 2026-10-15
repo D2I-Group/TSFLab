@@ -85,9 +85,10 @@ class PositiveNegativeAttention(nn.Module):
         aligned_value = torch.einsum("bhpnm,bhpmd->bhpnd", aligned_attention, value)
         attended = torch.einsum("bhpnq,bhqnd->bhpnd", offset_attention, aligned_value)
         attended = attended + strength.unsqueeze(-1) * value
-        shaped = self.gamma[None, :, None, None, :] * torch.tanh(
-            self.alpha[None, :, None, None, None] * attended
-        ) + self.beta[None, :, None, None, :]
+        shaped = (
+            self.gamma[None, :, None, None, :] * torch.tanh(self.alpha[None, :, None, None, None] * attended)
+            + self.beta[None, :, None, None, :]
+        )
         merged = shaped.permute(0, 2, 3, 1, 4).flatten(-2)
         return self.dropout(self.output(merged))
 
@@ -135,8 +136,7 @@ class Model(nn.Module):
         self.base_projection = nn.Linear(seq_len, pred_len)
         self.bucket_embedding = nn.Linear(1, d_model)
         self.blocks = nn.ModuleList(
-            _PHATBlock(d_model, n_heads, attn_dropout, ffn_dropout, ffn_expand_ratio)
-            for _ in range(d_layers)
+            _PHATBlock(d_model, n_heads, attn_dropout, ffn_dropout, ffn_expand_ratio) for _ in range(d_layers)
         )
         self.bucket_output = nn.Linear(d_model, 1)
         self.forecast_projection = nn.Linear(seq_len, pred_len)

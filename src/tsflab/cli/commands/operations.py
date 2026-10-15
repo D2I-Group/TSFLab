@@ -1,15 +1,13 @@
 """Optional operations, discovered through tsf agent interface."""
 
 import argparse
+import json
 
 from tsflab.cli.output import publish
-import json
 
 
 def operations_command(args):
-    prog = {"queue": "tsf run --backend queue", "slurm": "tsf run --backend slurm"}.get(
-        args[0], f"tsf env {args[0]}"
-    )
+    prog = {"queue": "tsf run --backend queue", "slurm": "tsf run --backend slurm"}.get(args[0], f"tsf env {args[0]}")
     parser = argparse.ArgumentParser(prog=prog)
     parser.add_argument("action")
     parser.add_argument("directory")
@@ -38,14 +36,12 @@ def operations_command(args):
 
         policy = load_policy(options.policy)
         if args[0] == "queue":
-            from tsflab.experiments.infra.queue import enqueue, jobs, work, cancel_job
+            from tsflab.experiments.infra.queue import cancel_job, enqueue, jobs, work
 
             if options.action == "add":
                 if not options.run:
                     raise ValueError("queue add requires --run <prepared directory>")
-                result = enqueue(
-                    options.directory, options.run, priority=options.priority, executor=options.executor
-                )
+                result = enqueue(options.directory, options.run, priority=options.priority, executor=options.executor)
             elif options.action == "cancel":
                 result = cancel_job(options.directory)
             elif options.action == "status":

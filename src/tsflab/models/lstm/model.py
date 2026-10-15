@@ -44,9 +44,7 @@ class Model(nn.Module):
             batch_first=True,
             dropout=dropout if layer > 1 else 0.0,
         )
-        self.forecast = nn.Sequential(
-            nn.Linear(hid_dim, end_dim), nn.GELU(), nn.Linear(end_dim, pred_len)
-        )
+        self.forecast = nn.Sequential(nn.Linear(hid_dim, end_dim), nn.GELU(), nn.Linear(end_dim, pred_len))
 
     def forward(
         self,
@@ -57,13 +55,9 @@ class Model(nn.Module):
     ):
         del x_dec, x_mark_dec
         check_window(x_enc, self.seq_len, self.enc_in)
-        features = _fit_features(
-            to_spatiotemporal(x_enc, x_mark_enc), self.input_dim
-        )
+        features = _fit_features(to_spatiotemporal(x_enc, x_mark_enc), self.input_dim)
         batch = features.shape[0]
-        node_sequences = features.permute(0, 2, 1, 3).reshape(
-            batch * self.enc_in, self.seq_len, self.input_dim
-        )
+        node_sequences = features.permute(0, 2, 1, 3).reshape(batch * self.enc_in, self.seq_len, self.input_dim)
         encoded, _ = self.recurrent(self.input_projection(node_sequences))
         prediction = self.forecast(encoded[:, -1])
         return prediction.view(batch, self.enc_in, self.pred_len).transpose(1, 2)

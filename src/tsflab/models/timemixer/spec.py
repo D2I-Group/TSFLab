@@ -25,7 +25,7 @@ class ModelParameterConfig(BaseModel):
     decomp_method: Literal["moving_avg", "dft_decomp"] = "moving_avg"
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.enc_in != self.c_out:
             raise ValueError("enc_in and c_out must match")
         if self.moving_avg % 2 == 0:

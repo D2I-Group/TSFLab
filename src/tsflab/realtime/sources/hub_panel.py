@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tsflab.release.hub import fetch
 from tsflab.realtime.tracks import TrackSpec
+from tsflab.release.hub import fetch
 
 
 def load(track: TrackSpec) -> pd.DataFrame:

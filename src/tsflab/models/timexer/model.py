@@ -1,7 +1,9 @@
 """Clean-room TimeXer with endogenous patches and exogenous cross-attention."""
+
 from __future__ import annotations
 
 import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -23,14 +25,15 @@ class EndogenousEmbedding(nn.Module):
         # x: (B,E,L), output: (B*E,P+1,D)
         batch, endogenous, length = x.shape
         patches = math.ceil(length / self.patch_len)
-        padded = F.pad(x, (0, patches*self.patch_len-length))
+        padded = F.pad(x, (0, patches * self.patch_len - length))
         tokens = self.value(padded.unfold(-1, self.patch_len, self.patch_len)) + self.position[:patches]
-        tokens = tokens.reshape(batch*endogenous, patches, -1)
-        return self.dropout(torch.cat((tokens, self.global_token.expand(batch*endogenous, -1, -1)), 1))
+        tokens = tokens.reshape(batch * endogenous, patches, -1)
+        return self.dropout(torch.cat((tokens, self.global_token.expand(batch * endogenous, -1, -1)), 1))
 
 
 class ExogenousEmbedding(nn.Module):
     """Represent each external variable and the calendar as cross-attention tokens."""
+
     def __init__(self, seq_len, width):
         super().__init__()
         self.value = nn.Linear(seq_len, width)
@@ -41,13 +44,28 @@ class ExogenousEmbedding(nn.Module):
         tokens = self.value(all_series)
         if marks is None:
             position = torch.linspace(0, 1, all_series.shape[-1], device=all_series.device, dtype=all_series.dtype)
-            calendar = torch.stack((position.mean(), position.square().mean(), torch.sin(2*torch.pi*position).mean(), torch.cos(2*torch.pi*position).mean())).expand(batch, -1)
+            calendar = torch.stack(
+                (
+                    position.mean(),
+                    position.square().mean(),
+                    torch.sin(2 * torch.pi * position).mean(),
+                    torch.cos(2 * torch.pi * position).mean(),
+                )
+            ).expand(batch, -1)
         elif marks.shape[-1] >= 6:
-            calendar = torch.stack((marks[...,1].mean(1)/12, marks[...,2].mean(1)/31, marks[...,3].mean(1)/7, marks[...,4].mean(1)/24), -1)
+            calendar = torch.stack(
+                (
+                    marks[..., 1].mean(1) / 12,
+                    marks[..., 2].mean(1) / 31,
+                    marks[..., 3].mean(1) / 7,
+                    marks[..., 4].mean(1) / 24,
+                ),
+                -1,
+            )
         else:
-            calendar = F.pad(marks[..., :4].mean(1), (0, max(0, 4-marks.shape[-1])))[:, :4]
+            calendar = F.pad(marks[..., :4].mean(1), (0, max(0, 4 - marks.shape[-1])))[:, :4]
         tokens = torch.cat((tokens, self.calendar(calendar).unsqueeze(1)), 1)
-        return tokens[:, None].expand(-1, endogenous_count, -1, -1).reshape(batch*endogenous_count, variables+1, -1)
+        return tokens[:, None].expand(-1, endogenous_count, -1, -1).reshape(batch * endogenous_count, variables + 1, -1)
 
 
 class TimeXerLayer(nn.Module):
@@ -72,9 +90,21 @@ class TimeXerLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", d_model=128,
-                 n_heads=8, e_layers=2, d_ff=256, patch_len=16, dropout=0.1,
-                 activation="gelu", use_norm=True):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        d_model=128,
+        n_heads=8,
+        e_layers=2,
+        d_ff=256,
+        patch_len=16,
+        dropout=0.1,
+        activation="gelu",
+        use_norm=True,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in, self.features = seq_len, pred_len, enc_in, features
         self.endogenous_count = enc_in if features == "M" else 1
@@ -83,7 +113,7 @@ class Model(nn.Module):
         self.endogenous_embedding = EndogenousEmbedding(patch_len, self.patch_count, d_model, dropout)
         self.exogenous_embedding = ExogenousEmbedding(seq_len, d_model)
         self.layers = nn.ModuleList(TimeXerLayer(d_model, n_heads, d_ff, dropout, activation) for _ in range(e_layers))
-        self.head = nn.Sequential(nn.Flatten(-2), nn.Linear((self.patch_count+1)*d_model, pred_len))
+        self.head = nn.Sequential(nn.Flatten(-2), nn.Linear((self.patch_count + 1) * d_model, pred_len))
 
     def forward(
         self,

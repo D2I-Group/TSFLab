@@ -92,9 +92,7 @@ class Model(nn.Module):
         # [B, C, C, L] correlation tensor is never materialised; results are identical
         for start in range(0, spectrum.shape[1], self.lead_chunk_size):
             block = spectrum[:, start : start + self.lead_chunk_size]
-            corr = torch.fft.irfft(
-                block.unsqueeze(2) * spectrum.conj().unsqueeze(1), n=length, dim=-1
-            ) / length
+            corr = torch.fft.irfft(block.unsqueeze(2) * spectrum.conj().unsqueeze(1), n=length, dim=-1) / length
             magnitude = corr.abs()
             peak = (magnitude[..., 1:-1] >= magnitude[..., :-2]) & (magnitude[..., 1:-1] >= magnitude[..., 2:])
             corr = corr[..., 1:-1] * peak
@@ -125,9 +123,7 @@ class Model(nn.Module):
         # constant-one logit competes with the |corr| logits (official scaling of R)
         logits = torch.cat([torch.ones_like(corr[..., :1]), corr.abs()], dim=-1)
         strength = torch.softmax(logits / self.temperature, dim=-1)[..., 1:]
-        state = torch.softmax(
-            self.state_bias + self.state_prior + self.state_classifier(lookback), dim=-1
-        )  # (B, C, N)
+        state = torch.softmax(self.state_bias + self.state_prior + self.state_classifier(lookback), dim=-1)  # (B, C, N)
         per_state = torch.einsum("bck,nkf->bcnf", strength, self.factory_weight)
         filters = torch.einsum("bcn,bcnf->bcf", state, per_state) + state @ self.factory_bias
         return filters.view(batch, channels, 2 * self.leaders + 1, self.freq)
@@ -145,7 +141,7 @@ class Model(nn.Module):
         k = self.leaders
         v = torch.fft.rfft(predicted, dim=-1)  # (B, C, F)
         u = torch.fft.rfft(shifted, dim=-1) * filters[:, :, :k, :]  # r_U ⊙ U
-        delta = (u - v.unsqueeze(2)) * filters[:, :, k:2 * k, :]
+        delta = (u - v.unsqueeze(2)) * filters[:, :, k : 2 * k, :]
         v = v * filters[:, :, 2 * k, :]
         mixed = self.mix(torch.cat([u.sum(2), delta.sum(2), v], dim=-1))
         refined = predicted + torch.fft.irfft(mixed, n=self.pred_len, dim=-1)

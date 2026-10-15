@@ -35,8 +35,15 @@ class ScaleHypergraph(nn.Module):
     """
 
     def __init__(
-        self, num_nodes: int, num_edges: int, channels: int, d_embed: int,
-        eta: int, beta: float, gamma: float, dropout: float,
+        self,
+        num_nodes: int,
+        num_edges: int,
+        channels: int,
+        d_embed: int,
+        eta: int,
+        beta: float,
+        gamma: float,
+        dropout: float,
     ) -> None:
         super().__init__()
         self.eta, self.beta, self.gamma = eta, beta, gamma
@@ -61,7 +68,7 @@ class ScaleHypergraph(nn.Module):
 
     def forward(self, x: torch.Tensor):
         H = self.incidence()  # [N, M]
-        member = (H.detach() > 0.5)
+        member = H.detach() > 0.5
         deg_e = H.detach().sum(0)  # [M]
         deg_n = H.detach().sum(1)  # [N]
         valid = (deg_e > 0).to(x.dtype)  # non-empty hyperedges
@@ -150,8 +157,7 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, affine=False)
         self.aggregators = nn.ModuleList(ScaleConv(enc_in, w) for w in window_size)
         self.scales = nn.ModuleList(
-            ScaleHypergraph(n, m, enc_in, d_embed, eta, beta, gamma, dropout)
-            for n, m in zip(nodes, hyper_num)
+            ScaleHypergraph(n, m, enc_in, d_embed, eta, beta, gamma, dropout) for n, m in zip(nodes, hyper_num)
         )
         self.query = nn.Linear(enc_in, enc_in)
         self.key = nn.Linear(enc_in, enc_in)

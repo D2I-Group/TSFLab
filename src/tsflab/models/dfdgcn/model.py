@@ -52,8 +52,18 @@ class FrequencyGraph(nn.Module):
     each row keeps its ``subgraph`` largest scores (top-k mask) before the softmax.
     """
 
-    def __init__(self, seq_len: int, nodes: int, fft_dim: int, identity_dim: int, hidden: int,
-                 steps_per_day: int, a: float, subgraph: int, dropout: float) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        nodes: int,
+        fft_dim: int,
+        identity_dim: int,
+        hidden: int,
+        steps_per_day: int,
+        a: float,
+        subgraph: int,
+        dropout: float,
+    ) -> None:
         super().__init__()
         self.a, self.subgraph, self.steps_per_day = a, min(subgraph, nodes), steps_per_day
         self.spectrum = nn.Parameter(torch.randn(seq_len // 2 + 1, fft_dim))
@@ -74,12 +84,15 @@ class FrequencyGraph(nn.Module):
         magnitude = F.normalize(magnitude, p=2.0, dim=2, eps=1e-12) * self.a
         tod = (time_in_day * self.steps_per_day).round().long().clamp(0, self.steps_per_day - 1)
         dow = (day_in_week * 7).round().long().clamp(0, 6)
-        features = torch.cat((
-            magnitude @ self.spectrum,
-            self.identity.unsqueeze(0).expand(values.shape[0], -1, -1),
-            self.time_of_day[tod],
-            self.day_of_week[dow],
-        ), dim=-1)
+        features = torch.cat(
+            (
+                magnitude @ self.spectrum,
+                self.identity.unsqueeze(0).expand(values.shape[0], -1, -1),
+                self.time_of_day[tod],
+                self.day_of_week[dow],
+            ),
+            dim=-1,
+        )
         hidden = torch.relu(torch.einsum("bnd,ndh->bnh", features, self.node_projection))
         directed = self.dropout(self.norm(hidden)) @ self.direction
         scores = torch.relu(directed @ hidden.transpose(1, 2))
@@ -101,7 +114,27 @@ def _checked_adjacency(adj_mx, num_nodes) -> np.ndarray:
 class Model(nn.Module):
     """Dilated temporal forecaster with frequency-derived dynamic graphs."""
 
-    def __init__(self, seq_len: int, pred_len: int, num_nodes: int, adj_mx: np.ndarray | None = None, dropout: float = 0.3, residual_channels: int = 16, dilation_channels: int = 16, skip_channels: int = 64, end_channels: int = 128, kernel_size: int = 2, blocks: int = 2, layers: int = 2, a: float = 1.0, fft_emb: int = 10, identity_emb: int = 10, hidden_emb: int = 30, subgraph: int = 20, steps_per_day: int = 288) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        num_nodes: int,
+        adj_mx: np.ndarray | None = None,
+        dropout: float = 0.3,
+        residual_channels: int = 16,
+        dilation_channels: int = 16,
+        skip_channels: int = 64,
+        end_channels: int = 128,
+        kernel_size: int = 2,
+        blocks: int = 2,
+        layers: int = 2,
+        a: float = 1.0,
+        fft_emb: int = 10,
+        identity_emb: int = 10,
+        hidden_emb: int = 30,
+        subgraph: int = 20,
+        steps_per_day: int = 288,
+    ) -> None:
         super().__init__()
         adjacency = _checked_adjacency(adj_mx, num_nodes)
         static = adj_to_supports(adjacency)
@@ -109,18 +142,27 @@ class Model(nn.Module):
         self.register_buffer("reverse_support", static[1])
         self.adaptive_source = nn.Parameter(torch.randn(num_nodes, fft_emb))
         self.adaptive_target = nn.Parameter(torch.randn(fft_emb, num_nodes))
-        self.frequency_graph = FrequencyGraph(seq_len, num_nodes, fft_emb, identity_emb, hidden_emb,
-                                              steps_per_day, a, subgraph, dropout)
+        self.frequency_graph = FrequencyGraph(
+            seq_len, num_nodes, fft_emb, identity_emb, hidden_emb, steps_per_day, a, subgraph, dropout
+        )
         self.seq_len, self.pred_len, self.num_nodes = seq_len, pred_len, num_nodes
         self.input_projection = nn.Conv2d(2, residual_channels, 1)  # value + time of day (official in_dim = 2)
         count = blocks * layers
-        self.filters = nn.ModuleList(nn.Conv2d(residual_channels, residual_channels, (1, kernel_size), dilation=(1, 2 ** (index % layers))) for index in range(count))
-        self.gates = nn.ModuleList(nn.Conv2d(residual_channels, residual_channels, (1, kernel_size), dilation=(1, 2 ** (index % layers))) for index in range(count))
+        self.filters = nn.ModuleList(
+            nn.Conv2d(residual_channels, residual_channels, (1, kernel_size), dilation=(1, 2 ** (index % layers)))
+            for index in range(count)
+        )
+        self.gates = nn.ModuleList(
+            nn.Conv2d(residual_channels, residual_channels, (1, kernel_size), dilation=(1, 2 ** (index % layers)))
+            for index in range(count)
+        )
         self.graph_layers = nn.ModuleList(DynamicGraphMix(residual_channels, residual_channels) for _ in range(count))
         self.skip_layers = nn.ModuleList(nn.Conv2d(residual_channels, skip_channels, 1) for _ in range(count))
         self.norms = nn.ModuleList(nn.BatchNorm2d(residual_channels) for _ in range(count))
         self.dropout = nn.Dropout(dropout)
-        self.output = nn.Sequential(nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1))
+        self.output = nn.Sequential(
+            nn.ReLU(), nn.Conv2d(skip_channels, end_channels, 1), nn.ReLU(), nn.Conv2d(end_channels, pred_len, 1)
+        )
 
     def _inputs(self, x_enc, x_mark_enc):
         check_window(x_enc, self.seq_len, self.num_nodes)

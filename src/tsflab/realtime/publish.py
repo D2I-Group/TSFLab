@@ -9,15 +9,15 @@ rebuilt from their source with ``tsf realtime update --bootstrap``.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import tomllib
+from pathlib import Path
 
 from tsflab.core.paths import repository_root
+from tsflab.realtime.store import PanelStore
 from tsflab.release.hub.fetch import sha256_file
 from tsflab.release.hub.uri import default_repo
-from tsflab.realtime.store import PanelStore
 
 DEFAULT_DATASET_REPO = default_repo("TSFLab-Datasets")
 #: Folder of the real-time tracks in the datasets repository.
@@ -44,8 +44,10 @@ def push_refusal(track: str, root: Path | None = None) -> str | None:
     klass = track_redistribution(track, root)
     if klass in PUSHABLE:
         return None
-    return (f"{track}: not redistributed (card [source] redistribution={klass}); the panel is not "
-            f"uploaded. Fetch it from the source with `tsf realtime update --bootstrap --track {track}`")
+    return (
+        f"{track}: not redistributed (card [source] redistribution={klass}); the panel is not "
+        f"uploaded. Fetch it from the source with `tsf realtime update --bootstrap --track {track}`"
+    )
 
 
 def _api():
@@ -56,8 +58,9 @@ def _api():
     return HfApi()
 
 
-def push_release(store: PanelStore, repo_id: str = DEFAULT_DATASET_REPO, *, create: bool = False,
-                 root: Path | None = None) -> str:
+def push_release(
+    store: PanelStore, repo_id: str = DEFAULT_DATASET_REPO, *, create: bool = False, root: Path | None = None
+) -> str:
     """Upload the track directory to ``realtime/<track>/`` and return the new commit revision.
 
     Raises ``PermissionError`` when the track card does not allow redistribution.
@@ -70,8 +73,11 @@ def push_release(store: PanelStore, repo_id: str = DEFAULT_DATASET_REPO, *, crea
         api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
     release = store.latest_release()
     commit = api.upload_folder(
-        repo_id=repo_id, repo_type="dataset", folder_path=str(store.directory),
-        path_in_repo=repo_folder(store.track), commit_message=f"{store.track}: release {release['version']}",
+        repo_id=repo_id,
+        repo_type="dataset",
+        folder_path=str(store.directory),
+        path_in_repo=repo_folder(store.track),
+        commit_message=f"{store.track}: release {release['version']}",
     )
     return commit.oid
 
@@ -91,8 +97,13 @@ def pull_track(store: PanelStore, repo_id: str = DEFAULT_DATASET_REPO, revision:
     parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".pull-{store.track}-", dir=parent) as scratch:
         try:
-            snapshot_download(repo_id=repo_id, repo_type="dataset", revision=revision,
-                              allow_patterns=[f"{folder}/*", f"{folder}/**/*"], local_dir=scratch)
+            snapshot_download(
+                repo_id=repo_id,
+                repo_type="dataset",
+                revision=revision,
+                allow_patterns=[f"{folder}/*", f"{folder}/**/*"],
+                local_dir=scratch,
+            )
         except (RepositoryNotFoundError, EntryNotFoundError):
             return False
         downloaded = Path(scratch) / folder

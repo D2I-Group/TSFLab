@@ -1,4 +1,5 @@
 """Clean-room STPGNN from the AAAI 2024 equations and architecture diagram."""
+
 from __future__ import annotations
 
 import torch
@@ -15,6 +16,7 @@ def _row_normalize(graph: torch.Tensor) -> torch.Tensor:
 
 class PivotalNodeIdentification(nn.Module):
     """Combine physical degree and learned node affinity to identify pivots."""
+
     def __init__(self, nodes, width, topk, graph):
         super().__init__()
         self.topk = min(topk, nodes)
@@ -38,6 +40,7 @@ class PivotalNodeIdentification(nn.Module):
 
 class PivotalGraphConvolution(nn.Module):
     """Equation 7: temporal-window aggregation centred on pivotal nodes."""
+
     def __init__(self, width, temporal_span):
         super().__init__()
         self.temporal_span = temporal_span
@@ -57,6 +60,7 @@ class PivotalGraphConvolution(nn.Module):
 
 class ParallelSTLayer(nn.Module):
     """Pivotal graph, ordinary graph, and temporal linear units in parallel."""
+
     def __init__(self, width, temporal_span, dropout):
         super().__init__()
         self.pivotal = PivotalGraphConvolution(width, temporal_span)
@@ -75,9 +79,21 @@ class ParallelSTLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, num_nodes, adj_mx=None, dropout=0.1,
-                 topk=4, residual_channels=16, end_channels=64,
-                 kernel_size=2, blocks=2, layers=2, dims=16):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        num_nodes,
+        adj_mx=None,
+        dropout=0.1,
+        topk=4,
+        residual_channels=16,
+        end_channels=64,
+        kernel_size=2,
+        blocks=2,
+        layers=2,
+        dims=16,
+    ):
         super().__init__()
         if num_nodes < 1:
             raise ValueError("invalid non-positive STPGNN dimension")
@@ -91,10 +107,11 @@ class Model(nn.Module):
         self.input_projection = nn.Linear(1 + 4, residual_channels)
         self.identifier = PivotalNodeIdentification(num_nodes, dims, topk, graph)
         self.st_layers = nn.ModuleList(
-            ParallelSTLayer(residual_channels, max(1, kernel_size), dropout)
-            for _ in range(blocks * layers)
+            ParallelSTLayer(residual_channels, max(1, kernel_size), dropout) for _ in range(blocks * layers)
         )
-        self.readout = nn.Sequential(nn.Linear(seq_len * residual_channels, end_channels), nn.ReLU(), nn.Linear(end_channels, pred_len))
+        self.readout = nn.Sequential(
+            nn.Linear(seq_len * residual_channels, end_channels), nn.ReLU(), nn.Linear(end_channels, pred_len)
+        )
 
     def _mark_features(self, x, marks):
         """Four calendar features per node and step, shape ``[B, T, N, 4]``.

@@ -48,8 +48,16 @@ class PatchEncoding(nn.Module):
     Paper Eq. 3 and 5. Positions (Eq. 4) are GPT-2's own trainable ``wpe`` table.
     """
 
-    def __init__(self, patch_len: int, stride: int, d_model: int, dropout: float,
-                 token_embed_type: str, temporal_embed_type: str, freq: str) -> None:
+    def __init__(
+        self,
+        patch_len: int,
+        stride: int,
+        d_model: int,
+        dropout: float,
+        token_embed_type: str,
+        temporal_embed_type: str,
+        freq: str,
+    ) -> None:
         super().__init__()
         self.patch_len, self.stride, self.freq = patch_len, stride, freq
         if token_embed_type == "conv":
@@ -58,7 +66,8 @@ class PatchEncoding(nn.Module):
         else:  # linear
             self.token = nn.Linear(patch_len, d_model, bias=False)
         self.temporal = (
-            None if temporal_embed_type == "none"
+            None
+            if temporal_embed_type == "none"
             else TemporalEmbedding(d_model, embed_type=temporal_embed_type, freq=freq)
         )
         self.dropout = nn.Dropout(dropout)
@@ -139,8 +148,7 @@ class Model(nn.Module):
         for block in self.llm.h:
             block.attn.c_attn = LoRALinear(block.attn.c_attn, lora_r, lora_alpha, lora_dropout)
         self.revin = RevIN(1, affine=True)
-        self.encoding = PatchEncoding(patch_len, stride, width, dropout,
-                                      token_embed_type, temporal_embed_type, freq)
+        self.encoding = PatchEncoding(patch_len, stride, width, dropout, token_embed_type, temporal_embed_type, freq)
         # Stage 1 output layer W_tsa (Eq. 8) and stage 2 flatten head W_fft (Eq. 11).
         self.align_head = nn.Sequential(nn.Linear(width, patch_len, bias=False), nn.Dropout(dropout))
         self.forecast_head = nn.Sequential(
@@ -176,8 +184,7 @@ class Model(nn.Module):
     def load_llm_weights(self, path) -> None:
         """Load released GPT-2 weights (first ``first_k_layers`` blocks) under the LoRA wrappers."""
         released = load_gpt2_weights(GPT2Backbone(self.llm.config), path).state_dict()
-        state = {name.replace("attn.c_attn.", "attn.c_attn.base."): tensor
-                 for name, tensor in released.items()}
+        state = {name.replace("attn.c_attn.", "attn.c_attn.base."): tensor for name, tensor in released.items()}
         missing, unexpected = self.llm.load_state_dict(state, strict=False)
         if unexpected or any("lora_" not in name for name in missing):
             raise KeyError(f"GPT-2 weights do not fit LLM4TS: missing={missing}, unexpected={unexpected}")
@@ -190,8 +197,9 @@ class Model(nn.Module):
         """Stage 1: ``[B, L, C]`` -> next-patch predictions ``[B * C, T_p, P]`` (Eq. 8)."""
         return self.align_head(self._hidden(normalized, x_mark))
 
-    def alignment_loss(self, x_enc: torch.Tensor, future: torch.Tensor,
-                       x_mark: torch.Tensor | None = None) -> torch.Tensor:
+    def alignment_loss(
+        self, x_enc: torch.Tensor, future: torch.Tensor, x_mark: torch.Tensor | None = None
+    ) -> torch.Tensor:
         """Stage 1 objective (Eq. 9): MSE against the patches shifted by one stride.
 
         The window and its next ``stride`` values are standardized together
@@ -204,7 +212,7 @@ class Model(nn.Module):
         mean = series.mean(dim=1, keepdim=True).detach()
         std = torch.sqrt(series.var(dim=1, keepdim=True, unbiased=False) + 1e-5).detach()
         series = (series - mean) / std
-        inputs, shifted = series[:, : self.seq_len], series[:, self.stride:]
+        inputs, shifted = series[:, : self.seq_len], series[:, self.stride :]
         batch, length, channels = shifted.shape
         target = self.encoding.patches(shifted.permute(0, 2, 1).reshape(batch * channels, length))
         return F.mse_loss(self.align_forward(inputs, x_mark), target)
@@ -243,8 +251,18 @@ class Model(nn.Module):
                     step(x, y, x_mark).backward()
                     optimizer.step()
 
-        run("align", self.align_epochs, self.align_lr, self.align_weight_decay,
-            lambda x, y, m: self.alignment_loss(x, y[:, -self.pred_len:], m))
-        run("probe", self.probe_epochs, self.probe_lr, self.probe_weight_decay,
-            lambda x, y, m: F.mse_loss(self(x, m), y[:, -self.pred_len:]))
+        run(
+            "align",
+            self.align_epochs,
+            self.align_lr,
+            self.align_weight_decay,
+            lambda x, y, m: self.alignment_loss(x, y[:, -self.pred_len :], m),
+        )
+        run(
+            "probe",
+            self.probe_epochs,
+            self.probe_lr,
+            self.probe_weight_decay,
+            lambda x, y, m: F.mse_loss(self(x, m), y[:, -self.pred_len :]),
+        )
         self.set_stage("finetune")

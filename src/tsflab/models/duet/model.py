@@ -1,8 +1,12 @@
 """Clean-room DUET: distributional temporal experts plus channel attention."""
+
 from __future__ import annotations
+
 import math
+
 import torch
 from torch import nn
+
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.topk_expert_router import GatingMLP, topk_dense_mix
 from tsflab.models._inputs import check_window
@@ -37,7 +41,9 @@ class TemporalExpert(nn.Module):
 
     def forward(self, x):
         trend = moving_average(x, self.moving_avg)
-        return self.dropout(self.trend(trend.transpose(1, 2)) + self.seasonal((x - trend).transpose(1, 2))).transpose(1, 2)
+        return self.dropout(self.trend(trend.transpose(1, 2)) + self.seasonal((x - trend).transpose(1, 2))).transpose(
+            1, 2
+        )
 
 
 class FrequencyChannelMask(nn.Module):
@@ -60,8 +66,7 @@ class FrequencyChannelMask(nn.Module):
         amplitude = torch.fft.rfft(series, dim=-1).abs()
         projected = amplitude @ self.metric.T  # A (x_i - x_j) is linear, so project once
         squared = projected.square().sum(-1)
-        distance = (squared[:, :, None] + squared[:, None, :]
-                    - 2 * projected @ projected.transpose(1, 2)).clamp_min(0)
+        distance = (squared[:, :, None] + squared[:, None, :] - 2 * projected @ projected.transpose(1, 2)).clamp_min(0)
         eye = torch.eye(series.shape[1], device=series.device, dtype=series.dtype)
         relation = (1 / (distance + self.epsilon)) * (1 - eye)
         relation = relation / relation.amax(-1, keepdim=True).detach()
@@ -98,9 +103,24 @@ class ChannelAttention(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, features="M", d_model=512, n_heads=8,
-                 e_layers=2, d_ff=2048, dropout=0.1, fc_dropout=0.1,
-                 moving_avg=25, num_experts=4, k=2, hidden_size=256, noisy_gating=True):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        features="M",
+        d_model=512,
+        n_heads=8,
+        e_layers=2,
+        d_ff=2048,
+        dropout=0.1,
+        fc_dropout=0.1,
+        moving_avg=25,
+        num_experts=4,
+        k=2,
+        hidden_size=256,
+        noisy_gating=True,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in)
@@ -111,7 +131,9 @@ class Model(nn.Module):
         kernels = [max(2, moving_avg - 2 * i) for i in range(num_experts)]
         self.experts = nn.ModuleList([TemporalExpert(seq_len, d_model, kernel, fc_dropout) for kernel in kernels])
         self.channel_mask = FrequencyChannelMask(seq_len)
-        self.channel_layers = nn.ModuleList([ChannelAttention(d_model, n_heads, d_ff, dropout) for _ in range(e_layers)])
+        self.channel_layers = nn.ModuleList(
+            [ChannelAttention(d_model, n_heads, d_ff, dropout) for _ in range(e_layers)]
+        )
         self.head = nn.Linear(d_model, pred_len)
 
     def forward(

@@ -1,4 +1,5 @@
 """RhyMix: adaptive cyclic and multi-scale convolution forecasting."""
+
 from __future__ import annotations
 
 import torch
@@ -12,10 +13,9 @@ class TMSBlock(nn.Module):
     def __init__(self, channels: int, dropout: float = 0.1):
         super().__init__()
         self.norm = nn.RMSNorm(channels)
-        self.convs = nn.ModuleList([
-            nn.Conv1d(channels, channels, 3, padding=d, dilation=d, groups=channels)
-            for d in (1, 2, 4, 8)
-        ])
+        self.convs = nn.ModuleList(
+            [nn.Conv1d(channels, channels, 3, padding=d, dilation=d, groups=channels) for d in (1, 2, 4, 8)]
+        )
         hidden = max(8, min(64, channels // 8))
         self.attn = nn.Sequential(nn.Linear(channels, hidden), nn.ReLU(), nn.Linear(hidden, channels), nn.Sigmoid())
         self.dropout = nn.Dropout(dropout)
@@ -56,6 +56,7 @@ class ForecastHeads(nn.Module):
 
 class Model(nn.Module):
     """Paper-equation repair; CNN layout remains an explicit local adaptation."""
+
     def __init__(self, c_in: int, seq_len: int, pred_len: int, dropout: float = 0.1):
         super().__init__()
         self.c_in, self.seq_len, self.pred_len = c_in, seq_len, pred_len
@@ -68,7 +69,7 @@ class Model(nn.Module):
         self.channel_scale = nn.Parameter(torch.tensor(0.05))
         self.stats_norm = nn.LayerNorm(5)
         self.period_gate = nn.Sequential(nn.Linear(5, 16), nn.ReLU(), nn.Linear(16, 4))
-        self.cyclic = nn.ParameterList([nn.Parameter(torch.randn(p, c_in) * .02) for p in self.periods])
+        self.cyclic = nn.ParameterList([nn.Parameter(torch.randn(p, c_in) * 0.02) for p in self.periods])
         self.cyclic_norm = nn.LayerNorm(c_in)
         self.blocks = nn.ModuleList([TMSBlock(c_in, dropout) for _ in range(2)])
         self.heads = ForecastHeads(c_in, seq_len, pred_len, self.periods)
@@ -81,8 +82,10 @@ class Model(nn.Module):
         mean = x_enc.mean(1, keepdim=True)
         std = x_enc.std(1, unbiased=False, keepdim=True)
         x = (x_enc - mean) / (std + 1e-5) * self.weight + self.bias
-        feat = torch.stack((x.mean(1), x.std(1, unbiased=False), x[:, -1], x[:, -1] - x[:, 0],
-                            (x[:, 1:] - x[:, :-1]).abs().mean(1)), dim=-1)
+        feat = torch.stack(
+            (x.mean(1), x.std(1, unbiased=False), x[:, -1], x[:, -1] - x[:, 0], (x[:, 1:] - x[:, :-1]).abs().mean(1)),
+            dim=-1,
+        )
         feat_n = self.stats_norm(feat)
         global_feat = feat_n.mean(1)
         x = x + self.channel_scale * self.channel_mlp(self.channel_norm(x))

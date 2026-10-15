@@ -1,8 +1,9 @@
 """Runtime specification for AirFormer."""
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.airformer.model import Model
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -22,9 +23,7 @@ class ModelParameterConfig(BaseModel):
 
 def build_model(cfg, params):
     params.pop("num_nodes", None)
-    return Model(
-        cfg.task.seq_len, cfg.task.pred_len, dartboard_mx=params.pop("adj_mx", None), **params
-    )
+    return Model(cfg.task.seq_len, cfg.task.pred_len, dartboard_mx=params.pop("adj_mx", None), **params)
 
 
 SPEC = ModelSpec(

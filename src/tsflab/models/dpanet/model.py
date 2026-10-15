@@ -127,9 +127,7 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, eps=1e-5, affine=True)
         self.bands = log_frequency_bands(seq_len, num_scales)
         # Scale-specific embeddings: the whole level of one channel -> one token.
-        self.temporal_embedders = nn.ModuleList(
-            nn.Linear(seq_len // 2**scale, d_model) for scale in range(num_scales)
-        )
+        self.temporal_embedders = nn.ModuleList(nn.Linear(seq_len // 2**scale, d_model) for scale in range(num_scales))
         self.spectral_embedders = nn.ModuleList(nn.Linear(seq_len, d_model) for _ in range(num_scales))
         self.fusion_blocks = nn.ModuleList(
             CrossPyramidFusionBlock(d_model, n_heads, d_ff, dropout) for _ in range(num_scales)

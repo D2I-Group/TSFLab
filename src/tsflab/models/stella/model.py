@@ -52,9 +52,7 @@ class SpatialEmbedding(nn.Module):
         else:
             positions = standardize_coordinates(coordinates)
             if positions.shape[0] != num_nodes:
-                raise ValueError(
-                    f"expected coordinates for {num_nodes} stations, got {positions.shape[0]}"
-                )
+                raise ValueError(f"expected coordinates for {num_nodes} stations, got {positions.shape[0]}")
             self.uses_coordinates = True
             self.register_buffer("positions", torch.from_numpy(positions))
             self.ffn = nn.Sequential(nn.Linear(3, d_model), nn.ReLU(), nn.Linear(d_model, d_model))

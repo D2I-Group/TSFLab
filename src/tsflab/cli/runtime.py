@@ -10,7 +10,6 @@ from pathlib import Path
 
 from tsflab.core.paths import repository_root, working_root
 
-
 ROOT = repository_root()
 WORK_ROOT = working_root()
 RUN_CONFIG_DIR = ROOT / "configs" / "runs"
@@ -39,6 +38,7 @@ def passthrough(script: str, rest: list[str]) -> int:
     module = script.removesuffix(".py")
     argv = [sys.executable, "-m", f"tsflab.cli.commands.{module}", *rest]
     from tsflab.cli.output import CAPTURE_CHILD_OUTPUT
+
     if CAPTURE_CHILD_OUTPUT.get():
         result = subprocess.run(argv, cwd=WORK_ROOT, capture_output=True, text=True)
         print(result.stdout, end="")

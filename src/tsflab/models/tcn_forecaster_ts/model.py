@@ -41,8 +41,16 @@ class TemporalResidualBlock(nn.Module):
 class Model(nn.Module):
     """Encode with exponentially dilated residual blocks and a direct head."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int = 64,
-                 dropout: float = 0.1, num_layers: int = 2, use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int = 64,
+        dropout: float = 0.1,
+        num_layers: int = 2,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.revin = RevIN(enc_in, enabled=use_revin)

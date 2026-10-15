@@ -174,7 +174,10 @@ class Model(nn.Module):
         # Finest scale mixes alone; each coarser scale mixes concatenated with
         # the previous scale's mixed tail (Algorithm 1).
         self.finest_chain = nn.ModuleList(
-            [TemporalMixingBlock(patch_nums[0], d_model, connection_probability, mixing_dropout) for _ in range(eib_num_1scale)]
+            [
+                TemporalMixingBlock(patch_nums[0], d_model, connection_probability, mixing_dropout)
+                for _ in range(eib_num_1scale)
+            ]
         )
         self.coarser_chains = nn.ModuleList()
         running_patch_num = patch_nums[0]
@@ -182,7 +185,10 @@ class Model(nn.Module):
             paired_num = running_patch_num + patch_num
             self.coarser_chains.append(
                 nn.ModuleList(
-                    [TemporalMixingBlock(paired_num, d_model, connection_probability, mixing_dropout) for _ in range(eib_num)]
+                    [
+                        TemporalMixingBlock(paired_num, d_model, connection_probability, mixing_dropout)
+                        for _ in range(eib_num)
+                    ]
                 )
             )
             running_patch_num = patch_num
@@ -212,7 +218,7 @@ class Model(nn.Module):
             paired = torch.cat([mixed, raw_tokens], dim=1)
             for block in chain:
                 paired = block(paired)
-            mixed = paired[:, -raw_tokens.shape[1]:, :]
+            mixed = paired[:, -raw_tokens.shape[1] :, :]
             finished.append(mixed)
 
         # Exposed for structural tests: one patch count per scale, after MPMC

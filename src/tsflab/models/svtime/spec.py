@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.svtime.model import Model
-
-from pydantic import BaseModel, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):
@@ -17,7 +17,7 @@ class ModelParameterConfig(BaseModel):
     subtract_last: bool = False
 
     @model_validator(mode="after")
-    def _patch_fits_period(self) -> "ModelParameterConfig":
+    def _patch_fits_period(self) -> ModelParameterConfig:
         if self.patch_size > self.period:
             raise ValueError("patch_size must be in [1, period]")
         return self

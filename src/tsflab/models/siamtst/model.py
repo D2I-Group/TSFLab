@@ -99,8 +99,9 @@ class EncoderLayer(nn.Module):
 class Backbone(nn.Module):
     """Eq. (1) patch projection plus positional table, ``e_layers`` encoder layers, final RMSNorm."""
 
-    def __init__(self, patches, patch_size, d_model, n_heads, e_layers, d_ff, attn_dropout,
-                 ffn_dropout, pre_norm, qk_norm, bias) -> None:
+    def __init__(
+        self, patches, patch_size, d_model, n_heads, e_layers, d_ff, attn_dropout, ffn_dropout, pre_norm, qk_norm, bias
+    ) -> None:
         super().__init__()
         self.patch_proj = nn.Linear(patch_size, d_model)
         self.position = nn.Parameter(torch.empty(patches, d_model).uniform_(-0.02, 0.02))
@@ -170,8 +171,17 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in, affine=False)
         self.pair_revin = RevIN(enc_in, affine=False)
         self.backbone = Backbone(
-            self.patches, patch_size, d_model, n_heads, e_layers, d_ff,
-            attn_dropout, ffn_dropout, pre_norm, qk_norm, bias,
+            self.patches,
+            patch_size,
+            d_model,
+            n_heads,
+            e_layers,
+            d_ff,
+            attn_dropout,
+            ffn_dropout,
+            pre_norm,
+            qk_norm,
+            bias,
         )
         # Pre-training head: per-patch reconstruction; forecasting head: flatten + linear.
         self.pretrain_head = nn.Sequential(nn.Dropout(head_dropout), nn.Linear(d_model, patch_size))
@@ -227,11 +237,15 @@ class Model(nn.Module):
         self.to(device)
         if self.pretrain_epochs > 0 and len(train_loader) > 0:
             optimizer = torch.optim.AdamW(
-                self.parameters(), lr=self.pretrain_lr,
-                weight_decay=self.pretrain_weight_decay, betas=(0.9, 0.98),
+                self.parameters(),
+                lr=self.pretrain_lr,
+                weight_decay=self.pretrain_weight_decay,
+                betas=(0.9, 0.98),
             )
             scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                optimizer, max_lr=self.pretrain_lr, epochs=self.pretrain_epochs,
+                optimizer,
+                max_lr=self.pretrain_lr,
+                epochs=self.pretrain_epochs,
                 steps_per_epoch=len(train_loader),
             )
             self.train()

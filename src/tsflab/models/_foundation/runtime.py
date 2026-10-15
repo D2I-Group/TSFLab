@@ -70,16 +70,11 @@ def _validate_forecast(
 ) -> None:
     expected_mean = (series, prediction_length)
     if tuple(forecast.mean.shape) != expected_mean:
-        raise ValueError(
-            f"foundation mean shape {tuple(forecast.mean.shape)} != {expected_mean}"
-        )
+        raise ValueError(f"foundation mean shape {tuple(forecast.mean.shape)} != {expected_mean}")
     if forecast.quantiles is not None:
         expected_quantiles = (series, prediction_length, quantiles)
         if tuple(forecast.quantiles.shape) != expected_quantiles:
-            raise ValueError(
-                "foundation quantile shape "
-                f"{tuple(forecast.quantiles.shape)} != {expected_quantiles}"
-            )
+            raise ValueError(f"foundation quantile shape {tuple(forecast.quantiles.shape)} != {expected_quantiles}")
     if not torch.isfinite(forecast.mean).all():
         raise ValueError("foundation runtime returned non-finite mean values")
     if forecast.quantiles is not None and not torch.isfinite(forecast.quantiles).all():
@@ -98,9 +93,7 @@ class FoundationModel(nn.Module):
         super().__init__()
         if prediction_length < 1:
             raise ValueError("prediction_length must be positive")
-        if quantile_levels and any(
-            left >= right for left, right in zip(quantile_levels, quantile_levels[1:])
-        ):
+        if quantile_levels and any(left >= right for left, right in zip(quantile_levels, quantile_levels[1:])):
             raise ValueError("quantile_levels must be strictly increasing")
         if any(not 0 < level < 1 for level in quantile_levels):
             raise ValueError("quantile_levels must lie strictly between zero and one")
@@ -114,9 +107,7 @@ class FoundationModel(nn.Module):
             raise ValueError("foundation input must have shape [batch, time, channels]")
         batch, _, channels = x_enc.shape
         context = x_enc.permute(0, 2, 1).reshape(batch * channels, -1)
-        forecast = self.runtime.predict(
-            context, self.prediction_length, self.quantile_levels
-        )
+        forecast = self.runtime.predict(context, self.prediction_length, self.quantile_levels)
         _validate_forecast(
             forecast,
             series=batch * channels,
@@ -129,6 +120,4 @@ class FoundationModel(nn.Module):
             return forecast.quantiles.reshape(
                 batch, channels, self.prediction_length, len(self.quantile_levels)
             ).permute(0, 2, 1, 3)
-        return forecast.mean.reshape(
-            batch, channels, self.prediction_length
-        ).permute(0, 2, 1)
+        return forecast.mean.reshape(batch, channels, self.prediction_length).permute(0, 2, 1)

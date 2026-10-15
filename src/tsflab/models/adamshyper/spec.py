@@ -1,11 +1,9 @@
 """Runtime specification for AdaMSHyper."""
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.adamshyper.model import Model
-
-"""Validated parameters for AdaMSHyper."""
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ModelParameterConfig(BaseModel):

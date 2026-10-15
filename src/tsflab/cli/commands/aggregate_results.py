@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-
-from tsflab.cli.args import add_name, add_option, resolve_name
 import csv
 import glob
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
+
+from tsflab.cli.args import add_name, add_option, resolve_name
 
 
 @dataclass(frozen=True)
@@ -93,9 +93,7 @@ def _match_condition(row: dict[str, str], condition: FilterCondition) -> bool:
     return False
 
 
-def _filter_rows(
-    rows: Iterable[dict[str, str]], conditions: list[FilterCondition]
-) -> list[dict[str, str]]:
+def _filter_rows(rows: Iterable[dict[str, str]], conditions: list[FilterCondition]) -> list[dict[str, str]]:
     if not conditions:
         return list(rows)
     result = []
@@ -114,7 +112,7 @@ def _read_csvs(paths: list[str]) -> tuple[list[str], list[dict[str, str]]]:
     fieldnames: list[str] = []
     rows: list[dict[str, str]] = []
     for path in paths:
-        with open(path, "r", newline="") as handle:
+        with open(path, newline="") as handle:
             reader = csv.DictReader(handle)
             if not reader.fieldnames:
                 continue
@@ -224,15 +222,11 @@ def _collapse_rows(
             for model, frac in sorted(dropped, key=lambda kv: -kv[1]):
                 missing_n = round(frac * n_cells)
                 log.append(
-                    f"  - {model}: {missing_n}/{n_cells} cells missing "
-                    f"(null_frac={frac:.3f} > {null_threshold})"
+                    f"  - {model}: {missing_n}/{n_cells} cells missing (null_frac={frac:.3f} > {null_threshold})"
                 )
                 keep_models.discard(model)
         else:
-            log.append(
-                f"[fairness] null-threshold={null_threshold}: no models exceed "
-                f"threshold; none excluded."
-            )
+            log.append(f"[fairness] null-threshold={null_threshold}: no models exceed threshold; none excluded.")
 
     # Build collapsed rows for surviving (model, pred_len) cells.
     collapsed: list[dict[str, str]] = []
@@ -252,8 +246,7 @@ def _collapse_rows(
         n_missing = sum(1 for v in cell_values.values() if v[m] is None)
         if n_missing and col_mean is not None:
             log.append(
-                f"[fairness] fill-nan-with-mean: filling {n_missing} NaN {m} "
-                f"cell(s) with column mean={col_mean:.6f}"
+                f"[fairness] fill-nan-with-mean: filling {n_missing} NaN {m} cell(s) with column mean={col_mean:.6f}"
             )
             for v in cell_values.values():
                 if v[m] is None:
@@ -270,14 +263,27 @@ def _collapse_rows(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="tsf result aggregate",
-        description="Aggregate performance and profile CSVs for a dataset"
+        prog="tsf result aggregate", description="Aggregate performance and profile CSVs for a dataset"
     )
     add_name(parser, "dataset", flag="--dataset", help="dataset name (work_dirs/<dataset>/)")
-    add_option(parser, "--records", "work_dir", "--work-dir", type=str, default="./work_dirs",
-               help="run-records root (default ./work_dirs)")
-    add_option(parser, "--out", "output", "--output", type=str, default=None,
-               help="output CSV path (default: <records>/<dataset>/results_all.csv)")
+    add_option(
+        parser,
+        "--records",
+        "work_dir",
+        "--work-dir",
+        type=str,
+        default="./work_dirs",
+        help="run-records root (default ./work_dirs)",
+    )
+    add_option(
+        parser,
+        "--out",
+        "output",
+        "--output",
+        type=str,
+        default=None,
+        help="output CSV path (default: <records>/<dataset>/results_all.csv)",
+    )
     parser.add_argument(
         "--filter",
         type=str,
@@ -402,18 +408,11 @@ def main() -> None:
 
     output_rows = filtered_rows
     if args.collapse:
-        metric_cols = [
-            c.strip() for c in args.metric_cols.split(",") if c.strip()
-        ]
+        metric_cols = [c.strip() for c in args.metric_cols.split(",") if c.strip()]
         missing_metrics = [c for c in metric_cols if c not in output_fields]
         if missing_metrics:
-            print(
-                "Warning: metric columns not present, fairness collapse may be "
-                f"empty: {', '.join(missing_metrics)}"
-            )
-        output_rows, fairness_log = _collapse_rows(
-            filtered_rows, metric_cols, args.aggregate, args.null_threshold
-        )
+            print(f"Warning: metric columns not present, fairness collapse may be empty: {', '.join(missing_metrics)}")
+        output_rows, fairness_log = _collapse_rows(filtered_rows, metric_cols, args.aggregate, args.null_threshold)
         for line in fairness_log:
             print(line)
         # Collapsed rows only carry model, pred_len, and metric columns.

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.stnorm.model import Model
-
-from pydantic import BaseModel
 
 
 class ModelParameterConfig(BaseModel):

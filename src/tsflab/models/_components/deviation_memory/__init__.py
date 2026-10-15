@@ -102,7 +102,9 @@ class PrototypeMemory(nn.Module):
         del top_scores
         nearest = self.prototypes[indices[..., 0]]
         second_nearest = self.prototypes[indices[..., 1]]
-        return PrototypeRetrieval(value=value, query=query, nearest=nearest, second_nearest=second_nearest, indices=indices)
+        return PrototypeRetrieval(
+            value=value, query=query, nearest=nearest, second_nearest=second_nearest, indices=indices
+        )
 
 
 def deviation_score(current: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:

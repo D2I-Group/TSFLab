@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from tsflab.experiments.runner.objective import TrainingBatch
+from pydantic import BaseModel, Field
 
 from tsflab.catalog.registry.models import ModelSpec
+from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.models.timefilter.model import Model
-
-from pydantic import BaseModel, Field
 
 
 class ModelParameterConfig(BaseModel):

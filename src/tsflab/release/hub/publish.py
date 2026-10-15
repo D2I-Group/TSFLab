@@ -25,8 +25,14 @@ def _api():
     return HfApi()
 
 
-def push(bundle_dir: Path, path_in_repo: str, repo_id: str = DEFAULT_WEIGHTS_REPO,
-         *, private: bool = True, create: bool = False) -> HubURI:
+def push(
+    bundle_dir: Path,
+    path_in_repo: str,
+    repo_id: str = DEFAULT_WEIGHTS_REPO,
+    *,
+    private: bool = True,
+    create: bool = False,
+) -> HubURI:
     """Upload one bundle directory and return its URI pinned to the new commit."""
     api = _api()
     if create:
@@ -41,8 +47,9 @@ def push(bundle_dir: Path, path_in_repo: str, repo_id: str = DEFAULT_WEIGHTS_REP
     return HubURI(repo_id=repo_id, revision=commit.oid, path=path_in_repo)
 
 
-def list_bundles(repo_id: str = DEFAULT_WEIGHTS_REPO, revision: str = "main",
-                 dataset: str | None = None, model: str | None = None) -> list[str]:
+def list_bundles(
+    repo_id: str = DEFAULT_WEIGHTS_REPO, revision: str = "main", dataset: str | None = None, model: str | None = None
+) -> list[str]:
     """Return bundle directories present in ``repo_id``.
 
     Bundles live at ``checkpoints/<track>/<dataset>/<model>/<run_id>``; the
@@ -127,16 +134,20 @@ reproducible from its pinned revision. Maintained by the `weekly` workflow.
 
 Every dataset keeps the license of its original source; see its TSFLab
 dataset card for provenance and terms. Releases before TSFLab 1.0 (0.8.0) read
-the frozen `TSFLab-Static` repository instead.""")
+the frozen `TSFLab-Static` repository instead.""",
+    )
 
 
 def repository_plan(owner: str = DEFAULT_OWNER) -> list[dict[str, str]]:
     """Return the published repositories: id, type, and README card."""
     return [
         {"repo_id": f"{owner}/TSFLab-Datasets", "repo_type": "dataset", "card": _datasets_card()},
-        {"repo_id": f"{owner}/TSFLab-Checkpoints", "repo_type": "model", "card": _card(
-            {"license": "mit", "library_name": "tsflab"},
-            f"""
+        {
+            "repo_id": f"{owner}/TSFLab-Checkpoints",
+            "repo_type": "model",
+            "card": _card(
+                {"license": "mit", "library_name": "tsflab"},
+                f"""
 # TSFLab checkpoints and results
 
 Run results and top-ranked trained checkpoints of [TSFLab]({_SOURCE}):
@@ -149,15 +160,29 @@ Run results and top-ranked trained checkpoints of [TSFLab]({_SOURCE}):
 | `legacy/` | every TSEval-era result and weight, archived and not ranked |
 
 Publish with `tsf result hub results push` and `tsf result hub push-top`; load a
-checkpoint with `tsf result hub pull hf://{owner}/TSFLab-Checkpoints@<revision>/checkpoints/...`.""")},
-        {"repo_id": f"{owner}/TSFLab", "repo_type": "space", "card": _card(
-            {"title": "TSFLab Leaderboard", "emoji": '"📈"', "colorFrom": "gray",
-             "colorTo": "yellow", "sdk": "static", "pinned": "false", "license": "mit"},
-            f"""
+checkpoint with `tsf result hub pull hf://{owner}/TSFLab-Checkpoints@<revision>/checkpoints/...`.""",
+            ),
+        },
+        {
+            "repo_id": f"{owner}/TSFLab",
+            "repo_type": "space",
+            "card": _card(
+                {
+                    "title": "TSFLab Leaderboard",
+                    "emoji": '"📈"',
+                    "colorFrom": "gray",
+                    "colorTo": "yellow",
+                    "sdk": "static",
+                    "pinned": "false",
+                    "license": "mit",
+                },
+                f"""
 # TSFLab Leaderboard
 
 Static leaderboard built from `apps/web` of [TSFLab]({_SOURCE}) and the board in
-`TSFLab-Checkpoints`.""")},
+`TSFLab-Checkpoints`.""",
+            ),
+        },
     ]
 
 
@@ -166,8 +191,9 @@ Static leaderboard built from `apps/web` of [TSFLab]({_SOURCE}) and the board in
 LEGACY_NAMES = {"TSFLab": "TSEval", "TSFLab-Checkpoints": "TSFLab-Weights"}
 
 
-def init_repositories(owner: str = DEFAULT_OWNER, *, private: bool = False,
-                      migrate: bool = False, dry_run: bool = False) -> list[str]:
+def init_repositories(
+    owner: str = DEFAULT_OWNER, *, private: bool = False, migrate: bool = False, dry_run: bool = False
+) -> list[str]:
     """Create any missing published repositories and write their cards (idempotent).
 
     With ``migrate``, a missing repository whose TSEval predecessor exists is
@@ -183,13 +209,20 @@ def init_repositories(owner: str = DEFAULT_OWNER, *, private: bool = False,
             action = f"create (or rename from {owner}/{legacy})" if legacy else "create"
             created.append(f"{action} {kind}:{item['repo_id']}")
             continue
-        if legacy and not api.repo_exists(item["repo_id"], repo_type=kind) \
-                and api.repo_exists(f"{owner}/{legacy}", repo_type=kind):
+        if (
+            legacy
+            and not api.repo_exists(item["repo_id"], repo_type=kind)
+            and api.repo_exists(f"{owner}/{legacy}", repo_type=kind)
+        ):
             api.move_repo(f"{owner}/{legacy}", item["repo_id"], repo_type=kind)
         extra = {"space_sdk": "static"} if kind == "space" else {}
         api.create_repo(item["repo_id"], repo_type=kind, private=private, exist_ok=True, **extra)
-        api.upload_file(path_or_fileobj=item["card"].encode("utf-8"), path_in_repo="README.md",
-                        repo_id=item["repo_id"], repo_type=kind,
-                        commit_message="docs: repository card")
+        api.upload_file(
+            path_or_fileobj=item["card"].encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=item["repo_id"],
+            repo_type=kind,
+            commit_message="docs: repository card",
+        )
         created.append(f"{kind}:{item['repo_id']}")
     return created

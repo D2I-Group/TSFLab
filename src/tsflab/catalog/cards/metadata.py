@@ -56,7 +56,7 @@ def declared_model_name(spec_file: Path) -> str | None:
     if match is None:
         return None
     try:
-        statement = ast.parse(text[match.start():]).body[0]
+        statement = ast.parse(text[match.start() :]).body[0]
         value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else None
         keywords = value.keywords if isinstance(value, ast.Call) else []
         name = next((_literal(k.value) for k in keywords if k.arg == "name"), None)
@@ -116,10 +116,7 @@ def read_model_card(path: Path) -> dict[str, object]:
             "year": paper.get("year"),
             "url": paper.get("url", ""),
         },
-        "codebase": (
-            {"url": code["url"], "revision": code["revision"], "license": code["license"]}
-            if code else None
-        ),
+        "codebase": ({"url": code["url"], "revision": code["revision"], "license": code["license"]} if code else None),
         "fits": list(facts.get("fits") or []),
         "fidelity": facts.get("fidelity", ""),
         "data_params": dict(facts.get("data_params") or {}),
@@ -128,9 +125,7 @@ def read_model_card(path: Path) -> dict[str, object]:
     }
 
 
-def model_records(
-    root: Path, refs: dict[str, str] | None = None
-) -> list[dict[str, object]]:
+def model_records(root: Path, refs: dict[str, str] | None = None) -> list[dict[str, object]]:
     """Return one record per catalog model (spec runtime fields + card metadata).
 
     The catalog is derived from the model packages (see
@@ -160,5 +155,3 @@ def model_records(
         fields["model_card"] = str(card_path.relative_to(root))
         records.append(fields)
     return sorted(records, key=lambda record: str(record["name"]).casefold())
-
-

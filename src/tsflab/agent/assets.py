@@ -9,7 +9,6 @@ from tsflab.agent.index import render_index
 from tsflab.agent.modules import MODULES, owners
 from tsflab.core.paths import is_packaged_root, repository_root
 
-
 ROOT = repository_root()
 SKILLS = ROOT / ".agents" / "skills"
 STANDARDS = ROOT / ".agents" / "STANDARDS.md"
@@ -89,38 +88,28 @@ def audit_agent_assets() -> list[str]:
 
     for skill_file in sorted(SKILLS.rglob("SKILL.md")):
         if skill_file.parent.parent != SKILLS:
-            errors.append(
-                f"{skill_file.relative_to(ROOT)}: skills must be one level below .agents/skills"
-            )
+            errors.append(f"{skill_file.relative_to(ROOT)}: skills must be one level below .agents/skills")
 
     seen: set[str] = set()
     for skill_file in sorted(SKILLS.glob("*/SKILL.md")):
         text = skill_file.read_text(encoding="utf-8")
         if len(text.splitlines()) > 80:
-            errors.append(
-                f"{skill_file.relative_to(ROOT)}: exceeds the 80-line entrypoint budget"
-            )
+            errors.append(f"{skill_file.relative_to(ROOT)}: exceeds the 80-line entrypoint budget")
         match = re.match(r"^---\n(?P<header>.*?)\n---\n", text, re.DOTALL)
         if match is None:
             errors.append(f"{skill_file.relative_to(ROOT)}: missing YAML frontmatter")
             continue
         header = match.group("header")
         name_match = re.search(r"^name:\s*[\"']?([^\"'\n]+)", header, re.MULTILINE)
-        desc_match = re.search(
-            r"^description:\s*(?P<description>.+?)\s*$", header, re.MULTILINE
-        )
+        desc_match = re.search(r"^description:\s*(?P<description>.+?)\s*$", header, re.MULTILINE)
         if name_match is None:
             errors.append(f"{skill_file.relative_to(ROOT)}: missing name")
             continue
         name = name_match.group(1).strip()
         if len(name) > 64 or re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name) is None:
-            errors.append(
-                f"{skill_file.relative_to(ROOT)}: name must be 1-64 kebab-case characters"
-            )
+            errors.append(f"{skill_file.relative_to(ROOT)}: name must be 1-64 kebab-case characters")
         if name != skill_file.parent.name:
-            errors.append(
-                f"{skill_file.relative_to(ROOT)}: name {name!r} does not match directory"
-            )
+            errors.append(f"{skill_file.relative_to(ROOT)}: name {name!r} does not match directory")
         if name in seen:
             errors.append(f"duplicate skill name: {name}")
         seen.add(name)
@@ -128,16 +117,10 @@ def audit_agent_assets() -> list[str]:
             errors.append(f"{skill_file.relative_to(ROOT)}: missing description")
         else:
             description = desc_match.group("description").strip()
-            if (
-                len(description) >= 2
-                and description[0] == description[-1]
-                and description[0] in "\"'"
-            ):
+            if len(description) >= 2 and description[0] == description[-1] and description[0] in "\"'":
                 description = description[1:-1].strip()
             if not description or len(description) > 1024:
-                errors.append(
-                    f"{skill_file.relative_to(ROOT)}: description must be 1-1024 characters"
-                )
+                errors.append(f"{skill_file.relative_to(ROOT)}: description must be 1-1024 characters")
         compatibility_paths = (
             ".claude/skills",
             ".pi/skills",
@@ -145,27 +128,19 @@ def audit_agent_assets() -> list[str]:
             "CLAUDE.md",
         )
         if any(path in text for path in compatibility_paths):
-            errors.append(
-                f"{skill_file.relative_to(ROOT)}: references a harness compatibility path"
-            )
+            errors.append(f"{skill_file.relative_to(ROOT)}: references a harness compatibility path")
         for human_path in ("docs/en/", "CONTRIBUTING.md"):
             if human_path in text:
-                errors.append(
-                    f"{skill_file.relative_to(ROOT)}: depends on human documentation {human_path!r}"
-                )
+                errors.append(f"{skill_file.relative_to(ROOT)}: depends on human documentation {human_path!r}")
         for target in re.findall(r"\]\(([^)]+)\)", text):
             if "://" in target or target.startswith(("#", "/")):
                 continue
             resolved = skill_file.parent / target.split("#", 1)[0]
             if not resolved.exists():
-                errors.append(
-                    f"{skill_file.relative_to(ROOT)}: missing linked resource {target!r}"
-                )
+                errors.append(f"{skill_file.relative_to(ROOT)}: missing linked resource {target!r}")
         for obsolete in ("tool/", "modern-tsf", "moderntsf", "MODEL_NAME_MAP", "registry.py", "schema.py"):
             if obsolete in text:
-                errors.append(
-                    f"{skill_file.relative_to(ROOT)}: references obsolete interface {obsolete!r}"
-                )
+                errors.append(f"{skill_file.relative_to(ROOT)}: references obsolete interface {obsolete!r}")
 
     errors.extend(audit_module_map(seen))
     errors.extend(_module_command_problems())

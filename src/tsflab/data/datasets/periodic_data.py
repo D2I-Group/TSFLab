@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 
-from tsflab.data.schemas.datasets.periodic import DatasetParameterConfig
 from tsflab.catalog.registry import DATASET_REGISTRY
 from tsflab.data.datasets.base import ForecastingDataset
+from tsflab.data.schemas.datasets.periodic import DatasetParameterConfig
 
 
 class Dataset_periodic(ForecastingDataset):
@@ -58,20 +56,16 @@ class Dataset_periodic(ForecastingDataset):
         """Return number of independent samples in the split."""
         return len(self.data)
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         """Return one sample window and optional timestamps."""
         sample = self.data[index]
         input_series = sample[: self.seq_len]
-        output_series = sample[
-            self.seq_len - self.label_len : self.seq_len + self.pred_len
-        ]
+        output_series = sample[self.seq_len - self.label_len : self.seq_len + self.pred_len]
 
         if self.time_stamp is not None:
             stamp = self.time_stamp[index]
             input_stamp = stamp[: self.seq_len]
-            output_stamp = stamp[
-                self.seq_len - self.label_len : self.seq_len + self.pred_len
-            ]
+            output_stamp = stamp[self.seq_len - self.label_len : self.seq_len + self.pred_len]
         else:
             input_stamp, output_stamp = None, None
 
@@ -92,7 +86,7 @@ class Dataset_periodic(ForecastingDataset):
         target: str,
         split_ratio: tuple[float, float, float],
         scale: bool,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Generate periodic sine data and return split series and timestamps."""
         total_len = self.seq_len + self.pred_len
         num_samples = self.num_samples
@@ -108,15 +102,11 @@ class Dataset_periodic(ForecastingDataset):
         phase_offset = phase_offset[:, None, None]
 
         amp_low, amp_high = self.amplitude_range
-        amplitude = np.random.uniform(
-            amp_low, amp_high, size=(num_samples, 1, self.channel_number)
-        )
+        amplitude = np.random.uniform(amp_low, amp_high, size=(num_samples, 1, self.channel_number))
 
         if self.random_phase:
             phase_low, phase_high = self.phase_range
-            random_phase = np.random.uniform(
-                phase_low, phase_high, size=(num_samples, 1, self.channel_number)
-            )
+            random_phase = np.random.uniform(phase_low, phase_high, size=(num_samples, 1, self.channel_number))
         else:
             random_phase = 0.0
 
@@ -165,16 +155,12 @@ class Dataset_periodic(ForecastingDataset):
         flag_map = {"train": 0, "val": 1, "test": 2}
         idx = flag_map[flag]
         total_ratio = sum(split_ratio)
-        cum_ratios = [
-            sum(split_ratio[: i + 1]) / total_ratio for i in range(len(split_ratio))
-        ]
+        cum_ratios = [sum(split_ratio[: i + 1]) / total_ratio for i in range(len(split_ratio))]
         border1 = int(cum_ratios[idx - 1] * num_samples) if idx > 0 else 0
         border2 = int(cum_ratios[idx] * num_samples)
         return border1, border2
 
-    def _build_time_stamp_matrix(
-        self, total_len: int, cycle_start: np.ndarray
-    ) -> np.ndarray:
+    def _build_time_stamp_matrix(self, total_len: int, cycle_start: np.ndarray) -> np.ndarray:
         t = np.arange(total_len, dtype=np.int64)
         hour = (t[None, :] + cycle_start[:, None]) % self.period
         day = (t[None, :] // self.period).astype(np.int64)
@@ -192,6 +178,8 @@ class Dataset_periodic(ForecastingDataset):
 def register() -> None:
     """Register the periodic dataset."""
     DATASET_REGISTRY.register(
-        "periodic", Dataset_periodic, DatasetParameterConfig,
+        "periodic",
+        Dataset_periodic,
+        DatasetParameterConfig,
         task_modes=frozenset({"time_series"}),
     )

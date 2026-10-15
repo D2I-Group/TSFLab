@@ -75,21 +75,15 @@ class Model(nn.Module):
         return self._forecast_and_embedding(x_enc)[0]
 
     @staticmethod
-    def embedding_similarity_penalty(
-        embeddings: torch.Tensor, targets: torch.Tensor
-    ) -> torch.Tensor:
+    def embedding_similarity_penalty(embeddings: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Equation (11)--(13): match pairwise embedding/target geometry."""
         if embeddings.shape[0] != targets.shape[0]:
             raise ValueError("embeddings and targets must share a batch dimension")
         batch = embeddings.shape[0]
         flat_embedding = embeddings.reshape(batch, -1)
         flat_target = targets.reshape(batch, -1)
-        delta_embedding = (
-            flat_embedding[:, None] - flat_embedding[None, :]
-        ).square().mean(-1)
-        delta_target = (
-            flat_target[:, None] - flat_target[None, :]
-        ).square().mean(-1)
+        delta_embedding = (flat_embedding[:, None] - flat_embedding[None, :]).square().mean(-1)
+        delta_target = (flat_target[:, None] - flat_target[None, :]).square().mean(-1)
         return (delta_embedding - delta_target).abs().mean()
 
     def adaptive_masking_loss(
@@ -106,9 +100,7 @@ class Model(nn.Module):
         if mask_lengths is None:
             # Even spacing is deterministic; callers can supply randomly sampled
             # lengths to reproduce the paper's stochastic training procedure.
-            candidates = torch.linspace(
-                1, self.seq_len, self.mask_samples, device=x.device
-            ).round().to(torch.long)
+            candidates = torch.linspace(1, self.seq_len, self.mask_samples, device=x.device).round().to(torch.long)
         else:
             candidates = mask_lengths.to(device=x.device, dtype=torch.long).flatten()
             if candidates.numel() < 1:
@@ -119,20 +111,14 @@ class Model(nn.Module):
         candidate_embeddings: list[torch.Tensor] = []
         for length in candidates:
             lengths = length.expand(x.shape[0])
-            masked_forecast, masked_embedding = self._forecast_and_embedding(
-                self.prefix_mask(x, lengths)
-            )
-            candidate_losses.append(
-                (masked_forecast - target).square().mean(dim=(1, 2))
-            )
+            masked_forecast, masked_embedding = self._forecast_and_embedding(self.prefix_mask(x, lengths))
+            candidate_losses.append((masked_forecast - target).square().mean(dim=(1, 2)))
             candidate_embeddings.append(masked_embedding)
 
         losses = torch.stack(candidate_losses, dim=0)
         embeddings = torch.stack(candidate_embeddings, dim=0)
         best_loss, best_index = losses.min(dim=0)
-        gather_index = best_index.view(1, -1, 1, 1).expand(
-            1, x.shape[0], self.enc_in, embedding.shape[-1]
-        )
+        gather_index = best_index.view(1, -1, 1, 1).expand(1, x.shape[0], self.enc_in, embedding.shape[-1])
         best_embedding = embeddings.gather(0, gather_index).squeeze(0)
         beta = ((original_loss - best_loss) / original_loss.clamp_min(1e-8)).clamp_min(0)
         distance = (embedding - best_embedding).square().mean(dim=(1, 2))

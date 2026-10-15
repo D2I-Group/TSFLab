@@ -34,9 +34,7 @@ class SemiChannelInteraction(nn.Module):
 
     def __init__(self, length: int, channels: int, hidden_size: int) -> None:
         super().__init__()
-        self.commonality = nn.Sequential(
-            nn.Linear(channels, channels), nn.LeakyReLU(), nn.Linear(channels, 1)
-        )
+        self.commonality = nn.Sequential(nn.Linear(channels, channels), nn.LeakyReLU(), nn.Linear(channels, 1))
         self.common_temporal = nn.Sequential(
             nn.Linear(length, hidden_size), nn.LeakyReLU(), nn.Linear(hidden_size, length)
         )

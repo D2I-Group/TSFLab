@@ -37,9 +37,7 @@ class ModelParameterConfig(BaseModel):
 
 
 def build_model(cfg, params):
-    options = {
-        key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")
-    }
+    options = {key: value for key, value in params.items() if key not in ("enc_in", "num_nodes", "adj_mx")}
     options["anchors"] = tuple(options["anchors"])
     return Model(
         seq_len=cfg.task.seq_len,

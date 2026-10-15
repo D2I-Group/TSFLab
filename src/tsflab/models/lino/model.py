@@ -141,9 +141,7 @@ class Model(nn.Module):
         self.enc_in = enc_in
         self.revin = RevIN(enc_in, eps=1e-5, affine=False)
         self.embedding = DataEmbedding_inverted(seq_len, d_model, dropout=dropout)
-        self.blocks = nn.ModuleList(
-            LiNoBlock(enc_in, d_model, pred_len, dropout) for _ in range(layers)
-        )
+        self.blocks = nn.ModuleList(LiNoBlock(enc_in, d_model, pred_len, dropout) for _ in range(layers))
 
     def block_predictions(self, normalized: torch.Tensor) -> list[tuple[torch.Tensor, torch.Tensor]]:
         """Per-level (linear, nonlinear) forecasts in normalized space, each [B, C, F]."""

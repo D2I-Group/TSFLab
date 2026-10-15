@@ -41,6 +41,7 @@ from tsflab.cli.inventory import overview
 
 __doc__ = f"{__doc__}\n{overview()}"
 
+
 def _lazy(module: str, name: str):
     def call(rest: list[str]) -> int:
         from importlib import import_module
@@ -84,10 +85,10 @@ COMMANDS = {
 def _without_format_json(argv: list[str]) -> list[str] | None:
     """``argv`` without the global ``--format json`` (any position), or None when it is absent."""
     for index, arg in enumerate(argv):
-        if arg == "--format" and argv[index + 1:index + 2] == ["json"]:
-            return argv[:index] + argv[index + 2:]
+        if arg == "--format" and argv[index + 1 : index + 2] == ["json"]:
+            return argv[:index] + argv[index + 2 :]
         if arg == "--format=json":
-            return argv[:index] + argv[index + 1:]
+            return argv[:index] + argv[index + 1 :]
     return None
 
 
@@ -97,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     stripped = _without_format_json(argv)
     if stripped is not None:
         from tsflab.cli.commands.envelope import envelope
+
         return envelope(stripped)
     if not argv or argv[0] in {"-h", "--help", "help"}:
         print(overview(), end="")

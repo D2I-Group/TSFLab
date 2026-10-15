@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import os
 import re
-from typing import Tuple
 
 import datasets as hf_datasets
 import numpy as np
@@ -67,14 +66,20 @@ _LEGACY_FIXED = {"H": "h", "T": "min", "S": "s", "L": "ms", "U": "us", "N": "ns"
 
 # Legacy and current period aliases -> (family, explicit anchor side or None).
 _PERIOD_FAMILY = {
-    "M": ("M", None), "ME": ("M", "E"), "MS": ("M", "S"),
-    "Q": ("Q", None), "QE": ("Q", "E"), "QS": ("Q", "S"),
-    "A": ("Y", None), "Y": ("Y", None), "YE": ("Y", "E"),
-    "AS": ("Y", "S"), "YS": ("Y", "S"),
+    "M": ("M", None),
+    "ME": ("M", "E"),
+    "MS": ("M", "S"),
+    "Q": ("Q", None),
+    "QE": ("Q", "E"),
+    "QS": ("Q", "S"),
+    "A": ("Y", None),
+    "Y": ("Y", None),
+    "YE": ("Y", "E"),
+    "AS": ("Y", "S"),
+    "YS": ("Y", "S"),
 }
 
-_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-           "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+_MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
 _FREQ_RE = re.compile(r"^(\d*)([A-Za-z]+)(?:-([A-Za-z]+))?$")
 
@@ -149,9 +154,7 @@ def _build_stamp(start: pd.Timestamp, freq: str, length: int) -> np.ndarray:
     ``freq`` may be a legacy alias as stored in the GIFT-EVAL files; it is
     translated with :func:`_pandas_freq` before building the index.
     """
-    dates = pd.date_range(
-        start=start, periods=length, freq=_pandas_freq(freq, start)
-    )
+    dates = pd.date_range(start=start, periods=length, freq=_pandas_freq(freq, start))
     return np.column_stack(
         [
             dates.year,
@@ -335,8 +338,7 @@ class Dataset_GiftEval(Dataset):
 
         if not all_x:
             raise RuntimeError(
-                "No test windows generated. "
-                "Series may be too short for the requested seq_len + pred_len."
+                "No test windows generated. Series may be too short for the requested seq_len + pred_len."
             )
         self._test_x = np.stack(all_x).astype(np.float32)
         self._test_y = np.stack(all_y).astype(np.float32)
@@ -419,7 +421,7 @@ class Dataset_GiftEval(Dataset):
     def __len__(self) -> int:
         return self._total_len
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         if self.flag == "test":
             return (
                 self._test_x[index],
@@ -461,7 +463,7 @@ class Dataset_GiftEval(Dataset):
         # With lengths sorted descending, (i + 1) series are at least lengths[i] long.
         best = max(range(len(lengths)), key=lambda i: lengths[i] * (i + 1))
         common = lengths[best]
-        kept = [r[len(r) - common:] for r in regions if len(r) >= common]
+        kept = [r[len(r) - common :] for r in regions if len(r) >= common]
         return np.concatenate(kept, axis=1)
 
     def inverse_transform(self, data: np.ndarray) -> np.ndarray:
@@ -478,7 +480,9 @@ class Dataset_GiftEval(Dataset):
 def register() -> None:
     """Register the GIFT-EVAL dataset under the name ``"gift_eval"``."""
     DATASET_REGISTRY.register(
-        "gift_eval", Dataset_GiftEval, GiftEvalParameterConfig,
+        "gift_eval",
+        Dataset_GiftEval,
+        GiftEvalParameterConfig,
         task_modes=frozenset({"time_series"}),
         storage="selector",
     )

@@ -30,7 +30,7 @@ class ModelParameterConfig(BaseModel):
     freq: Literal["h"] = "h"
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if self.sparse_ffn and round((1.0 - self.sparsity) * self.d_model * self.d_ff) < 1:

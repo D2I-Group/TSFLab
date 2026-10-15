@@ -15,9 +15,15 @@ def card_files(kind: str, facts: dict, description: str, sections: dict[str, str
     unknown = set(sections) - set(order)
     if unknown:
         raise ValueError(f"unknown README sections for {kind}: {sorted(unknown)}")
-    lines = ["---", f"name: {json.dumps(facts['name'])}",
-             f"description: {json.dumps(' '.join(description.split()))}", "---", "", f"# {facts['name']}", ""]
+    lines = [
+        "---",
+        f"name: {json.dumps(facts['name'])}",
+        f"description: {json.dumps(' '.join(description.split()))}",
+        "---",
+        "",
+        f"# {facts['name']}",
+        "",
+    ]
     for title in order:
         lines += [f"## {title}", "", sections.get(title, "").strip(), ""]
-    return {"card.toml": dumps(facts, inline=("data_params",)),
-            "README.md": "\n".join(lines).rstrip() + "\n"}
+    return {"card.toml": dumps(facts, inline=("data_params",)), "README.md": "\n".join(lines).rstrip() + "\n"}

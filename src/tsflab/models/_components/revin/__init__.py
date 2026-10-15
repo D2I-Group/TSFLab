@@ -44,9 +44,7 @@ class RevIN(nn.Module):
         if not self.enabled:
             return values
         if values.ndim < 3 or values.shape[-1] != self.num_features:
-            raise ValueError(
-                f"expected final feature width {self.num_features}, got {tuple(values.shape)}"
-            )
+            raise ValueError(f"expected final feature width {self.num_features}, got {tuple(values.shape)}")
         if mode == "norm":
             return self._normalize(values)
         if mode == "denorm":
@@ -66,11 +64,7 @@ class RevIN(nn.Module):
         axes = tuple(range(1, values.ndim - 1))
         mean = values.mean(dim=axes, keepdim=True)
         center = self._center_of(values, mean)
-        scale = (
-            values.var(dim=axes, keepdim=True, unbiased=False)
-            .add(self.eps)
-            .sqrt()
-        )
+        scale = values.var(dim=axes, keepdim=True, unbiased=False).add(self.eps).sqrt()
         self._center, self._scale = center.detach(), scale.detach()
         normalized = (values - self._center) / self._scale
         if self.affine:
@@ -82,7 +76,5 @@ class RevIN(nn.Module):
             raise RuntimeError("denorm requires a preceding norm call")
         restored = values
         if self.affine:
-            restored = (restored - self.affine_bias) / (
-                self.affine_weight + self.eps * self.eps
-            )
+            restored = (restored - self.affine_bias) / (self.affine_weight + self.eps * self.eps)
         return restored * self._scale + self._center

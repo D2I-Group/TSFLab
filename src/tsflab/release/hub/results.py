@@ -16,12 +16,12 @@ a write token, and explicit authorization.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import importlib.util
 import json
-from pathlib import Path
 import re
 import tempfile
+from dataclasses import dataclass
+from pathlib import Path
 
 from tsflab.core.leaderboard import iter_records, load_submissions
 from tsflab.release.hub.bundle import bundle_path, find_run, pack
@@ -47,8 +47,15 @@ def results_path(doc: dict, fallback_id: str) -> str:
     manifest = doc.get("manifest") or {}
     track = record.get("track") or manifest.get("track") or "time_series"
     submission_id = manifest.get("submission_id") or fallback_id
-    return "/".join((RESULTS_PREFIX, _segment(track), _segment(record.get("dataset_id")),
-                     _segment(record.get("model")), _segment(submission_id)))
+    return "/".join(
+        (
+            RESULTS_PREFIX,
+            _segment(track),
+            _segment(record.get("dataset_id")),
+            _segment(record.get("model")),
+            _segment(submission_id),
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -81,17 +88,25 @@ def collect(sources: list[Path]) -> tuple[list[ResultBundle], dict[Path, list[st
 
 def _chunks(items: list, size: int):
     for start in range(0, len(items), max(1, size)):
-        yield items[start:start + max(1, size)]
+        yield items[start : start + max(1, size)]
 
 
 def _existing(api, repo_id: str) -> set[str]:
     return set(api.list_repo_files(repo_id, repo_type="model"))
 
 
-def push_results(sources: list[Path], repo_id: str = DEFAULT_CHECKPOINTS_REPO, *,
-                 dry_run: bool = False, force: bool = False, skip_invalid: bool = False,
-                 batch: int = DEFAULT_BATCH, create: bool = False, private: bool = False,
-                 api=None) -> dict:
+def push_results(
+    sources: list[Path],
+    repo_id: str = DEFAULT_CHECKPOINTS_REPO,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    skip_invalid: bool = False,
+    batch: int = DEFAULT_BATCH,
+    create: bool = False,
+    private: bool = False,
+    api=None,
+) -> dict:
     """Upload validated bundles to ``results/``; skip bundles already present.
 
     Returns a summary with the planned ``paths`` and the new commit ids. A dry
@@ -101,8 +116,15 @@ def push_results(sources: list[Path], repo_id: str = DEFAULT_CHECKPOINTS_REPO, *
     if rejected and not skip_invalid:
         lines = [f"{path}: {'; '.join(errors[:3])}" for path, errors in sorted(rejected.items())]
         raise ValueError(f"{len(rejected)} invalid submission(s):\n  " + "\n  ".join(lines[:20]))
-    summary = {"repo": repo_id, "found": len(bundles), "rejected": len(rejected),
-               "skipped": 0, "uploaded": 0, "commits": [], "paths": [b.path_in_repo for b in bundles]}
+    summary = {
+        "repo": repo_id,
+        "found": len(bundles),
+        "rejected": len(rejected),
+        "skipped": 0,
+        "uploaded": 0,
+        "commits": [],
+        "paths": [b.path_in_repo for b in bundles],
+    }
     if dry_run:
         return summary
     from huggingface_hub import CommitOperationAdd
@@ -115,17 +137,25 @@ def push_results(sources: list[Path], repo_id: str = DEFAULT_CHECKPOINTS_REPO, *
     summary["skipped"] = len(bundles) - len(pending)
     summary["paths"] = [b.path_in_repo for b in pending]
     for chunk in _chunks(pending, batch):
-        operations = [CommitOperationAdd(path_in_repo=f"{b.path_in_repo}/{f.name}", path_or_fileobj=str(f))
-                      for b in chunk for f in b.files()]
-        commit = api.create_commit(repo_id=repo_id, repo_type="model", operations=operations,
-                                   commit_message=f"results: add {len(chunk)} submission(s)")
+        operations = [
+            CommitOperationAdd(path_in_repo=f"{b.path_in_repo}/{f.name}", path_or_fileobj=str(f))
+            for b in chunk
+            for f in b.files()
+        ]
+        commit = api.create_commit(
+            repo_id=repo_id,
+            repo_type="model",
+            operations=operations,
+            commit_message=f"results: add {len(chunk)} submission(s)",
+        )
         summary["commits"].append(commit.oid)
         summary["uploaded"] += len(chunk)
     return summary
 
 
-def results_pattern(track: str | None = None, dataset: str | None = None, model: str | None = None,
-                    *, metadata_only: bool = False) -> str:
+def results_pattern(
+    track: str | None = None, dataset: str | None = None, model: str | None = None, *, metadata_only: bool = False
+) -> str:
     """An ``allow_patterns`` glob for part of ``results/`` (``*`` also matches ``/``)."""
     parts = [_segment(p) if p else "*" for p in (track, dataset, model)]
     while parts and parts[-1] == "*":
@@ -134,9 +164,16 @@ def results_pattern(track: str | None = None, dataset: str | None = None, model:
     return "/".join([RESULTS_PREFIX, *parts, tail])
 
 
-def pull_results(repo_id: str = DEFAULT_CHECKPOINTS_REPO, out_dir: Path = Path("work_dirs/_hub"),
-                 *, revision: str = "main", track: str | None = None, dataset: str | None = None,
-                 model: str | None = None, metadata_only: bool = False) -> Path:
+def pull_results(
+    repo_id: str = DEFAULT_CHECKPOINTS_REPO,
+    out_dir: Path = Path("work_dirs/_hub"),
+    *,
+    revision: str = "main",
+    track: str | None = None,
+    dataset: str | None = None,
+    model: str | None = None,
+    metadata_only: bool = False,
+) -> Path:
     """Download ``results/`` (optionally one track/dataset/model) into ``out_dir``; return it."""
     try:
         from huggingface_hub import snapshot_download
@@ -145,8 +182,7 @@ def pull_results(repo_id: str = DEFAULT_CHECKPOINTS_REPO, out_dir: Path = Path("
     patterns = [results_pattern(track, dataset, model, metadata_only=metadata_only)]
     if metadata_only:
         patterns.append(CURATED)
-    snapshot_download(repo_id, repo_type="model", revision=revision,
-                      allow_patterns=patterns, local_dir=str(out_dir))
+    snapshot_download(repo_id, repo_type="model", revision=revision, allow_patterns=patterns, local_dir=str(out_dir))
     return Path(out_dir)
 
 
@@ -179,9 +215,15 @@ def build_board(results_root: Path, curated: dict | None = None) -> tuple[dict, 
     return board, meta, rejected
 
 
-def publish_board(repo_id: str = DEFAULT_CHECKPOINTS_REPO, *, local: Path | None = None,
-                  curated: Path | None = None, out_dir: Path | None = None,
-                  upload: bool = True, api=None) -> dict:
+def publish_board(
+    repo_id: str = DEFAULT_CHECKPOINTS_REPO,
+    *,
+    local: Path | None = None,
+    curated: Path | None = None,
+    out_dir: Path | None = None,
+    upload: bool = True,
+    api=None,
+) -> dict:
     """Regenerate ``board/leaderboard.json`` and ``board/model-meta.json``.
 
     Without ``local`` the submission files of ``results/`` (and
@@ -202,17 +244,29 @@ def publish_board(repo_id: str = DEFAULT_CHECKPOINTS_REPO, *, local: Path | None
         target.mkdir(parents=True, exist_ok=True)
         (target / "leaderboard.json").write_text(json.dumps(board, ensure_ascii=False, indent=1), encoding="utf-8")
         (target / "model-meta.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        summary = {"repo": repo_id, "n_submissions": board["n_submissions"], "n_rejected": len(rejected),
-                   "out_dir": str(target) if out_dir else None, "commit": None}
+            json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        summary = {
+            "repo": repo_id,
+            "n_submissions": board["n_submissions"],
+            "n_rejected": len(rejected),
+            "out_dir": str(target) if out_dir else None,
+            "commit": None,
+        }
         if upload:
             from huggingface_hub import CommitOperationAdd
 
             api = api or _api()
-            operations = [CommitOperationAdd(path_in_repo=f"{BOARD_PREFIX}/{name}",
-                                             path_or_fileobj=str(target / name)) for name in BOARD_FILES]
-            commit = api.create_commit(repo_id=repo_id, repo_type="model", operations=operations,
-                                       commit_message=f"board: {board['n_submissions']} submission(s)")
+            operations = [
+                CommitOperationAdd(path_in_repo=f"{BOARD_PREFIX}/{name}", path_or_fileobj=str(target / name))
+                for name in BOARD_FILES
+            ]
+            commit = api.create_commit(
+                repo_id=repo_id,
+                repo_type="model",
+                operations=operations,
+                commit_message=f"board: {board['n_submissions']} submission(s)",
+            )
             summary["commit"] = commit.oid
     return summary
 
@@ -242,8 +296,9 @@ def fetch_board_file(repo_id: str = DEFAULT_CHECKPOINTS_REPO, *, max_age_sec: in
 # ---------------------------------------------------------------------------
 
 
-def select_top_runs(dataset: str, *, horizon: str | None, top: int, metric: str = "mse",
-                    records: list[Path]) -> list[dict]:
+def select_top_runs(
+    dataset: str, *, horizon: str | None, top: int, metric: str = "mse", records: list[Path]
+) -> list[dict]:
     """Rank local runs with ``tsf result board`` and return the best run of each top row.
 
     Rows are (model variant, horizon) averages over seeds; each selected entry
@@ -251,8 +306,9 @@ def select_top_runs(dataset: str, *, horizon: str | None, top: int, metric: str 
     """
     from tsflab.cli.commands.result_board import board, local_runs
 
-    ranked = board(dataset, horizon=horizon, top=top, metric=metric, records=records,
-                   board_file=None, include_board=False)
+    ranked = board(
+        dataset, horizon=horizon, top=top, metric=metric, records=records, board_file=None, include_board=False
+    )
     runs = local_runs(records, dataset)
     selected = []
     for group in ranked["horizons"]:
@@ -266,18 +322,35 @@ def select_top_runs(dataset: str, *, horizon: str | None, top: int, metric: str 
                     if str(result.get("horizon")) != group["horizon"] or not isinstance(value, (int, float)):
                         continue
                     if best is None or value < best["run_metric"]:
-                        best = {"rank": rank, "model": row["model"], "horizon": group["horizon"],
-                                "row_metric": row[metric], "n_runs": row.get("n_runs", 1),
-                                "run_metric": value, "record": path,
-                                "run_id": result.get("run_id") or path.stem}
+                        best = {
+                            "rank": rank,
+                            "model": row["model"],
+                            "horizon": group["horizon"],
+                            "row_metric": row[metric],
+                            "n_runs": row.get("n_runs", 1),
+                            "run_metric": value,
+                            "record": path,
+                            "run_id": result.get("run_id") or path.stem,
+                        }
             if best is not None:
                 selected.append(best)
     return selected
 
 
-def push_top(dataset: str, *, horizon: str | None, top: int, metric: str = "mse",
-             records: list[Path], repo_id: str = DEFAULT_CHECKPOINTS_REPO, dry_run: bool = False,
-             force: bool = False, create: bool = False, private: bool = True, api=None) -> dict:
+def push_top(
+    dataset: str,
+    *,
+    horizon: str | None,
+    top: int,
+    metric: str = "mse",
+    records: list[Path],
+    repo_id: str = DEFAULT_CHECKPOINTS_REPO,
+    dry_run: bool = False,
+    force: bool = False,
+    create: bool = False,
+    private: bool = True,
+    api=None,
+) -> dict:
     """Pack and upload the checkpoints of the top-``top`` runs in one commit."""
     selected = select_top_runs(dataset, horizon=horizon, top=top, metric=metric, records=records)
     for entry in selected:
@@ -286,8 +359,7 @@ def push_top(dataset: str, *, horizon: str | None, top: int, metric: str = "mse"
         except FileNotFoundError as exc:
             entry["checkpoint"], entry["error"] = None, str(exc)
         record = json.loads(Path(entry["record"]).read_text(encoding="utf-8"))
-        entry["path_in_repo"] = bundle_path(record["dataset_id"], record["model"],
-                                            entry["run_id"], record.get("track"))
+        entry["path_in_repo"] = bundle_path(record["dataset_id"], record["model"], entry["run_id"], record.get("track"))
     summary = {"repo": repo_id, "selected": selected, "commit": None, "uploaded": [], "skipped": []}
     ready = [e for e in selected if e.get("checkpoint")]
     if dry_run or not ready:
@@ -305,8 +377,11 @@ def push_top(dataset: str, *, horizon: str | None, top: int, metric: str = "mse"
             pack(Path(entry["record"]), Path(entry["checkpoint"]), staging / entry["path_in_repo"])
             summary["uploaded"].append(entry["path_in_repo"])
         if summary["uploaded"]:
-            commit = api.upload_folder(repo_id=repo_id, repo_type="model", folder_path=str(staging),
-                                       commit_message=f"checkpoints: top {top} {dataset}"
-                                       + (f" H={horizon}" if horizon else ""))
+            commit = api.upload_folder(
+                repo_id=repo_id,
+                repo_type="model",
+                folder_path=str(staging),
+                commit_message=f"checkpoints: top {top} {dataset}" + (f" H={horizon}" if horizon else ""),
+            )
             summary["commit"] = commit.oid
     return summary

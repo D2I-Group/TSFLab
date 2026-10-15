@@ -1,11 +1,9 @@
 """Runtime specification for DPWMixer."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.dpwmixer.model import Model
-
-"""Validated parameters for DPWMixer."""
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelParameterConfig(BaseModel):

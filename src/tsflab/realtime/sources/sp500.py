@@ -18,8 +18,10 @@ from tsflab.realtime.sources.us_prices import close_with_fallback, nasdaq_close,
 from tsflab.realtime.tracks import TrackSpec
 
 CSV_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
-WIKI_URL = ("https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies"
-            "&prop=wikitext&section=1&format=json")
+WIKI_URL = (
+    "https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies"
+    "&prop=wikitext&section=1&format=json"
+)
 _HEADERS = {"User-Agent": "TSFLab real-time track (research)"}
 
 

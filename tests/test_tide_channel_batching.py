@@ -1,4 +1,5 @@
 """Check optimized execution against the original per-channel equations."""
+
 import copy
 
 import pytest
@@ -27,16 +28,29 @@ def original_forward(model, x, historical, future):
     return torch.stack(outputs, -1) * scale + mean
 
 
-@pytest.mark.parametrize('training,chunk_size', [(False, 20), (False, 2), (True, 20), (True, 2)])
+@pytest.mark.parametrize("training,chunk_size", [(False, 20), (False, 2), (True, 20), (True, 2)])
 def test_channel_batching_preserves_original_outputs_and_all_gradients(training, chunk_size):
     torch.manual_seed(73)
-    model = Model(seq_len=12, pred_len=7, d_model=8, e_layers=2, d_layers=2,
-                  d_ff=16, decoder_output_dim=3, time_feat_dim=6, dropout=0,
-                  bias=True, feature_encode_dim=2).double().train(training)
+    model = (
+        Model(
+            seq_len=12,
+            pred_len=7,
+            d_model=8,
+            e_layers=2,
+            d_layers=2,
+            d_ff=16,
+            decoder_output_dim=3,
+            time_feat_dim=6,
+            dropout=0,
+            bias=True,
+            feature_encode_dim=2,
+        )
+        .double()
+        .train(training)
+    )
     reference = copy.deepcopy(model)
     model._channel_chunk_size = lambda batch, channels: min(chunk_size, channels)
-    inputs = [torch.randn(2, n, c, dtype=torch.double, requires_grad=True)
-              for n, c in ((12, 5), (12, 6), (7, 6))]
+    inputs = [torch.randn(2, n, c, dtype=torch.double, requires_grad=True) for n, c in ((12, 5), (12, 6), (7, 6))]
     originals = [x.detach().clone().requires_grad_() for x in inputs]
     actual = model(inputs[0], inputs[1], x_mark_dec=inputs[2])
     expected = original_forward(reference, *originals)
@@ -54,9 +68,19 @@ def test_channel_batching_preserves_original_outputs_and_all_gradients(training,
 
 def test_checkpoint_recomputation_preserves_dropout_rng_and_parameter_gradients():
     torch.manual_seed(12)
-    model = Model(seq_len=12, pred_len=7, d_model=8, e_layers=2, d_layers=1,
-                  d_ff=16, decoder_output_dim=3, time_feat_dim=6, dropout=.2,
-                  bias=True, feature_encode_dim=2).train()
+    model = Model(
+        seq_len=12,
+        pred_len=7,
+        d_model=8,
+        e_layers=2,
+        d_layers=1,
+        d_ff=16,
+        decoder_output_dim=3,
+        time_feat_dim=6,
+        dropout=0.2,
+        bias=True,
+        feature_encode_dim=2,
+    ).train()
     model._channel_chunk_size = lambda batch, channels: 2
     x = torch.randn(2, 12, 5)
     state = torch.random.get_rng_state()
@@ -75,9 +99,19 @@ def test_checkpoint_recomputation_preserves_dropout_rng_and_parameter_gradients(
 
 
 def test_high_channel_long_horizon_chunks_bound_temporal_hidden_activation():
-    model = Model(seq_len=12, pred_len=720, d_model=8, e_layers=1, d_layers=1,
-                  d_ff=2048, decoder_output_dim=3, time_feat_dim=6, dropout=0,
-                  bias=True, feature_encode_dim=2)
+    model = Model(
+        seq_len=12,
+        pred_len=720,
+        d_model=8,
+        e_layers=1,
+        d_layers=1,
+        d_ff=2048,
+        decoder_output_dim=3,
+        time_feat_dim=6,
+        dropout=0,
+        bias=True,
+        feature_encode_dim=2,
+    )
     chunk = model._channel_chunk_size(4, 862)
     assert 1 < chunk < 862
     assert 4 * chunk * 720 * 2048 <= 32 * 1024 * 1024

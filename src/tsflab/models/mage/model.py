@@ -3,16 +3,21 @@
 Adaptive graph experts use factorised kernels, so propagation stays linear in
 the node count and never materialises a learned ``N x N`` adjacency.
 """
+
 from __future__ import annotations
+
 import math
+
 import torch
 from torch import nn
+
 from tsflab.models._components.marks import to_calendar_spatiotemporal
 from tsflab.models._inputs import check_window
 
 
 class AdaptiveGraphExpert(nn.Module):
     """Low-rank kernel propagation ``softmax(E1) softmax(E2) X``."""
+
     def __init__(self, nodes: int, width: int, rank: int) -> None:
         super().__init__()
         self.source = nn.Parameter(torch.randn(nodes, rank) / math.sqrt(rank))
@@ -26,6 +31,7 @@ class AdaptiveGraphExpert(nn.Module):
 
 class MixtureGraphBlock(nn.Module):
     """Sparse, load-balanced mixture of adaptive graph experts."""
+
     def __init__(self, nodes: int, width: int, experts: int, topk: int, rank: int) -> None:
         super().__init__()
         self.topk = min(topk, experts)
@@ -53,8 +59,17 @@ class MixtureGraphBlock(nn.Module):
 
 class Model(nn.Module):
     """Mixture of Adaptive Graph Experts forecaster."""
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, model_dim: int = 64,
-                 recur_num: int = 8, topk: int = 2, node_dim: int = 16) -> None:
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        model_dim: int = 64,
+        recur_num: int = 8,
+        topk: int = 2,
+        node_dim: int = 16,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.history = nn.Linear(seq_len * 3, model_dim)

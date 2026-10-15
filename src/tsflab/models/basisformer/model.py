@@ -63,13 +63,9 @@ class BottleneckMLP(nn.Module):
 
     def __init__(self, input_dim: int, output_dim: int, bottleneck: int) -> None:
         super().__init__()
-        self.inner = nn.Sequential(
-            _wn_linear(input_dim, bottleneck), nn.ReLU(), _wn_linear(bottleneck, bottleneck)
-        )
+        self.inner = nn.Sequential(_wn_linear(input_dim, bottleneck), nn.ReLU(), _wn_linear(bottleneck, bottleneck))
         self.skip = _wn_linear(input_dim, bottleneck)
-        self.outer = nn.Sequential(
-            _wn_linear(bottleneck, bottleneck), nn.ReLU(), _wn_linear(bottleneck, output_dim)
-        )
+        self.outer = nn.Sequential(_wn_linear(bottleneck, bottleneck), nn.ReLU(), _wn_linear(bottleneck, output_dim))
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         return self.outer(F.relu(self.inner(values) + self.skip(values)))
@@ -82,7 +78,7 @@ class CrossAttention(nn.Module):
         super().__init__()
         head_dim = d_model // heads
         self.heads = heads
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim**-0.5
         self.query = _wn_linear(d_model, head_dim * heads)
         self.key = _wn_linear(d_model, head_dim * heads)
         self.value = _wn_linear(d_model, head_dim * heads)
@@ -129,9 +125,7 @@ class BidirectionalCrossAttentionBlock(nn.Module):
         self.basis_block = CrossAttentionBlock(d_model, heads, dropout)
         self.series_block = CrossAttentionBlock(d_model, heads, dropout)
 
-    def forward(
-        self, basis: torch.Tensor, series: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, basis: torch.Tensor, series: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         return self.basis_block(basis, series), self.series_block(series, basis)
 
 
@@ -142,10 +136,8 @@ class CoefModule(nn.Module):
         super().__init__()
         head_dim = d_model // heads
         self.heads = heads
-        self.scale = head_dim ** -0.5
-        self.blocks = nn.ModuleList(
-            BidirectionalCrossAttentionBlock(d_model, heads, dropout) for _ in range(blocks)
-        )
+        self.scale = head_dim**-0.5
+        self.blocks = nn.ModuleList(BidirectionalCrossAttentionBlock(d_model, heads, dropout) for _ in range(blocks))
         self.series_head = _wn_linear(d_model, head_dim * heads)
         self.basis_head = _wn_linear(d_model, head_dim * heads)
 
@@ -226,9 +218,7 @@ class Model(nn.Module):
 
     def basis(self, x_mark_enc: torch.Tensor | None, batch: int, device: torch.device) -> torch.Tensor:
         """Unit-norm basis ``z = [z_x, z_y]`` of shape ``[B, I + O, N]``."""
-        tau = normalized_timestamp(
-            x_mark_enc, batch, device, self.timestamp_origin_year, self.timestamp_span_years
-        )
+        tau = normalized_timestamp(x_mark_enc, batch, device, self.timestamp_origin_year, self.timestamp_span_years)
         z = self.basis_mlp(tau).reshape(batch, self.seq_len + self.pred_len, self.basis_nums)
         return z / torch.sqrt(z.pow(2).sum(dim=1, keepdim=True) + EPSILON)
 
@@ -244,9 +234,7 @@ class Model(nn.Module):
         basis = self.future_basis_proj(z[:, self.seq_len :].transpose(1, 2))
         return self.coef(basis, series)
 
-    def forecast_from(
-        self, x_enc: torch.Tensor, z: torch.Tensor, coefficients: torch.Tensor
-    ) -> torch.Tensor:
+    def forecast_from(self, x_enc: torch.Tensor, z: torch.Tensor, coefficients: torch.Tensor) -> torch.Tensor:
         """Eq. (5) and the head-fusion MLP, then inverse standardization."""
         batch, _, channels = x_enc.shape
         future_basis = self.future_basis_mlp(z[:, self.seq_len :].transpose(1, 2))

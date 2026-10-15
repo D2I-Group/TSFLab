@@ -7,13 +7,12 @@ import os
 import re
 import secrets
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 from tsflab.core.paths import working_root
-
 
 ROUND_ENV = "TSFLAB_RESEARCH_ROUND"
 ROUND_ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -34,7 +33,7 @@ class ResearchRoundError(ValueError):
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def research_root() -> Path:
@@ -60,15 +59,14 @@ def _read_json(path: Path) -> dict:
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
 @contextmanager
 def _state_lock(round_id: str, timeout: float = 10.0) -> Iterator[None]:
     from tsflab.experiments.infra.storage import file_lock
+
     deadline = time.monotonic() + timeout
     while True:
         lock = file_lock(_round_dir(round_id) / ".lock", blocking=False)
@@ -87,12 +85,21 @@ def _state_lock(round_id: str, timeout: float = 10.0) -> Iterator[None]:
 
 def _normalize_budget(budget, max_runs=None):
     import math
+
     result = dict(budget or {})
     if max_runs is not None:
         if result.get("max_runs") is not None and result["max_runs"] != max_runs:
             raise ResearchRoundError("max_runs conflicts with budget.max_runs")
         result["max_runs"] = max_runs
-    integer_limits = {"max_runs", "max_iterations", "max_parallel_jobs", "max_tokens", "max_retries", "max_models", "max_candidates"}
+    integer_limits = {
+        "max_runs",
+        "max_iterations",
+        "max_parallel_jobs",
+        "max_tokens",
+        "max_retries",
+        "max_models",
+        "max_candidates",
+    }
     for name, value in result.items():
         if value is None:
             continue
@@ -119,9 +126,7 @@ def create_round(
         raise ResearchRoundError("task and goal must be non-empty")
     budget = _normalize_budget(budget, max_runs)
     max_runs = budget.get("max_runs")
-    candidate = round_id or (
-        f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
-    )
+    candidate = round_id or (f"{datetime.now(UTC):%Y%m%d-%H%M%S}-{secrets.token_hex(2)}")
     directory = _round_dir(candidate)
     try:
         directory.mkdir(parents=True, exist_ok=False)
@@ -239,16 +244,18 @@ def claim_run(round_id: str, details: dict, *, active: bool = False) -> int:
     with _state_lock(round_id):
         state = load_round(round_id)
         if state["status"] != "running":
-            raise ResearchRoundError(
-                f"research round {round_id!r} is {state['status']}, not running"
-            )
+            raise ResearchRoundError(f"research round {round_id!r} is {state['status']}, not running")
         budget = state.get("budget", {})
-        if budget.get("max_wall_minutes") and time.time() >= datetime.fromisoformat(state["created_at"]).timestamp() + budget["max_wall_minutes"] * 60:
+        if (
+            budget.get("max_wall_minutes")
+            and time.time() >= datetime.fromisoformat(state["created_at"]).timestamp() + budget["max_wall_minutes"] * 60
+        ):
             raise ResearchRoundError("research round wall-time budget exhausted")
         running = state.setdefault("active_runs", {})
         # Reclaim finished/crashed local reservations only when both execution locks
         # are free. PID-only probes would be unsafe after PID reuse.
         from tsflab.experiments.infra.storage import file_lock
+
         for key, item in list(running.items()):
             directory = item.get("directory")
             if not directory:
@@ -259,7 +266,9 @@ def claim_run(round_id: str, details: dict, *, active: bool = False) -> int:
                     runtime_path = path / "runtime.json"
                     runtime = json.loads(runtime_path.read_text()) if runtime_path.exists() else {}
                     end = runtime.get("heartbeat", time.time())
-                    state["gpu_hours_used"] = state.get("gpu_hours_used", 0) + max(0, end - item["started_at"]) * item.get("gpus", 0) / 3600
+                    state["gpu_hours_used"] = (
+                        state.get("gpu_hours_used", 0) + max(0, end - item["started_at"]) * item.get("gpus", 0) / 3600
+                    )
                     del running[key]
             except BlockingIOError:
                 pass
@@ -272,9 +281,7 @@ def claim_run(round_id: str, details: dict, *, active: bool = False) -> int:
         limit = state.get("max_runs")
         existing = state.setdefault("run_claims", {}).get(details.get("run_id"))
         if existing is None and limit is not None and used >= int(limit):
-            raise ResearchRoundError(
-                f"research round {round_id!r} exhausted its {limit}-run budget"
-            )
+            raise ResearchRoundError(f"research round {round_id!r} exhausted its {limit}-run budget")
         number = existing if existing is not None else used + 1
         if str(number) in running:
             raise ResearchRoundBusy("this run is already active in the round")
@@ -283,7 +290,12 @@ def claim_run(round_id: str, details: dict, *, active: bool = False) -> int:
         if details.get("run_id"):
             state["run_claims"][details["run_id"]] = number
         if active:
-            running[str(number)] = {"started_at": time.time(), "gpus": details.get("gpus", 0), "pid": os.getpid(), "directory": details.get("directory")}
+            running[str(number)] = {
+                "started_at": time.time(),
+                "gpus": details.get("gpus", 0),
+                "pid": os.getpid(),
+                "directory": details.get("directory"),
+            }
 
         state["updated_at"] = _now()
         _write_json(_round_dir(round_id) / "round.json", state)
@@ -305,7 +317,9 @@ def finish_run(
         state = load_round(round_id)
         reservation = state.get("active_runs", {}).pop(str(number), None)
         if reservation:
-            state["gpu_hours_used"] = state.get("gpu_hours_used", 0) + (time.time() - reservation["started_at"]) * reservation["gpus"] / 3600
+            state["gpu_hours_used"] = (
+                state.get("gpu_hours_used", 0) + (time.time() - reservation["started_at"]) * reservation["gpus"] / 3600
+            )
             _write_json(_round_dir(round_id) / "round.json", state)
     details = {"number": number, "status": status}
     if run_id:
@@ -343,10 +357,7 @@ def events_for_run(run_id: str) -> list[dict]:
     matches = []
     for state in list_rounds():
         events = read_events(state["id"])
-        if any(
-            (event.get("details") or {}).get("run_id") == run_id
-            for event in events
-        ):
+        if any((event.get("details") or {}).get("run_id") == run_id for event in events):
             matches.extend({"round": state["id"], **event} for event in events)
     return matches
 

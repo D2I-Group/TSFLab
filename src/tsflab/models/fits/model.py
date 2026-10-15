@@ -40,17 +40,14 @@ class ComplexFrequencyInterpolation(nn.Module):
 class Model(nn.Module):
     """Normalize, low-pass filter, interpolate frequencies, and invert the FFT."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int,
-                 individual: bool = False, cut_freq: int = 24) -> None:
+    def __init__(self, seq_len: int, pred_len: int, enc_in: int, individual: bool = False, cut_freq: int = 24) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.total_len = seq_len + pred_len
         self.input_bins = min(cut_freq, seq_len // 2 + 1)
         ratio = self.total_len / seq_len
         self.output_bins = min(max(1, int(round(self.input_bins * ratio))), self.total_len // 2 + 1)
-        self.interpolation = ComplexFrequencyInterpolation(
-            self.input_bins, self.output_bins, enc_in, individual
-        )
+        self.interpolation = ComplexFrequencyInterpolation(self.input_bins, self.output_bins, enc_in, individual)
 
     def forward(
         self,
@@ -65,8 +62,11 @@ class Model(nn.Module):
         spectrum = torch.fft.rfft(normalized.transpose(1, 2), dim=-1)[..., : self.input_bins]
         interpolated = self.interpolation(spectrum)
         padded = torch.zeros(
-            x_enc.shape[0], self.enc_in, self.total_len // 2 + 1,
-            dtype=interpolated.dtype, device=x_enc.device,
+            x_enc.shape[0],
+            self.enc_in,
+            self.total_len // 2 + 1,
+            dtype=interpolated.dtype,
+            device=x_enc.device,
         )
         padded[..., : self.output_bins] = interpolated
         reconstructed = torch.fft.irfft(padded, n=self.total_len, dim=-1)

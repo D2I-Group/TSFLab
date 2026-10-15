@@ -116,21 +116,13 @@ class VariableSelectionNetwork(nn.Module):
         self.weight_grn = GatedResidualNetwork(
             num_vars * dim, dim, out_dim=num_vars, context_dim=context_dim, dropout=dropout
         )
-        self.variable_grns = nn.ModuleList(
-            GatedResidualNetwork(dim, dim, dropout=dropout) for _ in range(num_vars)
-        )
+        self.variable_grns = nn.ModuleList(GatedResidualNetwork(dim, dim, dropout=dropout) for _ in range(num_vars))
 
-    def forward(
-        self, xi: torch.Tensor, context: torch.Tensor | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, xi: torch.Tensor, context: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         if xi.shape[-2:] != (self.num_vars, self.dim):
-            raise ValueError(
-                f"expected [..., {self.num_vars}, {self.dim}], got {tuple(xi.shape)}"
-            )
+            raise ValueError(f"expected [..., {self.num_vars}, {self.dim}], got {tuple(xi.shape)}")
         weights = torch.softmax(self.weight_grn(xi.flatten(-2), context), dim=-1)
-        processed = torch.stack(
-            [grn(xi[..., j, :]) for j, grn in enumerate(self.variable_grns)], dim=-2
-        )
+        processed = torch.stack([grn(xi[..., j, :]) for j, grn in enumerate(self.variable_grns)], dim=-2)
         return (weights.unsqueeze(-1) * processed).sum(dim=-2), weights
 
 

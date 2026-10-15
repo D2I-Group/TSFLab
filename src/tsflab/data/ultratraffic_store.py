@@ -9,8 +9,11 @@ import os
 
 import pandas as pd
 
-_FILES = {"static": "static/{year}.parquet", "cl_common": "cl/{year}_common.parquet",
-          "cl_added": "cl/{year}_added.parquet"}
+_FILES = {
+    "static": "static/{year}.parquet",
+    "cl_common": "cl/{year}_common.parquet",
+    "cl_added": "cl/{year}_added.parquet",
+}
 
 
 def load_panel(root: str, region: str, years: list[int], variant: str, stations: str) -> pd.DataFrame:
@@ -21,7 +24,8 @@ def load_panel(root: str, region: str, years: list[int], variant: str, stations:
         if not os.path.isfile(path):
             raise FileNotFoundError(
                 f"{path} is missing; build the store with "
-                "`uv run tsf data prepare --from ultratraffic --archive TrafficCL.zip`")
+                "`uv run tsf data prepare --from ultratraffic --archive TrafficCL.zip`"
+            )
         frames.append(pd.read_parquet(path))
     if stations == "intersection":
         columns = sorted(set.intersection(*(set(f.columns) for f in frames)))

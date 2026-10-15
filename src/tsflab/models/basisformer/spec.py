@@ -30,7 +30,7 @@ class ModelParameterConfig(BaseModel):
     loss_weight_smooth: float = Field(default=1.0, ge=0.0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.d_model < self.heads:
             raise ValueError("d_model must be at least heads")
         return self

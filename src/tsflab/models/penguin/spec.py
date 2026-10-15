@@ -1,13 +1,11 @@
 """Runtime specification for PENGUIN."""
 
-from tsflab.catalog.registry.models import ModelSpec
-from tsflab.models.penguin.model import Model
-
-"""Validated parameters for PENGUIN."""
-
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.models.penguin.model import Model
 
 
 class ModelParameterConfig(BaseModel):

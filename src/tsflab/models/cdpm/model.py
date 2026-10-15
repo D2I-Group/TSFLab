@@ -140,8 +140,13 @@ class ConditionalDenoiser(nn.Module):
         mean = self.mean_mlp(mean.transpose(1, 2)).transpose(1, 2)
         std = self.std_mlp(std.transpose(1, 2)).transpose(1, 2)
         z = torch.randn(
-            mean.shape[0], self.out_patches, self.patch_len, mean.shape[2],
-            device=mean.device, dtype=mean.dtype, generator=generator,
+            mean.shape[0],
+            self.out_patches,
+            self.patch_len,
+            mean.shape[2],
+            device=mean.device,
+            dtype=mean.dtype,
+            generator=generator,
         )
         draw = mean[:, :, None, :] + z * std[:, :, None, :]
         return draw.reshape(mean.shape[0], self.pred_len, mean.shape[2])
@@ -235,7 +240,11 @@ class Model(nn.Module):
         """Deterministic DDIM (eta = 0) over every step ``K-1 .. 0``, ``x0`` clipped to ``[-1, 1]``."""
         batch = season_hist.shape[0]
         sample = torch.randn(
-            batch, self.pred_len, self.enc_in, device=season_hist.device, dtype=season_hist.dtype,
+            batch,
+            self.pred_len,
+            self.enc_in,
+            device=season_hist.device,
+            dtype=season_hist.dtype,
             generator=generator,
         )
         for k in range(self.diffusion_steps - 1, -1, -1):

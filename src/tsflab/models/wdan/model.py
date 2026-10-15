@@ -24,17 +24,34 @@ _EPS = 1e-5
 _LOW_PASS: dict[str, tuple[float, ...]] = {
     "haar": (2**-0.5, 2**-0.5),
     "db4": (
-        -0.010597401785069032, 0.032883011666982945, 0.030841381835986965,
-        -0.18703481171888114, -0.02798376941698385, 0.6308807679295904,
-        0.7148465705525415, 0.23037781330885523,
+        -0.010597401785069032,
+        0.032883011666982945,
+        0.030841381835986965,
+        -0.18703481171888114,
+        -0.02798376941698385,
+        0.6308807679295904,
+        0.7148465705525415,
+        0.23037781330885523,
     ),
     "coif3": (
-        -3.459977319727278e-05, -7.0983302506379e-05, 0.0004662169598204029,
-        0.0011175187708306303, -0.0025745176881367972, -0.009007976136730624,
-        0.015880544863669452, 0.03455502757329774, -0.08230192710629983,
-        -0.07179982161915484, 0.42848347637737, 0.7937772226260872,
-        0.40517690240911824, -0.06112339000297255, -0.06577191128146936,
-        0.023452696142077168, 0.007782596425672746, -0.003793512864380802,
+        -3.459977319727278e-05,
+        -7.0983302506379e-05,
+        0.0004662169598204029,
+        0.0011175187708306303,
+        -0.0025745176881367972,
+        -0.009007976136730624,
+        0.015880544863669452,
+        0.03455502757329774,
+        -0.08230192710629983,
+        -0.07179982161915484,
+        0.42848347637737,
+        0.7937772226260872,
+        0.40517690240911824,
+        -0.06112339000297255,
+        -0.06577191128146936,
+        0.023452696142077168,
+        0.007782596425672746,
+        -0.003793512864380802,
     ),
 }
 
@@ -189,7 +206,9 @@ class StatisticsPredictor(nn.Module):
         self.mean_head = nn.Linear(d_model, pred_len)
         self.std_head = nn.Linear(d_model, pred_len)
 
-    def forward(self, mean: torch.Tensor, std: torch.Tensor, residual: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, mean: torch.Tensor, std: torch.Tensor, residual: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # Inputs [B, C, T] (time last); outputs [B, C, H].
         mean_bar = mean.mean(dim=-1, keepdim=True)  # Eq. (7)
         std_bar = std.mean(dim=-1, keepdim=True)
@@ -250,12 +269,33 @@ class Model(nn.Module):
         self.joint_after_epochs = joint_after_epochs
         self.statistics = StatisticsPredictor(seq_len, pred_len, stat_d_model, stat_d_ff, stat_dropout, stat_ffn_layers)
         self.backbone = PatchTSTBackbone(
-            c_in=enc_in, context_window=seq_len, target_window=pred_len, patch_len=patch_len,
-            stride=stride, padding_patch="end", n_layers=e_layers, d_model=d_model,
-            n_heads=n_heads, d_k=None, d_v=None, d_ff=d_ff, activation="gelu", norm="BatchNorm",
-            attn_dropout=0.0, res_dropout=dropout, ffn_dropout=dropout, proj_dropout=0.0,
-            head_dropout=0.0, pre_norm=False, pe="zeros", learn_pe=False, head_type="flatten",
-            individual=False, revin=False, affine=False, subtract_last=False,
+            c_in=enc_in,
+            context_window=seq_len,
+            target_window=pred_len,
+            patch_len=patch_len,
+            stride=stride,
+            padding_patch="end",
+            n_layers=e_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            d_k=None,
+            d_v=None,
+            d_ff=d_ff,
+            activation="gelu",
+            norm="BatchNorm",
+            attn_dropout=0.0,
+            res_dropout=dropout,
+            ffn_dropout=dropout,
+            proj_dropout=0.0,
+            head_dropout=0.0,
+            pre_norm=False,
+            pe="zeros",
+            learn_pe=False,
+            head_type="flatten",
+            individual=False,
+            revin=False,
+            affine=False,
+            subtract_last=False,
         )
         # Stage bookkeeping saved with checkpoints: training batches per epoch and
         # catalog-stage batches seen so far.
@@ -318,7 +358,7 @@ class Model(nn.Module):
         for _ in range(self.stat_pretrain_epochs):
             for batch in train_loader:
                 x = batch[0].float().to(device)
-                y = batch[1].float().to(device)[:, -self.pred_len:, : self.enc_in]
+                y = batch[1].float().to(device)[:, -self.pred_len :, : self.enc_in]
                 optimizer.zero_grad()
                 self.statistics_loss(x, y).backward()
                 optimizer.step()

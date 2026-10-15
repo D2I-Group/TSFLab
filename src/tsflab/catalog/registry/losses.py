@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import Callable
+from collections.abc import Callable
 
 import torch.nn as nn
 
@@ -86,18 +86,13 @@ def register_loss_by_name(name: str) -> None:
     except ModuleNotFoundError as exc:
         if exc.name == module_name:
             raise ModuleNotFoundError(
-                f"Loss registry module not found: {module_name}. "
-                "Expected module path in LOSS_NAME_MAP"
+                f"Loss registry module not found: {module_name}. Expected module path in LOSS_NAME_MAP"
             ) from exc
-        raise ImportError(
-            f"Failed to import '{module_name}' due to missing dependency: {exc}"
-        ) from exc
+        raise ImportError(f"Failed to import '{module_name}' due to missing dependency: {exc}") from exc
 
     register_fn = getattr(module, "register", None)
     if register_fn is None:
-        raise AttributeError(
-            f"Loss registry '{module_name}' must define a register() function"
-        )
+        raise AttributeError(f"Loss registry '{module_name}' must define a register() function")
     register_fn()
     _REGISTERED_LOSSES.add(key)
 

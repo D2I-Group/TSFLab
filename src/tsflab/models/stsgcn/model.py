@@ -54,8 +54,14 @@ class STSGCL(nn.Module):
         self.temporal_embedding = self._embedding((1, seq_len, 1, in_dim), magnitude) if temporal_emb else None
         self.spatial_embedding = self._embedding((1, 1, num_nodes, in_dim), magnitude) if spatial_emb else None
         self.module = SynchronousGraphModule(
-            num_nodes, _WINDOW, in_dim, filters, activation=activation,
-            num_modules=windows if individual else 1, crop=1, init_magnitude=magnitude,
+            num_nodes,
+            _WINDOW,
+            in_dim,
+            filters,
+            activation=activation,
+            num_modules=windows if individual else 1,
+            crop=1,
+            init_magnitude=magnitude,
         )
 
     @staticmethod
@@ -120,7 +126,17 @@ class Model(nn.Module):
         steps, width = seq_len, first_layer_embedding
         for _ in range(num_layers):
             layers.append(
-                STSGCL(steps, enc_in, width, list(filters), activation, individual, temporal_emb, spatial_emb, init_magnitude)
+                STSGCL(
+                    steps,
+                    enc_in,
+                    width,
+                    list(filters),
+                    activation,
+                    individual,
+                    temporal_emb,
+                    spatial_emb,
+                    init_magnitude,
+                )
             )
             steps, width = steps - (_WINDOW - 1), filters[-1]
         self.layers = nn.ModuleList(layers)

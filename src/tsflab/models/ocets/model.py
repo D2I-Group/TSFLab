@@ -31,7 +31,9 @@ def minmax_normalize(values: torch.Tensor, value_range: ValueRange) -> tuple[tor
     return (2.0 * unit - 1.0 if value_range == "signed" else unit), low, high
 
 
-def minmax_denormalize(values: torch.Tensor, low: torch.Tensor, high: torch.Tensor, value_range: ValueRange) -> torch.Tensor:
+def minmax_denormalize(
+    values: torch.Tensor, low: torch.Tensor, high: torch.Tensor, value_range: ValueRange
+) -> torch.Tensor:
     """Inverse of :func:`minmax_normalize` (Eqs. 75/77) with the given statistics."""
     unit = (values + 1.0) * 0.5 if value_range == "signed" else values
     return unit * (high - low + _NORM_EPS) + low
@@ -129,5 +131,5 @@ class Model(nn.Module):
         """Eq. (15): OCE between predicted bins and soft labels; also returns the forecast."""
         probs, low, high = self.bin_probabilities(x_enc)
         forecast = minmax_denormalize((probs * self.centers).sum(-1), low, high, self.value_range)
-        horizon = probs[:, -target.shape[1]:, -target.shape[2]:]
+        horizon = probs[:, -target.shape[1] :, -target.shape[2] :]
         return forecast, ordinal_cross_entropy(horizon, self.soft_labels(target))

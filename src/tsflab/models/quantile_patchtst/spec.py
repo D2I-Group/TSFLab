@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.quantile_patchtst.model import Model
-
-from typing import Optional
-
-from pydantic import BaseModel
 
 
 class ModelParameterConfig(BaseModel):
@@ -18,8 +16,8 @@ class ModelParameterConfig(BaseModel):
     e_layers: int = 3
     d_model: int = 512
     n_heads: int = 8
-    d_k: Optional[int] = None
-    d_v: Optional[int] = None
+    d_k: int | None = None
+    d_v: int | None = None
     d_ff: int = 2048
     activation: str = "gelu"
     norm: str = "BatchNorm"

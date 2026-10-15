@@ -12,18 +12,18 @@ submitted. Needs the full TSFLab runtime (``torch``).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import subprocess
+from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from tsflab.core.realtime import ForecastSubmission, RoundSpec
 from tsflab.data.calendar import node_calendar
 from tsflab.realtime.store import PanelStore
 from tsflab.realtime.tracks import TrackSpec
-from tsflab.core.realtime import ForecastSubmission, RoundSpec
 
 # Constructor parameters that always equal the number of channels (or nodes).
 _WIDTH_PARAMS = ("enc_in", "dec_in", "c_out", "num_nodes", "n_vars", "node_num", "num_node")
@@ -34,8 +34,9 @@ def _naive(ts: str) -> pd.Timestamp:
     return stamp.tz_localize(None) if stamp.tzinfo is not None else stamp
 
 
-def export_bundle(spec: RoundSpec, store: PanelStore, track: TrackSpec, directory: Path,
-                  val_fraction: float = 0.1) -> dict:
+def export_bundle(
+    spec: RoundSpec, store: PanelStore, track: TrackSpec, directory: Path, val_fraction: float = 0.1
+) -> dict:
     """Write ``his.npz`` + window indices for the round; return layout facts."""
     offset = pd.tseries.frequencies.to_offset(spec.freq)
     cutoff = _naive(spec.cutoff)
@@ -64,23 +65,37 @@ def export_bundle(spec: RoundSpec, store: PanelStore, track: TrackSpec, director
     return {"lead": lead, "input_dim": data.shape[-1]}
 
 
-def _run_config(spec: RoundSpec, model: str, bundle: Path, layout: dict, work_dir: Path,
-                overrides: dict) -> Path:
+def _run_config(spec: RoundSpec, model: str, bundle: Path, layout: dict, work_dir: Path, overrides: dict) -> Path:
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
     catalog = MODEL_CATALOG.get(model)
-    mode = "spatiotemporal" if spec.mode == "spatiotemporal" and "spatiotemporal" in catalog.capabilities else "time_series"
+    mode = (
+        "spatiotemporal"
+        if spec.mode == "spatiotemporal" and "spatiotemporal" in catalog.capabilities
+        else "time_series"
+    )
     params = {k: len(spec.channels) for k in _WIDTH_PARAMS if k in catalog.params_schema.model_fields}
     params.update(overrides.pop("model.params", {}))
     lines = [
-        'extends = ["tsflab://configs/base.toml", "tsflab://configs/models/%s.toml"]' % model,
-        "[experiment]", f'work_dir = "{work_dir.as_posix()}"', f'description = "realtime {spec.track} {spec.round_id}"',
-        "[dataset]", f'name = "{"cauair_st" if mode == "spatiotemporal" else "cauair_ts"}"',
-        f'alias = "{spec.track}"', f'path = "{bundle.as_posix()}"',
-        "[dataset.params]", f"input_dim = {layout['input_dim'] if mode == 'spatiotemporal' else 1}", "scale = true",
-        "[task]", f'mode = "{mode}"', f"seq_len = {spec.seq_len}", "label_len = 0",
-        f"pred_len = {layout['lead']}", 'features = "M"',
-        "[model.params]", *(f"{k} = {json.dumps(v)}" for k, v in params.items()),
+        f'extends = ["tsflab://configs/base.toml", "tsflab://configs/models/{model}.toml"]',
+        "[experiment]",
+        f'work_dir = "{work_dir.as_posix()}"',
+        f'description = "realtime {spec.track} {spec.round_id}"',
+        "[dataset]",
+        f'name = "{"cauair_st" if mode == "spatiotemporal" else "cauair_ts"}"',
+        f'alias = "{spec.track}"',
+        f'path = "{bundle.as_posix()}"',
+        "[dataset.params]",
+        f"input_dim = {layout['input_dim'] if mode == 'spatiotemporal' else 1}",
+        "scale = true",
+        "[task]",
+        f'mode = "{mode}"',
+        f"seq_len = {spec.seq_len}",
+        "label_len = 0",
+        f"pred_len = {layout['lead']}",
+        'features = "M"',
+        "[model.params]",
+        *(f"{k} = {json.dumps(v)}" for k, v in params.items()),
     ]
     for section, values in overrides.items():
         lines.append(f"[{section}]")
@@ -90,9 +105,15 @@ def _run_config(spec: RoundSpec, model: str, bundle: Path, layout: dict, work_di
     return path
 
 
-def forecast_with_model(spec: RoundSpec, store: PanelStore, track: TrackSpec, model: str,
-                        work_root: Path, overrides: dict | None = None,
-                        submitter: str | None = None) -> ForecastSubmission:
+def forecast_with_model(
+    spec: RoundSpec,
+    store: PanelStore,
+    track: TrackSpec,
+    model: str,
+    work_root: Path,
+    overrides: dict | None = None,
+    submitter: str | None = None,
+) -> ForecastSubmission:
     import torch
 
     from tsflab.experiments.config.loader import load_config
@@ -123,12 +144,15 @@ def forecast_with_model(spec: RoundSpec, store: PanelStore, track: TrackSpec, mo
         out = call_forecaster(net, batch_x, x_mark, dec, y_mark).detach().cpu().numpy()
     if out.ndim == 4:
         out = _point_reduce(out, output_type, list(getattr(net, "quantile_levels", []) or []))
-    path = out[0, -config.task.pred_len:, :]
+    path = out[0, -config.task.pred_len :, :]
     path = test_set.inverse_transform(path)
-    predictions = path[-spec.horizon:]
+    predictions = path[-spec.horizon :]
     return ForecastSubmission(
-        track=spec.track, round_id=spec.round_id, model=model, submitter=submitter,
-        submitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        track=spec.track,
+        round_id=spec.round_id,
+        model=model,
+        submitter=submitter,
+        submitted_at=datetime.now(UTC).isoformat(timespec="seconds"),
         predictions=[[float(v) for v in row] for row in predictions],
         code_revision=_git_revision(),
     )

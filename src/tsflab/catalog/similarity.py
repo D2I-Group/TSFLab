@@ -40,10 +40,10 @@ from __future__ import annotations
 
 import ast
 import builtins
-from collections import Counter, defaultdict
-from dataclasses import dataclass, field
 import hashlib
 import re
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -131,8 +131,12 @@ class _Canonicalizer:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             self.tokens.append(type(node).__name__)
             body = node.body
-            if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) \
-                    and isinstance(body[0].value.value, str):
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(getattr(body[0], "value", None), ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
                 body = body[1:]  # docstring
             if isinstance(node, ast.ClassDef):
                 for base in node.bases:
@@ -199,11 +203,53 @@ class _Canonicalizer:
 
 # Tensor methods whose names carry semantics even on alpha-renamed receivers.
 _TENSOR_METHODS = {
-    "permute", "transpose", "reshape", "view", "unsqueeze", "squeeze", "flatten", "unfold",
-    "contiguous", "expand", "repeat", "softmax", "mean", "std", "var", "sum", "max", "min",
-    "exp", "log", "sqrt", "abs", "pow", "matmul", "masked_fill", "detach", "chunk", "split",
-    "cumsum", "topk", "gather", "scatter", "sigmoid", "tanh", "relu", "norm", "real", "imag",
-    "conj", "roll", "flip", "clamp", "argmax", "argsort", "sort", "index_select", "narrow",
+    "permute",
+    "transpose",
+    "reshape",
+    "view",
+    "unsqueeze",
+    "squeeze",
+    "flatten",
+    "unfold",
+    "contiguous",
+    "expand",
+    "repeat",
+    "softmax",
+    "mean",
+    "std",
+    "var",
+    "sum",
+    "max",
+    "min",
+    "exp",
+    "log",
+    "sqrt",
+    "abs",
+    "pow",
+    "matmul",
+    "masked_fill",
+    "detach",
+    "chunk",
+    "split",
+    "cumsum",
+    "topk",
+    "gather",
+    "scatter",
+    "sigmoid",
+    "tanh",
+    "relu",
+    "norm",
+    "real",
+    "imag",
+    "conj",
+    "roll",
+    "flip",
+    "clamp",
+    "argmax",
+    "argsort",
+    "sort",
+    "index_select",
+    "narrow",
 }
 
 
@@ -257,7 +303,7 @@ def _shingles(tokens: list[str]) -> set[int]:
     if len(tokens) < SHINGLE:
         return set()
     return {
-        int.from_bytes(hashlib.blake2b("\x1f".join(tokens[i:i + SHINGLE]).encode(), digest_size=8).digest(), "little")
+        int.from_bytes(hashlib.blake2b("\x1f".join(tokens[i : i + SHINGLE]).encode(), digest_size=8).digest(), "little")
         for i in range(len(tokens) - SHINGLE + 1)
     }
 
@@ -310,13 +356,13 @@ def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int 
         exact[unit.exact_key].append(index)
         signature = _minhash(unit.shingles, a, b)
         for band in range(BANDS):
-            key = (band, signature[band * _ROWS:(band + 1) * _ROWS].tobytes())
+            key = (band, signature[band * _ROWS : (band + 1) * _ROWS].tobytes())
             buckets[key].append(index)
     candidates: set[tuple[int, int]] = set()
     for members in list(buckets.values()) + list(exact.values()):
         if 1 < len(members) <= 200:
             for i, left in enumerate(members):
-                for right in members[i + 1:]:
+                for right in members[i + 1 :]:
                     candidates.add((min(left, right), max(left, right)))
     exact_ids = {frozenset(m) for m in exact.values() if len(m) > 1}
     pairs: list[Pair] = []
@@ -330,17 +376,25 @@ def similar_pairs(units: list[Unit], *, threshold: float = 0.6, min_tokens: int 
             continue  # glue (reshapes and calls into sub-modules) is not an operator
         if not is_exact and left.qualname.endswith(".__init__") and right.qualname.endswith(".__init__"):
             continue  # similar layer declarations alone say nothing about the computation
-        pair = Pair(left, right, _jaccard(left.shingles, right.shingles),
-                    _counter_jaccard(left.calls, right.calls), is_exact)
+        pair = Pair(
+            left, right, _jaccard(left.shingles, right.shingles), _counter_jaccard(left.calls, right.calls), is_exact
+        )
         if pair.score >= threshold:
             pairs.append(pair)
     # A method pair inside an already-reported class pair adds no information.
-    class_pairs = {frozenset({(p.left.owner, p.left.qualname), (p.right.owner, p.right.qualname)})
-                   for p in pairs if p.left.parent is None and p.right.parent is None}
+    class_pairs = {
+        frozenset({(p.left.owner, p.left.qualname), (p.right.owner, p.right.qualname)})
+        for p in pairs
+        if p.left.parent is None and p.right.parent is None
+    }
     return [
-        p for p in pairs
-        if not (p.left.parent and p.right.parent
-                and frozenset({(p.left.owner, p.left.parent), (p.right.owner, p.right.parent)}) in class_pairs)
+        p
+        for p in pairs
+        if not (
+            p.left.parent
+            and p.right.parent
+            and frozenset({(p.left.owner, p.left.parent), (p.right.owner, p.right.parent)}) in class_pairs
+        )
     ]
 
 
@@ -379,26 +433,29 @@ def clusters(pairs: list[Pair]) -> list[dict]:
             decision = "extract-new candidate"
         else:
             decision = "review"
-        out.append({
-            "decision": decision,
-            "models": models,
-            "components": components,
-            "max_score": round(max(scores[root_ref]), 3),
-            "mean_score": round(sum(scores[root_ref]) / len(scores[root_ref]), 3),
-            "library_calls": [name for name, _ in calls.most_common(8)],
-            "members": [
-                {"owner": u.owner, "unit": u.qualname, "location": f"{u.path}:{u.line}", "tokens": len(u.tokens)}
-                for u in members
-            ],
-        })
+        out.append(
+            {
+                "decision": decision,
+                "models": models,
+                "components": components,
+                "max_score": round(max(scores[root_ref]), 3),
+                "mean_score": round(sum(scores[root_ref]) / len(scores[root_ref]), 3),
+                "library_calls": [name for name, _ in calls.most_common(8)],
+                "members": [
+                    {"owner": u.owner, "unit": u.qualname, "location": f"{u.path}:{u.line}", "tokens": len(u.tokens)}
+                    for u in members
+                ],
+            }
+        )
     # Breadth times agreement: a cluster spanning more models ranks higher, but
     # only as far as its members actually agree.
     out.sort(key=lambda c: (-(len(c["models"]) + len(c["components"])) * c["mean_score"], -c["max_score"]))
     return out
 
 
-def reuse_candidates(root: Path, slug: str, *, threshold: float = 0.6, min_tokens: int = 40,
-                     top: int = 5) -> list[Pair]:
+def reuse_candidates(
+    root: Path, slug: str, *, threshold: float = 0.6, min_tokens: int = 40, top: int = 5
+) -> list[Pair]:
     """Units of model ``slug`` that resemble a shared component, most similar first.
 
     ``tsf model add`` reports them so a new model reuses existing units instead of
@@ -417,7 +474,7 @@ def similarity_command(argv: list[str], root: Path) -> int:
     parser = argparse.ArgumentParser(
         prog="tsf model similar",
         description="Rank static code-similarity clusters as component extraction candidates "
-                    "(nominations only; curate-components proves equivalence).",
+        "(nominations only; curate-components proves equivalence).",
     )
     parser.add_argument("models", nargs="*", help="limit model packages (slugs); default: all")
     parser.add_argument("--threshold", type=float, default=0.6)
@@ -433,8 +490,10 @@ def similarity_command(argv: list[str], root: Path) -> int:
         return 0
     print(f"{len(units)} units scanned; {len(ranked)} clusters at score >= {args.threshold}")
     for index, cluster in enumerate(shown, 1):
-        print(f"\n[{index}] {cluster['decision']}  models={len(cluster['models'])}  "
-              f"max={cluster['max_score']} mean={cluster['mean_score']}")
+        print(
+            f"\n[{index}] {cluster['decision']}  models={len(cluster['models'])}  "
+            f"max={cluster['max_score']} mean={cluster['mean_score']}"
+        )
         if cluster["library_calls"]:
             print("    calls: " + ", ".join(cluster["library_calls"]))
         for member in cluster["members"]:

@@ -15,8 +15,8 @@ with ``tsf agent sync``.
 
 from __future__ import annotations
 
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 # module -> skills, tasks, pip extras, purpose, entry commands, context it produces
 MODULES: dict[str, dict[str, object]] = {
@@ -37,8 +37,13 @@ MODULES: dict[str, dict[str, object]] = {
         "context": "model cards (description, fits, fidelity, six-slot composition, data_params), component interfaces, admission records",
     },
     "experiments": {
-        "skills": ["setup-environment", "run-experiment", "diagnose-experiment",
-                   "reproduce-paper-results", "analyze-results"],
+        "skills": [
+            "setup-environment",
+            "run-experiment",
+            "diagnose-experiment",
+            "reproduce-paper-results",
+            "analyze-results",
+        ],
         "tasks": ["experiment"],
         "extras": ["experiments"],
         "purpose": "design, run, diagnose, and analyze budgeted experiments",
@@ -58,7 +63,12 @@ MODULES: dict[str, dict[str, object]] = {
         "tasks": ["autoresearch"],
         "extras": ["autoresearch"],
         "purpose": "budgeted research loops that consume the other modules' context",
-        "commands": ["tsf catalog match", "tsf research start", "tsf research iteration", "tsf agent task start autoresearch"],
+        "commands": [
+            "tsf catalog match",
+            "tsf research start",
+            "tsf research iteration",
+            "tsf agent task start autoresearch",
+        ],
         "context": "round ledger `work_dirs/_research/<id>/` (hypotheses, runs, conclusions) and winning composition specs",
     },
     "maintenance": {

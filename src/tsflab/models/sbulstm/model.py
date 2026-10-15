@@ -7,7 +7,8 @@ so all sensors share one recurrent state. Missing inputs are NaNs in ``x_enc``.
 
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 import torch
 from torch import nn
@@ -36,9 +37,7 @@ class ImputationLSTMDirection(nn.Module):
         self.imputation = nn.Linear(2 * hidden_dim, input_dim)
         self.bounded_imputation = bounded_imputation
 
-    def forward(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return hidden states ``[B, T, H]`` and imputations ``[B, T, D]`` in input order."""
         batch, steps, _ = values.shape
         hidden = values.new_zeros(batch, self.hidden_dim)
@@ -50,9 +49,7 @@ class ImputationLSTMDirection(nn.Module):
                 estimate = torch.sigmoid(estimate)
             mask = observed[:, step]
             current = mask * values[:, step] + (1.0 - mask) * estimate
-            forget, inp, out, candidate = self.gates(
-                torch.cat((current, hidden, mask), dim=-1)
-            ).chunk(4, dim=-1)
+            forget, inp, out, candidate = self.gates(torch.cat((current, hidden, mask), dim=-1)).chunk(4, dim=-1)
             cell = torch.sigmoid(forget) * cell + torch.sigmoid(inp) * torch.tanh(candidate)
             hidden = torch.sigmoid(out) * torch.tanh(cell)
             outputs.append(hidden)
@@ -63,29 +60,21 @@ class ImputationLSTMDirection(nn.Module):
 class ImputationLSTMLayer(nn.Module):
     """LSTM-I or BDLSTM-I layer; bidirectional outputs are averaged (Eq. 20)."""
 
-    def __init__(
-        self, input_dim: int, hidden_dim: int, bidirectional: bool, bounded_imputation: bool
-    ) -> None:
+    def __init__(self, input_dim: int, hidden_dim: int, bidirectional: bool, bounded_imputation: bool) -> None:
         super().__init__()
         self.forward_direction = ImputationLSTMDirection(input_dim, hidden_dim, bounded_imputation)
         self.backward_direction = (
-            ImputationLSTMDirection(input_dim, hidden_dim, bounded_imputation)
-            if bidirectional
-            else None
+            ImputationLSTMDirection(input_dim, hidden_dim, bounded_imputation) if bidirectional else None
         )
 
-    def forward(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Return the layer output and the imputation-error term of Eq. 21."""
         hidden, estimate = self.forward_direction(values, observed)
         count = observed.sum().clamp_min(1.0)
         error = (observed * (values - estimate).abs()).sum() / count
         if self.backward_direction is None:
             return hidden, error
-        reverse_hidden, reverse_estimate = self.backward_direction(
-            values.flip(1), observed.flip(1)
-        )
+        reverse_hidden, reverse_estimate = self.backward_direction(values.flip(1), observed.flip(1))
         reverse_error = (observed.flip(1) * (values.flip(1) - reverse_estimate).abs()).sum() / count
         return 0.5 * (hidden + reverse_hidden.flip(1)), 0.5 * (error + reverse_error)
 
@@ -96,9 +85,7 @@ class AveragedLSTMLayer(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, bidirectional: bool) -> None:
         super().__init__()
         self.bidirectional = bidirectional
-        self.recurrent = nn.LSTM(
-            input_dim, hidden_dim, batch_first=True, bidirectional=bidirectional
-        )
+        self.recurrent = nn.LSTM(input_dim, hidden_dim, batch_first=True, bidirectional=bidirectional)
 
     def forward(self, values: torch.Tensor) -> torch.Tensor:
         output, _ = self.recurrent(values)
@@ -152,9 +139,7 @@ class Model(nn.Module):
         self.readout = nn.Linear(enc_in, enc_in) if value_range == "unbounded" else nn.Identity()
         self.aux_loss: torch.Tensor | None = None
 
-    def _next_step(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+    def _next_step(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
         error = None
         if isinstance(self.first_layer, ImputationLSTMLayer):
             hidden, error = self.first_layer(values, observed)
@@ -177,14 +162,10 @@ class Model(nn.Module):
         values = torch.where(observed.bool(), x_enc, torch.zeros_like(x_enc))
         predictions, error = self._rollout(values, observed)
         # Eq. 22 regularizer, added to the configured forecast loss by the trainer.
-        self.aux_loss = (
-            self.imputation_weight * error if self.training and error is not None else None
-        )
+        self.aux_loss = self.imputation_weight * error if self.training and error is not None else None
         return torch.stack(predictions, dim=1)
 
-    def _rollout(
-        self, values: torch.Tensor, observed: torch.Tensor
-    ) -> tuple[list[torch.Tensor], torch.Tensor | None]:
+    def _rollout(self, values: torch.Tensor, observed: torch.Tensor) -> tuple[list[torch.Tensor], torch.Tensor | None]:
         """``pred_len`` next-step forecasts and the imputation error of the first step."""
         predictions = []
         error = None

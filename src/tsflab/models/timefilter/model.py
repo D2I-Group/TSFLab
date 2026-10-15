@@ -1,7 +1,9 @@
 """Independent TimeFilter implementation from the ICML 2025 paper."""
+
 from __future__ import annotations
 
 import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -12,12 +14,13 @@ from tsflab.models._inputs import check_window
 
 class PatchGraphBuilder(nn.Module):
     """Build a graph whose nodes are individual channel/patch pairs."""
+
     def __init__(self, patch_len, width):
         super().__init__()
         self.embedding = nn.Linear(patch_len, width)
         self.query = nn.Linear(width, width, bias=False)
         self.key = nn.Linear(width, width, bias=False)
-        self.scale = width ** -0.5
+        self.scale = width**-0.5
 
     def forward(self, x):
         # x (B,C,L) -> nodes (B,C,P,D)
@@ -33,7 +36,9 @@ class RegionExpert(nn.Module):
     def __init__(self, width, hidden, dropout):
         super().__init__()
         self.message = nn.Linear(width, width)
-        self.update = nn.Sequential(nn.Linear(2 * width, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, width))
+        self.update = nn.Sequential(
+            nn.Linear(2 * width, hidden), nn.GELU(), nn.Dropout(dropout), nn.Linear(hidden, width)
+        )
 
     def forward(self, nodes, adjacency):
         messages = adjacency @ self.message(nodes)
@@ -42,6 +47,7 @@ class RegionExpert(nn.Module):
 
 class PatchSpecificGraphFilter(nn.Module):
     """MoE router filters graph regions separately for every patch node."""
+
     def __init__(self, width, hidden, experts, top_p, dropout):
         super().__init__()
         self.top_p = top_p
@@ -68,9 +74,22 @@ class PatchSpecificGraphFilter(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, seq_len, pred_len, enc_in, label_len=0, features="M",
-                 d_model=64, d_ff=128, e_layers=2, patch_len=16,
-                 dropout=0.1, top_p=0.5, pos=True, num_experts=4):
+    def __init__(
+        self,
+        seq_len,
+        pred_len,
+        enc_in,
+        label_len=0,
+        features="M",
+        d_model=64,
+        d_ff=128,
+        e_layers=2,
+        patch_len=16,
+        dropout=0.1,
+        top_p=0.5,
+        pos=True,
+        num_experts=4,
+    ):
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.patch_len = patch_len
@@ -78,7 +97,9 @@ class Model(nn.Module):
         self.revin = RevIN(enc_in)
         self.graph_builder = PatchGraphBuilder(patch_len, d_model)
         self.position = nn.Parameter(torch.randn(1, enc_in, self.patch_count, d_model) * 0.02) if pos else None
-        self.filters = nn.ModuleList(PatchSpecificGraphFilter(d_model, d_ff, num_experts, top_p, dropout) for _ in range(e_layers))
+        self.filters = nn.ModuleList(
+            PatchSpecificGraphFilter(d_model, d_ff, num_experts, top_p, dropout) for _ in range(e_layers)
+        )
         self.head = nn.Sequential(nn.Flatten(-2), nn.Linear(self.patch_count * d_model, pred_len))
 
     @property

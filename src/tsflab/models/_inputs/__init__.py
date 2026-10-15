@@ -18,8 +18,9 @@ def check_window(x: torch.Tensor, length: int, channels: int, name: str = "x_enc
     return x
 
 
-def check_marks(marks: torch.Tensor | None, x: torch.Tensor, columns: int = 6,
-                name: str = "x_mark_enc") -> torch.Tensor | None:
+def check_marks(
+    marks: torch.Tensor | None, x: torch.Tensor, columns: int = 6, name: str = "x_mark_enc"
+) -> torch.Tensor | None:
     """Return ``marks`` if absent or ``[batch, time, columns]`` aligned with ``x``; otherwise raise."""
     if marks is not None and (marks.ndim != 3 or marks.shape[:2] != x.shape[:2] or marks.shape[-1] != columns):
         raise ValueError(f"{name} must have shape ({x.shape[0]}, {x.shape[1]}, {columns}), got {tuple(marks.shape)}")

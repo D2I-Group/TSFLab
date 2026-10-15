@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Tuple
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -53,15 +52,12 @@ class Dataset_PreProcessed(Dataset):
         del data_path, features
         self.seq_len, self.label_len, self.pred_len = size
         if flag not in _FLAG_TO_FILE:
-            raise ValueError(
-                f"Invalid flag '{flag}'. Expected one of {list(_FLAG_TO_FILE)}."
-            )
+            raise ValueError(f"Invalid flag '{flag}'. Expected one of {list(_FLAG_TO_FILE)}.")
 
         split_file = os.path.join(root_path, _FLAG_TO_FILE[flag])
         if not os.path.exists(split_file):
             raise FileNotFoundError(
-                f"Expected file not found: {split_file}. "
-                "Generate npz splits with `tsf data prepare`."
+                f"Expected file not found: {split_file}. Generate npz splits with `tsf data prepare`."
             )
 
         data = np.load(split_file)
@@ -83,7 +79,7 @@ class Dataset_PreProcessed(Dataset):
     def __len__(self) -> int:
         return len(self.x)
 
-    def __getitem__(self, index: int) -> Tuple:
+    def __getitem__(self, index: int) -> tuple:
         return self.x[index], self.y[index], self.x_mark[index], self.y_mark[index]
 
     def inverse_transform(self, data: np.ndarray) -> np.ndarray:
@@ -95,7 +91,9 @@ class Dataset_PreProcessed(Dataset):
 def register() -> None:
     """Register the pre-processed dataset under the name ``"pre_processed"``."""
     DATASET_REGISTRY.register(
-        "pre_processed", Dataset_PreProcessed, PreProcessedParameterConfig,
+        "pre_processed",
+        Dataset_PreProcessed,
+        PreProcessedParameterConfig,
         task_modes=frozenset({"time_series"}),
         storage="directory",
     )

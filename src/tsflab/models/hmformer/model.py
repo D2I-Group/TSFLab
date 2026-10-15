@@ -14,8 +14,7 @@ from tsflab.models._inputs import check_window
 def _absolute_position(length: int, dimension: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
     position = torch.arange(length, device=device, dtype=dtype).unsqueeze(1)
     frequency = torch.exp(
-        torch.arange(0, dimension, 2, device=device, dtype=dtype)
-        * (-math.log(10000.0) / max(dimension, 1))
+        torch.arange(0, dimension, 2, device=device, dtype=dtype) * (-math.log(10000.0) / max(dimension, 1))
     )
     encoding = torch.zeros(length, dimension, device=device, dtype=dtype)
     encoding[:, 0::2] = torch.sin(position * frequency)
@@ -102,9 +101,7 @@ class ScaleBranch(nn.Module):
         self.stride = stride
         self.num_patches = max(1, (seq_len - patch_len) // stride + 2)
         self.embedding = nn.Conv1d(patch_len, dimension, kernel_size=3, padding=1)
-        self.blocks = nn.ModuleList(
-            [TransformerBlock(dimension, num_heads, dropout) for _ in range(depth)]
-        )
+        self.blocks = nn.ModuleList([TransformerBlock(dimension, num_heads, dropout) for _ in range(depth)])
         self.predictor = nn.Linear(self.num_patches * dimension, pred_len)
 
     def patch(self, series: torch.Tensor) -> torch.Tensor:
@@ -121,9 +118,7 @@ class ScaleBranch(nn.Module):
     def embed(self, series: torch.Tensor) -> torch.Tensor:
         patches = self.patch(series)
         tokens = self.embedding(patches.transpose(1, 2)).transpose(1, 2)
-        return tokens + _absolute_position(
-            tokens.shape[1], tokens.shape[2], tokens.device, tokens.dtype
-        ).unsqueeze(0)
+        return tokens + _absolute_position(tokens.shape[1], tokens.shape[2], tokens.device, tokens.dtype).unsqueeze(0)
 
     def encode(self, tokens: torch.Tensor) -> torch.Tensor:
         for block in self.blocks:
@@ -210,9 +205,6 @@ class Model(nn.Module):
     ):
         batch = x_enc.shape[0]
         outputs = self.branch_representations(x_enc)
-        forecasts = [
-            branch.predictor(tokens.flatten(1))
-            for branch, tokens in zip(self.branches, outputs, strict=True)
-        ]
+        forecasts = [branch.predictor(tokens.flatten(1)) for branch, tokens in zip(self.branches, outputs, strict=True)]
         forecast = torch.stack(forecasts).sum(0)
         return forecast.reshape(batch, self.enc_in, self.pred_len).transpose(1, 2)

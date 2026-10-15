@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.timebridge.model import Model
-
-from typing import Optional
-
-from pydantic import BaseModel
 
 
 class ModelParameterConfig(BaseModel):
     enc_in: int
     period: int = 24
-    num_p: Optional[int] = None
+    num_p: int | None = None
     ia_layers: int = 2
     pd_layers: int = 1
     ca_layers: int = 2

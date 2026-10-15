@@ -37,8 +37,7 @@ class ModelParameterConfig(BaseModel):
 def build_model(cfg, params):
     if cfg.task.features != "MS":
         raise ValueError(
-            "PCATransformer reduces covariates and forecasts the final target channel; "
-            "it requires task.features = 'MS'"
+            "PCATransformer reduces covariates and forecasts the final target channel; it requires task.features = 'MS'"
         )
     return Model(
         seq_len=cfg.task.seq_len,

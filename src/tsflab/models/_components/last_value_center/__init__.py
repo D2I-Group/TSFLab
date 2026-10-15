@@ -22,4 +22,5 @@ def restore_last_value(head_output: torch.Tensor, level: torch.Tensor) -> torch.
     """Add the centering ``level`` back onto a head's forecast."""
     return head_output + level
 
+
 __all__ = ["center_on_last_value", "restore_last_value"]

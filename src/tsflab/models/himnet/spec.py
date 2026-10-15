@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import BaseModel
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.himnet.model import Model
-
-from pydantic import BaseModel
 
 
 class ModelParameterConfig(BaseModel):

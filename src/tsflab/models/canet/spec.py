@@ -21,7 +21,7 @@ class ModelParameterConfig(BaseModel):
     blend_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if not self.patch_sizes:
             raise ValueError("patch_sizes must be non-empty")
         if any(size <= 0 for size in self.patch_sizes):

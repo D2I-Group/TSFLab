@@ -54,15 +54,20 @@ def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
         raise SystemExit(f"unknown characteristic(s) {unknown}; see tsflab.catalog.characteristics")
     wanted = set(terms) | set(extra)
     models = [
-        {"name": str(r["name"]), "fits": list(r.get("fits") or []),
-         "headline": str(r.get("tagline") or r["summary"])}
+        {"name": str(r["name"]), "fits": list(r.get("fits") or []), "headline": str(r.get("tagline") or r["summary"])}
         for r in model_records(root)
     ]
     components = []
     for spec in COMPONENT_CATALOG.specs():
         card = read_card(component_card_path(root, spec.name))
-        components.append({"name": spec.name, "fits": list(card.front.get("fits") or []),
-                           "slot": card.front.get("slot"), "headline": card.headline})
+        components.append(
+            {
+                "name": spec.name,
+                "fits": list(card.front.get("fits") or []),
+                "slot": card.front.get("slot"),
+                "headline": card.headline,
+            }
+        )
     by_slot: dict[str, list[dict]] = {}
     for entry in _rank(components, wanted):
         by_slot.setdefault(str(entry["slot"] or "unassigned"), []).append(entry)
@@ -83,12 +88,17 @@ def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
 
 def match_command(argv: list[str], root: Path) -> int:
     parser = argparse.ArgumentParser(prog="tsf catalog match", description=__doc__.splitlines()[0])
-    parser.add_argument("datasets", nargs="+", metavar="dataset",
-                        help="dataset card name(s) or preset alias(es); several are matched in turn")
+    parser.add_argument(
+        "datasets",
+        nargs="+",
+        metavar="dataset",
+        help="dataset card name(s) or preset alias(es); several are matched in turn",
+    )
     parser.add_argument("--extra", nargs="*", default=[], help="additional task characteristics")
     parser.add_argument("--top", type=int, default=15, help="models to show (0 = all)")
-    parser.add_argument("--json", action="store_true",
-                        help="structured output (a list when several datasets are named)")
+    parser.add_argument(
+        "--json", action="store_true", help="structured output (a list when several datasets are named)"
+    )
     args = parser.parse_args(argv)
     results = [match(root, name, args.extra) for name in args.datasets]
     if args.json:

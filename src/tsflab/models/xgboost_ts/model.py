@@ -1,8 +1,10 @@
 """Independent regularized residual soft-tree forecasting baseline."""
 
 from __future__ import annotations
+
 import torch
 import torch.nn as nn
+
 from tsflab.models._components.revin import RevIN
 from tsflab.models._components.soft_tree import SoftDecisionTree
 from tsflab.models._inputs import check_window
@@ -20,19 +22,32 @@ def dense_parameter_count(seq_len: int, pred_len: int, enc_in: int, num_estimato
 
 class Model(nn.Module):
     """Use column-masked additive trees with explicit leaf regularization."""
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, num_estimators: int = 16,
-                 tree_depth: int = 3, learning_rate: float = 0.1,
-                 column_fraction: float = 0.8, l1_penalty: float = 0.0,
-                 l2_penalty: float = 1e-4, temperature: float = 1.0,
-                 random_seed: int = 1741, use_revin: bool = True,
-                 max_dense_parameters: int = MAX_DENSE_PARAMETERS) -> None:
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        num_estimators: int = 16,
+        tree_depth: int = 3,
+        learning_rate: float = 0.1,
+        column_fraction: float = 0.8,
+        l1_penalty: float = 0.0,
+        l2_penalty: float = 1e-4,
+        temperature: float = 1.0,
+        random_seed: int = 1741,
+        use_revin: bool = True,
+        max_dense_parameters: int = MAX_DENSE_PARAMETERS,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         dense = dense_parameter_count(seq_len, pred_len, enc_in, num_estimators)
         if dense > max_dense_parameters:
-            raise ValueError(f"XGBoostTS needs {dense:,} dense weights at seq_len={seq_len}, "
-                             f"pred_len={pred_len}, enc_in={enc_in} (max_dense_parameters="
-                             f"{max_dense_parameters:,}); they scale as (seq_len*enc_in)*(pred_len*enc_in)")
+            raise ValueError(
+                f"XGBoostTS needs {dense:,} dense weights at seq_len={seq_len}, "
+                f"pred_len={pred_len}, enc_in={enc_in} (max_dense_parameters="
+                f"{max_dense_parameters:,}); they scale as (seq_len*enc_in)*(pred_len*enc_in)"
+            )
         self.learning_rate, self.l1_penalty, self.l2_penalty = learning_rate, l1_penalty, l2_penalty
         input_dim, output_dim = seq_len * enc_in, pred_len * enc_in
         generator = torch.Generator().manual_seed(random_seed)
@@ -50,6 +65,7 @@ class Model(nn.Module):
         self.trees, self.backcasts = nn.ModuleList(trees), nn.ModuleList(backcasts)
         self.revin = RevIN(enc_in, affine=use_revin, enabled=use_revin)
         self.aux_loss: torch.Tensor | None = None
+
     def forward(
         self,
         x_enc,

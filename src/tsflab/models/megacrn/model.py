@@ -1,9 +1,11 @@
 """Clean-room MegaCRN with a meta-node bank and recurrent meta-graphs."""
 
 from __future__ import annotations
+
 import numpy as np
 import torch
 from torch import nn
+
 from tsflab.models._components.graph_conv_gru import graph_gru_step
 from tsflab.models._components.marks import (
     coerce_time_length,
@@ -65,20 +67,12 @@ class Model(nn.Module):
         self.node_to_memory = nn.Parameter(torch.randn(num_nodes, mem_num) / mem_num**0.5)
         self.query = nn.Linear(rnn_units, mem_dim)
         self.encoder_input = nn.Linear(input_dim, rnn_units)
-        self.encoder = nn.ModuleList(
-            MetaGraphCell(rnn_units, rnn_units, cheb_k) for _ in range(num_layers)
-        )
+        self.encoder = nn.ModuleList(MetaGraphCell(rnn_units, rnn_units, cheb_k) for _ in range(num_layers))
         self.decoder_input = nn.Linear(1 + mem_dim, rnn_units)
-        self.decoder = nn.ModuleList(
-            MetaGraphCell(rnn_units, rnn_units, cheb_k) for _ in range(num_layers)
-        )
+        self.decoder = nn.ModuleList(MetaGraphCell(rnn_units, rnn_units, cheb_k) for _ in range(num_layers))
         self.output = nn.Linear(rnn_units, 1)
         self.graph_mix = nn.Parameter(torch.tensor(0.5))
-        adj = (
-            np.eye(num_nodes, dtype=np.float32)
-            if adj_mx is None
-            else square_adjacency(adj_mx, num_nodes)
-        )
+        adj = np.eye(num_nodes, dtype=np.float32) if adj_mx is None else square_adjacency(adj_mx, num_nodes)
         adj = adj + np.eye(num_nodes, dtype=np.float32)
         adj /= np.maximum(adj.sum(-1, keepdims=True), 1e-6)
         self.register_buffer("predefined_graph", torch.from_numpy(adj))
@@ -116,9 +110,7 @@ class Model(nn.Module):
 
     def _future(self, x_enc, x_mark_enc, x_mark_dec):
         source_marks = x_mark_dec if x_mark_dec is not None else x_mark_enc
-        marks = (
-            coerce_time_length(source_marks, self.pred_len) if source_marks is not None else None
-        )
+        marks = coerce_time_length(source_marks, self.pred_len) if source_marks is not None else None
         return (
             future_time_features(marks, self.num_nodes)[..., 0]
             if marks is not None
@@ -133,14 +125,10 @@ class Model(nn.Module):
         x_mark_dec=None,
     ):
         st = self._inputs(x_enc, x_mark_enc)
-        states = [
-            x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden) for cell in self.encoder
-        ]
+        states = [x_enc.new_zeros(x_enc.shape[0], self.num_nodes, cell.hidden) for cell in self.encoder]
         graph = self.predefined_graph.unsqueeze(0).expand(x_enc.shape[0], -1, -1)
         for step in range(self.seq_len):
-            self._step(
-                self.encoder, self.encoder_input(st[:, step, :, : self.input_dim]), states, graph
-            )
+            self._step(self.encoder, self.encoder_input(st[:, step, :, : self.input_dim]), states, graph)
             graph, _ = self._meta_graph(states[-1])
         graph, memory = self._meta_graph(states[-1])
         decoder_states = [state.clone() for state in states]
@@ -148,9 +136,7 @@ class Model(nn.Module):
         future = self._future(x_enc, x_mark_enc, x_mark_dec)
         outputs = []
         for step in range(self.pred_len):
-            value = self.decoder_input(
-                torch.cat((previous.unsqueeze(-1) + future[:, step].unsqueeze(-1), memory), -1)
-            )
+            value = self.decoder_input(torch.cat((previous.unsqueeze(-1) + future[:, step].unsqueeze(-1), memory), -1))
             value = self._step(self.decoder, value, decoder_states, graph)
             previous = self.output(value).squeeze(-1)
             outputs.append(previous)

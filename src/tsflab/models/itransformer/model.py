@@ -28,9 +28,7 @@ class InvertedEmbedding(nn.Module):
     def forward(self, values: torch.Tensor, marks: torch.Tensor | None) -> torch.Tensor:
         series_tokens = values.transpose(1, 2)
         if marks is not None:
-            series_tokens = torch.cat(
-                (series_tokens, self._scaled_marks(marks).transpose(1, 2)), dim=1
-            )
+            series_tokens = torch.cat((series_tokens, self._scaled_marks(marks).transpose(1, 2)), dim=1)
         return self.dropout(self.projection(series_tokens))
 
 
@@ -39,9 +37,7 @@ class InvertedEncoderLayer(nn.Module):
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float, activation: str) -> None:
         super().__init__()
-        self.attention = nn.MultiheadAttention(
-            d_model, n_heads, dropout=dropout, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
         nonlinear: nn.Module = nn.GELU() if activation == "gelu" else nn.ReLU()
         self.feed_forward = nn.Sequential(
             nn.Linear(d_model, d_ff),
@@ -69,7 +65,20 @@ class InvertedEncoderLayer(nn.Module):
 class Model(nn.Module):
     """Encoder-only iTransformer forecaster for a fixed catalog channel contract."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, d_model: int, n_heads: int, e_layers: int, d_ff: int, dropout: float, activation: str, output_attention: bool, use_norm: bool) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        d_model: int,
+        n_heads: int,
+        e_layers: int,
+        d_ff: int,
+        dropout: float,
+        activation: str,
+        output_attention: bool,
+        use_norm: bool,
+    ) -> None:
         super().__init__()
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -78,12 +87,7 @@ class Model(nn.Module):
         self.use_norm = use_norm
         self.embedding = InvertedEmbedding(seq_len, d_model, dropout)
         self.encoder = nn.ModuleList(
-            [
-                InvertedEncoderLayer(
-                    d_model, n_heads, d_ff, dropout, activation
-                )
-                for _ in range(e_layers)
-            ]
+            [InvertedEncoderLayer(d_model, n_heads, d_ff, dropout, activation) for _ in range(e_layers)]
         )
         self.projection = nn.Linear(d_model, pred_len)
 

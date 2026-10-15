@@ -18,9 +18,7 @@ import torch.nn.functional as F
 from tsflab.models._components.empirical_quantiles import empirical_quantiles
 
 
-def kde_nll(
-    samples: torch.Tensor, target: torch.Tensor, bandwidth: float, log_floor: float = -25.0
-) -> torch.Tensor:
+def kde_nll(samples: torch.Tensor, target: torch.Tensor, bandwidth: float, log_floor: float = -25.0) -> torch.Tensor:
     """Gaussian-kernel KDE negative log-likelihood (Eqs. 6-8) in the log domain.
 
     ``samples`` is ``[B, K, L, C]`` and ``target`` ``[B, L, C]``. The per-element
@@ -79,9 +77,7 @@ class Model(nn.Module):
         self.logvar_head = nn.Linear(d_model, d_model)
         # Mapping g_phi (Eq. 5): the official code conditions it on a history embedding.
         self.history = nn.Linear(seq_len, d_model)
-        self.mapping = nn.Sequential(
-            nn.Linear(2 * d_model, d_ff), nn.GELU(), nn.Linear(d_ff, pred_len)
-        )
+        self.mapping = nn.Sequential(nn.Linear(2 * d_model, d_ff), nn.GELU(), nn.Linear(d_ff, pred_len))
 
     def prior(self, series: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Eq. (2): ``[N, C, L] -> (mu, log sigma^2)``, each ``[N, C, D]``."""

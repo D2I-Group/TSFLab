@@ -1,12 +1,12 @@
 """Versioned CLI result using the same envelope as direct Python invocation."""
 
-from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
 import threading
+from contextlib import redirect_stderr, redirect_stdout
 
-from tsflab.experiments.infra.results import OperationResult, error_info
 from tsflab.cli.output import CAPTURE_CHILD_OUTPUT, STRUCTURED_OUTPUT
+from tsflab.experiments.infra.results import OperationResult, error_info
 
 _LOCK = threading.RLock()
 
@@ -43,9 +43,7 @@ def envelope(args):
         error = error or (data.get("error") if isinstance(data, dict) else None)
         error = error or {
             "type": "CommandError",
-            "message": diagnostics.getvalue().strip()
-            or output.getvalue().strip()
-            or f"exit {code}",
+            "message": diagnostics.getvalue().strip() or output.getvalue().strip() or f"exit {code}",
         }
     result = OperationResult(
         ok=code == 0,

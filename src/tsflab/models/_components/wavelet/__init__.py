@@ -80,9 +80,7 @@ def _filters(wavelet: str) -> tuple[torch.Tensor, torch.Tensor]:
     try:
         low, high = _FILTERS[wavelet]
     except KeyError as exc:
-        raise ValueError(
-            f"unsupported wavelet {wavelet!r}; choose one of {available_wavelets()}"
-        ) from exc
+        raise ValueError(f"unsupported wavelet {wavelet!r}; choose one of {available_wavelets()}") from exc
     return torch.tensor(low, dtype=torch.float32), torch.tensor(high, dtype=torch.float32)
 
 
@@ -146,17 +144,13 @@ class DecimatedWaveletTransform(nn.Module):
         batch, channels, _ = low.shape
         low_flat = low.reshape(batch * channels, 1, -1)
         high_flat = high.reshape(batch * channels, 1, -1)
-        merged = F.conv_transpose1d(low_flat, self.low, stride=2) + F.conv_transpose1d(
-            high_flat, self.high, stride=2
-        )
+        merged = F.conv_transpose1d(low_flat, self.low, stride=2) + F.conv_transpose1d(high_flat, self.high, stride=2)
         merged = merged.reshape(batch, channels, -1)
         if trimmed:
             merged = merged[..., :-1]
         return merged
 
-    def reconstruct(
-        self, coeffs: list[torch.Tensor], trims: list[int] | None = None
-    ) -> torch.Tensor:
+    def reconstruct(self, coeffs: list[torch.Tensor], trims: list[int] | None = None) -> torch.Tensor:
         """Invert :meth:`decompose`; ``coeffs`` must match its output layout.
 
         ``trims`` is the per-level odd-length flag list (outermost level
@@ -165,8 +159,7 @@ class DecimatedWaveletTransform(nn.Module):
         """
         if self.filter_len != 2:
             raise NotImplementedError(
-                "exact reconstruction is only implemented for two-tap orthonormal "
-                "filters (haar/db1)"
+                "exact reconstruction is only implemented for two-tap orthonormal filters (haar/db1)"
             )
         if len(coeffs) != self.level + 1:
             raise ValueError(f"expected {self.level + 1} coefficient tensors, got {len(coeffs)}")

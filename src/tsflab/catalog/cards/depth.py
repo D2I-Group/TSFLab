@@ -13,16 +13,12 @@ Cards follow ``tsflab.card/1`` (see ``tsflab.catalog.cards.schema``).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
-
 
 DEPTHS = (0, 1, 2, 3)
-DEPTH_HELP = (
-    "0 one-line summary, 1 front matter + interface/constraints, "
-    "2 full card, 3 paths to open"
-)
+DEPTH_HELP = "0 one-line summary, 1 front matter + interface/constraints, 2 full card, 3 paths to open"
 L0_SUMMARY_CHARS = 160
 # Sections shown at L1: how the resource is called and what limits composition.
 
@@ -126,9 +122,7 @@ def truncate_summary(summary: str, limit: int = L0_SUMMARY_CHARS) -> str:
     return first[: limit - 3].rstrip(" ,;:") + "..."
 
 
-def l0_record(
-    name: str, kind: str, summary: str, tags: tuple[str, ...] | list[str]
-) -> dict[str, object]:
+def l0_record(name: str, kind: str, summary: str, tags: tuple[str, ...] | list[str]) -> dict[str, object]:
     """Return the structured L0 record for one resource."""
     return {
         "name": name,
@@ -186,10 +180,7 @@ def render_text(
         return "\n".join([line, "", *(f"- {path}" for path in (paths or []))])
     parts = [line]
     if facts:  # generated from code, so they lead the page
-        parts.append(
-            "Runtime facts:\n"
-            + "\n".join(f"- {key}: {_format_fact(value)}" for key, value in facts.items())
-        )
+        parts.append("Runtime facts:\n" + "\n".join(f"- {key}: {_format_fact(value)}" for key, value in facts.items()))
     parts.append(front_matter_text(card))
     parts.append(card.body.rstrip())
     if depth == 2 and card.reference:
@@ -198,8 +189,10 @@ def render_text(
         from tsflab.catalog.cards.store import split_sections as _split
 
         titles = ", ".join(title for title, _ in _split(card.reference))
-        parts.append(f"Next: --depth 2 adds reference.md ({titles}; ~{approx_tokens(card.reference)} tokens); "
-                     "--depth 3 lists the files to open.")
+        parts.append(
+            f"Next: --depth 2 adds reference.md ({titles}; ~{approx_tokens(card.reference)} tokens); "
+            "--depth 3 lists the files to open."
+        )
     elif depth == 1:
         parts.append("Next: --depth 3 lists the files to open (this card has no reference.md).")
     return "\n\n".join(parts) + "\n"

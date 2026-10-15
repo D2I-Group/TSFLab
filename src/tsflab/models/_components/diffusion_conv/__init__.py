@@ -47,9 +47,7 @@ class DiffusionConv2d(nn.Module):
         self.dropout = dropout
         self.order = order
 
-    def forward(
-        self, x: torch.Tensor, supports: list[torch.Tensor]
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, supports: list[torch.Tensor]) -> torch.Tensor:
         """Apply supports in order and return ``(B, c_out, nodes, time)``."""
         if len(supports) != self.support_len:
             raise ValueError("support count does not match configured support_len")

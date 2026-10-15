@@ -139,7 +139,9 @@ class Model(nn.Module):
         )
 
         # Reusable self-supervised prototype/deviation memory (paper-neutral component).
-        self.prototype_memory = PrototypeMemory(query_dim=rnn_units, prototype_dim=prototype_dim, num_prototypes=prototype_num)
+        self.prototype_memory = PrototypeMemory(
+            query_dim=rnn_units, prototype_dim=prototype_dim, num_prototypes=prototype_num
+        )
 
         decoder_dim = rnn_units + prototype_dim
         decoder_input_dim = output_dim + self.cov_dim
@@ -196,9 +198,7 @@ class Model(nn.Module):
         h_de = torch.cat([h_t, retrieval.value], dim=-1)  # (B, N, decoder_dim)
 
         node_embed = self.graph_hypernet(h_de)
-        adaptive_support = torch.softmax(
-            torch.relu(torch.einsum("bnc,bmc->bnm", node_embed, node_embed)), dim=-1
-        )
+        adaptive_support = torch.softmax(torch.relu(torch.einsum("bnc,bmc->bnm", node_embed, node_embed)), dim=-1)
 
         future_cov = self._future_covariates(x_mark_dec, x_enc)
         decoder_state = [h_de for _ in self.decoder_cells]

@@ -134,8 +134,7 @@ def node2vec_embedding(
     pair_weights = flat[positive]
     frequency = torch.bincount(walks[walks >= 0], minlength=nodes).double()
     noise = frequency.pow(0.75)
-    _fit_sgns(inputs, outputs, positive, pair_weights, noise, nodes, dim,
-              negative, steps, batch_size, lr, generator)
+    _fit_sgns(inputs, outputs, positive, pair_weights, noise, nodes, dim, negative, steps, batch_size, lr, generator)
     return inputs.detach().float()
 
 
@@ -178,9 +177,7 @@ def _fit_sgns(
         noise_ids = torch.multinomial(noise, batch_size * negative, replacement=True, generator=generator)
         center_vectors = inputs[centers]
         positive_score = (center_vectors * outputs[contexts]).sum(-1)
-        negative_score = torch.einsum(
-            "bd,bkd->bk", center_vectors, outputs[noise_ids].view(batch_size, negative, dim)
-        )
+        negative_score = torch.einsum("bd,bkd->bk", center_vectors, outputs[noise_ids].view(batch_size, negative, dim))
         loss = -(F.logsigmoid(positive_score) + F.logsigmoid(-negative_score).sum(-1)).mean()
         optimizer.zero_grad()
         loss.backward()

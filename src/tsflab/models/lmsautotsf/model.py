@@ -25,9 +25,7 @@ def lagged_difference(x: torch.Tensor) -> torch.Tensor:
     return difference
 
 
-def frequency_masks(
-    length: int, cutoff: torch.Tensor, steepness: torch.Tensor
-) -> tuple[torch.Tensor, torch.Tensor]:
+def frequency_masks(length: int, cutoff: torch.Tensor, steepness: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """Eqs. (5)-(6) sigmoid masks ``[length, channels]`` on the signed FFT grid.
 
     ``low = sigmoid(-(f - f_c) s)`` and ``high = sigmoid((f - f_c) s)`` with

@@ -12,9 +12,18 @@ from tsflab.models._components.revin import RevIN
 
 
 class NHiTSBlock(nn.Module):
-    def __init__(self, input_length: int, horizon: int, pool_size: int,
-                 downsample: int, units: list[int], pooling: str,
-                 interpolation: str, dropout: float, activation: str) -> None:
+    def __init__(
+        self,
+        input_length: int,
+        horizon: int,
+        pool_size: int,
+        downsample: int,
+        units: list[int],
+        pooling: str,
+        interpolation: str,
+        dropout: float,
+        activation: str,
+    ) -> None:
         super().__init__()
         self.input_length = input_length
         self.horizon = horizon
@@ -40,8 +49,7 @@ class NHiTSBlock(nn.Module):
         mode = self.interpolation.lower()
         if mode in {"nearest", "nearest-exact"}:
             return F.interpolate(coefficients.unsqueeze(1), size=length, mode=mode).squeeze(1)
-        return F.interpolate(coefficients.unsqueeze(1), size=length, mode=mode,
-                             align_corners=False).squeeze(1)
+        return F.interpolate(coefficients.unsqueeze(1), size=length, mode=mode, align_corners=False).squeeze(1)
 
     def forward(self, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         pad = (-values.shape[-1]) % self.pool_size
@@ -56,11 +64,22 @@ class NHiTSBlock(nn.Module):
 
 class Model(nn.Module):
     def __init__(
-        self, seq_len: int, pred_len: int, label_len: int, features: str,
-        enc_in: int, stack_types: list[str], n_blocks: list[int], mlp_units: list,
-        n_pool_kernel_size: list[int], n_freq_downsample: list[int],
-        pooling_mode: str = "MaxPool1d", interpolation_mode: str = "linear",
-        dropout: float = 0.0, activation: str = "ReLU", use_norm: bool = True,
+        self,
+        seq_len: int,
+        pred_len: int,
+        label_len: int,
+        features: str,
+        enc_in: int,
+        stack_types: list[str],
+        n_blocks: list[int],
+        mlp_units: list,
+        n_pool_kernel_size: list[int],
+        n_freq_downsample: list[int],
+        pooling_mode: str = "MaxPool1d",
+        interpolation_mode: str = "linear",
+        dropout: float = 0.0,
+        activation: str = "ReLU",
+        use_norm: bool = True,
     ) -> None:
         super().__init__()
         del label_len, features
@@ -71,11 +90,19 @@ class Model(nn.Module):
         for index in range(count):
             units = mlp_units[index] if len(mlp_units) == count else mlp_units[0]
             for _ in range(n_blocks[index]):
-                blocks.append(NHiTSBlock(
-                    seq_len, pred_len, n_pool_kernel_size[index],
-                    n_freq_downsample[index], list(units), pooling_mode,
-                    interpolation_mode, dropout, activation,
-                ))
+                blocks.append(
+                    NHiTSBlock(
+                        seq_len,
+                        pred_len,
+                        n_pool_kernel_size[index],
+                        n_freq_downsample[index],
+                        list(units),
+                        pooling_mode,
+                        interpolation_mode,
+                        dropout,
+                        activation,
+                    )
+                )
         self.blocks = nn.ModuleList(blocks)
         for parameter in self.blocks[-1].backcast_coefficients.parameters():
             parameter.requires_grad_(False)

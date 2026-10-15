@@ -17,7 +17,9 @@ def _logit(probability: float) -> float:
 class Model(nn.Module):
     """Learn per-channel fixed gains for a constant-velocity state filter."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5, initial_beta: float = 0.25) -> None:
+    def __init__(
+        self, seq_len: int, pred_len: int, enc_in: int, initial_alpha: float = 0.5, initial_beta: float = 0.25
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
         self.alpha_logits = nn.Parameter(torch.full((enc_in,), _logit(initial_alpha)))

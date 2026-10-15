@@ -21,9 +21,7 @@ def fft_autocorrelation(query: torch.Tensor, key: torch.Tensor) -> torch.Tensor:
     length = query.shape[2]
     query_frequency = torch.fft.rfft(query, dim=2)
     key_frequency = torch.fft.rfft(key, dim=2)
-    return torch.fft.irfft(
-        query_frequency * torch.conj(key_frequency), n=length, dim=2
-    )
+    return torch.fft.irfft(query_frequency * torch.conj(key_frequency), n=length, dim=2)
 
 
 class AutoCorrelation(nn.Module):
@@ -45,9 +43,7 @@ class AutoCorrelation(nn.Module):
     def _resize(values: torch.Tensor, length: int) -> torch.Tensor:
         if values.shape[1] == length:
             return values
-        return F.interpolate(
-            values.transpose(1, 2), size=length, mode="linear", align_corners=False
-        ).transpose(1, 2)
+        return F.interpolate(values.transpose(1, 2), size=length, mode="linear", align_corners=False).transpose(1, 2)
 
     def forward(self, query: torch.Tensor, context: torch.Tensor | None = None) -> torch.Tensor:
         context = query if context is None else self._resize(context, query.shape[1])
@@ -66,10 +62,7 @@ class AutoCorrelation(nn.Module):
         aggregated = torch.zeros_like(v)
         for rank in range(count):
             shifted = torch.stack(
-                [
-                    torch.roll(v[item], shifts=-int(delays[item, rank]), dims=1)
-                    for item in range(batch)
-                ],
+                [torch.roll(v[item], shifts=-int(delays[item, rank]), dims=1) for item in range(batch)],
                 dim=0,
             )
             aggregated = aggregated + shifted * weights[:, rank, None, None, None]
@@ -81,21 +74,43 @@ class AutoCorrelation(nn.Module):
 class AutoformerEncoderLayer(DecompositionEncoderLayer):
     """Equation (3): correlation and feed-forward, each followed by decomposition."""
 
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, moving_avg: int, factor: float, dropout: float, activation: str) -> None:
+    def __init__(
+        self, d_model: int, n_heads: int, d_ff: int, moving_avg: int, factor: float, dropout: float, activation: str
+    ) -> None:
         super().__init__(
             AutoCorrelation(d_model, n_heads, factor, dropout),
-            d_model, d_ff, moving_avg, dropout, activation, mixer_name="correlation",
+            d_model,
+            d_ff,
+            moving_avg,
+            dropout,
+            activation,
+            mixer_name="correlation",
         )
 
 
 class AutoformerDecoderLayer(DecompositionDecoderLayer):
     """Equation (4): three decompositions and progressive trend accumulation."""
 
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, moving_avg: int, factor: float, dropout: float, activation: str, c_out: int) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        moving_avg: int,
+        factor: float,
+        dropout: float,
+        activation: str,
+        c_out: int,
+    ) -> None:
         super().__init__(
             AutoCorrelation(d_model, n_heads, factor, dropout),
             AutoCorrelation(d_model, n_heads, factor, dropout),
-            d_model, d_ff, moving_avg, dropout, activation, c_out,
+            d_model,
+            d_ff,
+            moving_avg,
+            dropout,
+            activation,
+            c_out,
             mixer_names=("self_correlation", "cross_correlation"),
         )
 
@@ -108,7 +123,24 @@ def _check_sizes(seq_len: int, label_len: int, pred_len: int) -> None:
 class Model(nn.Module):
     """Forecast-only Autoformer with the paper's decomposition/correlation path."""
 
-    def __init__(self, seq_len: int, label_len: int, pred_len: int, enc_in: int, dec_in: int, c_out: int, d_model: int, n_heads: int, e_layers: int, d_layers: int, d_ff: int, moving_avg: int, factor: float, dropout: float, activation: str = "gelu") -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        label_len: int,
+        pred_len: int,
+        enc_in: int,
+        dec_in: int,
+        c_out: int,
+        d_model: int,
+        n_heads: int,
+        e_layers: int,
+        d_layers: int,
+        d_ff: int,
+        moving_avg: int,
+        factor: float,
+        dropout: float,
+        activation: str = "gelu",
+    ) -> None:
         super().__init__()
         _check_sizes(seq_len, label_len, pred_len)
         self.seq_len = seq_len
@@ -118,9 +150,19 @@ class Model(nn.Module):
         self.decomposition = SeriesDecomposition(moving_avg)
         self.encoder_embedding = ForecastEmbedding(enc_in, d_model, dropout)
         self.decoder_embedding = ForecastEmbedding(dec_in, d_model, dropout)
-        self.encoder = nn.ModuleList([AutoformerEncoderLayer(d_model, n_heads, d_ff, moving_avg, factor, dropout, activation) for _ in range(e_layers)])
+        self.encoder = nn.ModuleList(
+            [
+                AutoformerEncoderLayer(d_model, n_heads, d_ff, moving_avg, factor, dropout, activation)
+                for _ in range(e_layers)
+            ]
+        )
         self.encoder_norm = nn.LayerNorm(d_model)
-        self.decoder = nn.ModuleList([AutoformerDecoderLayer(d_model, n_heads, d_ff, moving_avg, factor, dropout, activation, c_out) for _ in range(d_layers)])
+        self.decoder = nn.ModuleList(
+            [
+                AutoformerDecoderLayer(d_model, n_heads, d_ff, moving_avg, factor, dropout, activation, c_out)
+                for _ in range(d_layers)
+            ]
+        )
         self.decoder_norm = nn.LayerNorm(d_model)
         self.seasonal_projection = nn.Linear(d_model, c_out)
 

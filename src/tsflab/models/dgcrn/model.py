@@ -38,12 +38,18 @@ class DynamicGraphGenerator(nn.Module):
         self.source_embedding = nn.Parameter(torch.randn(nodes, node_dim) / math.sqrt(node_dim))
         self.target_embedding = nn.Parameter(torch.randn(nodes, node_dim) / math.sqrt(node_dim))
         self.source_hyper = nn.Sequential(
-            nn.Linear(hidden + node_dim, hyper_dim), nn.Tanh(),
-            nn.Linear(hyper_dim, middle_dim), nn.Tanh(), nn.Linear(middle_dim, node_dim),
+            nn.Linear(hidden + node_dim, hyper_dim),
+            nn.Tanh(),
+            nn.Linear(hyper_dim, middle_dim),
+            nn.Tanh(),
+            nn.Linear(middle_dim, node_dim),
         )
         self.target_hyper = nn.Sequential(
-            nn.Linear(hidden + node_dim, hyper_dim), nn.Tanh(),
-            nn.Linear(hyper_dim, middle_dim), nn.Tanh(), nn.Linear(middle_dim, node_dim),
+            nn.Linear(hidden + node_dim, hyper_dim),
+            nn.Tanh(),
+            nn.Linear(hyper_dim, middle_dim),
+            nn.Tanh(),
+            nn.Linear(middle_dim, node_dim),
         )
         self.alpha = alpha
 
@@ -64,7 +70,9 @@ class DynamicGraphGenerator(nn.Module):
 class DynamicGraphConvolution(nn.Module):
     """Mix predefined and state-conditioned propagation up to ``depth`` hops."""
 
-    def __init__(self, input_dim: int, output_dim: int, depth: int, static_supports: torch.Tensor, dropout: float) -> None:
+    def __init__(
+        self, input_dim: int, output_dim: int, depth: int, static_supports: torch.Tensor, dropout: float
+    ) -> None:
         super().__init__()
         self.depth = depth
         self.dropout = nn.Dropout(dropout)

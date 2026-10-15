@@ -19,7 +19,7 @@ class ModelParameterConfig(BaseModel):
     num_kernels: int = Field(default=6, gt=0)
 
     @model_validator(mode="after")
-    def _architecture_contract(self) -> "ModelParameterConfig":
+    def _architecture_contract(self) -> ModelParameterConfig:
         if self.enc_in != self.c_out:
             raise ValueError("enc_in and c_out must match")
         return self

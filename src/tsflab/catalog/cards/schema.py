@@ -22,14 +22,35 @@ SCHEMA = "tsflab.card/1"
 SLOTS = ("normalization", "decomposition", "temporal", "channel", "head", "loss")
 COMPONENT_SLOTS = (*SLOTS, "input", "support")
 COMPONENT_CATEGORIES = (
-    "attention", "backbone", "convolution", "decomposition", "embedding", "frequency", "fusion",
-    "graph", "head", "memory", "mixer", "normalization", "objective", "routing", "state-space",
+    "attention",
+    "backbone",
+    "convolution",
+    "decomposition",
+    "embedding",
+    "frequency",
+    "fusion",
+    "graph",
+    "head",
+    "memory",
+    "mixer",
+    "normalization",
+    "objective",
+    "routing",
+    "state-space",
     "utility",
 )
-ISSUE_KINDS = ("code-bug", "paper-code-mismatch", "paper-error", "underspecified", "unreleased",
-               "leakage", "license")
-DATA_PARAM_SOURCES = ("period", "frequency", "channels", "nodes", "covariates", "seq_len", "pred_len",
-                      "graph", "train-split")
+ISSUE_KINDS = ("code-bug", "paper-code-mismatch", "paper-error", "underspecified", "unreleased", "leakage", "license")
+DATA_PARAM_SOURCES = (
+    "period",
+    "frequency",
+    "channels",
+    "nodes",
+    "covariates",
+    "seq_len",
+    "pred_len",
+    "graph",
+    "train-split",
+)
 #: ``hosted``: TSFLab re-hosts the files in Diaugeia/TSFLab-Datasets (``static/`` or ``realtime/``;
 #: ``tsf data download``), with
 #: any extra source terms stated in ``source.conditions``; ``upstream``: fetched from another
@@ -142,7 +163,7 @@ class ModelCard(_Strict):
         return value
 
     @model_validator(mode="after")
-    def _consistency(self) -> "ModelCard":
+    def _consistency(self) -> ModelCard:
         if not self.issues and not self.issues_checked:
             raise ValueError("record upstream issues, or say in issues_checked what was checked")
         if self.code is None and self.fidelity == "reference-checked":
@@ -227,7 +248,7 @@ class DatasetCard(_Strict):
         return _terms(value, allow_any=False) if value else value
 
     @model_validator(mode="after")
-    def _basis(self) -> "DatasetCard":
+    def _basis(self) -> DatasetCard:
         if self.characteristics and not self.characteristics_basis:
             raise ValueError("characteristics need characteristics_basis")
         if self.domain == "mixed" and self.kind != "dataset-family":
@@ -237,5 +258,4 @@ class DatasetCard(_Strict):
         return self
 
 
-CARD_TYPES = {"model": ModelCard, "component": ComponentCard, "dataset": DatasetCard,
-              "dataset-family": DatasetCard}
+CARD_TYPES = {"model": ModelCard, "component": ComponentCard, "dataset": DatasetCard, "dataset-family": DatasetCard}

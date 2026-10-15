@@ -28,9 +28,7 @@ def pyramid_sizes(length: int, branching: tuple[int, ...]) -> tuple[int, ...]:
     sizes = [length]
     for factor in branching:
         if sizes[-1] % factor:
-            raise ValueError(
-                f"scale length {sizes[-1]} must be divisible by branching factor {factor}"
-            )
+            raise ValueError(f"scale length {sizes[-1]} must be divisible by branching factor {factor}")
         sizes.append(sizes[-1] // factor)
     return tuple(sizes)
 
@@ -60,17 +58,11 @@ def _pam_neighbours(
 ) -> list[int]:
     """Sorted PAM neighbourhood of node ``local`` at ``scale``: siblings, children, parent."""
     size = sizes[scale]
-    neighbours = {
-        starts[scale] + index
-        for index in range(max(0, local - radius), min(size, local + radius + 1))
-    }
+    neighbours = {starts[scale] + index for index in range(max(0, local - radius), min(size, local + radius + 1))}
     if scale > 0:
         factor = branching[scale - 1]
         child_start = local * factor
-        neighbours.update(
-            starts[scale - 1] + child
-            for child in range(child_start, child_start + factor)
-        )
+        neighbours.update(starts[scale - 1] + child for child in range(child_start, child_start + factor))
     if scale + 1 < len(sizes):
         neighbours.add(starts[scale + 1] + local // branching[scale])
     return sorted(neighbours)
@@ -87,9 +79,7 @@ def _padded_table(rows: list[list[int]]) -> tuple[torch.Tensor, torch.Tensor]:
     return indices, valid
 
 
-def finest_ancestor_table(
-    sizes: tuple[int, ...], branching: tuple[int, ...]
-) -> torch.Tensor:
+def finest_ancestor_table(sizes: tuple[int, ...], branching: tuple[int, ...]) -> torch.Tensor:
     """Map every finest-scale position to its node at every pyramid scale."""
     starts = [sum(sizes[:scale]) for scale in range(len(sizes))]
     rows = []
@@ -109,8 +99,7 @@ class CoarseScaleConstructor(nn.Module):
     def __init__(self, d_model: int, branching: tuple[int, ...]) -> None:
         super().__init__()
         self.layers = nn.ModuleList(
-            nn.Conv1d(d_model, d_model, kernel_size=factor, stride=factor)
-            for factor in branching
+            nn.Conv1d(d_model, d_model, kernel_size=factor, stride=factor) for factor in branching
         )
         self.norms = nn.ModuleList(nn.LayerNorm(d_model) for _ in branching)
 
@@ -179,9 +168,7 @@ class PyramidalAttentionBlock(nn.Module):
     ) -> None:
         super().__init__()
         self.attention_norm = nn.LayerNorm(d_model)
-        self.attention = PyramidalAttention(
-            d_model, n_heads, neighbours, neighbour_valid, dropout
-        )
+        self.attention = PyramidalAttention(d_model, n_heads, neighbours, neighbour_valid, dropout)
         self.feed_forward_norm = nn.LayerNorm(d_model)
         self.feed_forward = nn.Sequential(
             nn.Linear(d_model, d_ff),
@@ -215,9 +202,7 @@ class Model(nn.Module):
         super().__init__()
         branching = tuple(window_size)
         sizes = pyramid_sizes(seq_len, branching)
-        neighbours, neighbour_valid = pyramid_neighbour_table(
-            sizes, branching, inner_size
-        )
+        neighbours, neighbour_valid = pyramid_neighbour_table(sizes, branching, inner_size)
         ancestors = finest_ancestor_table(sizes, branching)
 
         self.seq_len = seq_len
@@ -286,6 +271,4 @@ class Model(nn.Module):
         # Prediction strategy 1: concatenate the last observed position and
         # its parent at every coarser scale, then forecast the full horizon.
         last_chain = pyramid[:, self.ancestor_indices[-1], :].flatten(1)
-        return self.forecast_head(last_chain).view(
-            x_enc.shape[0], self.pred_len, self.enc_in
-        )
+        return self.forecast_head(last_chain).view(x_enc.shape[0], self.pred_len, self.enc_in)

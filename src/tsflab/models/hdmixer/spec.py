@@ -1,6 +1,7 @@
 """Runtime specification for HDMixer."""
 
 from pydantic import BaseModel, Field
+
 from tsflab.catalog.registry.models import ModelSpec
 from tsflab.models.hdmixer.model import Model
 

@@ -22,7 +22,7 @@ normalization) that automated research can recombine; paper-specific glue stays 
 Extraction from an existing model preserves state-dict keys, outputs, and gradients,
 shown against fixtures captured before the change, and re-admits every consumer
 (`tsf model verify --changed`). Material variants stay local and named. Models never import
-peer-model code; shared code moves into a component with a card. Audit limits: function complexity <= 10, method package <= 600 lines.
+peer-model code; shared code moves into a component with a card. Audit limits: function complexity <= 10, method package <= 450 lines of code (blank lines, comments, docstrings not counted).
 
 ## Cards (`tsflab.card/1`)
 One format for models, components, and datasets; schema in `catalog/cards/schema.py`,

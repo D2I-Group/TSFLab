@@ -71,9 +71,7 @@ class GPT2Config:
 class LoRAAdapter(nn.Module):
     """Low-rank update ``(alpha / r) * B(A(dropout(x)))`` added to a frozen projection."""
 
-    def __init__(
-        self, in_features: int, out_features: int, rank: int, alpha: float, dropout: float
-    ) -> None:
+    def __init__(self, in_features: int, out_features: int, rank: int, alpha: float, dropout: float) -> None:
         super().__init__()
         self.lora_A = nn.Linear(in_features, rank, bias=False)
         self.lora_B = nn.Linear(rank, out_features, bias=False)
@@ -103,9 +101,9 @@ class GPT2Attention(nn.Module):
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
         self.lora = (
-            LoRAAdapter(config.n_embd, 3 * config.n_embd, config.lora_rank,
-                        config.lora_alpha, config.lora_dropout)
-            if config.lora_rank else None
+            LoRAAdapter(config.n_embd, 3 * config.n_embd, config.lora_rank, config.lora_alpha, config.lora_dropout)
+            if config.lora_rank
+            else None
         )
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
@@ -124,7 +122,10 @@ class GPT2Attention(nn.Module):
         # softmax(Q K^T / sqrt(d_head) + causal mask) V
         if self.attn_implementation == "sdpa":
             context = F.scaled_dot_product_attention(
-                query, key, value, is_causal=True,
+                query,
+                key,
+                value,
+                is_causal=True,
                 dropout_p=self.attn_dropout.p if self.training else 0.0,
             )
         else:
@@ -223,9 +224,7 @@ class GPT2Backbone(nn.Module):
             hidden = block(hidden)
         return self.ln_f(hidden)
 
-    def forward_with_hidden_states(
-        self, inputs_embeds: torch.Tensor
-    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    def forward_with_hidden_states(self, inputs_embeds: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
         """Final state and the ``n_layer + 1`` hidden states ``[B, T, n_embd]``.
 
         The list holds the input of every block (``h_0`` is the position-embedded,

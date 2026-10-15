@@ -20,4 +20,5 @@ class DatasetParameterConfig(DatasetParameters):
 
 class WeatherParameterConfig(DatasetParameterConfig):
     """Native Weather defaults match its supplied preset; custom CSVs stay opt-in."""
+
     missing_sentinels: list[float] = Field(default_factory=lambda: [-9999.0])

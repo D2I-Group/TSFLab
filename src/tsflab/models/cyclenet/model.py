@@ -14,9 +14,16 @@ from tsflab.models._inputs import check_window
 class Model(nn.Module):
     """Remove a learnable recurrent cycle, forecast residuals, and restore it."""
 
-    def __init__(self, seq_len: int, pred_len: int, enc_in: int, cycle: int = 24,
-                 model_type: str = "linear", d_model: int = 512,
-                 use_revin: bool = True) -> None:
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        cycle: int = 24,
+        model_type: str = "linear",
+        d_model: int = 512,
+        use_revin: bool = True,
+    ) -> None:
         super().__init__()
         self.seq_len, self.pred_len, self.enc_in, self.cycle = seq_len, pred_len, enc_in, cycle
         self.cycle_pattern = nn.Parameter(torch.zeros(cycle, enc_in))
