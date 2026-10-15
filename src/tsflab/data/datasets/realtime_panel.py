@@ -51,6 +51,18 @@ def _open_store(root_path: str, track: str, revision: str | None, repo_id: str |
     return store
 
 
+def _release_cut(store, manifest: dict, track: str, version: str) -> pd.Timestamp:
+    """Last timestamp of a frozen release; the newest release must match the store content."""
+    releases = {r["version"]: r for r in manifest["releases"]}
+    if version not in releases:
+        raise ValueError(f"track {track!r} has no release {version!r}; known: {sorted(releases)}")
+    release = releases[version]
+    cut = pd.Timestamp(release["last_timestamp"])
+    if release is manifest["releases"][-1] and store.content_hash() != release["content_sha256"]:
+        raise ValueError(f"store content of {track!r} does not match release {version!r}")
+    return cut
+
+
 def load_panel(
     root_path: str,
     track: str,
@@ -66,15 +78,7 @@ def load_panel(
 
     store = _open_store(root_path, track, revision, repo_id)
     manifest = store.manifest()
-    cut = None
-    if version is not None:
-        releases = {r["version"]: r for r in manifest["releases"]}
-        if version not in releases:
-            raise ValueError(f"track {track!r} has no release {version!r}; known: {sorted(releases)}")
-        release = releases[version]
-        cut = pd.Timestamp(release["last_timestamp"])
-        if release is manifest["releases"][-1] and store.content_hash() != release["content_sha256"]:
-            raise ValueError(f"store content of {track!r} does not match release {version!r}")
+    cut = _release_cut(store, manifest, track, version) if version is not None else None
     stop = pd.Timestamp(end) if end else None
     if cut is not None:
         stop = cut if stop is None else min(stop, cut)

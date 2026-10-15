@@ -90,6 +90,13 @@ def _resolve_dataset(name: str | None, root: Path) -> Path:
     raise ValueError(f"dataset config {name!r} not found (tried the path and configs/datasets/{name}.toml)")
 
 
+def _resolve_base(name: str, root: Path) -> Path:
+    base = (root / name).resolve() if not Path(name).is_absolute() else Path(name)
+    if not base.is_file():
+        raise ValueError(f"base config {name!r} not found under {root}")
+    return base
+
+
 def write_config(spec: dict[str, Any], result: dict[str, Any], opts: Any, root: Path) -> Path:
     """Write a runnable run config for the spec; returns its path."""
     executable = result["executable"]
@@ -107,9 +114,7 @@ def write_config(spec: dict[str, Any], result: dict[str, Any], opts: Any, root: 
         raise ValueError("pass --enc-in (channel count of the dataset) or set enc_in in the spec's [params]")
     out = Path(opts.write_config).resolve()
     dataset = _resolve_dataset(opts.dataset, root)
-    base = (root / opts.base).resolve() if not Path(opts.base).is_absolute() else Path(opts.base)
-    if not base.is_file():
-        raise ValueError(f"base config {opts.base!r} not found under {root}")
+    base = _resolve_base(opts.base, root)
     model_name = registered or "Composed"
     preset = root / "configs" / "models" / f"{model_name}.toml"
     rel = lambda p: os.path.relpath(p, out.parent)  # noqa: E731
@@ -120,21 +125,7 @@ def write_config(spec: dict[str, Any], result: dict[str, Any], opts: Any, root: 
         "[experiment]",
         f"description = {json.dumps('Composition ' + str(spec.get('name')) + ': ' + str(spec.get('hypothesis', '')).strip())}",
     ]
-    if opts.work_dir:
-        lines.append(f"work_dir = {json.dumps(str(opts.work_dir))}")
-    if opts.smoke:
-        lines += ["", "[experiment.runtime]", 'device = "cpu"', "num_workers = 0"]
-    task = {k: v for k, v in (("seq_len", opts.seq_len), ("pred_len", opts.pred_len)) if v}
-    if opts.smoke:
-        task.setdefault("label_len", 0)
-    if task:
-        lines += ["", "[task]"] + [f"{k} = {v}" for k, v in task.items()]
-    training: dict[str, object] = {"loss": assignment["loss"]}
-    if opts.smoke:
-        training.update(epochs=1, batch_size=16, patience=1)
-    if opts.epochs:
-        training["epochs"] = opts.epochs
-    lines += ["", "[training]"] + [f"{k} = {_toml_value(v)}" for k, v in training.items()]
+    lines += _run_lines(opts, assignment)
     lines += ["", "[model]", f"name = {json.dumps(model_name)}", "", "[model.params]", f"enc_in = {int(enc_in)}"]
     if not registered:
         lines += [
@@ -147,15 +138,38 @@ def write_config(spec: dict[str, Any], result: dict[str, Any], opts: Any, root: 
     return out
 
 
+def _run_lines(opts: Any, assignment: dict[str, str]) -> list[str]:
+    """Experiment, task, and training lines of the generated run config."""
+    lines: list[str] = []
+    if opts.work_dir:
+        lines.append(f"work_dir = {json.dumps(str(opts.work_dir))}")
+    if opts.smoke:
+        lines += ["", "[experiment.runtime]", 'device = "cpu"', "num_workers = 0"]
+    return lines + _task_training_lines(opts, assignment)
+
+
+def _task_training_lines(opts: Any, assignment: dict[str, str]) -> list[str]:
+    lines: list[str] = []
+    task = {k: v for k, v in (("seq_len", opts.seq_len), ("pred_len", opts.pred_len)) if v}
+    if opts.smoke:
+        task.setdefault("label_len", 0)
+    if task:
+        lines += ["", "[task]"] + [f"{k} = {v}" for k, v in task.items()]
+    training: dict[str, object] = {"loss": assignment["loss"]}
+    if opts.smoke:
+        training.update(epochs=1, batch_size=16, patience=1)
+    if opts.epochs:
+        training["epochs"] = opts.epochs
+    return lines + ["", "[training]"] + [f"{k} = {_toml_value(v)}" for k, v in training.items()]
+
+
 def _slug(name: str) -> str:
     return name.lower()
 
 
 def _fits(spec: dict[str, Any], components: list[str]) -> list[str]:
     """Characteristics the composition targets: declared ``fits``, the hypothesis' rule id, or its components'."""
-    from tsflab.catalog.cards.store import load
     from tsflab.catalog.characteristics import vocabulary
-    from tsflab.core.paths import repository_root
 
     terms = set(vocabulary()) - {"any"}
     declared = [str(term) for term in spec.get("fits", []) if str(term) in terms]
@@ -164,6 +178,16 @@ def _fits(spec: dict[str, Any], components: list[str]) -> list[str]:
     head = str(spec.get("hypothesis", "")).split(":", 1)[0].strip()
     if head in terms:
         return [head]
+    found = _component_fits(components, terms)
+    if not found:
+        raise ValueError("declare `fits = [...]` in the composition spec (characteristics it targets)")
+    return found
+
+
+def _component_fits(components: list[str], terms: set[str]) -> list[str]:
+    from tsflab.catalog.cards.store import load
+    from tsflab.core.paths import repository_root
+
     found: list[str] = []
     for component in components:
         try:
@@ -171,8 +195,6 @@ def _fits(spec: dict[str, Any], components: list[str]) -> list[str]:
         except ValueError:
             continue
         found += [term for term in card.facts.get("fits", []) if term in terms and term not in found]
-    if not found:
-        raise ValueError("declare `fits = [...]` in the composition spec (characteristics it targets)")
     return found
 
 
@@ -196,24 +218,44 @@ def _files(spec: dict[str, Any], result: dict[str, Any], name: str) -> dict[str,
         "distribution": "distribution-output",
     }[output]
     capabilities = ["time-series"] + ([] if output == "point" else [desc])
+    hyper_fields, kwargs = _hyper_fields(hyper, output == "quantile")
+    option_names = {k: v for k, v in assignment.items() if k != "loss"}
+    model_py = _model_py(name, imports, option_names, assignment["loss"])
+    spec_py = _spec_py(name, slug, hyper_fields, kwargs, capabilities, comps)
+    card = _card(spec, name, assignment, option_names, tags, comps, hypothesis, parents, summary or tagline)
+    preset = _preset(spec, name, hyper)
+    return {
+        f"src/tsflab/models/{slug}/__init__.py": f'"""{name} model package."""\n',
+        f"src/tsflab/models/{slug}/model.py": model_py,
+        f"src/tsflab/models/{slug}/spec.py": spec_py,
+        f"src/tsflab/models/{slug}/README.md": card["README.md"],
+        f"src/tsflab/models/{slug}/card.toml": card["card.toml"],
+        f"configs/models/{name}.toml": preset,
+    }
+
+
+def _hyper_fields(hyper: dict[str, object], quantile: bool) -> tuple[str, str]:
+    """Parameter-schema fields and factory keyword arguments for the generated spec."""
     hyper_fields = "\n".join(f"    {k}: {'float' if isinstance(v, float) else 'int'} = {v!r}" for k, v in hyper.items())
-    quantile = output == "quantile"
     if quantile:
         hyper_fields += "\n    quantile_levels: list[float] | None = None"
-    option_names = {k: v for k, v in assignment.items() if k != "loss"}
     kwargs = ", ".join(f"{k}=params[{k!r}]" for k in hyper)
     if quantile:
         kwargs += (
             ", " if kwargs else ""
         ) + "quantile_levels=params.get('quantile_levels') or list(cfg.evaluation.quantile_levels)"
-    model_py = f'''"""{name}: a composition of cataloged components (generated by tsf model compose --register)."""
+    return hyper_fields, kwargs
+
+
+def _model_py(name: str, imports: str, option_names: dict[str, str], loss: str) -> str:
+    return f'''"""{name}: a composition of cataloged components (generated by tsf model compose --register)."""
 
 from __future__ import annotations
 
 {imports}
 from tsflab.models._slots.adapters import Pipeline
 
-ASSIGNMENT = {{**{json.dumps(option_names)}, "loss": {json.dumps(assignment["loss"])}}}
+ASSIGNMENT = {{**{json.dumps(option_names)}, "loss": {json.dumps(loss)}}}
 
 
 class Model(Pipeline):
@@ -227,7 +269,10 @@ class Model(Pipeline):
         y = super().forward(x_enc, x_mark_enc, x_dec, x_mark_dec)
         return y[:, :, -1:] if self.features == "MS" else y
 '''
-    spec_py = f'''"""Model specification for {name}."""
+
+
+def _spec_py(name: str, slug: str, hyper_fields: str, kwargs: str, capabilities: list[str], comps: list[str]) -> str:
+    return f'''"""Model specification for {name}."""
 
 from __future__ import annotations
 
@@ -263,6 +308,19 @@ SPEC = ModelSpec(
     contract_task={{"seq_len": 96, "pred_len": 96, "label_len": 0}},
 )
 '''
+
+
+def _card(
+    spec: dict[str, Any],
+    name: str,
+    assignment: dict[str, str],
+    option_names: dict[str, str],
+    tags: list[str],
+    comps: list[str],
+    hypothesis: str,
+    parents: list[str],
+    summary: str,
+) -> dict[str, str]:
     composition = card_composition(assignment)
     ideas = [
         "Composition: " + ", ".join(f"{k}={v}" for k, v in option_names.items()) + f"; loss {assignment['loss']}.",
@@ -272,7 +330,7 @@ SPEC = ModelSpec(
     ]
     from tsflab.catalog.cards.render import card_files
 
-    card = card_files(
+    return card_files(
         "model",
         {
             "name": name,
@@ -283,7 +341,7 @@ SPEC = ModelSpec(
             "issues_checked": "recombination of cataloged components; no upstream paper or official code",
             "admission": {"status": "pending"},
         },
-        summary or tagline,
+        summary,
         {
             "Idea": "\n".join(f"- {line}" for line in ideas),
             "When to use": f"- Hypothesis under test: {hypothesis or 'not stated'}.",
@@ -291,7 +349,10 @@ SPEC = ModelSpec(
             "Differences": "Not a paper reproduction: a recombination generated by `tsf model compose --register`.",
         },
     )
-    preset = (
+
+
+def _preset(spec: dict[str, Any], name: str, hyper: dict[str, object]) -> str:
+    return (
         "\n".join(
             [
                 "[model]",
@@ -304,14 +365,6 @@ SPEC = ModelSpec(
         )
         + "\n"
     )
-    return {
-        f"src/tsflab/models/{slug}/__init__.py": f'"""{name} model package."""\n',
-        f"src/tsflab/models/{slug}/model.py": model_py,
-        f"src/tsflab/models/{slug}/spec.py": spec_py,
-        f"src/tsflab/models/{slug}/README.md": card["README.md"],
-        f"src/tsflab/models/{slug}/card.toml": card["card.toml"],
-        f"configs/models/{name}.toml": preset,
-    }
 
 
 def register_model(

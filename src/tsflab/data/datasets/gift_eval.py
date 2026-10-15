@@ -129,7 +129,11 @@ def _pandas_freq(freq_str: str, start: pd.Timestamp | None = None) -> str:
         if side is None:
             side = "S" if start is not None and _is_period_start(start, 1, 1) else "E"
         return f"{mult}M{side}"
+    return _anchored_freq(mult, family, side, anchor, start)
 
+
+def _anchored_freq(mult: str, family: str, side: str | None, anchor: str | None, start: pd.Timestamp | None) -> str:
+    """Quarterly/yearly alias; see :func:`_pandas_freq`."""
     step = 3 if family == "Q" else 12
     if side == "S":
         return f"{mult}{family}S-{anchor or 'JAN'}"

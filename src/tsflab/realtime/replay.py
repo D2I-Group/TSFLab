@@ -47,21 +47,22 @@ def replay(
             if submission.model not in existing:
                 R.write_forecast(submission.model_copy(update={"submitted_at": spec.opened_at}), spec, root)
         for model in models or []:
-            if model in existing:
-                continue
-            from tsflab.realtime.forecast import forecast_with_model
-
-            try:
-                submission = forecast_with_model(
-                    spec, store, track, model, work_dir, json.loads(json.dumps(overrides or {}))
-                )
-            except Exception as exc:  # one failing model must not stop the replay
-                print(f"{track.id} {spec.round_id}: {model} failed: {exc}")
-                continue
-            R.write_forecast(submission.model_copy(update={"submitted_at": spec.opened_at}), spec, root)
+            if model not in existing:
+                _replay_model(spec, store, track, model, work_dir, overrides, root)
         scores = R.score_round(spec, store, track.min_coverage, root)
         print(
             f"{track.id} {spec.round_id}: cutoff {spec.cutoff} "
             f"{'scored ' + str(len(scores)) if scores else 'incomplete truth'}"
         )
     return R.track_summary(track.id, root)
+
+
+def _replay_model(spec, store: PanelStore, track: TrackSpec, model: str, work_dir: Path, overrides, root: Path) -> None:
+    from tsflab.realtime.forecast import forecast_with_model
+
+    try:
+        submission = forecast_with_model(spec, store, track, model, work_dir, json.loads(json.dumps(overrides or {})))
+    except Exception as exc:  # one failing model must not stop the replay
+        print(f"{track.id} {spec.round_id}: {model} failed: {exc}")
+        return
+    R.write_forecast(submission.model_copy(update={"submitted_at": spec.opened_at}), spec, root)

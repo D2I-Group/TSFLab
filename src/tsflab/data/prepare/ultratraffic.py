@@ -48,44 +48,58 @@ def _inner_archive(path: Path) -> zipfile.ZipFile:
     return zipfile.ZipFile(outer.open(inner))
 
 
+def _member_target(name: str, wanted: set[str], out: Path) -> tuple[str, Path] | None:
+    """Region and parquet target of one archive member, or ``None`` when it is skipped."""
+    match = _MEMBER.search(name)
+    if not match:
+        return None
+    region, variant, year, part = match.groups()
+    if region not in wanted or region in DUPLICATES:
+        return None
+    if variant == "CL" and part is None:
+        return None  # identical to the Static full-year file
+    target = (
+        out
+        / region
+        / ("static" if variant == "Static" else "cl")
+        / (f"{year}.parquet" if part is None else f"{year}_{part}.parquet")
+    )
+    return region, target
+
+
+def _write_member(source: zipfile.ZipFile, name: str, target: Path) -> dict:
+    payload = source.read(name)
+    frame = pd.read_csv(io.BytesIO(payload), index_col="date", parse_dates=True)
+    frame.columns = [str(c) for c in frame.columns]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    frame.astype("float32").to_parquet(target)
+    facts = {
+        "rows": int(len(frame)),
+        "stations": int(frame.shape[1]),
+        "start": frame.index.min().isoformat(),
+        "end": frame.index.max().isoformat(),
+        "missing": round(float(frame.isna().mean().mean()), 4),
+        "csv_sha256": hashlib.sha256(payload).hexdigest(),
+    }
+    target.with_suffix(".json").write_text(json.dumps(facts, indent=1))
+    return facts
+
+
 def convert(archive: Path, out: Path, regions: list[str] | None = None) -> dict:
     source = _inner_archive(archive)
     manifest = {"source": archive.name, "regions": {}, "duplicates": DUPLICATES}
     wanted = set(regions or REGIONS)
     for name in sorted(source.namelist()):
-        match = _MEMBER.search(name)
-        if not match:
+        member = _member_target(name, wanted, out)
+        if member is None:
             continue
-        region, variant, year, part = match.groups()
-        if region not in wanted or region in DUPLICATES:
-            continue
-        if variant == "CL" and part is None:
-            continue  # identical to the Static full-year file
-        target = (
-            out
-            / region
-            / ("static" if variant == "Static" else "cl")
-            / (f"{year}.parquet" if part is None else f"{year}_{part}.parquet")
-        )
+        region, target = member
         entry = manifest["regions"].setdefault(region, {"district": REGIONS[region], "files": {}})
         key = str(target.relative_to(out / region))
         if target.is_file():
             entry["files"][key] = json.loads((target.with_suffix(".json")).read_text())
             continue
-        payload = source.read(name)
-        frame = pd.read_csv(io.BytesIO(payload), index_col="date", parse_dates=True)
-        frame.columns = [str(c) for c in frame.columns]
-        target.parent.mkdir(parents=True, exist_ok=True)
-        frame.astype("float32").to_parquet(target)
-        facts = {
-            "rows": int(len(frame)),
-            "stations": int(frame.shape[1]),
-            "start": frame.index.min().isoformat(),
-            "end": frame.index.max().isoformat(),
-            "missing": round(float(frame.isna().mean().mean()), 4),
-            "csv_sha256": hashlib.sha256(payload).hexdigest(),
-        }
-        target.with_suffix(".json").write_text(json.dumps(facts, indent=1))
+        facts = _write_member(source, name, target)
         entry["files"][key] = facts
         print(f"{region} {key}: {facts['stations']} stations, {facts['rows']} hours", flush=True)
     out.mkdir(parents=True, exist_ok=True)

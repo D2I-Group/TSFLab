@@ -174,6 +174,29 @@ def publish_presets(
     full, for example a complete store beyond what any preset reads. Files go
     under the manifest ``prefix`` (``static/``) of ``repo_id``.
     """
+    _check_publishable(presets, root)
+    try:
+        from huggingface_hub import HfApi
+    except ImportError as exc:
+        raise RuntimeError("publishing needs `tsflab[hub]`") from exc
+    api = HfApi()
+    if create:
+        api.create_repo(repo_id, repo_type="dataset", private=private, exist_ok=True)
+    manifest = _target_manifest(root, repo_id)
+    prefix = str(manifest.get("prefix") or "").strip("/")
+    revisions = {}
+    targets = [(preset, None) for preset in presets]
+    targets += [(path.strip("/"), Selection(preset=path, base=path.strip("/"))) for path in paths]
+    for preset, chosen in targets:
+        revisions[preset] = _publish_target(api, manifest, preset, chosen, data_root, root, repo_id, prefix)
+    manifest["files"] = dict(sorted(manifest["files"].items()))
+    target = manifest_path(root)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return revisions
+
+
+def _check_publishable(presets: list[str], root: Path | None) -> None:
     if is_packaged_root(root or repository_root()):
         raise RuntimeError("publishing datasets requires a TSFLab checkout")
     blocked = {preset: klass for preset in presets if (klass := redistribution(preset, root)) not in REHOSTABLE}
@@ -182,13 +205,10 @@ def publish_presets(
             "not re-hostable (card [source] redistribution): "
             + ", ".join(f"{p}={k}" for p, k in sorted(blocked.items()))
         )
-    try:
-        from huggingface_hub import HfApi
-    except ImportError as exc:
-        raise RuntimeError("publishing needs `tsflab[hub]`") from exc
-    api = HfApi()
-    if create:
-        api.create_repo(repo_id, repo_type="dataset", private=private, exist_ok=True)
+
+
+def _target_manifest(root: Path | None, repo_id: str) -> dict:
+    """The manifest bound to ``repo_id``; a new or reset one takes the current layout."""
     manifest = load_manifest(root)
     if manifest["files"] and manifest["repo"] != repo_id:
         raise ValueError(
@@ -198,39 +218,33 @@ def publish_presets(
     if not manifest["files"]:  # a new or reset manifest uses the current layout
         manifest["schema_version"] = MANIFEST_SCHEMA_VERSION
         manifest["prefix"] = STATIC_PREFIX
-    prefix = str(manifest.get("prefix") or "").strip("/")
-    revisions = {}
-    targets = [(preset, None) for preset in presets]
-    targets += [(path.strip("/"), Selection(preset=path, base=path.strip("/"))) for path in paths]
-    for preset, chosen in targets:
-        names = local_files(preset, data_root, root, chosen=chosen)
-        if not names:
-            raise FileNotFoundError(f"no local files for {preset!r} under {data_root}")
-        digests = {name: sha256_file(data_root / name) for name in names}
-        pending = [name for name in names if manifest["files"].get(name, {}).get("sha256") != digests[name]]
-        if not pending:
-            revisions[preset] = "unchanged"
-            continue
-        commit = api.upload_folder(
-            repo_id=repo_id,
-            repo_type="dataset",
-            folder_path=str(data_root),
-            path_in_repo=prefix or None,
-            allow_patterns=pending,
-            commit_message=f"{preset}: {len(pending)} file(s)",
-        )
-        for name in pending:
-            manifest["files"][name] = {
-                "revision": commit.oid,
-                "sha256": digests[name],
-                "size": (data_root / name).stat().st_size,
-            }
-        revisions[preset] = commit.oid
-    manifest["files"] = dict(sorted(manifest["files"].items()))
-    target = manifest_path(root)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    return revisions
+    return manifest
+
+
+def _publish_target(api, manifest: dict, preset: str, chosen, data_root: Path, root, repo_id: str, prefix: str) -> str:
+    """Upload the changed files of one preset or path in one commit; return its revision or ``"unchanged"``."""
+    names = local_files(preset, data_root, root, chosen=chosen)
+    if not names:
+        raise FileNotFoundError(f"no local files for {preset!r} under {data_root}")
+    digests = {name: sha256_file(data_root / name) for name in names}
+    pending = [name for name in names if manifest["files"].get(name, {}).get("sha256") != digests[name]]
+    if not pending:
+        return "unchanged"
+    commit = api.upload_folder(
+        repo_id=repo_id,
+        repo_type="dataset",
+        folder_path=str(data_root),
+        path_in_repo=prefix or None,
+        allow_patterns=pending,
+        commit_message=f"{preset}: {len(pending)} file(s)",
+    )
+    for name in pending:
+        manifest["files"][name] = {
+            "revision": commit.oid,
+            "sha256": digests[name],
+            "size": (data_root / name).stat().st_size,
+        }
+    return commit.oid
 
 
 def check_manifest(root: Path | None = None) -> list[str]:

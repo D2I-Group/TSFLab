@@ -59,18 +59,25 @@ def list_bundles(
     bundles = []
     for name in files:
         parts = name.split("/")
-        if parts[-1] != MANIFEST:
+        found = _bundle_dataset_model(parts)
+        if found is None:
             continue
-        if len(parts) == 6 and parts[0] == CHECKPOINTS_PREFIX:
-            ds, mdl = parts[2], parts[3]
-        elif len(parts) == 4 and parts[0] not in ("results", "board", "legacy"):
-            ds, mdl = parts[0], parts[1]
-        else:
-            continue
+        ds, mdl = found
         if (dataset and ds != dataset) or (model and mdl != model):
             continue
         bundles.append("/".join(parts[:-1]))
     return sorted(bundles)
+
+
+def _bundle_dataset_model(parts: list[str]) -> tuple[str, str] | None:
+    """``(dataset, model)`` of a bundle manifest path in either layout, else ``None``."""
+    if parts[-1] != MANIFEST:
+        return None
+    if len(parts) == 6 and parts[0] == CHECKPOINTS_PREFIX:
+        return parts[2], parts[3]
+    if len(parts) == 4 and parts[0] not in ("results", "board", "legacy"):
+        return parts[0], parts[1]
+    return None
 
 
 def _card(front: dict[str, object], body: str) -> str:

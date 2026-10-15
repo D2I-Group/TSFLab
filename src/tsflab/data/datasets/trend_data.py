@@ -89,13 +89,7 @@ class Dataset_trend(ForecastingDataset):
         total_len = self.seq_len + self.pred_len
         num_samples = self.num_samples
 
-        t = np.arange(total_len, dtype=np.float32)
-        if self.normalize_t:
-            denom = total_len - 1
-            if denom <= 0:
-                t = np.zeros_like(t)
-            else:
-                t = (t / denom) * 2.0 - 1.0
+        t = self._time_axis(total_len)
 
         degree_max = max(1, int(self.degree_max))
         degree_min = max(1, int(self.degree_min))
@@ -123,18 +117,7 @@ class Dataset_trend(ForecastingDataset):
             data = trend
 
         if scale:
-            total_ratio = sum(split_ratio)
-            train_end = int(split_ratio[0] / total_ratio * num_samples)
-            train_data = data[:train_end]
-            data_min = train_data.min()
-            data_max = train_data.max()
-            scale_range = data_max - data_min
-            if scale_range == 0:
-                scale_range = 1.0
-            data = (data - data_min) / scale_range
-            data = data * 2.0 - 1.0
-            self.data_min = data_min
-            self.data_max = data_max
+            data = self._scale(data, split_ratio, num_samples)
 
         time_stamp = np.zeros((num_samples, total_len, 6), dtype=np.int64)
 
@@ -145,14 +128,35 @@ class Dataset_trend(ForecastingDataset):
         if features in {"M", "MS"}:
             return series_data, time_stamp
 
-        channel_index = 0
-        if target != "OT":
-            try:
-                channel_index = int(target)
-            except ValueError:
-                channel_index = 0
+        channel_index = _channel_index(target)
         series_data = series_data[:, :, channel_index : channel_index + 1]
         return series_data, time_stamp
+
+    def _time_axis(self, total_len: int) -> np.ndarray:
+        t = np.arange(total_len, dtype=np.float32)
+        if self.normalize_t:
+            denom = total_len - 1
+            if denom <= 0:
+                t = np.zeros_like(t)
+            else:
+                t = (t / denom) * 2.0 - 1.0
+        return t
+
+    def _scale(self, data: np.ndarray, split_ratio: tuple[float, float, float], num_samples: int) -> np.ndarray:
+        """Min-max scale to [-1, 1] with the training samples' range."""
+        total_ratio = sum(split_ratio)
+        train_end = int(split_ratio[0] / total_ratio * num_samples)
+        train_data = data[:train_end]
+        data_min = train_data.min()
+        data_max = train_data.max()
+        scale_range = data_max - data_min
+        if scale_range == 0:
+            scale_range = 1.0
+        data = (data - data_min) / scale_range
+        data = data * 2.0 - 1.0
+        self.data_min = data_min
+        self.data_max = data_max
+        return data
 
     def _get_sample_borders(
         self,
@@ -167,6 +171,15 @@ class Dataset_trend(ForecastingDataset):
         border1 = int(cum_ratios[idx - 1] * num_samples) if idx > 0 else 0
         border2 = int(cum_ratios[idx] * num_samples)
         return border1, border2
+
+
+def _channel_index(target: str) -> int:
+    if target == "OT":
+        return 0
+    try:
+        return int(target)
+    except ValueError:
+        return 0
 
 
 def register() -> None:
