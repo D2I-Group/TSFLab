@@ -130,6 +130,50 @@ def _run_claimed_job(path, *, executor=None):
     return state
 
 
+def _claimable_jobs(root):
+    """Unfinished jobs nobody holds, and the number of jobs a live controller holds."""
+    active = 0
+    available = []
+    for state in jobs(root):
+        if state["status"] not in {"queued", "running"}:
+            continue
+        path = root / state["id"]
+        try:
+            with file_lock(path / ".job.lock", blocking=False):
+                available.append(path)
+        except BlockingIOError:
+            active += 1
+    return available, active
+
+
+def _spawn_controller(path):
+    """Start a detached controller for the job at ``path`` that inherits its held lock."""
+    # Reserve ownership in the parent before spawn, transfer the
+    # inherited descriptor to eliminate the startup admission race.
+    import fcntl
+
+    stream = (path / ".job.lock").open("a+")
+    try:
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with (path / "controller.log").open("a") as log:
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "tsflab.experiments.infra.queue",
+                    str(path),
+                    str(stream.fileno()),
+                ],
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                pass_fds=(stream.fileno(),),
+            )
+        return child
+    finally:
+        stream.close()
+
+
 def work(root, *, once=False, slots=1):
     if slots < 1:
         raise ValueError("slots must be positive")
@@ -140,42 +184,9 @@ def work(root, *, once=False, slots=1):
     with file_lock(root / ".worker.lock", blocking=False):
         while True:
             children = [p for p in children if p.poll() is None]
-            active = 0
-            available = []
-            for state in jobs(root):
-                if state["status"] not in {"queued", "running"}:
-                    continue
-                path = root / state["id"]
-                try:
-                    with file_lock(path / ".job.lock", blocking=False):
-                        available.append(path)
-                except BlockingIOError:
-                    active += 1
+            available, active = _claimable_jobs(root)
             for path in available[: max(0, slots - active)]:
-                # Reserve ownership in the parent before spawn, transfer the
-                # inherited descriptor to eliminate the startup admission race.
-                import fcntl
-
-                stream = (path / ".job.lock").open("a+")
-                try:
-                    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    with (path / "controller.log").open("a") as log:
-                        child = subprocess.Popen(
-                            [
-                                sys.executable,
-                                "-m",
-                                "tsflab.experiments.infra.queue",
-                                str(path),
-                                str(stream.fileno()),
-                            ],
-                            stdout=log,
-                            stderr=subprocess.STDOUT,
-                            start_new_session=True,
-                            pass_fds=(stream.fileno(),),
-                        )
-                    children.append(child)
-                finally:
-                    stream.close()
+                children.append(_spawn_controller(path))
             if once:
                 return jobs(root)
             time.sleep(1)

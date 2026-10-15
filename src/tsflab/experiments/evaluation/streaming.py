@@ -134,17 +134,15 @@ class MetricAccumulator:
         self.covered += float(((y >= lo) & (y <= hi)).sum())
         self.width += float((hi - lo).sum())
 
-    def result(self) -> dict[str, float]:
-        """The metric dictionary of :func:`collect_metrics` (+ probabilistic keys)."""
-        if self.n == 0:
-            raise ValueError("no predictions were accumulated")
+    def _point_metrics(self) -> dict:
+        """The ten point metrics of :func:`collect_metrics` over everything accumulated."""
         n = self.n
         ch = self.channel
         denom = np.sqrt(ch.m2_p * ch.m2_t)
         per_channel = np.divide(ch.c_pt, denom, out=np.zeros_like(ch.c_pt), where=denom > 1e-12)
         naive = self.naive_sum / self.naive_n if self.naive_n else float("nan")
         mae64 = self.sum_abs / n
-        metrics = {
+        return {
             "mae": mae64,
             "mse": self.sum_sq / n,
             "rmse": math.sqrt(self.sum_sq / n),
@@ -157,6 +155,13 @@ class MetricAccumulator:
             "mase": (float("nan") if not self.naive_n or not np.isfinite(naive) or naive <= 1e-12
                      else float(mae64 / naive)),
         }
+
+    def result(self) -> dict[str, float]:
+        """The metric dictionary of :func:`collect_metrics` (+ probabilistic keys)."""
+        if self.n == 0:
+            raise ValueError("no predictions were accumulated")
+        n = self.n
+        metrics = self._point_metrics()
         if self.output_type == "point":
             return {k: float(v) for k, v in metrics.items()}
         q = len(self.pinball)

@@ -257,42 +257,30 @@ def train(
     for cb in callbacks:
         cb.on_train_start(ctx)
 
-    from tsflab.experiments.infra.checkpoint import restore_checkpoint, save_checkpoint, save_weights, capture_rng, set_rng
+    from tsflab.experiments.infra.checkpoint import save_checkpoint
+
     latest = os.path.join(checkpoint_dir, "latest.pth")
-    progress = None
-    start_epoch, prior_elapsed, completed = 0, 0.0, False
-    if tracker:
-        # Start after constructors but preserve the restored RNG below.
-        if resume and os.path.isfile(latest):
-            metadata = torch.load(latest, map_location="cpu", weights_only=False)
-            tracker.start(metadata["epoch"] + 1)
-        else:
-            tracker.start(1)
-    if training_setup is not None and not (resume and os.path.isfile(latest)):
-        training_setup(
-            unwrap_model(model), train_loader, pred_len=pred_len, features=features
-        )
-    if resume and os.path.isfile(latest):
-        state = restore_checkpoint(
-            latest, model=model, optimizer=optimizer, scaler=scaler,
-            early_stopping=early_stopping, manager=checkpoint_manager,
-            callbacks=callbacks, loaders=(train_loader, vali_loader),
-        )
-        start_epoch, prior_elapsed, completed = state["epoch"], state["elapsed"], state["completed"]
-        progress = state.get("progress")
+    start_epoch, prior_elapsed, completed, progress = _start_or_resume(
+        model=model,
+        train_loader=train_loader,
+        vali_loader=vali_loader,
+        optimizer=optimizer,
+        scaler=scaler,
+        early_stopping=early_stopping,
+        checkpoint_manager=checkpoint_manager,
+        callbacks=callbacks,
+        training_setup=training_setup,
+        resume=resume,
+        tracker=tracker,
+        latest=latest,
+        pred_len=pred_len,
+        features=features,
+    )
     start_time = time.perf_counter()
     epochs_run = start_epoch
     for epoch in range(start_epoch, epochs if not completed else start_epoch):
         epochs_run = epoch + 1
-        epoch_losses = list(progress["losses"]) if progress else []
-        skip = progress["next_batch"] if progress else 0
-        saved_rng = capture_rng()
-        if progress:
-            set_rng(progress["epoch_rng"])
-            if progress["loader_rng"] is not None:
-                train_loader.generator.set_state(progress["loader_rng"])
-        epoch_rng = capture_rng()
-        loader_rng = train_loader.generator.get_state() if getattr(train_loader, "generator", None) is not None else None
+        epoch_losses, skip, saved_rng, epoch_rng, loader_rng = _start_epoch(progress, train_loader)
 
         def batch_checkpoint(next_batch):
             if checkpoint_every_batches and next_batch % checkpoint_every_batches == 0:
@@ -307,108 +295,58 @@ def train(
                 )
 
         ctx.epoch = epoch
-        n_batches = len(train_loader) if hasattr(train_loader, "__len__") else -1
-        for batch_idx, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(
-            train_loader
-        ):
-            if batch_idx < skip:
-                if batch_idx + 1 == skip:
-                    set_rng(saved_rng)
-                continue
-            batch_x = batch_x.float().to(device)
-            batch_y = batch_y.float().to(device)
-            if batch_x_mark is not None:
-                batch_x_mark = batch_x_mark.float().to(device)
-            if batch_y_mark is not None:
-                batch_y_mark = batch_y_mark.float().to(device)
-
-            dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
-
-            ctx.batch_idx = batch_idx
-            ctx.is_last_batch = n_batches >= 0 and batch_idx == n_batches - 1
-
-            if not has_callbacks:
-                optimizer.zero_grad()
-                if use_amp:
-                    with torch.amp.autocast(device_type=device.type):
-                        outputs, loss = _forward_training(
-                            model, training_objective, batch_x, batch_x_mark,
-                            dec_inp, batch_y_mark, batch_y, pred_len, features,
-                            criterion,
-                        )
-                    scaler.scale(loss).backward()
-                    scaler.step(optimizer)
-                    scaler.update()
-                else:
-                    outputs, loss = _forward_training(
-                        model, training_objective, batch_x, batch_x_mark,
-                        dec_inp, batch_y_mark, batch_y, pred_len, features,
-                        criterion,
-                    )
-                    loss.backward()
-                    optimizer.step()
-                epoch_losses.append(loss.item())
-                batch_checkpoint(batch_idx + 1)
-                continue
-
-            # --- Callback path ---
-            do_step = _train_step_with_callbacks(
-                model=model,
-                optimizer=optimizer,
-                criterion=criterion,
-                scaler=scaler,
-                use_amp=use_amp,
-                device=device,
-                batch_x=batch_x,
-                batch_y=batch_y,
-                batch_x_mark=batch_x_mark,
-                batch_y_mark=batch_y_mark,
-                dec_inp=dec_inp,
-                pred_len=pred_len,
-                features=features,
-                callbacks=callbacks,
-                ctx=ctx,
-                training_objective=training_objective,
-            )
-            epoch_losses.append(ctx.extra["last_loss_value"])
-            if do_step:
-                batch_checkpoint(batch_idx + 1)
+        _train_batches(
+            model=model,
+            train_loader=train_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            scaler=scaler,
+            use_amp=use_amp,
+            device=device,
+            label_len=label_len,
+            pred_len=pred_len,
+            features=features,
+            callbacks=callbacks,
+            has_callbacks=has_callbacks,
+            ctx=ctx,
+            training_objective=training_objective,
+            skip=skip,
+            saved_rng=saved_rng,
+            epoch_losses=epoch_losses,
+            batch_checkpoint=batch_checkpoint,
+        )
 
         progress = None
 
-        validation_metrics = {} if tracker else None
-        vali_loss = validate(
-            model, vali_loader, device, criterion, label_len, pred_len, features,
-            metrics=validation_metrics,
+        completed = _end_epoch(
+            model=model,
+            train_loader=train_loader,
+            vali_loader=vali_loader,
+            device=device,
+            criterion=criterion,
+            label_len=label_len,
+            pred_len=pred_len,
+            features=features,
+            optimizer=optimizer,
+            scaler=scaler,
+            base_lr=base_lr,
+            lradj=lradj,
+            total_epochs=total_epochs,
+            min_lr=min_lr,
+            early_stopping=early_stopping,
+            checkpoint_manager=checkpoint_manager,
+            checkpoint_dir=checkpoint_dir,
+            latest=latest,
+            callbacks=callbacks,
+            ctx=ctx,
+            tracker=tracker,
+            epoch=epoch,
+            epochs=epochs,
+            epoch_losses=epoch_losses,
+            prior_elapsed=prior_elapsed,
+            start_time=start_time,
         )
-        train_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
-        current_lr = optimizer.param_groups[0].get("lr", base_lr)
-        print(
-            f"Epoch {epoch + 1}/{epochs} | train_loss: {train_loss:.6f} | "
-            f"val_loss: {vali_loss:.6f} | lr: {current_lr:.6g}"
-        )
-        is_best = early_stopping.step(vali_loss)
-        if is_best:
-            best_path = os.path.join(checkpoint_dir, "best_checkpoint.pth")
-            save_weights(best_path, model)
-        checkpoint_manager.save(model, epoch + 1, vali_loss, is_best)
-        for cb in callbacks:
-            cb.on_epoch_end(ctx)
         epochs_run = epoch + 1
-        completed = early_stopping.early_stop or epoch + 1 >= epochs
-        if not early_stopping.early_stop:
-            adjust_learning_rate(optimizer, epoch + 1, lradj, base_lr, total_epochs, min_lr=min_lr)
-        save_checkpoint(
-            latest, model=model, optimizer=optimizer, scaler=scaler,
-            early_stopping=early_stopping, manager=checkpoint_manager,
-            callbacks=callbacks, epoch=epoch + 1,
-            elapsed=prior_elapsed + time.perf_counter() - start_time,
-            completed=completed, loaders=(train_loader, vali_loader),
-        )
-        if tracker:
-            tracker.log({"train/loss": train_loss, "validation/loss": vali_loss,
-                         **{f"validation/{key}": value for key, value in validation_metrics.items()},
-                         "train/lr": current_lr, "train/elapsed_sec": prior_elapsed + time.perf_counter() - start_time}, epoch + 1)
         if early_stopping.early_stop:
             break
 
@@ -416,6 +354,257 @@ def train(
     best_model_path = f"{checkpoint_dir}/best_checkpoint.pth"
     model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
     return TrainResult(best_model_path=best_model_path, train_time_sec=train_time, epochs_run=epochs_run)
+
+
+def _start_tracker(tracker, resume, latest) -> None:
+    """Start the tracker at the epoch training resumes from."""
+    if not tracker:
+        return
+    # Start after constructors but preserve the restored RNG below.
+    if resume and os.path.isfile(latest):
+        metadata = torch.load(latest, map_location="cpu", weights_only=False)
+        tracker.start(metadata["epoch"] + 1)
+    else:
+        tracker.start(1)
+
+
+def _start_or_resume(
+    *,
+    model,
+    train_loader,
+    vali_loader,
+    optimizer,
+    scaler,
+    early_stopping,
+    checkpoint_manager,
+    callbacks,
+    training_setup,
+    resume,
+    tracker,
+    latest,
+    pred_len,
+    features,
+):
+    """Run the fresh-start setup or restore ``latest``; return (epoch, elapsed, completed, progress)."""
+    from tsflab.experiments.infra.checkpoint import restore_checkpoint
+
+    _start_tracker(tracker, resume, latest)
+    if training_setup is not None and not (resume and os.path.isfile(latest)):
+        training_setup(
+            unwrap_model(model), train_loader, pred_len=pred_len, features=features
+        )
+    if not (resume and os.path.isfile(latest)):
+        return 0, 0.0, False, None
+    state = restore_checkpoint(
+        latest, model=model, optimizer=optimizer, scaler=scaler,
+        early_stopping=early_stopping, manager=checkpoint_manager,
+        callbacks=callbacks, loaders=(train_loader, vali_loader),
+    )
+    return state["epoch"], state["elapsed"], state["completed"], state.get("progress")
+
+
+def _start_epoch(progress, train_loader):
+    """Restore mid-epoch progress, if any; return (losses, skip, saved_rng, epoch_rng, loader_rng)."""
+    from tsflab.experiments.infra.checkpoint import capture_rng, set_rng
+
+    epoch_losses = list(progress["losses"]) if progress else []
+    skip = progress["next_batch"] if progress else 0
+    saved_rng = capture_rng()
+    if progress:
+        set_rng(progress["epoch_rng"])
+        if progress["loader_rng"] is not None:
+            train_loader.generator.set_state(progress["loader_rng"])
+    epoch_rng = capture_rng()
+    loader_rng = train_loader.generator.get_state() if getattr(train_loader, "generator", None) is not None else None
+    return epoch_losses, skip, saved_rng, epoch_rng, loader_rng
+
+
+def _batch_to_device(batch_x, batch_y, batch_x_mark, batch_y_mark, device):
+    """Move one batch to ``device`` as float tensors; absent marks stay ``None``."""
+    batch_x = batch_x.float().to(device)
+    batch_y = batch_y.float().to(device)
+    if batch_x_mark is not None:
+        batch_x_mark = batch_x_mark.float().to(device)
+    if batch_y_mark is not None:
+        batch_y_mark = batch_y_mark.float().to(device)
+    return batch_x, batch_y, batch_x_mark, batch_y_mark
+
+
+def _train_step(
+    *,
+    model,
+    optimizer,
+    criterion,
+    scaler,
+    use_amp,
+    device,
+    batch_x,
+    batch_y,
+    batch_x_mark,
+    batch_y_mark,
+    dec_inp,
+    pred_len,
+    features,
+    training_objective,
+):
+    """Run one training micro-batch without callbacks and return its loss."""
+    optimizer.zero_grad()
+    if use_amp:
+        with torch.amp.autocast(device_type=device.type):
+            outputs, loss = _forward_training(
+                model, training_objective, batch_x, batch_x_mark,
+                dec_inp, batch_y_mark, batch_y, pred_len, features,
+                criterion,
+            )
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        outputs, loss = _forward_training(
+            model, training_objective, batch_x, batch_x_mark,
+            dec_inp, batch_y_mark, batch_y, pred_len, features,
+            criterion,
+        )
+        loss.backward()
+        optimizer.step()
+    return loss
+
+
+def _train_batches(
+    *,
+    model,
+    train_loader,
+    optimizer,
+    criterion,
+    scaler,
+    use_amp,
+    device,
+    label_len,
+    pred_len,
+    features,
+    callbacks,
+    has_callbacks,
+    ctx,
+    training_objective,
+    skip,
+    saved_rng,
+    epoch_losses,
+    batch_checkpoint,
+) -> None:
+    """Train one epoch's batches, skipping the ``skip`` already replayed ones."""
+    from tsflab.experiments.infra.checkpoint import set_rng
+
+    n_batches = len(train_loader) if hasattr(train_loader, "__len__") else -1
+    for batch_idx, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(
+        train_loader
+    ):
+        if batch_idx < skip:
+            if batch_idx + 1 == skip:
+                set_rng(saved_rng)
+            continue
+        batch_x, batch_y, batch_x_mark, batch_y_mark = _batch_to_device(
+            batch_x, batch_y, batch_x_mark, batch_y_mark, device
+        )
+
+        dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
+
+        ctx.batch_idx = batch_idx
+        ctx.is_last_batch = n_batches >= 0 and batch_idx == n_batches - 1
+
+        step = dict(
+            model=model,
+            optimizer=optimizer,
+            criterion=criterion,
+            scaler=scaler,
+            use_amp=use_amp,
+            device=device,
+            batch_x=batch_x,
+            batch_y=batch_y,
+            batch_x_mark=batch_x_mark,
+            batch_y_mark=batch_y_mark,
+            dec_inp=dec_inp,
+            pred_len=pred_len,
+            features=features,
+            training_objective=training_objective,
+        )
+        if not has_callbacks:
+            loss = _train_step(**step)
+            epoch_losses.append(loss.item())
+            batch_checkpoint(batch_idx + 1)
+            continue
+
+        # --- Callback path ---
+        do_step = _train_step_with_callbacks(callbacks=callbacks, ctx=ctx, **step)
+        epoch_losses.append(ctx.extra["last_loss_value"])
+        if do_step:
+            batch_checkpoint(batch_idx + 1)
+
+
+def _end_epoch(
+    *,
+    model,
+    train_loader,
+    vali_loader,
+    device,
+    criterion,
+    label_len,
+    pred_len,
+    features,
+    optimizer,
+    scaler,
+    base_lr,
+    lradj,
+    total_epochs,
+    min_lr,
+    early_stopping,
+    checkpoint_manager,
+    checkpoint_dir,
+    latest,
+    callbacks,
+    ctx,
+    tracker,
+    epoch,
+    epochs,
+    epoch_losses,
+    prior_elapsed,
+    start_time,
+) -> bool:
+    """Validate, checkpoint, schedule, and log one finished epoch; return whether training is complete."""
+    from tsflab.experiments.infra.checkpoint import save_checkpoint, save_weights
+
+    validation_metrics = {} if tracker else None
+    vali_loss = validate(
+        model, vali_loader, device, criterion, label_len, pred_len, features,
+        metrics=validation_metrics,
+    )
+    train_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
+    current_lr = optimizer.param_groups[0].get("lr", base_lr)
+    print(
+        f"Epoch {epoch + 1}/{epochs} | train_loss: {train_loss:.6f} | "
+        f"val_loss: {vali_loss:.6f} | lr: {current_lr:.6g}"
+    )
+    is_best = early_stopping.step(vali_loss)
+    if is_best:
+        best_path = os.path.join(checkpoint_dir, "best_checkpoint.pth")
+        save_weights(best_path, model)
+    checkpoint_manager.save(model, epoch + 1, vali_loss, is_best)
+    for cb in callbacks:
+        cb.on_epoch_end(ctx)
+    completed = early_stopping.early_stop or epoch + 1 >= epochs
+    if not early_stopping.early_stop:
+        adjust_learning_rate(optimizer, epoch + 1, lradj, base_lr, total_epochs, min_lr=min_lr)
+    save_checkpoint(
+        latest, model=model, optimizer=optimizer, scaler=scaler,
+        early_stopping=early_stopping, manager=checkpoint_manager,
+        callbacks=callbacks, epoch=epoch + 1,
+        elapsed=prior_elapsed + time.perf_counter() - start_time,
+        completed=completed, loaders=(train_loader, vali_loader),
+    )
+    if tracker:
+        tracker.log({"train/loss": train_loss, "validation/loss": vali_loss,
+                     **{f"validation/{key}": value for key, value in validation_metrics.items()},
+                     "train/lr": current_lr, "train/elapsed_sec": prior_elapsed + time.perf_counter() - start_time}, epoch + 1)
+    return completed
 
 
 def _run_compute_loss_hooks(callbacks, ctx, criterion):

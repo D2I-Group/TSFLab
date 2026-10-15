@@ -31,6 +31,34 @@ def storage_status(directory, policy=None):
     }
 
 
+def _epoch_checkpoints(checkpoint: Path) -> list:
+    """Managed ``epoch_<n>.pth`` files, newest epoch first."""
+    return sorted(
+        (
+            p
+            for p in checkpoint.glob("*.pth")
+            if not p.is_symlink() and re.fullmatch(r"epoch_\d+\.pth", p.name)
+        ),
+        key=lambda p: int(re.search(r"\d+", p.name)[0]),
+        reverse=True,
+    )
+
+
+def _protected_names(checkpoint: Path) -> set:
+    """File names referenced by the latest training state's top checkpoints."""
+    protected = set()
+    latest = checkpoint / "latest.pth"
+    if latest.exists():
+        import torch
+
+        saved = torch.load(latest, map_location="cpu", weights_only=False)
+        for item in saved.get("top_checkpoints", []):
+            for value in item:
+                if isinstance(value, str):
+                    protected.add(Path(value).name)
+    return protected
+
+
 def cleanup(directory, policy=None, *, apply=False):
     from tsflab.experiments.infra.policy import Storage
 
@@ -44,26 +72,9 @@ def cleanup(directory, policy=None, *, apply=False):
         file_lock(root / ".run.lock", blocking=False),
     ):
         checkpoint = root / "checkpoints"
-        candidates = sorted(
-            (
-                p
-                for p in checkpoint.glob("*.pth")
-                if not p.is_symlink() and re.fullmatch(r"epoch_\d+\.pth", p.name)
-            ),
-            key=lambda p: int(re.search(r"\d+", p.name)[0]),
-            reverse=True,
-        )
+        candidates = _epoch_checkpoints(checkpoint)
         # Best/latest are never candidates. Files named in the latest state are retained.
-        protected = set()
-        latest = checkpoint / "latest.pth"
-        if latest.exists():
-            import torch
-
-            saved = torch.load(latest, map_location="cpu", weights_only=False)
-            for item in saved.get("top_checkpoints", []):
-                for value in item:
-                    if isinstance(value, str):
-                        protected.add(Path(value).name)
+        protected = _protected_names(checkpoint)
         candidates = [
             p
             for p in candidates[options.keep_epoch_checkpoints :]

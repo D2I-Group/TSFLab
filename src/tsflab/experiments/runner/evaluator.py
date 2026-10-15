@@ -181,6 +181,92 @@ def _compute_metrics(
     return {**point_metrics, **prob_metrics}
 
 
+def _to_numpy(outputs, batch_y_sliced, inverse: bool, dataset, output_type: str):
+    """Move a forecast and its target to numpy, inverse-transformed when requested."""
+    outputs = outputs.detach().cpu().numpy()
+    batch_y_sliced = batch_y_sliced.detach().cpu().numpy()
+
+    if not (inverse and dataset is not None):
+        return outputs, batch_y_sliced
+    if output_type != "point":
+        return _inverse_transform_prob(
+            outputs, batch_y_sliced, dataset, output_type
+        )
+    shape = batch_y_sliced.shape
+    outputs = dataset.inverse_transform(
+        outputs.reshape(shape[0] * shape[1], -1)
+    ).reshape(shape)
+    batch_y_sliced = dataset.inverse_transform(
+        batch_y_sliced.reshape(shape[0] * shape[1], -1)
+    ).reshape(shape)
+    return outputs, batch_y_sliced
+
+
+def _load_evaluation(checkpoint, model, data_loader, acc):
+    """Load an evaluation checkpoint and restore its metrics, runtime state, and RNG; return (acc, state)."""
+    from tsflab.experiments.infra.checkpoint import set_rng, restore_runtime_state
+    state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    if "metrics" in state:
+        acc = state["metrics"]
+    else:  # an evaluation checkpoint from before streaming metrics
+        for pred_batch, true_batch in zip(state["preds"], state["trues"]):
+            acc.update(pred_batch, true_batch)
+    restore_runtime_state(model, state["runtime"])
+    set_rng(state["epoch_rng"])
+    if state["loader_rng"] is not None:
+        data_loader.generator.set_state(state["loader_rng"])
+    return acc, state
+
+
+def _restore_evaluation(checkpoint, model, data_loader, acc):
+    """Resume an interrupted evaluation from ``checkpoint`` when it exists.
+
+    Returns ``(acc, state, epoch_rng, loader_rng, skip, prior_elapsed)``; ``state`` is None
+    for a fresh evaluation.
+    """
+    from pathlib import Path
+    from tsflab.experiments.infra.checkpoint import capture_rng
+    if checkpoint is not None and getattr(data_loader, "num_workers", 0):
+        raise ValueError("evaluation recovery requires num_workers=0")
+    state = None
+    if checkpoint is not None and Path(checkpoint).exists():
+        acc, state = _load_evaluation(checkpoint, model, data_loader, acc)
+    epoch_rng = capture_rng()
+    loader_rng = data_loader.generator.get_state() if getattr(data_loader, "generator", None) is not None else None
+    skip = state["next_batch"] if state else 0
+    prior_elapsed = state["elapsed"] if state else 0
+    return acc, state, epoch_rng, loader_rng, skip, prior_elapsed
+
+
+def _evaluate_batch(model, batch_x, batch_y, batch_x_mark, batch_y_mark, device, label_len, pred_len, features,
+                    inverse, dataset, output_type):
+    """Forecast one batch and return the numpy (forecast, target) pair to score."""
+    batch_x = batch_x.float().to(device)
+    batch_y = batch_y.float().to(device)
+    if batch_x_mark is not None:
+        batch_x_mark = batch_x_mark.float().to(device)
+    if batch_y_mark is not None:
+        batch_y_mark = batch_y_mark.float().to(device)
+
+    dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
+    outputs = call_forecaster(model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
+    outputs, batch_y_sliced = slice_prediction_target(
+        outputs, batch_y, pred_len, features
+    )
+    return _to_numpy(outputs, batch_y_sliced, inverse, dataset, output_type)
+
+
+def _save_evaluation(checkpoint, checkpoint_every_batches, index, acc, model, epoch_rng, loader_rng,
+                     prior_elapsed, start_time) -> None:
+    """Checkpoint evaluation progress every ``checkpoint_every_batches`` batches."""
+    from tsflab.experiments.infra.checkpoint import capture_rng, runtime_state
+    from tsflab.experiments.infra.stages import atomic_state
+    if checkpoint is not None and checkpoint_every_batches and (index + 1) % checkpoint_every_batches == 0:
+        atomic_state(checkpoint, {"next_batch": index + 1, "metrics": acc,
+            "runtime": runtime_state(model), "rng": capture_rng(), "epoch_rng": epoch_rng,
+            "loader_rng": loader_rng, "elapsed": prior_elapsed + time.perf_counter() - start_time})
+
+
 def evaluate(
     model: nn.Module,
     data_loader,
@@ -234,27 +320,10 @@ def evaluate(
 
     acc = MetricAccumulator(output_type, distribution_family, levels)
 
-    from pathlib import Path
-    from tsflab.experiments.infra.checkpoint import capture_rng, set_rng, runtime_state, restore_runtime_state
-    from tsflab.experiments.infra.stages import atomic_state
-    if checkpoint is not None and getattr(data_loader, "num_workers", 0):
-        raise ValueError("evaluation recovery requires num_workers=0")
-    state = None
-    if checkpoint is not None and Path(checkpoint).exists():
-        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        if "metrics" in state:
-            acc = state["metrics"]
-        else:  # an evaluation checkpoint from before streaming metrics
-            for pred_batch, true_batch in zip(state["preds"], state["trues"]):
-                acc.update(pred_batch, true_batch)
-        restore_runtime_state(model, state["runtime"])
-        set_rng(state["epoch_rng"])
-        if state["loader_rng"] is not None:
-            data_loader.generator.set_state(state["loader_rng"])
-    epoch_rng = capture_rng()
-    loader_rng = data_loader.generator.get_state() if getattr(data_loader, "generator", None) is not None else None
-    skip = state["next_batch"] if state else 0
-    prior_elapsed = state["elapsed"] if state else 0
+    from tsflab.experiments.infra.checkpoint import set_rng
+    acc, state, epoch_rng, loader_rng, skip, prior_elapsed = _restore_evaluation(
+        checkpoint, model, data_loader, acc
+    )
     model.eval()
     start_time = time.perf_counter()
     with torch.no_grad():
@@ -263,44 +332,87 @@ def evaluate(
                 if index + 1 == skip:
                     set_rng(state["rng"])
                 continue
-            batch_x = batch_x.float().to(device)
-            batch_y = batch_y.float().to(device)
-            if batch_x_mark is not None:
-                batch_x_mark = batch_x_mark.float().to(device)
-            if batch_y_mark is not None:
-                batch_y_mark = batch_y_mark.float().to(device)
-
-            dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
-            outputs = call_forecaster(model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
-            outputs, batch_y_sliced = slice_prediction_target(
-                outputs, batch_y, pred_len, features
+            outputs, batch_y_sliced = _evaluate_batch(
+                model, batch_x, batch_y, batch_x_mark, batch_y_mark, device, label_len, pred_len, features, inverse, dataset, output_type
             )
-
-            outputs = outputs.detach().cpu().numpy()
-            batch_y_sliced = batch_y_sliced.detach().cpu().numpy()
-
-            if inverse and dataset is not None:
-                if output_type == "point":
-                    shape = batch_y_sliced.shape
-                    outputs = dataset.inverse_transform(
-                        outputs.reshape(shape[0] * shape[1], -1)
-                    ).reshape(shape)
-                    batch_y_sliced = dataset.inverse_transform(
-                        batch_y_sliced.reshape(shape[0] * shape[1], -1)
-                    ).reshape(shape)
-                else:
-                    outputs, batch_y_sliced = _inverse_transform_prob(
-                        outputs, batch_y_sliced, dataset, output_type
-                    )
-
             acc.update(outputs, batch_y_sliced)
-            if checkpoint is not None and checkpoint_every_batches and (index + 1) % checkpoint_every_batches == 0:
-                atomic_state(checkpoint, {"next_batch": index + 1, "metrics": acc,
-                    "runtime": runtime_state(model), "rng": capture_rng(), "epoch_rng": epoch_rng,
-                    "loader_rng": loader_rng, "elapsed": prior_elapsed + time.perf_counter() - start_time})
+            _save_evaluation(checkpoint, checkpoint_every_batches, index, acc, model, epoch_rng, loader_rng,
+                             prior_elapsed, start_time)
 
     test_time = prior_elapsed + time.perf_counter() - start_time
     return acc.result(), test_time
+
+
+def _rolling_starts(total_len, seq_len, pred_len, horizon, stride, num_rollings):
+    """Validate the rolling settings; return the scored horizon and the window start offsets."""
+    eff_horizon = pred_len if horizon is None else min(int(horizon), pred_len)
+    if eff_horizon <= 0:
+        raise ValueError(f"rolling horizon must be positive, got {horizon!r}")
+    if stride < 1:
+        raise ValueError(f"rolling stride must be >= 1, got {stride!r}")
+
+    # Each rolling needs seq_len input rows plus pred_len future rows.
+    last_start = total_len - seq_len - pred_len
+    if last_start < 0:
+        raise ValueError(
+            "rolling forecast needs at least seq_len + pred_len rows in the "
+            f"test split, got {total_len} for seq_len={seq_len}, "
+            f"pred_len={pred_len}"
+        )
+
+    starts = list(range(0, last_start + 1, stride))
+    if num_rollings is not None:
+        starts = starts[: max(int(num_rollings), 0)]
+    return eff_horizon, starts
+
+
+def _rolling_window(data, time_stamp, start, seq_len, label_len, pred_len, device):
+    """Build the (batch_x, batch_y, batch_x_mark, batch_y_mark) tensors of one rolling window."""
+    input_end = start + seq_len
+    output_start = input_end - label_len
+    output_end = input_end + pred_len
+
+    input_series = data[start:input_end]
+    output_series = data[output_start:output_end]
+
+    batch_x = (
+        torch.from_numpy(np.ascontiguousarray(input_series))
+        .float()
+        .unsqueeze(0)
+        .to(device)
+    )
+    batch_y = (
+        torch.from_numpy(np.ascontiguousarray(output_series))
+        .float()
+        .unsqueeze(0)
+        .to(device)
+    )
+
+    if time_stamp is not None:
+        batch_x_mark = (
+            torch.from_numpy(np.ascontiguousarray(time_stamp[start:input_end]))
+            .float()
+            .unsqueeze(0)
+            .to(device)
+        )
+        batch_y_mark = (
+            torch.from_numpy(
+                np.ascontiguousarray(time_stamp[output_start:output_end])
+            )
+            .float()
+            .unsqueeze(0)
+            .to(device)
+        )
+    else:
+        batch_x_mark = (
+            torch.zeros((1, seq_len, 6), dtype=torch.float32).to(device)
+        )
+        batch_y_mark = (
+            torch.zeros((1, label_len + pred_len, 6), dtype=torch.float32).to(
+                device
+            )
+        )
+    return batch_x, batch_y, batch_x_mark, batch_y_mark
 
 
 def evaluate_rolling(
@@ -372,25 +484,7 @@ def evaluate_rolling(
     data = np.asarray(dataset.data)
     time_stamp = getattr(dataset, "time_stamp", None)
 
-    eff_horizon = pred_len if horizon is None else min(int(horizon), pred_len)
-    if eff_horizon <= 0:
-        raise ValueError(f"rolling horizon must be positive, got {horizon!r}")
-    if stride < 1:
-        raise ValueError(f"rolling stride must be >= 1, got {stride!r}")
-
-    total_len = data.shape[0]
-    # Each rolling needs seq_len input rows plus pred_len future rows.
-    last_start = total_len - seq_len - pred_len
-    if last_start < 0:
-        raise ValueError(
-            "rolling forecast needs at least seq_len + pred_len rows in the "
-            f"test split, got {total_len} for seq_len={seq_len}, "
-            f"pred_len={pred_len}"
-        )
-
-    starts = list(range(0, last_start + 1, stride))
-    if num_rollings is not None:
-        starts = starts[: max(int(num_rollings), 0)]
+    eff_horizon, starts = _rolling_starts(data.shape[0], seq_len, pred_len, horizon, stride, num_rollings)
 
     acc = MetricAccumulator(output_type, distribution_family, levels)
 
@@ -398,50 +492,9 @@ def evaluate_rolling(
     start_time = time.perf_counter()
     with torch.no_grad():
         for start in starts:
-            input_end = start + seq_len
-            output_start = input_end - label_len
-            output_end = input_end + pred_len
-
-            input_series = data[start:input_end]
-            output_series = data[output_start:output_end]
-
-            batch_x = (
-                torch.from_numpy(np.ascontiguousarray(input_series))
-                .float()
-                .unsqueeze(0)
-                .to(device)
+            batch_x, batch_y, batch_x_mark, batch_y_mark = _rolling_window(
+                data, time_stamp, start, seq_len, label_len, pred_len, device
             )
-            batch_y = (
-                torch.from_numpy(np.ascontiguousarray(output_series))
-                .float()
-                .unsqueeze(0)
-                .to(device)
-            )
-
-            if time_stamp is not None:
-                batch_x_mark = (
-                    torch.from_numpy(np.ascontiguousarray(time_stamp[start:input_end]))
-                    .float()
-                    .unsqueeze(0)
-                    .to(device)
-                )
-                batch_y_mark = (
-                    torch.from_numpy(
-                        np.ascontiguousarray(time_stamp[output_start:output_end])
-                    )
-                    .float()
-                    .unsqueeze(0)
-                    .to(device)
-                )
-            else:
-                batch_x_mark = (
-                    torch.zeros((1, seq_len, 6), dtype=torch.float32).to(device)
-                )
-                batch_y_mark = (
-                    torch.zeros((1, label_len + pred_len, 6), dtype=torch.float32).to(
-                        device
-                    )
-                )
 
             dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
             outputs = call_forecaster(model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
@@ -457,23 +510,7 @@ def evaluate_rolling(
                 outputs = outputs[:, :eff_horizon, :]
             batch_y_sliced = batch_y_sliced[:, :eff_horizon, :]
 
-            outputs = outputs.detach().cpu().numpy()
-            batch_y_sliced = batch_y_sliced.detach().cpu().numpy()
-
-            if inverse and dataset is not None:
-                if output_type == "point":
-                    shape = batch_y_sliced.shape
-                    outputs = dataset.inverse_transform(
-                        outputs.reshape(shape[0] * shape[1], -1)
-                    ).reshape(shape)
-                    batch_y_sliced = dataset.inverse_transform(
-                        batch_y_sliced.reshape(shape[0] * shape[1], -1)
-                    ).reshape(shape)
-                else:
-                    outputs, batch_y_sliced = _inverse_transform_prob(
-                        outputs, batch_y_sliced, dataset, output_type
-                    )
-
+            outputs, batch_y_sliced = _to_numpy(outputs, batch_y_sliced, inverse, dataset, output_type)
             acc.update(outputs, batch_y_sliced)
 
     test_time = time.perf_counter() - start_time
