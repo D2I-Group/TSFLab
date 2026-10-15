@@ -76,3 +76,36 @@ def test_training_tracker_records_metrics_without_changing_selection(monkeypatch
     assert values["validation/mse"] == pytest.approx(91 / 6)
     assert values["validation/mae"] == pytest.approx(3.5)
     assert model.calls == 3
+
+
+class QuantileModel(torch.nn.Module):
+    """Three quantiles per point: the median is the input, the outer two are shifted by one."""
+
+    output_type = "quantile"
+
+    def forward(self, x):
+        return torch.stack([x - 1, x, x + 1], dim=-1)
+
+
+class GaussianModel(torch.nn.Module):
+    output_type = "distribution"
+
+    def forward(self, x):
+        return torch.stack([x, torch.ones_like(x)], dim=-1)
+
+
+@pytest.mark.parametrize("model", [QuantileModel(), GaussianModel()])
+def test_probabilistic_metrics_use_the_point_forecast(monkeypatch, model):
+    wire_forecaster(monkeypatch)
+    metrics = {}
+    criterion = lambda outputs, target: (outputs[..., 0] - target).abs().mean()  # noqa: E731
+    trainer.validate(model, batches(), torch.device("cpu"), criterion, 0, 1, "M", metrics=metrics)
+    assert metrics == pytest.approx({"mse": 91 / 6, "mae": 3.5})
+
+
+def test_quantile_metrics_take_the_level_closest_to_the_median(monkeypatch):
+    wire_forecaster(monkeypatch)
+    metrics = {}
+    criterion = trainer.get_loss("quantile", quantile_levels=[0.1, 0.5, 0.9])
+    trainer.validate(QuantileModel(), batches(), torch.device("cpu"), criterion, 0, 1, "M", metrics=metrics)
+    assert metrics == pytest.approx({"mse": 91 / 6, "mae": 3.5})

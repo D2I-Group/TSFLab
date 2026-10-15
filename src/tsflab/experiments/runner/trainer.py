@@ -12,6 +12,7 @@ import torch.nn as nn
 
 from tsflab.catalog.registry.losses import get_loss
 from tsflab.experiments.runner.callbacks import Callback, CallbackContext
+from tsflab.experiments.runner.evaluator import _CANONICAL_LEVELS, _resolve_output_kind
 from tsflab.experiments.runner.model_io import (
     call_forecaster,
     make_decoder_input,
@@ -783,6 +784,22 @@ def _resolve_step(callbacks, ctx: CallbackContext) -> bool:
     return do_step
 
 
+def _point_forecast(model: nn.Module, criterion: nn.Module, outputs: torch.Tensor) -> torch.Tensor:
+    """Point forecast for validation metrics: the median quantile or the distribution mean, as in evaluation."""
+    if outputs.ndim != 4:
+        return outputs
+    output_type, _ = _resolve_output_kind(model)
+    if output_type != "quantile":
+        return outputs[..., 0]
+    levels = getattr(criterion, "q", None)
+    if levels is None:
+        levels = getattr(unwrap_model(model), "quantile_levels", None)
+    levels = torch.as_tensor(_CANONICAL_LEVELS if levels is None else levels, dtype=torch.float64).cpu()
+    if levels.numel() != outputs.shape[-1]:
+        return outputs[..., outputs.shape[-1] // 2]
+    return outputs[..., int(torch.argmin((levels - 0.5).abs()))]
+
+
 def validate(
     model: nn.Module,
     data_loader,
@@ -844,7 +861,7 @@ def validate(
             weighted_loss += loss.item() * count
             samples += count
             if metrics is not None:
-                error = outputs - batch_y_sliced
+                error = _point_forecast(model, criterion, outputs) - batch_y_sliced
                 squared_error += error.square().sum().item()
                 absolute_error += error.abs().sum().item()
                 elements += error.numel()
