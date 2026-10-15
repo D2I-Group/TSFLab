@@ -26,18 +26,8 @@ configs/exp/
 # Harness-local preferences
 .claude/settings.local.json
 
-# Local experiment workspace: only the scripts are published; measurements,
-# cloned comparison repos, and raw server bundles stay on this machine.
-experiments/**
-!experiments/
-!experiments/README.md
-!experiments/*/
-!experiments/*/scripts/
-!experiments/*/scripts/**
-# The agent-cost experiment is released with the paper (prompts, tasks, runner).
-!experiments/agent-cost/**
-experiments/agent-cost/runs/
-experiments/agent-cost/**/__pycache__/
+# Local experiment workspace (run files, measurements, raw result bundles)
+experiments/
 
 # Local scratch
 tmp/

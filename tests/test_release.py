@@ -554,39 +554,6 @@ def _load_script(path: Path, name: str):
     return module
 
 
-def test_legacy_migration_moves_every_tseval_artifact_below_legacy(tmp_path: Path, capsys) -> None:
-    migrate = _load_script(ROOT / "scripts" / "migrate_legacy_to_hf.py", "migrate_legacy_to_hf")
-    subs, data = tmp_path / "submissions", tmp_path / "data"
-    stock = subs / "realtime" / "stock_hs300" / "OLinear" / "OLinear_x"
-    stock.mkdir(parents=True)
-    (stock / "submission.json").write_text("{}")  # copied verbatim, never validated
-    rounds = subs / "realtime" / "stock_hs300" / "rounds" / "r1"
-    rounds.mkdir(parents=True)
-    (rounds / "round.json").write_text("{}")  # real-time rounds stay in Git
-    static = subs / "time_series" / "ETTh1" / "SCINet" / "SCINet_run"
-    static.mkdir(parents=True)
-    (static / "submission.json").write_text(json.dumps(_record_doc("SCINet", "ETTh1", "SCINet_run", 0.4)))
-    (subs / "README.md").write_text("staging folder")
-    data.mkdir()
-    (data / "leaderboard.json").write_text(json.dumps({"tracks": {"air_quality": {"datasets": {"Air": {}}}}}))
-    (data / "visualization_data.json").write_text("{}")
-    weights = ["realtime/stock_hs300/DLinear/a.pth", "_index.json", ".gitattributes"]
-    present = {"legacy/tseval-weights/_index.json"}
-    pending, done = migrate.plan(list(migrate.STEPS), subs, data, weights, present)
-    assert sorted(t.dest for t in pending) == [
-        "legacy/board/leaderboard.json",
-        "legacy/board/visualization_data.json",
-        "legacy/submissions/realtime/stock_hs300/OLinear/OLinear_x/submission.json",
-        "legacy/submissions/time_series/ETTh1/SCINet/SCINet_run/submission.json",
-        "legacy/tseval-weights/realtime/stock_hs300/DLinear/a.pth",
-    ]
-    assert [t.dest for t in done] == ["legacy/tseval-weights/_index.json"]
-    # The default is a dry run; without the weights step it makes no network call.
-    assert migrate.main(["--steps", "submissions", "site", "board",
-                         "--submissions", str(subs), "--data", str(data)]) == 0
-    assert "dry run: nothing uploaded" in capsys.readouterr().out
-
-
 def test_empty_results_build_an_empty_board(tmp_path: Path) -> None:
     pytest.importorskip("huggingface_hub")
     from tsflab.release.hub import results

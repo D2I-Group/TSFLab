@@ -173,7 +173,7 @@ Exact command options stay in `tsf <command> --help`.
 | `configs/`, `catalog/` | Run, model, and dataset presets, real-time track configs, `configs/fixtures/` (smoke and synthetic test inputs, not datasets), dataset cards, declined papers |
 | `dataset/` | Local dataset bytes fetched with `tsf data download` (not packaged) |
 | `apps/web/` | TSFLab Leaderboard: static site, submission pipeline, `submissions/`, real-time rounds |
-| `experiments/` | Local research workspace; only `*/scripts/` is tracked |
+| `experiments/` | Local research workspace (not tracked) |
 
 ---
 
