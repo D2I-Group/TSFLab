@@ -1,17 +1,15 @@
 """Atomic local records, crash-safe locks, and reproducibility fingerprints."""
 
-from contextlib import contextmanager
 import hashlib
 import json
 import os
-from pathlib import Path
 import tempfile
+from contextlib import contextmanager
+from pathlib import Path
 
 
 def canonical_hash(value) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
 
 
 def write_json(path: Path, value) -> None:

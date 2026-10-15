@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import torch
 
@@ -96,11 +96,7 @@ def _latency_benchmark(model, input_data, device: torch.device) -> list[str]:
         for i in range(60):
             torch.cuda.synchronize()
             starter.record()
-            _ = (
-                model(*input_data)
-                if isinstance(input_data, tuple)
-                else model(input_data)
-            )
+            _ = model(*input_data) if isinstance(input_data, tuple) else model(input_data)
             ender.record()
             torch.cuda.synchronize()
 
@@ -157,9 +153,7 @@ def profile_model(
     was_training = model.training
     model.eval()
     try:
-        model_for_summary = (
-            model.module if isinstance(model, torch.nn.DataParallel) else model
-        )
+        model_for_summary = model.module if isinstance(model, torch.nn.DataParallel) else model
 
         it = iter(data_loader)
         batch_x, batch_y, batch_x_mark, batch_y_mark = next(it)
@@ -244,6 +238,6 @@ def parse_profile_report_file(path: str) -> dict[str, object]:
     """Load and parse a profiling report from disk."""
     if not os.path.exists(path):
         return {}
-    with open(path, "r") as f:
+    with open(path) as f:
         report = f.read()
     return parse_profile_report(report)

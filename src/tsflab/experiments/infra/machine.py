@@ -46,9 +46,7 @@ def parse_cuda_version(text: str | None) -> tuple[int, int] | None:
     """Parse ``12.8`` or an ``nvidia-smi`` header (``CUDA [UMD ]Version: 13.4``)."""
     if not text:
         return None
-    match = _CUDA_HEADER.search(text) or re.fullmatch(
-        r"\s*(\d+)\.(\d+)(?:\.\d+)?\s*", text
-    )
+    match = _CUDA_HEADER.search(text) or re.fullmatch(r"\s*(\d+)\.(\d+)(?:\.\d+)?\s*", text)
     return (int(match.group(1)), int(match.group(2))) if match else None
 
 
@@ -58,8 +56,7 @@ def cuda_from_driver(driver: str | None) -> tuple[int, int] | None:
         major = int(str(driver).split(".")[0])
     except ValueError:
         return None
-    for floor, cuda in ((580, (13, 0)), (575, (12, 9)), (570, (12, 8)),
-                        (560, (12, 6)), (550, (12, 4))):
+    for floor, cuda in ((580, (13, 0)), (575, (12, 9)), (570, (12, 8)), (560, (12, 6)), (550, (12, 4))):
         if major >= floor:
             return cuda
     return (12, 0) if major >= 525 else None
@@ -123,8 +120,7 @@ def _nvidia() -> dict:
     if shutil.which("nvidia-smi") is None:
         return {"driver": None, "cuda": None}
     header = _run(["nvidia-smi"]) or ""
-    driver = (_run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"])
-              or "").strip().splitlines()
+    driver = (_run(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"]) or "").strip().splitlines()
     driver = driver[0].strip() if driver else None
     cuda = parse_cuda_version(header) or cuda_from_driver(driver)
     return {"driver": driver, "cuda": f"{cuda[0]}.{cuda[1]}" if cuda else None}
@@ -234,8 +230,10 @@ def _first_failure(commands, run, root):
 def _probe_torch(root, run):
     """Version and CUDA facts of the torch installed in ``root``'s venv, or None when it does not import."""
     python = os.path.join(root, ".venv", "bin", "python")
-    probe = ("import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda, "
-             "'cuda_available': torch.cuda.is_available()}))")
+    probe = (
+        "import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda, "
+        "'cuda_available': torch.cuda.is_available()}))"
+    )
     result = run([python, "-c", probe], cwd=root, capture_output=True, text=True)
     torch = None
     if result.returncode == 0 and result.stdout.strip():
@@ -259,8 +257,14 @@ def setup(root: str = ".", extras=EXTRAS, dry_run: bool = False, run=subprocess.
     nvidia = _nvidia()
     profile = install_profile(parse_cuda_version(nvidia["cuda"]), system)
     commands = [c for c in install_commands(profile, system, extras) if not c.startswith("export ")]
-    report = {"driver": nvidia["driver"], "driver_cuda": nvidia["cuda"], "profile": profile,
-              "commands": commands, "ok": True, "torch": None}
+    report = {
+        "driver": nvidia["driver"],
+        "driver_cuda": nvidia["cuda"],
+        "profile": profile,
+        "commands": commands,
+        "ok": True,
+        "torch": None,
+    }
     if dry_run:
         return report
     failed = _first_failure(commands, run, root)
@@ -268,12 +272,13 @@ def setup(root: str = ".", extras=EXTRAS, dry_run: bool = False, run=subprocess.
         return {**report, "ok": False, "failed": failed}
     torch = _probe_torch(root, run)
     ok = torch is not None and (profile == "cpu" or torch["cuda_available"])
-    return {**report, "torch": torch, "ok": ok,
-            "no_sync": _needs_no_sync(profile, system)}
+    return {**report, "torch": torch, "ok": ok, "no_sync": _needs_no_sync(profile, system)}
 
 
 def format_setup(report: dict) -> str:
-    lines = [f"driver {report['driver'] or 'none'} (CUDA {report['driver_cuda'] or 'none'}) -> profile {report['profile']}"]
+    lines = [
+        f"driver {report['driver'] or 'none'} (CUDA {report['driver_cuda'] or 'none'}) -> profile {report['profile']}"
+    ]
     lines += [f"  {command}" for command in report["commands"]]
     if report.get("failed"):
         lines.append(f"failed: {report['failed']}")

@@ -2,11 +2,11 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
 import uuid
+from pathlib import Path
 
 from tsflab.experiments.infra.contracts import Executor
 from tsflab.experiments.infra.storage import file_lock, write_json
@@ -96,9 +96,7 @@ def _run_claimed_job(path, *, executor=None):
         if executor is None:
             from tsflab.experiments.infra.executors import load_executor
 
-            executor = load_executor(
-                state.get("executor") or "tsflab.experiments.infra.execution:execute"
-            )
+            executor = load_executor(state.get("executor") or "tsflab.experiments.infra.execution:execute")
         deadline = time.monotonic() + 15
         while True:
             try:
@@ -121,9 +119,7 @@ def _run_claimed_job(path, *, executor=None):
             result=dict(result),
         )
     except Exception as exc:
-        state.update(
-            status="failed", error={"type": type(exc).__name__, "message": str(exc)}
-        )
+        state.update(status="failed", error={"type": type(exc).__name__, "message": str(exc)})
     finally:
         state["finished_at"] = time.time()
         write_json(path / "job.json", state)

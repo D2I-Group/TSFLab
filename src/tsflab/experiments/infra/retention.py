@@ -1,7 +1,7 @@
 """Storage inspection and explicit cleanup of obsolete managed epoch files."""
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 from tsflab.experiments.infra.storage import file_lock
 
@@ -34,11 +34,7 @@ def storage_status(directory, policy=None):
 def _epoch_checkpoints(checkpoint: Path) -> list:
     """Managed ``epoch_<n>.pth`` files, newest epoch first."""
     return sorted(
-        (
-            p
-            for p in checkpoint.glob("*.pth")
-            if not p.is_symlink() and re.fullmatch(r"epoch_\d+\.pth", p.name)
-        ),
+        (p for p in checkpoint.glob("*.pth") if not p.is_symlink() and re.fullmatch(r"epoch_\d+\.pth", p.name)),
         key=lambda p: int(re.search(r"\d+", p.name)[0]),
         reverse=True,
     )
@@ -75,11 +71,7 @@ def cleanup(directory, policy=None, *, apply=False):
         candidates = _epoch_checkpoints(checkpoint)
         # Best/latest are never candidates. Files named in the latest state are retained.
         protected = _protected_names(checkpoint)
-        candidates = [
-            p
-            for p in candidates[options.keep_epoch_checkpoints :]
-            if p.name not in protected
-        ]
+        candidates = [p for p in candidates[options.keep_epoch_checkpoints :] if p.name not in protected]
         result = {
             "apply": apply,
             "files": [str(p) for p in candidates],

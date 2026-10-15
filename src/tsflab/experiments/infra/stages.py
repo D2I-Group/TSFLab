@@ -1,8 +1,8 @@
 """Resumable optimization stage for model-owned reconstruction pretraining."""
 
 import os
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 import torch
 
@@ -46,17 +46,24 @@ def _resume_epoch(state, epoch, loader):
         if progress["loader_rng"] is not None:
             loader.generator.set_state(progress["loader_rng"])
     epoch_rng = capture_rng()
-    loader_rng = (
-        loader.generator.get_state()
-        if getattr(loader, "generator", None) is not None
-        else None
-    )
+    loader_rng = loader.generator.get_state() if getattr(loader, "generator", None) is not None else None
     return skip, current_rng, epoch_rng, loader_rng
 
 
 def _stage_batches(
-    module, loader, device, optimizer, criterion, epoch, *, checkpoint, every_batches, skip, current_rng,
-    epoch_rng, loader_rng,
+    module,
+    loader,
+    device,
+    optimizer,
+    criterion,
+    epoch,
+    *,
+    checkpoint,
+    every_batches,
+    skip,
+    current_rng,
+    epoch_rng,
+    loader_rng,
 ):
     """Optimize one epoch, skipping replayed batches and checkpointing every ``every_batches`` steps."""
     for index, batch in enumerate(loader):
@@ -68,11 +75,7 @@ def _stage_batches(
         optimizer.zero_grad()
         criterion(module(values), values).backward()
         optimizer.step()
-        if (
-            checkpoint is not None
-            and every_batches
-            and (index + 1) % every_batches == 0
-        ):
+        if checkpoint is not None and every_batches and (index + 1) % every_batches == 0:
             atomic_state(
                 checkpoint,
                 {
@@ -97,9 +100,7 @@ def _boundary_state(module, optimizer, loader, epoch) -> dict:
         "rng": capture_rng(),
         "epoch_rng": capture_rng(),
         "loader_rng": None,
-        "current_loader_rng": loader.generator.get_state()
-        if getattr(loader, "generator", None) is not None
-        else None,
+        "current_loader_rng": loader.generator.get_state() if getattr(loader, "generator", None) is not None else None,
     }
 
 
@@ -122,9 +123,18 @@ def reconstruction_stage(
     for epoch in range(start, epochs):
         skip, current_rng, epoch_rng, loader_rng = _resume_epoch(state, epoch, loader)
         _stage_batches(
-            module, loader, device, optimizer, criterion, epoch,
-            checkpoint=checkpoint, every_batches=every_batches, skip=skip, current_rng=current_rng,
-            epoch_rng=epoch_rng, loader_rng=loader_rng,
+            module,
+            loader,
+            device,
+            optimizer,
+            criterion,
+            epoch,
+            checkpoint=checkpoint,
+            every_batches=every_batches,
+            skip=skip,
+            current_rng=current_rng,
+            epoch_rng=epoch_rng,
+            loader_rng=loader_rng,
         )
         if checkpoint is not None:
             atomic_state(checkpoint, _boundary_state(module, optimizer, loader, epoch + 1))

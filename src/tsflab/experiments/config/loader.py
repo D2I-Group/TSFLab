@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import os
+import tomllib
+from collections.abc import Iterable
 from contextvars import ContextVar
-
-_EXTENDS_STACK = ContextVar("extends_stack", default=())
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
-import tomllib
-
-from tsflab.experiments.config.schema.root import RootConfig
 from tsflab.catalog.registry.datasets import DATASET_REGISTRY, register_dataset_by_name
 from tsflab.catalog.registry.models import MODEL_CATALOG
+from tsflab.experiments.config.schema.root import RootConfig
 
+_EXTENDS_STACK = ContextVar("extends_stack", default=())
 PACKAGE_SCHEME = "tsflab://"
 
 
@@ -28,8 +27,7 @@ def validate_task_compatibility(mode: str, dataset_spec, model_spec) -> None:
         )
     if mode not in model_spec.task_modes:
         raise ValueError(
-            f"model {model_spec.name!r} does not support task.mode={mode!r}; "
-            f"supported: {sorted(model_spec.task_modes)}"
+            f"model {model_spec.name!r} does not support task.mode={mode!r}; supported: {sorted(model_spec.task_modes)}"
         )
 
 
@@ -128,7 +126,7 @@ def _resolve_extends_list(extends: str | Iterable[str], base_dir: str) -> dict:
             # so standalone projects inherit catalog configs without copying.
             from tsflab.core.paths import repository_root
 
-            file_path = str(repository_root() / rel_path[len(PACKAGE_SCHEME):])
+            file_path = str(repository_root() / rel_path[len(PACKAGE_SCHEME) :])
         elif not os.path.isabs(rel_path):
             file_path = os.path.join(base_dir, rel_path)
         absolute = os.path.realpath(file_path)
@@ -365,8 +363,9 @@ def load_config(path: str) -> list[LoadedConfig]:
     list[LoadedConfig]
         Expanded and validated configs for a sweep.
     """
-    return load_mapping(_read_toml(path), base_dir=os.path.dirname(path),
-                        config_name=os.path.splitext(os.path.basename(path))[0])
+    return load_mapping(
+        _read_toml(path), base_dir=os.path.dirname(path), config_name=os.path.splitext(os.path.basename(path))[0]
+    )
 
 
 def _sweep_labels(base_cfg: dict, extend_keys: list[str]) -> list[str]:
@@ -387,15 +386,11 @@ def _validated_config(expanded: dict) -> RootConfig:
     # e.g. by `tsf run --dry-run`) — not a RootConfig section, so
     # it's excluded from validation rather than left for pydantic to
     # silently ignore.
-    config = RootConfig.model_validate(
-        {k: v for k, v in expanded.items() if k != "extend"}
-    )
+    config = RootConfig.model_validate({k: v for k, v in expanded.items() if k != "extend"})
     register_dataset_by_name(config.dataset.name)
     dataset_spec = DATASET_REGISTRY.get(config.dataset.name)
     if dataset_spec.params_schema is not None:
-        config.dataset.params = dataset_spec.params_schema.model_validate(
-            config.dataset.params
-        )
+        config.dataset.params = dataset_spec.params_schema.model_validate(config.dataset.params)
     model_spec = MODEL_CATALOG.get(config.model.name)
     validate_task_compatibility(config.task.mode, dataset_spec, model_spec)
     config.model.params = model_spec.validate_params(config.model.params)
@@ -441,6 +436,7 @@ def _request_key(entry: str) -> tuple[str, str]:
 def _request_value(key: str, text: str, sweep: bool) -> Any:
     """Parse a request value as JSON (else keep the string); a sweep axis needs a nonempty list."""
     import json
+
     try:
         value = json.loads(text)
     except json.JSONDecodeError:

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import csv
-import os
 import json
-from typing import Iterable
+import os
+from collections.abc import Iterable
 
 
 def _read_existing_header(path: str) -> list[str]:
     """Return the header row already written to a CSV file (``[]`` if empty)."""
-    with open(path, "r", newline="") as f:
+    with open(path, newline="") as f:
         try:
             return next(csv.reader(f))
         except StopIteration:
@@ -20,7 +20,9 @@ def _read_existing_header(path: str) -> list[str]:
 def write_csv_summary(path: str, row: dict, header: Iterable[str] | None = None) -> None:
     """Atomically upsert a run row; parallel writers and retries cannot duplicate it."""
     from pathlib import Path
+
     from tsflab.experiments.infra.storage import file_lock
+
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with file_lock(destination.with_suffix(destination.suffix + ".lock")):

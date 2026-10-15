@@ -1,7 +1,7 @@
 """Read-only accelerator inventory, without experiment or audit dependencies."""
 
-import subprocess
 import os
+import subprocess
 
 
 def validate_gpu_visibility(selected, inventory):
@@ -41,7 +41,10 @@ def gpu_inventory() -> list[dict]:
     try:
         processes = subprocess.run(
             ["nvidia-smi", "--query-compute-apps=gpu_uuid", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5, check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
         )
         busy = set(processes.stdout.splitlines())
     except (OSError, subprocess.SubprocessError):
@@ -50,8 +53,6 @@ def gpu_inventory() -> list[dict]:
     for line in result.stdout.splitlines():
         fields = [part.strip() for part in line.split(",")]
         if len(fields) == 5:
-            devices.append(
-                dict(zip(("index", "uuid", "name", "free_mb", "total_mb"), fields))
-            )
+            devices.append(dict(zip(("index", "uuid", "name", "free_mb", "total_mb"), fields)))
             devices[-1]["compute_idle"] = None if busy is None else fields[1] not in busy
     return devices

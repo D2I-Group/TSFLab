@@ -27,7 +27,7 @@ configs/exp/
 .claude/settings.local.json
 
 # Local experiment workspace (run files, measurements, raw result bundles)
-experiments/
+/experiments/
 
 # Local scratch
 tmp/

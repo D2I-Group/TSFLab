@@ -73,6 +73,4 @@ class TrainingSetup(Protocol):
     label basis) run before the first epoch of a fresh training run.
     """
 
-    def __call__(
-        self, model: nn.Module, train_loader, *, pred_len: int, features: str
-    ) -> None: ...
+    def __call__(self, model: nn.Module, train_loader, *, pred_len: int, features: str) -> None: ...

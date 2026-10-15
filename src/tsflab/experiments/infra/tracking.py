@@ -2,9 +2,9 @@
 
 import json
 import math
-from pathlib import Path
 import time
 import warnings
+from pathlib import Path
 
 
 class Tracker:
@@ -41,9 +41,7 @@ class Tracker:
             try:
                 from torch.utils.tensorboard import SummaryWriter
 
-                self.writer = SummaryWriter(
-                    str(self.directory / "tensorboard"), purge_step=step
-                )
+                self.writer = SummaryWriter(str(self.directory / "tensorboard"), purge_step=step)
                 self.writer.add_text("config", json.dumps(self.config, indent=2), step)
             except Exception as exc:
                 self._warning("TensorBoard", exc)
@@ -70,9 +68,7 @@ class Tracker:
     def log(self, values, step):
         self.start(step)
         scalars = {
-            key: float(value)
-            for key, value in values.items()
-            if value is not None and math.isfinite(float(value))
+            key: float(value) for key, value in values.items() if value is not None and math.isfinite(float(value))
         }
         with self.events.open("a") as stream:
             stream.write(
@@ -138,8 +134,6 @@ class Tracker:
         for name, backend in (("TensorBoard", self.writer), ("W&B", self.wandb_run)):
             if backend:
                 try:
-                    backend.close() if name == "TensorBoard" else backend.finish(
-                        exit_code=int(failed)
-                    )
+                    backend.close() if name == "TensorBoard" else backend.finish(exit_code=int(failed))
                 except Exception as exc:
                     self._warning(name, exc)

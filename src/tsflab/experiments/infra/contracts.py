@@ -1,7 +1,8 @@
 """Small structural contracts for composing services without a shared base class."""
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Protocol
 
 
 class Cancellation(Protocol):
@@ -9,9 +10,7 @@ class Cancellation(Protocol):
 
 
 class Executor(Protocol):
-    def __call__(
-        self, directory: str, *, cancelled: Cancellation
-    ) -> Mapping[str, Any]: ...
+    def __call__(self, directory: str, *, cancelled: Cancellation) -> Mapping[str, Any]: ...
 
 
 class MetricsSink(Protocol):

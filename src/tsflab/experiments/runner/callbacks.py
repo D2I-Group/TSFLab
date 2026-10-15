@@ -44,7 +44,7 @@ pending gradients at the end of each epoch (the callback signals readiness via
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -87,9 +87,9 @@ class CallbackContext:
     batch_idx: int = 0
     is_last_batch: bool = False
     pred_len: int = 0
-    outputs: Optional[torch.Tensor] = None
-    targets: Optional[torch.Tensor] = None
-    loss: Optional[torch.Tensor] = None
+    outputs: torch.Tensor | None = None
+    targets: torch.Tensor | None = None
+    loss: torch.Tensor | None = None
     extra: dict = field(default_factory=dict)
 
 
@@ -111,14 +111,14 @@ class Callback:
     def on_train_start(self, ctx: CallbackContext) -> None:
         """Called once before training begins."""
 
-    def on_compute_loss(self, ctx: CallbackContext) -> Optional[torch.Tensor]:
+    def on_compute_loss(self, ctx: CallbackContext) -> torch.Tensor | None:
         """Optionally return a modified loss tensor (or None to keep ctx.loss)."""
         return None
 
     def on_backward(self, ctx: CallbackContext) -> None:
         """Called after backward, before the optimizer step."""
 
-    def on_optimizer_step(self, ctx: CallbackContext) -> Optional[bool]:
+    def on_optimizer_step(self, ctx: CallbackContext) -> bool | None:
         """Return False to skip the optimizer step for this micro-batch."""
         return None
 
@@ -167,12 +167,12 @@ class GradAccumulationCallback(Callback):
             raise ValueError(f"grad_accum_steps must be >= 1, got {steps}")
         self.steps = steps
 
-    def on_compute_loss(self, ctx: CallbackContext) -> Optional[torch.Tensor]:
+    def on_compute_loss(self, ctx: CallbackContext) -> torch.Tensor | None:
         if self.steps == 1 or ctx.loss is None:
             return None
         return ctx.loss / self.steps
 
-    def on_optimizer_step(self, ctx: CallbackContext) -> Optional[bool]:
+    def on_optimizer_step(self, ctx: CallbackContext) -> bool | None:
         if self.steps == 1:
             return None
         # Step every `steps` micro-batches, and always flush at epoch end.
@@ -215,7 +215,7 @@ class CurriculumCallback(Callback):
         length = (level + 1) * self.cl_epochs
         return min(length, pred_len)
 
-    def on_compute_loss(self, ctx: CallbackContext) -> Optional[torch.Tensor]:
+    def on_compute_loss(self, ctx: CallbackContext) -> torch.Tensor | None:
         if ctx.outputs is None or ctx.targets is None:
             return None
         cl_length = self._cl_length(ctx.epoch, ctx.pred_len)
@@ -233,9 +233,7 @@ _CALLBACK_FACTORIES = {
         max_norm=float(v if not isinstance(v, dict) else v.get("max_norm", 5.0)),
         norm_type=float(v.get("norm_type", 2.0)) if isinstance(v, dict) else 2.0,
     ),
-    "grad_accum": lambda v: GradAccumulationCallback(
-        steps=int(v if not isinstance(v, dict) else v.get("steps", 1))
-    ),
+    "grad_accum": lambda v: GradAccumulationCallback(steps=int(v if not isinstance(v, dict) else v.get("steps", 1))),
     "curriculum": lambda v: CurriculumCallback(
         warmup_epochs=int(v.get("warmup_epochs", 0)),
         step_size=int(v.get("step_size", 1)),

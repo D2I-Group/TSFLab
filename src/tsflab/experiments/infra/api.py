@@ -106,9 +106,7 @@ def describe_modules():
             {
                 "name": module,
                 "import": f"tsflab.experiments.infra.{module}",
-                "exports": sorted(
-                    name for name, owner in _EXPORTS.items() if owner == module
-                ),
+                "exports": sorted(name for name, owner in _EXPORTS.items() if owner == module),
                 "requirements": _REQUIREMENTS.get(
                     module,
                     "No experiment, training runtime, or external service required",

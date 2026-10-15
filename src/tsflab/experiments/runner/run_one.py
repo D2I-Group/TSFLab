@@ -8,15 +8,15 @@ from dataclasses import dataclass
 
 import torch
 
+from tsflab.catalog.registry import MODEL_CATALOG
+from tsflab.data.provider import build_data_loader
 from tsflab.experiments.evaluation import profile_model
 from tsflab.experiments.evaluation.profile import parse_profile_report_file
-from tsflab.catalog.registry import MODEL_CATALOG
 from tsflab.experiments.runner.callbacks import build_callbacks
 from tsflab.experiments.runner.evaluator import evaluate, evaluate_rolling
 from tsflab.experiments.runner.trainer import TrainResult, train
 from tsflab.experiments.utils import default_summary_row, set_seed, write_csv_summary
 from tsflab.experiments.utils.results import _flatten_params
-from tsflab.data.provider import build_data_loader
 
 
 def _normalize_adj(adj, scheme: str):
@@ -42,9 +42,7 @@ def _normalize_adj(adj, scheme: str):
     }
     key = str(scheme).lower()
     if key not in schemes:
-        raise ValueError(
-            f"unknown adj_norm scheme {scheme!r}; expected one of {sorted(schemes)}"
-        )
+        raise ValueError(f"unknown adj_norm scheme {scheme!r}; expected one of {sorted(schemes)}")
     return schemes[key](adj)
 
 
@@ -94,11 +92,7 @@ def _build_device(runtime) -> torch.device:
         if runtime.use_multi_gpu:
             return torch.device("cuda")
         return torch.device(f"cuda:{runtime.device_ids[0]}")
-    if (
-        runtime.device == "mps"
-        and hasattr(torch.backends, "mps")
-        and torch.backends.mps.is_available()
-    ):
+    if runtime.device == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
 
@@ -119,9 +113,7 @@ def _build_loaders(config):
     from tsflab.catalog.registry.datasets import DATASET_REGISTRY
 
     dataset_spec = DATASET_REGISTRY.get(dataset_registry_name)
-    root_path, data_file = dataset_spec.resolve_location(
-        config.dataset.path, config.dataset.id
-    )
+    root_path, data_file = dataset_spec.resolve_location(config.dataset.path, config.dataset.id)
 
     size = (config.task.seq_len, config.task.label_len, config.task.pred_len)
     if hasattr(config.dataset.params, "model_dump"):
@@ -175,9 +167,12 @@ def _declared_data_params(spec) -> dict | None:
 
 def _followed_widths(declared: dict, params: dict) -> set:
     """Channel-width parameters that follow the data's channel count."""
-    follow = {name for name, rule in declared.items()
-              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"
-              and name in CHANNEL_WIDTHS}
+    follow = {
+        name
+        for name, rule in declared.items()
+        if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"
+        and name in CHANNEL_WIDTHS
+    }
     # In multivariate mode the output and decoder widths equal the input width; presets that set them to
     # the same value as enc_in follow it even when the card lists only enc_in.
     if "enc_in" in follow:
@@ -237,18 +232,14 @@ def _construct(spec, config, params: dict, artifact_paths: dict, device: torch.d
     """Call the spec's (artifact-aware) factory and check its pretraining capability."""
     if artifact_paths:
         if spec.artifact_factory is None:
-            raise ValueError(
-                f"model {spec.name!r} has verified artifacts but no artifact-aware factory"
-            )
+            raise ValueError(f"model {spec.name!r} has verified artifacts but no artifact-aware factory")
         model = spec.artifact_factory(config, params, artifact_paths).to(device)
     else:
         model = spec.factory(config, params).to(device)
 
     pretraining = "pretraining-stage" in spec.capabilities
     if pretraining != callable(getattr(model, "pretrain", None)):
-        raise ValueError(
-            f"model {spec.name!r} pretraining-stage capability and pretrain() method disagree"
-        )
+        raise ValueError(f"model {spec.name!r} pretraining-stage capability and pretrain() method disagree")
     return model
 
 
@@ -262,10 +253,7 @@ def _check_output_loss(spec, config, model) -> str:
     output_type = spec.output_type
     model_output_type = getattr(model, "output_type", output_type)
     if model_output_type != output_type:
-        raise ValueError(
-            f"model {spec.name!r} output_type={model_output_type!r} "
-            f"disagrees with spec={output_type!r}"
-        )
+        raise ValueError(f"model {spec.name!r} output_type={model_output_type!r} disagrees with spec={output_type!r}")
     required_loss_by_output_type = {
         "point": None,
         "quantile": "quantile",
@@ -287,11 +275,7 @@ def _check_output_loss(spec, config, model) -> str:
             f"which requires training.loss={required_loss!r}, but the config "
             f"sets training.loss={config.training.loss!r}"
         )
-    if (
-        not inference_only
-        and required_loss is None
-        and configured_loss in loss_by_required_output_type
-    ):
+    if not inference_only and required_loss is None and configured_loss in loss_by_required_output_type:
         raise ValueError(
             f"training.loss={config.training.loss!r} requires a model with "
             f"output_type={loss_by_required_output_type[configured_loss]!r}, but "
@@ -444,8 +428,10 @@ def _write_run_outputs(
         summary_row["split"] = split
     from tsflab.experiments.infra.fingerprints import dataset_fingerprint
     from tsflab.experiments.infra.storage import canonical_hash
+
     snapshot = config.model_dump(mode="json")
     from tsflab.experiments.infra.comparison import protocol_fingerprint
+
     summary_row["protocol_sha256"] = protocol_fingerprint(snapshot, dataset_fingerprint(config))
     summary_row["model_variant"] = canonical_hash(snapshot["model"])
     write_csv_summary(summary_path, summary_row)
@@ -520,9 +506,7 @@ def _print_run_config(config, dataset_name: str, raw: dict, sweep_keys: list[str
     """Print the one-line summary of the run's identity and sweep values."""
     if raw and sweep_keys:
         flattened = _flatten_params(raw)
-        sweep_parts = [
-            f"{key}={flattened[key]}" for key in sweep_keys if key in flattened
-        ]
+        sweep_parts = [f"{key}={flattened[key]}" for key in sweep_keys if key in flattened]
     else:
         sweep_parts = []
 
@@ -551,15 +535,20 @@ def _pretrain(config, model, spec, session, train_loader, vali_loader, device, f
     session.stage("pretraining")
     _pretrain_start = time.perf_counter()
     import inspect
+
     options = {}
     if "val_loader" in inspect.signature(model.pretrain).parameters:
         options["val_loader"] = vali_loader
     if "stage_runner" in inspect.signature(model.pretrain).parameters:
         from functools import partial
+
         from tsflab.experiments.infra.stages import reconstruction_stage
-        options["stage_runner"] = partial(reconstruction_stage,
+
+        options["stage_runner"] = partial(
+            reconstruction_stage,
             checkpoint=session.directory / "checkpoints" / "pretraining.pth",
-            every_batches=session.policy.recovery.checkpoint_every_batches)
+            every_batches=session.policy.recovery.checkpoint_every_batches,
+        )
     model.pretrain(train_loader, device, **options)
     return time.perf_counter() - _pretrain_start
 
@@ -568,12 +557,16 @@ def _parallelize(config, model, device, inference_only: bool):
     """Wrap the model in DataParallel when multi-GPU is configured on CUDA."""
     if inference_only and config.experiment.runtime.use_multi_gpu:
         raise ValueError(
-            "inference-only models use the official runtime's device placement; "
-            "disable TSFLab use_multi_gpu"
+            "inference-only models use the official runtime's device placement; disable TSFLab use_multi_gpu"
         )
     if config.experiment.runtime.use_multi_gpu and device.type == "cuda":
         model = torch.nn.DataParallel(
-            model, device_ids=(list(range(int(os.environ["TSFLAB_ASSIGNED_GPUS"]))) if os.environ.get("TSFLAB_ASSIGNED_GPUS") else config.experiment.runtime.device_ids)
+            model,
+            device_ids=(
+                list(range(int(os.environ["TSFLAB_ASSIGNED_GPUS"])))
+                if os.environ.get("TSFLAB_ASSIGNED_GPUS")
+                else config.experiment.runtime.device_ids
+            ),
         )
     return model
 
@@ -582,12 +575,14 @@ def _load_frozen(config, model, device, frozen_checkpoint) -> TrainResult:
     """Load a frozen checkpoint (hash-checked when configured) instead of training."""
     import hashlib
     from pathlib import Path
+
     checkpoint = Path(frozen_checkpoint)
     if config.evaluation.checkpoint_sha256:
         actual = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
         if actual != config.evaluation.checkpoint_sha256:
             raise ValueError("frozen checkpoint hash changed")
     from tsflab.experiments.runner.model_io import unwrap_model
+
     unwrap_model(model).load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
     train_result = TrainResult(best_model_path=str(checkpoint), train_time_sec=0.0)
     print("Training skipped: evaluating frozen checkpoint")
@@ -604,9 +599,12 @@ def _setup_only(config, model, spec, train_loader, pretrain_time_sec: float) -> 
     _setup_start = time.perf_counter()
     if spec.training_setup is not None:
         from tsflab.experiments.runner.model_io import unwrap_model
+
         spec.training_setup(
-            unwrap_model(model), train_loader,
-            pred_len=config.task.pred_len, features=config.task.features,
+            unwrap_model(model),
+            train_loader,
+            pred_len=config.task.pred_len,
+            features=config.task.features,
         )
     return TrainResult(
         best_model_path="",
@@ -614,8 +612,9 @@ def _setup_only(config, model, spec, train_loader, pretrain_time_sec: float) -> 
     )
 
 
-def _fit(config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir: str,
-         pretrain_time_sec: float) -> TrainResult:
+def _fit(
+    config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir: str, pretrain_time_sec: float
+) -> TrainResult:
     """Build the optimizer, callbacks, and loss for one run and train the model."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     optimizer_cls = getattr(torch.optim, config.training.optimizer.name)
@@ -633,13 +632,8 @@ def _fit(config, model, spec, session, device, train_loader, vali_loader, checkp
     # Quantile pinball loss consumes the evaluation quantile levels unless
     # a training-only override was explicitly supplied.
     loss_params = dict(config.training.loss_params)
-    if (
-        config.training.loss.lower() == "quantile"
-        and "quantile_levels" not in loss_params
-    ):
-        loss_params["quantile_levels"] = list(
-            config.evaluation.quantile_levels
-        )
+    if config.training.loss.lower() == "quantile" and "quantile_levels" not in loss_params:
+        loss_params["quantile_levels"] = list(config.evaluation.quantile_levels)
 
     train_result = train(
         model=model,
@@ -672,8 +666,19 @@ def _fit(config, model, spec, session, device, train_loader, vali_loader, checkp
     return train_result
 
 
-def _train_or_skip(config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir: str,
-                   frozen_checkpoint, inference_only: bool, pretrain_time_sec: float) -> TrainResult:
+def _train_or_skip(
+    config,
+    model,
+    spec,
+    session,
+    device,
+    train_loader,
+    vali_loader,
+    checkpoint_dir: str,
+    frozen_checkpoint,
+    inference_only: bool,
+    pretrain_time_sec: float,
+) -> TrainResult:
     """Train the model, or skip training for a frozen checkpoint, an inference-only or a parameter-free model."""
     trainable = any(parameter.requires_grad for parameter in model.parameters())
     if frozen_checkpoint:
@@ -759,8 +764,17 @@ def _run_one(
     session.stage("training")
 
     train_result = _train_or_skip(
-        config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir,
-        frozen_checkpoint, inference_only, pretrain_time_sec,
+        config,
+        model,
+        spec,
+        session,
+        device,
+        train_loader,
+        vali_loader,
+        checkpoint_dir,
+        frozen_checkpoint,
+        inference_only,
+        pretrain_time_sec,
     )
 
     cost = _cost(model, device, train_result, measured=not frozen_checkpoint)
@@ -796,6 +810,7 @@ def _run_one(
 
     if split == "test":
         from tsflab.experiments.infra.predictions import log_predictions
+
         log_predictions(model, test_loader, config, device, session.tracker)
 
     return RunResult(
@@ -811,8 +826,9 @@ def _run_one(
 
 def run_one(config, raw: dict, sweep_keys: list[str] | None = None) -> RunResult:
     """Execute a run with evidence from preflight through success or failure."""
-    from tsflab.experiments.infra.runs import RunSession
     from tsflab.experiments.infra.environment import validate_experiment
+    from tsflab.experiments.infra.runs import RunSession
+
     with RunSession(config, raw, sweep_keys) as session:
         validate_experiment(config)
         result = _run_one(config, raw, sweep_keys, session=session)

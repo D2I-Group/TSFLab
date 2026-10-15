@@ -120,9 +120,7 @@ class CheckpointManager:
         self.top_checkpoints: list[tuple[float, str]] = []
         os.makedirs(self.path, exist_ok=True)
 
-    def save(
-        self, model: torch.nn.Module, epoch: int, val_loss: float, is_best: bool
-    ) -> str | None:
+    def save(self, model: torch.nn.Module, epoch: int, val_loss: float, is_best: bool) -> str | None:
         """Save checkpoint based on the configured strategy.
 
         Parameters
@@ -177,5 +175,6 @@ class CheckpointManager:
         """
         save_path = os.path.join(self.path, filename)
         from tsflab.experiments.infra.checkpoint import save_weights
+
         save_weights(save_path, model)
         return save_path

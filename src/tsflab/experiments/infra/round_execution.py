@@ -1,11 +1,11 @@
 """Bridge from computation attempts to the canonical research budget ledger."""
 
-from datetime import datetime
 import time
+from datetime import datetime
 
 
 def reserve(round_id, run_id, directory, gpus, timeout_minutes, cancelled):
-    from tsflab.research.rounds import claim_run, ResearchRoundBusy
+    from tsflab.research.rounds import ResearchRoundBusy, claim_run
 
     deadline = time.monotonic() + timeout_minutes * 60
     while True:
@@ -29,20 +29,13 @@ def stop_reason(round_id):
         return "cancelled"
     budget = state["budget"]
     now = time.time()
-    live = sum(
-        (now - r["started_at"]) * r["gpus"] / 3600
-        for r in state.get("active_runs", {}).values()
-    )
+    live = sum((now - r["started_at"]) * r["gpus"] / 3600 for r in state.get("active_runs", {}).values())
     if (
         budget.get("max_wall_minutes")
-        and now - datetime.fromisoformat(state["created_at"]).timestamp()
-        >= budget["max_wall_minutes"] * 60
+        and now - datetime.fromisoformat(state["created_at"]).timestamp() >= budget["max_wall_minutes"] * 60
     ):
         return "timed_out"
-    if (
-        budget.get("max_gpu_hours")
-        and state.get("gpu_hours_used", 0) + live >= budget["max_gpu_hours"]
-    ):
+    if budget.get("max_gpu_hours") and state.get("gpu_hours_used", 0) + live >= budget["max_gpu_hours"]:
         return "timed_out"
     return None
 

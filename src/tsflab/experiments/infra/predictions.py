@@ -13,12 +13,13 @@ def log_predictions(model, loader, config, device, tracker):
     import matplotlib.pyplot as plt
     import numpy as np
     import torch
+
+    from tsflab.experiments.runner.evaluator import _point_reduce, _resolve_output_kind
     from tsflab.experiments.runner.model_io import (
         call_forecaster,
         make_decoder_input,
         slice_prediction_target,
     )
-    from tsflab.experiments.runner.evaluator import _resolve_output_kind, _point_reduce
 
     try:
         values, targets, marks, future_marks = next(iter(loader))
@@ -27,20 +28,12 @@ def log_predictions(model, loader, config, device, tracker):
             targets[:count].float().to(device),
         )
         marks = marks[:count].float().to(device) if marks is not None else None
-        future_marks = (
-            future_marks[:count].float().to(device)
-            if future_marks is not None
-            else None
-        )
+        future_marks = future_marks[:count].float().to(device) if future_marks is not None else None
         model.eval()
         with torch.no_grad():
-            decoder = make_decoder_input(
-                targets, config.task.label_len, config.task.pred_len, device
-            )
+            decoder = make_decoder_input(targets, config.task.label_len, config.task.pred_len, device)
             outputs = call_forecaster(model, values, marks, decoder, future_marks)
-            outputs, targets = slice_prediction_target(
-                outputs, targets, config.task.pred_len, config.task.features
-            )
+            outputs, targets = slice_prediction_target(outputs, targets, config.task.pred_len, config.task.features)
         pred, actual = outputs.cpu().numpy(), targets.cpu().numpy()
         kind, _ = _resolve_output_kind(model)
         levels = list(config.evaluation.quantile_levels)
@@ -75,9 +68,7 @@ def log_predictions(model, loader, config, device, tracker):
                     title=f"Sample {sample + 1}, target channel 1",
                 )
                 axis.legend()
-                tracker.figure(
-                    fig, f"prediction-{sample + 1}", config.training.epochs + 1
-                )
+                tracker.figure(fig, f"prediction-{sample + 1}", config.training.epochs + 1)
             finally:
                 plt.close(fig)
     except Exception as exc:

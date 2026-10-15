@@ -1,22 +1,23 @@
 """Foreground durable sweeps: one subprocess per resolved run, no daemon required."""
 
+import json
+import math
+import os
+import threading
+import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from functools import partial
-import json
-import math
-import os
 from pathlib import Path
-import threading
-import time
-import uuid
 
+from tsflab.experiments.infra import round_execution
 from tsflab.experiments.infra.contracts import Cancellation
 from tsflab.experiments.infra.environment import audit_environment, validate_experiment
 from tsflab.experiments.infra.policy import ExecutionPolicy
-from tsflab.experiments.infra.processes import terminate as _terminate, launch_run, monitor
-from tsflab.experiments.infra import round_execution
+from tsflab.experiments.infra.processes import launch_run, monitor
+from tsflab.experiments.infra.processes import terminate as _terminate
 from tsflab.experiments.infra.resources import lease_gpus
 from tsflab.experiments.infra.runs import TERMINAL, prepare_run, read_run, verify_resume
 from tsflab.experiments.infra.storage import canonical_hash, file_lock, write_json
@@ -27,10 +28,10 @@ class RequestConflictError(ValueError):
 
 
 def validated_config(snapshot):
-    from tsflab.experiments.config.schema.root import RootConfig
     from tsflab.catalog.registry.datasets import DATASET_REGISTRY, register_dataset_by_name
     from tsflab.catalog.registry.models import MODEL_CATALOG
     from tsflab.experiments.config.loader import validate_task_compatibility
+    from tsflab.experiments.config.schema.root import RootConfig
 
     config = RootConfig.model_validate(snapshot)
     register_dataset_by_name(config.dataset.name)
@@ -46,13 +47,18 @@ def validated_config(snapshot):
 def _visible_devices(inventory):
     """GPU identifiers visible to this process: ``CUDA_VISIBLE_DEVICES`` entries, else every inventoried UUID."""
     visible = os.environ.get("CUDA_VISIBLE_DEVICES")
-    return [item.strip() for item in visible.split(",") if item.strip()] if visible is not None else [gpu["uuid"] for gpu in inventory]
+    return (
+        [item.strip() for item in visible.split(",") if item.strip()]
+        if visible is not None
+        else [gpu["uuid"] for gpu in inventory]
+    )
 
 
 def _auto_selected_gpus(inventory, devices, min_free_memory_mb):
     """Visible GPUs whose memory meets ``min_free_memory_mb``."""
     return [
-        gpu["uuid"] for gpu in inventory
+        gpu["uuid"]
+        for gpu in inventory
         if any(item.strip() in (gpu["index"], gpu["uuid"]) for item in devices)
         and float(gpu.get("total_mb", gpu["free_mb"])) >= min_free_memory_mb
     ]
@@ -64,28 +70,25 @@ def _assign_gpus(policy, cuda_configs) -> None:
 
     inventory = gpu_inventory()
     devices = _visible_devices(inventory)
-    indices = sorted(
-        {i for c in cuda_configs for i in c.experiment.runtime.device_ids}
-    )
+    indices = sorted({i for c in cuda_configs for i in c.experiment.runtime.device_ids})
     if policy.resources.auto_select:
         policy.resources.gpus = _auto_selected_gpus(inventory, devices, policy.resources.min_free_memory_mb)
     elif not policy.resources.gpus:
         policy.resources.gpus = [devices[i] for i in indices if 0 <= i < len(devices)]
     from tsflab.experiments.infra.hardware import validate_gpu_visibility
+
     validate_gpu_visibility(policy.resources.gpus, inventory)
     if any(c.experiment.runtime.use_multi_gpu for c in cuda_configs):
-        policy.resources.gpus_per_run = max(
-            len(c.experiment.runtime.device_ids) for c in cuda_configs
-        )
+        policy.resources.gpus_per_run = max(len(c.experiment.runtime.device_ids) for c in cuda_configs)
 
 
 def _resolve_parallel(policy, configs, cuda_configs) -> None:
     """Replace ``--jobs auto`` with the number of runs the GPU set can hold at once."""
     if configs and len(cuda_configs) != len(configs):
         raise ValueError("--jobs auto requires a CUDA-only matrix; set an explicit CPU worker limit")
-    policy.budget.max_parallel_jobs = max(1, min(
-        len(configs), len(policy.resources.gpus) // policy.resources.gpus_per_run
-    ))
+    policy.budget.max_parallel_jobs = max(
+        1, min(len(configs), len(policy.resources.gpus) // policy.resources.gpus_per_run)
+    )
     # Persist the resolved limit; later preflights must not undo round caps.
     policy.budget.auto_parallel = False
 
@@ -111,20 +114,14 @@ def _check_cuda_run(config, policy) -> None:
         raise ValueError("no schedulable NVIDIA GPUs visible")
     if len(policy.resources.gpus) < policy.resources.gpus_per_run:
         raise ValueError("fewer eligible GPUs than gpus_per_run")
-    if (
-        policy.resources.gpus_per_run > 1
-        and not config.experiment.runtime.use_multi_gpu
-    ):
+    if policy.resources.gpus_per_run > 1 and not config.experiment.runtime.use_multi_gpu:
         raise ValueError("multiple GPUs per run require use_multi_gpu=true")
 
 
 def _check_run(config, policy) -> None:
     """Raise on the first problem that keeps one run from executing under the policy."""
     validate_experiment(config)
-    if (
-        policy.recovery.checkpoint_every_batches
-        and config.experiment.runtime.num_workers
-    ):
+    if policy.recovery.checkpoint_every_batches and config.experiment.runtime.num_workers:
         raise ValueError("batch recovery requires runtime.num_workers=0")
     if policy.resources.sharing and policy.resources.memory_per_run_mb <= 0:
         raise ValueError("shared GPUs require memory_per_run_mb > 0")
@@ -140,17 +137,13 @@ def preflight(configs, policy):
     for config in configs:
         key = (config.experiment.runtime.device, config.experiment.work_dir)
         if key not in environments:
-            environments[key] = audit_environment(
-                policy, device=key[0], work_dir=key[1]
-            )
+            environments[key] = audit_environment(policy, device=key[0], work_dir=key[1])
         errors = []
         try:
             _check_run(config, policy)
         except Exception as exc:
             errors.append(str(exc))
-        errors.extend(
-            c["detail"] for c in environments[key]["checks"] if c["status"] == "failed"
-        )
+        errors.extend(c["detail"] for c in environments[key]["checks"] if c["status"] == "failed")
         checks.append(
             {
                 "model": config.model.name,
@@ -176,6 +169,7 @@ def preflight(configs, policy):
 
 def _require_running_round(round_id) -> None:
     from tsflab.research.rounds import load_round
+
     if load_round(round_id)["status"] != "running":
         raise ValueError("research round is not running")
 
@@ -184,7 +178,9 @@ def _saved_request(receipt: Path, matrix: str) -> Path:
     """The sweep directory a request receipt already points to, if it still matches ``matrix``."""
     saved = json.loads(receipt.read_text())
     if saved["matrix_sha256"] != matrix:
-        raise RequestConflictError("request key already belongs to a different matrix; use a new output path/request key")
+        raise RequestConflictError(
+            "request key already belongs to a different matrix; use a new output path/request key"
+        )
     directory = Path(saved["directory"])
     if not (directory / "sweep.json").is_file():
         raise RequestConflictError("saved request sweep is missing; preserve its receipt and use a new request key")
@@ -212,8 +208,9 @@ def prepare_sweep(loaded, policy, round_id=None, *, request_key=None):
         if receipt.exists():
             return _saved_request(receipt, matrix)
         directory = _prepare_sweep(loaded, policy, round_id)
-        write_json(receipt, {"schema_version": 1, "matrix_sha256": matrix,
-                             "directory": str(directory), "round": round_id})
+        write_json(
+            receipt, {"schema_version": 1, "matrix_sha256": matrix, "directory": str(directory), "round": round_id}
+        )
         return directory
 
 
@@ -280,10 +277,15 @@ def status(directory):
 
 def _config_fields(row: dict, config: dict) -> None:
     """Copy the run's identifying config values (model, dataset, horizon, seed, ...) into ``row``."""
-    for section, key, label in (("model", "name", "model"), ("dataset", "name", "dataset"),
-                                ("task", "pred_len", "pred_len"), ("evaluation", "split", "split"),
-                                ("experiment", "random_seed", "seed"), ("training", "batch_size", "batch_size"),
-                                ("training", "epochs", "epochs")):
+    for section, key, label in (
+        ("model", "name", "model"),
+        ("dataset", "name", "dataset"),
+        ("task", "pred_len", "pred_len"),
+        ("evaluation", "split", "split"),
+        ("experiment", "random_seed", "seed"),
+        ("training", "batch_size", "batch_size"),
+        ("training", "epochs", "epochs"),
+    ):
         if key in config.get(section, {}):
             row[label] = config[section][key]
     optimizer = config.get("training", {}).get("optimizer", {})
@@ -428,10 +430,7 @@ def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=ti
 
 def cancel(directory):
     directory = Path(directory).resolve()
-    if (
-        not (directory / "manifest.json").is_file()
-        and not (directory / "sweep.json").is_file()
-    ):
+    if not (directory / "manifest.json").is_file() and not (directory / "sweep.json").is_file():
         raise ValueError("expected a run or sweep directory")
     (directory / "cancel.request").touch()
     return {"directory": str(directory), "cancel_requested": True}
@@ -444,9 +443,7 @@ def _saved_matrix(directory: Path, sweep: bool, policy):
         attempts = read_run(directory).get("attempts", [])
         if attempts:
             saved["policy"] = attempts[-1].get("policy", {})
-    policy = (
-        policy or ExecutionPolicy.model_validate(saved.get("policy", {}))
-    ).model_copy(deep=True)
+    policy = (policy or ExecutionPolicy.model_validate(saved.get("policy", {}))).model_copy(deep=True)
     run_dirs = [Path(p) for p in saved["runs"]] if sweep else [directory]
     if policy.resources.auto_select or policy.budget.auto_parallel:
         policy = resolve_policy([validated_config(read_run(p)["config"]) for p in run_dirs], policy)
@@ -458,13 +455,13 @@ def _apply_round_budget(policy, round_id) -> None:
     from tsflab.research.rounds import load_round
 
     round_budget = load_round(round_id).get("budget", {})
-    for field in ("max_parallel_jobs", "run_timeout_minutes", "max_retries"):
-        bound = round_budget.get(field)
+    for name in ("max_parallel_jobs", "run_timeout_minutes", "max_retries"):
+        bound = round_budget.get(name)
         if bound is not None:
-            current = getattr(policy.budget, field)
+            current = getattr(policy.budget, name)
             setattr(
                 policy.budget,
-                field,
+                name,
                 bound if current is None else min(current, bound),
             )
 
@@ -484,9 +481,7 @@ def _pending_runs(directory: Path, run_dirs, selected_run, policy):
                 raise ValueError(f"completed run has no result artifact: {path}")
             continue
         pending.append(path)
-    report = preflight(
-        [validated_config(read_run(p)["config"]) for p in pending], policy
-    )
+    report = preflight([validated_config(read_run(p)["config"]) for p in pending], policy)
     if not report["ok"]:
         raise ValueError(json.dumps(report))
     policy = ExecutionPolicy.model_validate(report["resolved_policy"])
@@ -533,15 +528,11 @@ class _Controller:
             return "cancelled"
         if (
             self.policy.budget.max_wall_minutes
-            and self.prior_elapsed + time.monotonic() - self.started
-            >= self.policy.budget.max_wall_minutes * 60
+            and self.prior_elapsed + time.monotonic() - self.started >= self.policy.budget.max_wall_minutes * 60
         ):
             return "timed_out"
         with self.mutex:
-            used = self.hours + sum(
-                (time.monotonic() - value[0]) * value[1] / 3600
-                for value in self.active.values()
-            )
+            used = self.hours + sum((time.monotonic() - value[0]) * value[1] / 3600 for value in self.active.values())
             write_json(
                 self.usage_path,
                 {
@@ -560,9 +551,7 @@ class _Controller:
 
             if not storage_status(path, self.policy)["ok"]:
                 return "storage_exhausted"
-        return self.exhausted() or (
-            "cancelled" if (path / "cancel.request").exists() else None
-        )
+        return self.exhausted() or ("cancelled" if (path / "cancel.request").exists() else None)
 
     def worker(self, path: Path):
         with file_lock(path / ".dispatch.lock", blocking=False):
@@ -593,9 +582,7 @@ class _Controller:
         try:
             self._launch(path, attempt, reason)
         except Exception as exc:
-            attempt.outcome = reason() or (
-                "timed_out" if isinstance(exc, TimeoutError) else "failed"
-            )
+            attempt.outcome = reason() or ("timed_out" if isinstance(exc, TimeoutError) else "failed")
             state = read_run(path)
             state["error"] = f"{type(exc).__name__}: {exc}"
             write_json(path / "manifest.json", state)
@@ -606,21 +593,12 @@ class _Controller:
     def _launch(self, path: Path, attempt: _Attempt, reason) -> None:
         """Lease GPUs, reserve round capacity, and run the cell's subprocess to its outcome."""
         resources = self.policy.resources
-        if (
-            read_run(path)["config"]["experiment"]["runtime"]["device"]
-            != "cuda"
-        ):
+        if read_run(path)["config"]["experiment"]["runtime"]["device"] != "cuda":
             resources = resources.model_copy(update={"gpus": []})
         round_id = self.round_id
         with ExitStack() as owned:
-            attempt.gpus = owned.enter_context(
-                lease_gpus(resources, cancelled=lambda: bool(reason()))
-            )
-            owned.callback(
-                lambda: (
-                    _terminate(attempt.process) if attempt.process is not None else None
-                )
-            )
+            attempt.gpus = owned.enter_context(lease_gpus(resources, cancelled=lambda: bool(reason())))
+            owned.callback(lambda: _terminate(attempt.process) if attempt.process is not None else None)
             if reason():
                 raise InterruptedError(reason())
             if round_id:
@@ -643,21 +621,11 @@ class _Controller:
                     attempt.gpus,
                     attempt.launch,
                     self.policy.budget.run_timeout_minutes,
-                    lambda: (
-                        reason()
-                        or (
-                            round_execution.stop_reason(round_id)
-                            if round_id
-                            else None
-                        )
-                    ),
+                    lambda: reason() or (round_execution.stop_reason(round_id) if round_id else None),
                 )
             if attempt.outcome == "failed":
                 _diagnose_failure(path, attempt.number)
-            if (
-                attempt.outcome == "succeeded"
-                and read_run(path)["status"] != "succeeded"
-            ):
+            if attempt.outcome == "succeeded" and read_run(path)["status"] != "succeeded":
                 attempt.outcome = "failed"
 
     def _settle(self, path: Path, attempt: _Attempt) -> None:
@@ -669,9 +637,7 @@ class _Controller:
             if attempt.launch:
                 self.hours += (time.monotonic() - attempt.launch) * len(attempt.gpus) / 3600
         if self.round_id and attempt.reservation is not None:
-            round_execution.settle(
-                self.round_id, attempt.reservation, read_run(path)["run_id"], attempt.outcome
-            )
+            round_execution.settle(self.round_id, attempt.reservation, read_run(path)["run_id"], attempt.outcome)
         state = read_run(path)
         state["status"] = attempt.outcome
         state["attempts"][-1].update(
@@ -681,18 +647,14 @@ class _Controller:
         )
         if state.get("error"):
             state["attempts"][-1]["error"] = state["error"]
-        write_json(
-            path / "attempts" / f"{attempt.number}.json", state["attempts"][-1]
-        )
+        write_json(path / "attempts" / f"{attempt.number}.json", state["attempts"][-1])
         write_json(path / "manifest.json", state)
 
     def run(self, pending, sweep: bool) -> list:
         """Run every pending cell, then persist the matrix's elapsed time and GPU hours."""
         results = []
         try:
-            with ThreadPoolExecutor(
-                max_workers=self.policy.budget.max_parallel_jobs
-            ) as executor:
+            with ThreadPoolExecutor(max_workers=self.policy.budget.max_parallel_jobs) as executor:
                 futures = [executor.submit(self.worker, path) for path in pending]
                 try:
                     for future in as_completed(futures):
@@ -719,15 +681,9 @@ class _Controller:
 
 def _diagnose_failure(path: Path, attempt: int) -> None:
     """Record whether a failed attempt ran out of memory, and where its log is."""
-    tail = (path / f"attempt-{attempt}.log").read_text()[
-        -8000:
-    ]
+    tail = (path / f"attempt-{attempt}.log").read_text()[-8000:]
     state = read_run(path)
-    state["diagnosis"] = (
-        "out-of-memory"
-        if "out of memory" in tail.lower()
-        else "execution-failure"
-    )
+    state["diagnosis"] = "out-of-memory" if "out of memory" in tail.lower() else "execution-failure"
     state["log"] = str(path / f"attempt-{attempt}.log")
     write_json(path / "manifest.json", state)
 
@@ -740,8 +696,11 @@ def _matrix_report(directory: Path, results, run_dirs, pending, selected_run) ->
         "skipped": len(run_dirs) - len(pending),
         # Include already completed cells too: resume should return the
         # complete matrix without another result-discovery model turn.
-        "runs": [completion_report({"directory": str(path), **read_run(path)})
-                 for path in run_dirs if selected_run is None or path == selected_run],
+        "runs": [
+            completion_report({"directory": str(path), **read_run(path)})
+            for path in run_dirs
+            if selected_run is None or path == selected_run
+        ],
     }
 
 
@@ -783,12 +742,8 @@ def saved_policy(directory):
     """Recover the last policy without accidentally resetting unspecified controls."""
     directory = Path(directory).resolve()
     if (directory / "sweep.json").is_file():
-        return ExecutionPolicy.model_validate(
-            json.loads((directory / "sweep.json").read_text())["policy"]
-        )
+        return ExecutionPolicy.model_validate(json.loads((directory / "sweep.json").read_text())["policy"])
     state = read_run(directory)
     if state.get("sweep"):
         return saved_policy(state["sweep"])
-    return ExecutionPolicy.model_validate(
-        state["attempts"][-1]["policy"] if state["attempts"] else {}
-    )
+    return ExecutionPolicy.model_validate(state["attempts"][-1]["policy"] if state["attempts"] else {})

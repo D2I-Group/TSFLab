@@ -1,8 +1,8 @@
 """Comparable experiment cohorts with explicit seed and model-variant coverage."""
 
-from collections import defaultdict
 import math
 import statistics
+from collections import defaultdict
 
 
 def _metric_summary(entry, seeds, metric) -> None:
@@ -18,9 +18,7 @@ def _metric_summary(entry, seeds, metric) -> None:
         except (KeyError, TypeError, ValueError):
             pass
     entry[metric] = statistics.mean(values) if values else None
-    entry[metric + "_std"] = (
-        statistics.stdev(values) if len(values) > 1 else None
-    )
+    entry[metric + "_std"] = statistics.stdev(values) if len(values) > 1 else None
     entry[metric + "_n"] = len(values)
 
 
@@ -39,20 +37,14 @@ def _variant_entry(model, variant, cells, expected) -> dict:
     }
     for metric in ("mse", "mae"):
         _metric_summary(entry, seeds, metric)
-    entry["rankable"] = (
-        not duplicate
-        and not entry["missing_seeds"]
-        and entry["mse_n"] == len(expected)
-    )
+    entry["rankable"] = not duplicate and not entry["missing_seeds"] and entry["mse_n"] == len(expected)
     return entry
 
 
 def _cohort(protocol, records, planned_rows) -> dict:
     """One protocol's ranked leaderboard over its recorded and planned variants."""
     variants = defaultdict(list)
-    expected = {
-        str(row.get("seed")) for row in [*records, *planned_rows]
-    }
+    expected = {str(row.get("seed")) for row in [*records, *planned_rows]}
     for row in planned_rows:
         variants.setdefault((row["model"], row["model_variant"]), [])
     for row in records:
@@ -94,11 +86,12 @@ def compare_rows(rows, planned=()):
 
 def protocol_fingerprint(snapshot, data):
     """One protocol identity shared by result producers and planned-cell reports."""
-    from tsflab.experiments.infra.storage import canonical_hash
-
     # A newly exposed zero cosine floor has the same behavior as historical
     # snapshots that omitted it. Preserve their cohort identity without mutation.
     from copy import deepcopy
+
+    from tsflab.experiments.infra.storage import canonical_hash
+
     training = deepcopy(snapshot["training"])
     optimizer = training.get("optimizer", {})
     if optimizer.get("min_lr") == 0:

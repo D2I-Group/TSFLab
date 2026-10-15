@@ -1,12 +1,17 @@
 """One run identity with immutable attempt history and recoverable local state."""
 
-from dataclasses import asdict
 import json
 import os
-from pathlib import Path
 import secrets
 import time
+from dataclasses import asdict
+from pathlib import Path
 
+from tsflab.experiments.infra.fingerprints import (
+    code_fingerprint,
+    dataset_fingerprint,
+    dependency_fingerprint,
+)
 from tsflab.experiments.infra.policy import ExecutionPolicy
 from tsflab.experiments.infra.storage import (
     canonical_hash,
@@ -14,12 +19,6 @@ from tsflab.experiments.infra.storage import (
     write_json,
 )
 from tsflab.experiments.infra.tracking import Tracker
-from tsflab.experiments.infra.fingerprints import (
-    code_fingerprint,
-    dataset_fingerprint,
-    dependency_fingerprint,
-)
-
 
 TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "interrupted"}
 
@@ -28,9 +27,7 @@ def prepare_run(config, raw, sweep_keys=None, *, directory=None) -> Path:
     if directory:
         return Path(directory).resolve()
     run_id = f"{config.model.name}-{time.time_ns()}-{secrets.token_hex(3)}"
-    directory = (
-        Path(config.experiment.work_dir).expanduser().resolve() / "_runs" / run_id
-    )
+    directory = Path(config.experiment.work_dir).expanduser().resolve() / "_runs" / run_id
     directory.mkdir(parents=True, exist_ok=False)
     snapshot = config.model_dump(mode="json")
     write_json(
@@ -63,13 +60,9 @@ def verify_resume(directory, config) -> dict:
     if state["config_sha256"] != canonical_hash(config.model_dump(mode="json")):
         raise ValueError("resume configuration changed; start a new run")
     if state["code_sha256"] != code_fingerprint():
-        raise ValueError(
-            "resume source/dependency fingerprint changed; start a new run"
-        )
+        raise ValueError("resume source/dependency fingerprint changed; start a new run")
     if state.get("dependencies") != dependency_fingerprint():
-        raise ValueError(
-            "resume installed scientific dependencies changed; restore the original environment"
-        )
+        raise ValueError("resume installed scientific dependencies changed; restore the original environment")
     if state["data"] != dataset_fingerprint(config):
         raise ValueError("resume dataset content changed; start a new run")
     return state
@@ -80,9 +73,7 @@ class RunSession:
         requested = os.environ.get("TSFLAB_RUN_DIR")
         self.directory = prepare_run(config, raw, sweep_keys, directory=requested)
         self.config = config
-        self.policy = ExecutionPolicy.model_validate_json(
-            os.environ.get("TSFLAB_POLICY", "{}")
-        )
+        self.policy = ExecutionPolicy.model_validate_json(os.environ.get("TSFLAB_POLICY", "{}"))
         self.state = read_run(self.directory)
         self.run_id = self.state["run_id"]
         self.resume = bool(self.state["attempts"])
@@ -143,9 +134,7 @@ class RunSession:
     def __exit__(self, kind, error, traceback):
         try:
             if error:
-                self.state["status"] = (
-                    "cancelled" if isinstance(error, KeyboardInterrupt) else "failed"
-                )
+                self.state["status"] = "cancelled" if isinstance(error, KeyboardInterrupt) else "failed"
                 self.state["error"] = f"{type(error).__name__}: {error}"
             attempt = self.state["attempts"][-1]
             attempt.update(
@@ -155,9 +144,7 @@ class RunSession:
             )
             if error:
                 attempt["error"] = self.state["error"]
-            write_json(
-                self.directory / "attempts" / f"{attempt['number']}.json", attempt
-            )
+            write_json(self.directory / "attempts" / f"{attempt['number']}.json", attempt)
             self.stage(self.state["stage"])
             if self.tracker:
                 self.tracker.close(failed=error is not None)

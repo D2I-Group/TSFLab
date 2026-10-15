@@ -1,7 +1,7 @@
 """Evaluation metrics, quantile levels, and rolling-forecast schema."""
 
 import math
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -17,9 +17,9 @@ class RollingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    horizon: Optional[int] = None
+    horizon: int | None = None
     stride: int = 1
-    num_rollings: Optional[int] = None
+    num_rollings: int | None = None
 
 
 class EvaluationConfig(BaseModel):
@@ -27,16 +27,12 @@ class EvaluationConfig(BaseModel):
 
     split: Literal["val", "test"] = "test"
 
-    metrics: list[str] = Field(
-        default_factory=lambda: ["mae", "mse", "rmse", "mape", "mspe"]
-    )
+    metrics: list[str] = Field(default_factory=lambda: ["mae", "mse", "rmse", "mape", "mspe"])
     # Canonical quantile levels (the single source of truth for probabilistic
     # forecasting). Threaded into the evaluator and, for the "quantile" loss
     # only, injected into ``training.loss_params`` by ``run_one``. Ignored by
     # point models, so existing runs are unaffected.
-    quantile_levels: list[float] = Field(
-        default_factory=lambda: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    )
+    quantile_levels: list[float] = Field(default_factory=lambda: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 
     @field_validator("quantile_levels")
     @classmethod
@@ -45,15 +41,9 @@ class EvaluationConfig(BaseModel):
             raise ValueError("evaluation.quantile_levels must not be empty")
         for level in v:
             if math.isnan(level) or not (0.0 < level < 1.0):
-                raise ValueError(
-                    "evaluation.quantile_levels must all lie in the open "
-                    f"interval (0, 1); got {level!r}"
-                )
+                raise ValueError(f"evaluation.quantile_levels must all lie in the open interval (0, 1); got {level!r}")
         if any(a >= b for a, b in zip(v, v[1:])):
-            raise ValueError(
-                "evaluation.quantile_levels must be strictly increasing; "
-                f"got {v!r}"
-            )
+            raise ValueError(f"evaluation.quantile_levels must be strictly increasing; got {v!r}")
         return v
 
     # A frozen checkpoint evaluates without pretraining or optimizer steps.

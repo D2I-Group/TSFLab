@@ -1,11 +1,11 @@
 """Optional shared-filesystem Slurm transport using stable parsable CLI fields."""
 
 import json
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 from tsflab.experiments.infra.storage import file_lock, write_json
 
@@ -33,20 +33,13 @@ def _sbatch_args(root: Path, minutes, partition, account, gpus) -> list[str]:
 def _submit(root: Path, record: Path, *, partition, account, gpus, minutes) -> dict:
     """Submit the prepared run or sweep as one Slurm job and persist its receipt."""
     if record.exists():
-        raise ValueError(
-            "this experiment already has a Slurm submission; inspect its status"
-        )
-    if (
-        not (root / "sweep.json").exists()
-        and not (root / "manifest.json").exists()
-    ):
+        raise ValueError("this experiment already has a Slurm submission; inspect its status")
+    if not (root / "sweep.json").exists() and not (root / "manifest.json").exists():
         raise ValueError("expected a prepared run or sweep directory")
     if minutes < 1 or gpus < 0:
         raise ValueError("minutes must be positive; gpus must be nonnegative")
     script = root / "slurm.sh"
-    command = shlex.join(
-        [sys.executable, "-m", "tsflab.cli.main", "run", "resume", str(root)]
-    )
+    command = shlex.join([sys.executable, "-m", "tsflab.cli.main", "run", "resume", str(root)])
     script.write_text("#!/bin/sh\nset -eu\nexec " + command + "\n")
     args = _sbatch_args(root, minutes, partition, account, gpus)
     write_json(
@@ -65,9 +58,7 @@ def _submit(root: Path, record: Path, *, partition, account, gpus, minutes) -> d
         timeout=30,
     ).stdout.strip()
     if not re.fullmatch(r"\d+(;[\w.-]+)?", response):
-        raise ValueError(
-            f"unrecognized sbatch receipt: {response!r}; inspect cluster before retrying"
-        )
+        raise ValueError(f"unrecognized sbatch receipt: {response!r}; inspect cluster before retrying")
     job, _, cluster = response.partition(";")
     state = {
         "schema_version": 1,
@@ -113,9 +104,7 @@ def slurm(directory, action, *, partition=None, account=None, gpus=0, minutes=60
             return _submit(root, record, partition=partition, account=account, gpus=gpus, minutes=minutes)
         state = json.loads(record.read_text())
         if not state.get("job_id"):
-            raise ValueError(
-                "submission receipt is uncertain; reconcile the job ID with the cluster before retrying"
-            )
+            raise ValueError("submission receipt is uncertain; reconcile the job ID with the cluster before retrying")
         cluster_args = ["--clusters", state["cluster"]] if state["cluster"] else []
         if action == "cancel":
             subprocess.run(

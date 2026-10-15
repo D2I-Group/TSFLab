@@ -12,15 +12,8 @@ from tsflab.experiments.infra.storage import file_lock, write_json
 
 
 def _check_usage(tokens, cost_usd) -> None:
-    if (
-        tokens < 0
-        or int(tokens) != tokens
-        or not math.isfinite(cost_usd)
-        or cost_usd < 0
-    ):
-        raise ValueError(
-            "usage must contain nonnegative integral tokens and finite USD"
-        )
+    if tokens < 0 or int(tokens) != tokens or not math.isfinite(cost_usd) or cost_usd < 0:
+        raise ValueError("usage must contain nonnegative integral tokens and finite USD")
 
 
 def _merge_limits(state, budget) -> dict:
@@ -31,22 +24,14 @@ def _merge_limits(state, budget) -> dict:
         ("cost_usd", getattr(budget, "max_cost_usd", None)),
     ]:
         if requested is not None:
-            limits[key] = (
-                requested if limits[key] is None else min(limits[key], requested)
-            )
+            limits[key] = requested if limits[key] is None else min(limits[key], requested)
     return limits
 
 
 def _check_reservation(entries, operation, prior, item, limits) -> None:
     if prior and prior != item:
-        raise ValueError(
-            "operation ID already has a different reservation or settlement"
-        )
-    totals = {
-        k: sum(v[k] for key, v in entries.items() if key != operation)
-        + item[k]
-        for k in ("tokens", "cost_usd")
-    }
+        raise ValueError("operation ID already has a different reservation or settlement")
+    totals = {k: sum(v[k] for key, v in entries.items() if key != operation) + item[k] for k in ("tokens", "cost_usd")}
     for key, limit in limits.items():
         if limit is not None and totals[key] > limit:
             raise ValueError(f"{key} budget exhausted")
@@ -58,9 +43,7 @@ def _check_settlement(prior, item) -> None:
     if prior["status"] == "settled" and prior != item:
         raise ValueError("settlement is immutable")
     if any(item[k] > prior[k] for k in ("tokens", "cost_usd")):
-        raise ValueError(
-            "actual usage exceeds reservation; reserve a safe upper bound"
-        )
+        raise ValueError("actual usage exceeds reservation; reserve a safe upper bound")
 
 
 def _record(entries, action, operation, tokens, cost_usd, limits) -> None:
@@ -87,11 +70,7 @@ def account(directory, action, operation=None, *, tokens=0, cost_usd=0.0, budget
     _check_usage(tokens, cost_usd)
     with file_lock(directory / ".accounting.lock"):
         path = directory / "accounting.json"
-        state = (
-            json.loads(path.read_text())
-            if path.exists()
-            else {"schema_version": 1, "operations": {}}
-        )
+        state = json.loads(path.read_text()) if path.exists() else {"schema_version": 1, "operations": {}}
         limits = _merge_limits(state, budget)
         entries = state["operations"]
         if action != "status":
@@ -99,9 +78,7 @@ def account(directory, action, operation=None, *, tokens=0, cost_usd=0.0, budget
             write_json(path, state)
         return {
             **state,
-            "totals": {
-                k: sum(v[k] for v in entries.values()) for k in ("tokens", "cost_usd")
-            },
+            "totals": {k: sum(v[k] for v in entries.values()) for k in ("tokens", "cost_usd")},
         }
 
 

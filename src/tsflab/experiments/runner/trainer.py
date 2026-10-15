@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 
@@ -9,8 +10,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-import os
-
+from tsflab.catalog.registry.losses import get_loss
 from tsflab.experiments.runner.callbacks import Callback, CallbackContext
 from tsflab.experiments.runner.model_io import (
     call_forecaster,
@@ -18,7 +18,6 @@ from tsflab.experiments.runner.model_io import (
     slice_prediction_target,
     unwrap_model,
 )
-from tsflab.catalog.registry.losses import get_loss
 from tsflab.experiments.runner.objective import TrainingBatch
 from tsflab.experiments.utils.training import (
     CheckpointManager,
@@ -87,9 +86,7 @@ def _training_loss(model, outputs, batch_y, pred_len, features, criterion):
     Uses the configured observation criterion plus the one canonical optional
     ``aux_loss`` regularizer. Full paper objectives use ``ModelSpec`` instead.
     """
-    sliced_out, sliced_tgt = slice_prediction_target(
-        outputs, batch_y, pred_len, features
-    )
+    sliced_out, sliced_tgt = slice_prediction_target(outputs, batch_y, pred_len, features)
     loss = criterion(sliced_out, sliced_tgt)
     aux = _collect_aux_loss(model)
     if aux is not None:
@@ -117,16 +114,17 @@ def _forward_training(
     forward and keeps model-specific objective discovery out of the trainer.
     """
     if training_objective is None:
-        outputs = call_forecaster(
-            model, batch_x, batch_x_mark, dec_inp, batch_y_mark
-        )
-        return outputs, _training_loss(
-            model, outputs, batch_y, pred_len, features, criterion
-        )
+        outputs = call_forecaster(model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
+        return outputs, _training_loss(model, outputs, batch_y, pred_len, features, criterion)
 
     batch = TrainingBatch(
-        x=batch_x, x_mark=batch_x_mark, dec_inp=dec_inp, y_mark=batch_y_mark,
-        y=batch_y, pred_len=pred_len, features=features,
+        x=batch_x,
+        x_mark=batch_x_mark,
+        dec_inp=dec_inp,
+        y_mark=batch_y_mark,
+        y=batch_y,
+        pred_len=pred_len,
+        features=features,
     )
     outputs, loss = training_objective(unwrap_model(model), batch, criterion)
     if outputs is not None:
@@ -285,13 +283,22 @@ def train(
         def batch_checkpoint(next_batch):
             if checkpoint_every_batches and next_batch % checkpoint_every_batches == 0:
                 save_checkpoint(
-                    latest, model=model, optimizer=optimizer, scaler=scaler,
-                    early_stopping=early_stopping, manager=checkpoint_manager,
-                    callbacks=callbacks, epoch=epoch,
+                    latest,
+                    model=model,
+                    optimizer=optimizer,
+                    scaler=scaler,
+                    early_stopping=early_stopping,
+                    manager=checkpoint_manager,
+                    callbacks=callbacks,
+                    epoch=epoch,
                     elapsed=prior_elapsed + time.perf_counter() - start_time,
                     loaders=(train_loader, vali_loader),
-                    progress={"next_batch": next_batch, "epoch_rng": epoch_rng,
-                              "loader_rng": loader_rng, "losses": epoch_losses},
+                    progress={
+                        "next_batch": next_batch,
+                        "epoch_rng": epoch_rng,
+                        "loader_rng": loader_rng,
+                        "losses": epoch_losses,
+                    },
                 )
 
         ctx.epoch = epoch
@@ -390,15 +397,18 @@ def _start_or_resume(
 
     _start_tracker(tracker, resume, latest)
     if training_setup is not None and not (resume and os.path.isfile(latest)):
-        training_setup(
-            unwrap_model(model), train_loader, pred_len=pred_len, features=features
-        )
+        training_setup(unwrap_model(model), train_loader, pred_len=pred_len, features=features)
     if not (resume and os.path.isfile(latest)):
         return 0, 0.0, False, None
     state = restore_checkpoint(
-        latest, model=model, optimizer=optimizer, scaler=scaler,
-        early_stopping=early_stopping, manager=checkpoint_manager,
-        callbacks=callbacks, loaders=(train_loader, vali_loader),
+        latest,
+        model=model,
+        optimizer=optimizer,
+        scaler=scaler,
+        early_stopping=early_stopping,
+        manager=checkpoint_manager,
+        callbacks=callbacks,
+        loaders=(train_loader, vali_loader),
     )
     return state["epoch"], state["elapsed"], state["completed"], state.get("progress")
 
@@ -452,8 +462,15 @@ def _train_step(
     if use_amp:
         with torch.amp.autocast(device_type=device.type):
             outputs, loss = _forward_training(
-                model, training_objective, batch_x, batch_x_mark,
-                dec_inp, batch_y_mark, batch_y, pred_len, features,
+                model,
+                training_objective,
+                batch_x,
+                batch_x_mark,
+                dec_inp,
+                batch_y_mark,
+                batch_y,
+                pred_len,
+                features,
                 criterion,
             )
         scaler.scale(loss).backward()
@@ -461,8 +478,15 @@ def _train_step(
         scaler.update()
     else:
         outputs, loss = _forward_training(
-            model, training_objective, batch_x, batch_x_mark,
-            dec_inp, batch_y_mark, batch_y, pred_len, features,
+            model,
+            training_objective,
+            batch_x,
+            batch_x_mark,
+            dec_inp,
+            batch_y_mark,
+            batch_y,
+            pred_len,
+            features,
             criterion,
         )
         loss.backward()
@@ -495,9 +519,7 @@ def _train_batches(
     from tsflab.experiments.infra.checkpoint import set_rng
 
     n_batches = len(train_loader) if hasattr(train_loader, "__len__") else -1
-    for batch_idx, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(
-        train_loader
-    ):
+    for batch_idx, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
         if batch_idx < skip:
             if batch_idx + 1 == skip:
                 set_rng(saved_rng)
@@ -574,14 +596,19 @@ def _end_epoch(
 
     validation_metrics = {} if tracker else None
     vali_loss = validate(
-        model, vali_loader, device, criterion, label_len, pred_len, features,
+        model,
+        vali_loader,
+        device,
+        criterion,
+        label_len,
+        pred_len,
+        features,
         metrics=validation_metrics,
     )
     train_loss = float(np.mean(epoch_losses)) if epoch_losses else float("nan")
     current_lr = optimizer.param_groups[0].get("lr", base_lr)
     print(
-        f"Epoch {epoch + 1}/{epochs} | train_loss: {train_loss:.6f} | "
-        f"val_loss: {vali_loss:.6f} | lr: {current_lr:.6g}"
+        f"Epoch {epoch + 1}/{epochs} | train_loss: {train_loss:.6f} | val_loss: {vali_loss:.6f} | lr: {current_lr:.6g}"
     )
     is_best = early_stopping.step(vali_loss)
     if is_best:
@@ -594,16 +621,29 @@ def _end_epoch(
     if not early_stopping.early_stop:
         adjust_learning_rate(optimizer, epoch + 1, lradj, base_lr, total_epochs, min_lr=min_lr)
     save_checkpoint(
-        latest, model=model, optimizer=optimizer, scaler=scaler,
-        early_stopping=early_stopping, manager=checkpoint_manager,
-        callbacks=callbacks, epoch=epoch + 1,
+        latest,
+        model=model,
+        optimizer=optimizer,
+        scaler=scaler,
+        early_stopping=early_stopping,
+        manager=checkpoint_manager,
+        callbacks=callbacks,
+        epoch=epoch + 1,
         elapsed=prior_elapsed + time.perf_counter() - start_time,
-        completed=completed, loaders=(train_loader, vali_loader),
+        completed=completed,
+        loaders=(train_loader, vali_loader),
     )
     if tracker:
-        tracker.log({"train/loss": train_loss, "validation/loss": vali_loss,
-                     **{f"validation/{key}": value for key, value in validation_metrics.items()},
-                     "train/lr": current_lr, "train/elapsed_sec": prior_elapsed + time.perf_counter() - start_time}, epoch + 1)
+        tracker.log(
+            {
+                "train/loss": train_loss,
+                "validation/loss": vali_loss,
+                **{f"validation/{key}": value for key, value in validation_metrics.items()},
+                "train/lr": current_lr,
+                "train/elapsed_sec": prior_elapsed + time.perf_counter() - start_time,
+            },
+            epoch + 1,
+        )
     return completed
 
 
@@ -661,15 +701,19 @@ def _train_step_with_callbacks(
     if use_amp:
         with torch.amp.autocast(device_type=device.type):
             outputs, base_loss = _forward_training(
-                model, training_objective, batch_x, batch_x_mark, dec_inp,
-                batch_y_mark, batch_y, pred_len, features, criterion,
+                model,
+                training_objective,
+                batch_x,
+                batch_x_mark,
+                dec_inp,
+                batch_y_mark,
+                batch_y,
+                pred_len,
+                features,
+                criterion,
             )
-            outputs = _callback_outputs(
-                outputs, model, batch_x, batch_x_mark, dec_inp, batch_y_mark
-            )
-            outputs, batch_y_sliced = slice_prediction_target(
-                outputs, batch_y, pred_len, features
-            )
+            outputs = _callback_outputs(outputs, model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
+            outputs, batch_y_sliced = slice_prediction_target(outputs, batch_y, pred_len, features)
             ctx.outputs = outputs
             ctx.targets = batch_y_sliced
             ctx.loss = base_loss
@@ -689,15 +733,19 @@ def _train_step_with_callbacks(
             scaler.update()
     else:
         outputs, base_loss = _forward_training(
-            model, training_objective, batch_x, batch_x_mark, dec_inp,
-            batch_y_mark, batch_y, pred_len, features, criterion,
+            model,
+            training_objective,
+            batch_x,
+            batch_x_mark,
+            dec_inp,
+            batch_y_mark,
+            batch_y,
+            pred_len,
+            features,
+            criterion,
         )
-        outputs = _callback_outputs(
-            outputs, model, batch_x, batch_x_mark, dec_inp, batch_y_mark
-        )
-        outputs, batch_y_sliced = slice_prediction_target(
-            outputs, batch_y, pred_len, features
-        )
+        outputs = _callback_outputs(outputs, model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
+        outputs, batch_y_sliced = slice_prediction_target(outputs, batch_y, pred_len, features)
         ctx.outputs = outputs
         ctx.targets = batch_y_sliced
         ctx.loss = base_loss
@@ -718,9 +766,7 @@ def _callback_outputs(outputs, model, batch_x, batch_x_mark, dec_inp, batch_y_ma
     if outputs is not None:
         return outputs
     with torch.no_grad():
-        return call_forecaster(
-            unwrap_model(model), batch_x, batch_x_mark, dec_inp, batch_y_mark
-        )
+        return call_forecaster(unwrap_model(model), batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
 
 def _resolve_step(callbacks, ctx: CallbackContext) -> bool:
@@ -792,9 +838,7 @@ def validate(
 
             dec_inp = make_decoder_input(batch_y, label_len, pred_len, device)
             outputs = call_forecaster(model, batch_x, batch_x_mark, dec_inp, batch_y_mark)
-            outputs, batch_y_sliced = slice_prediction_target(
-                outputs, batch_y, pred_len, features
-            )
+            outputs, batch_y_sliced = slice_prediction_target(outputs, batch_y, pred_len, features)
             loss = criterion(outputs, batch_y_sliced)
             count = batch_x.shape[0]
             weighted_loss += loss.item() * count
@@ -805,7 +849,9 @@ def validate(
                 absolute_error += error.abs().sum().item()
                 elements += error.numel()
     if metrics is not None:
-        metrics.update(mse=squared_error / elements if elements else float("nan"),
-                       mae=absolute_error / elements if elements else float("nan"))
+        metrics.update(
+            mse=squared_error / elements if elements else float("nan"),
+            mae=absolute_error / elements if elements else float("nan"),
+        )
     model.train()
     return weighted_loss / samples if samples else float("nan")

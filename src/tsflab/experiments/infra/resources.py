@@ -1,11 +1,11 @@
 """Host-local GPU leases with free-memory checks and crash-safe ownership."""
 
-from contextlib import ExitStack, contextmanager
 import hashlib
-from itertools import combinations
 import os
-from pathlib import Path
 import time
+from contextlib import ExitStack, contextmanager
+from itertools import combinations
+from pathlib import Path
 
 from tsflab.experiments.infra.hardware import gpu_inventory, validate_gpu_visibility
 from tsflab.experiments.infra.storage import file_lock
@@ -22,9 +22,7 @@ def _resource_root(directory) -> Path:
     return Path(
         directory
         if directory is not None
-        else os.environ.get(
-            "TSFLAB_RESOURCE_DIR", Path.home() / ".cache" / "tsflab" / "resources"
-        )
+        else os.environ.get("TSFLAB_RESOURCE_DIR", Path.home() / ".cache" / "tsflab" / "resources")
     )
 
 
@@ -46,11 +44,7 @@ def _lock_group(group, root):
     try:
         for gpu in sorted(group, key=lambda g: g["uuid"]):
             key = hashlib.sha256(gpu["uuid"].encode()).hexdigest()
-            descriptors.append(
-                stack.enter_context(
-                    file_lock(root / f"{key}.lock", blocking=False)
-                )
-            )
+            descriptors.append(stack.enter_context(file_lock(root / f"{key}.lock", blocking=False)))
     except BlockingIOError:
         stack.close()
         return None
@@ -95,17 +89,13 @@ def _exclusive_gpus(resources, *, cancelled, query, directory):
 
 
 @contextmanager
-def lease_gpus(
-    resources=None, *, cancelled=lambda: False, inventory=None, directory=None
-):
+def lease_gpus(resources=None, *, cancelled=lambda: False, inventory=None, directory=None):
     from tsflab.experiments.infra.policy import Resources
 
     resources = resources if resources is not None else Resources()
     query = inventory if inventory is not None else gpu_inventory
     if resources.sharing and resources.gpus:
-        with shared_gpus(
-            resources, cancelled=cancelled, inventory=query, directory=directory
-        ) as assigned:
+        with shared_gpus(resources, cancelled=cancelled, inventory=query, directory=directory) as assigned:
             yield assigned
         return
     if not resources.gpus:
@@ -131,18 +121,14 @@ def _live_reservations(root) -> list:
 
 def _has_shared_capacity(gpu, reservations, resources) -> bool:
     """Whether a configured GPU has a process slot and memory left for one more shared run."""
-    if not any(
-        item in (gpu["index"], gpu["uuid"]) for item in resources.gpus
-    ):
+    if not any(item in (gpu["index"], gpu["uuid"]) for item in resources.gpus):
         return False
     used = [r for r in reservations if gpu["uuid"] in r["gpus"]]
     if len(used) >= resources.max_processes_per_gpu or sum(
         r["memory_mb"] for r in used
     ) + resources.memory_per_run_mb > float(gpu["total_mb"]):
         return False
-    return not float(gpu["free_mb"]) < max(
-        resources.memory_per_run_mb, resources.min_free_memory_mb
-    )
+    return not float(gpu["free_mb"]) < max(resources.memory_per_run_mb, resources.min_free_memory_mb)
 
 
 def _share_devices(devices, reservations, resources, root, stack, descriptors, selected) -> None:
@@ -171,6 +157,7 @@ def shared_gpus(resources, *, cancelled, inventory=None, directory=None):
     query = inventory if inventory is not None else gpu_inventory
     """Cooperative memory reservations; does not isolate GPU memory physically."""
     import uuid
+
     from tsflab.experiments.infra.storage import write_json
 
     if resources.memory_per_run_mb <= 0:
@@ -193,11 +180,7 @@ def shared_gpus(resources, *, cancelled, inventory=None, directory=None):
                 _share_devices(devices, reservations, resources, root, stack, descriptors, selected)
                 if len(selected) == resources.gpus_per_run:
                     receipt = root / f"reservation-{uuid.uuid4().hex}.json"
-                    descriptors.append(
-                        stack.enter_context(
-                            file_lock(receipt.with_suffix(".lock"), blocking=False)
-                        )
-                    )
+                    descriptors.append(stack.enter_context(file_lock(receipt.with_suffix(".lock"), blocking=False)))
                     write_json(
                         receipt,
                         {"gpus": selected, "memory_mb": resources.memory_per_run_mb},

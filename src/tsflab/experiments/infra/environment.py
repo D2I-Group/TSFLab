@@ -3,12 +3,12 @@
 import importlib.metadata
 import importlib.util
 import os
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 
-from tsflab.experiments.infra.policy import ExecutionPolicy
 from tsflab.experiments.infra.hardware import gpu_inventory
+from tsflab.experiments.infra.policy import ExecutionPolicy
 
 
 def _check_packages(check) -> dict:
@@ -31,9 +31,7 @@ def _check_packages(check) -> dict:
                 f"{version}; required {requirement.specifier or 'any'}",
             )
         except importlib.metadata.PackageNotFoundError:
-            check(
-                name, False, "package is missing; synchronize the project environment"
-            )
+            check(name, False, "package is missing; synchronize the project environment")
     return packages
 
 
@@ -61,9 +59,7 @@ def _check_accelerators(policy, device, check) -> None:
                 f"torch CUDA build: {torch.version.cuda}",
             )
         if device == "mps":
-            check(
-                "mps", torch.backends.mps.is_available(), "requested Apple accelerator"
-            )
+            check("mps", torch.backends.mps.is_available(), "requested Apple accelerator")
     except Exception as exc:
         check("torch-runtime", False, str(exc))
 
@@ -74,26 +70,17 @@ def _check_output(policy, work_dir, check) -> None:
         path = path.parent
     free_gb = shutil.disk_usage(path).free / 1024**3
     check("output-writable", os.access(path, os.W_OK), str(path))
-    check(
-        "disk", free_gb >= policy.resources.min_free_disk_gb, f"{free_gb:.2f} GiB free"
-    )
+    check("disk", free_gb >= policy.resources.min_free_disk_gb, f"{free_gb:.2f} GiB free")
 
 
 def _check_gpu_list(policy, devices, check) -> None:
     """Check the configured GPUs resolve to distinct visible devices and cover ``gpus_per_run``."""
     resolved_ids = [
-        g["uuid"]
-        for selected in policy.resources.gpus
-        for g in devices
-        if selected in (g["index"], g["uuid"])
+        g["uuid"] for selected in policy.resources.gpus for g in devices if selected in (g["index"], g["uuid"])
     ]
-    if len(resolved_ids) != len(set(resolved_ids)) or len(policy.resources.gpus) != len(
-        set(policy.resources.gpus)
-    ):
+    if len(resolved_ids) != len(set(resolved_ids)) or len(policy.resources.gpus) != len(set(policy.resources.gpus)):
         check("gpu-list", False, "GPU identifiers must be unique")
-    if policy.resources.gpus and policy.resources.gpus_per_run > len(
-        policy.resources.gpus
-    ):
+    if policy.resources.gpus and policy.resources.gpus_per_run > len(policy.resources.gpus):
         check("gpu-count", False, "gpus_per_run exceeds available configured GPUs")
 
 
@@ -108,9 +95,7 @@ def audit_environment(
     checks = []
 
     def check(name, ok, detail):
-        checks.append(
-            {"name": name, "status": "passed" if ok else "failed", "detail": detail}
-        )
+        checks.append({"name": name, "status": "passed" if ok else "failed", "detail": detail})
 
     check("python", sys.version_info >= (3, 12), sys.version.split()[0])
     packages = _check_packages(check)
@@ -136,12 +121,10 @@ def audit_environment(
 
 def _validate_training(spec, config, required, loss) -> None:
     """Check the output/loss pairing, optimizer, and loss of a trainable model."""
-    if (
-        (required and loss != required)
-        or (not required and loss in {"quantile", "nll_gaussian"})
-    ):
+    if (required and loss != required) or (not required and loss in {"quantile", "nll_gaussian"}):
         raise ValueError(f"incompatible output/loss: {spec.output_type}/{loss}")
     import torch
+
     from tsflab.catalog.registry.losses import get_loss
 
     if not hasattr(torch.optim, config.training.optimizer.name):
@@ -149,16 +132,14 @@ def _validate_training(spec, config, required, loss) -> None:
     # Construction may require quantile levels, which the trainer resolves later.
     params = dict(config.training.loss_params)
     if loss == "quantile":
-        params.setdefault(
-            "quantile_levels", list(config.evaluation.quantile_levels)
-        )
+        params.setdefault("quantile_levels", list(config.evaluation.quantile_levels))
     get_loss(config.training.loss, **params)
 
 
 def validate_experiment(config) -> None:
     """Check static runtime compatibility before loading data or allocating a model."""
-    from tsflab.catalog.registry.models import MODEL_CATALOG
     from tsflab.catalog.registry.datasets import DATASET_REGISTRY
+    from tsflab.catalog.registry.models import MODEL_CATALOG
 
     spec = MODEL_CATALOG.get(config.model.name)
     data = DATASET_REGISTRY.get(config.dataset.name)
@@ -173,9 +154,7 @@ def validate_experiment(config) -> None:
     inference = "inference-only" in spec.capabilities
     if inference and config.experiment.runtime.use_multi_gpu:
         raise ValueError("inference-only models do not support DataParallel")
-    required = {"quantile": "quantile", "distribution": "nll_gaussian"}.get(
-        spec.output_type
-    )
+    required = {"quantile": "quantile", "distribution": "nll_gaussian"}.get(spec.output_type)
     loss = config.training.loss.lower()
     if not inference:
         _validate_training(spec, config, required, loss)

@@ -1,9 +1,9 @@
 """Complete, atomic epoch-boundary checkpoints for local training recovery."""
 
 import os
-from pathlib import Path
 import random
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -41,9 +41,7 @@ def save_checkpoint(
         "rng": rng,
         "callbacks": [cb.state_dict() for cb in callbacks],
         "loader_rng": [
-            loader.generator.get_state()
-            if getattr(loader, "generator", None) is not None
-            else None
+            loader.generator.get_state() if getattr(loader, "generator", None) is not None else None
             for loader in loaders
         ],
     }
@@ -61,11 +59,7 @@ def save_checkpoint(
 
 
 def _check_resume_contract(state, callbacks) -> None:
-    if (
-        not isinstance(state, dict)
-        or state.get("schema_version") != 1
-        or "optimizer" not in state
-    ):
+    if not isinstance(state, dict) or state.get("schema_version") != 1 or "optimizer" not in state:
         raise ValueError("checkpoint is not a complete TSFLab resume checkpoint")
     if len(state["callbacks"]) != len(callbacks):
         raise ValueError("checkpoint callback contract changed")
@@ -79,9 +73,7 @@ def _restore_loader_rng(loaders, saved_states) -> None:
             loader.generator.set_state(saved)
 
 
-def restore_checkpoint(
-    path, *, model, optimizer, scaler, early_stopping, manager, callbacks, loaders=()
-):
+def restore_checkpoint(path, *, model, optimizer, scaler, early_stopping, manager, callbacks, loaders=()):
     """Restore trusted local state, including RNG after all constructors have run."""
     state = torch.load(path, map_location="cpu", weights_only=False)
     _check_resume_contract(state, callbacks)

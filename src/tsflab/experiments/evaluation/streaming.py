@@ -60,17 +60,18 @@ class MetricAccumulator:
         Quantile levels (used by probabilistic outputs).
     """
 
-    def __init__(self, output_type: str = "point", distribution_family: str = "gaussian",
-                 levels: list[float] | None = None) -> None:
+    def __init__(
+        self, output_type: str = "point", distribution_family: str = "gaussian", levels: list[float] | None = None
+    ) -> None:
         self.output_type = output_type
         self.distribution_family = distribution_family
         self.levels = list(levels or [])
         self.n = 0
         self.sum_abs = self.sum_sq = self.sum_ape = self.sum_spe = 0.0
         self.sum_abs_true = self.sum_smape = 0.0
-        self.channel = _Moments()   # corr: per-channel moments
-        self.scalar = _Moments()    # rse: moments of the flattened target
-        self.naive_sum = 0.0        # mase: |flat[i+1] - flat[i]| over the flattened targets
+        self.channel = _Moments()  # corr: per-channel moments
+        self.scalar = _Moments()  # rse: moments of the flattened target
+        self.naive_sum = 0.0  # mase: |flat[i+1] - flat[i]| over the flattened targets
         self.naive_n = 0
         self.last_true = None
         # probabilistic
@@ -127,8 +128,11 @@ class MetricAccumulator:
             arr = np.asarray(pred, dtype=np.float64)
             mu, sigma = arr[..., 0], arr[..., 1]
             omega = (y - mu) / sigma
-            self.crps_gauss += float((sigma * (omega * (2.0 * _phi_cdf(omega) - 1.0)
-                                               + 2.0 * _phi_pdf(omega) - 1.0 / math.sqrt(math.pi))).sum())
+            self.crps_gauss += float(
+                (
+                    sigma * (omega * (2.0 * _phi_cdf(omega) - 1.0) + 2.0 * _phi_pdf(omega) - 1.0 / math.sqrt(math.pi))
+                ).sum()
+            )
         lo = grid[..., _level_index(self.levels, 0.1, fallback=0)]
         hi = grid[..., _level_index(self.levels, 0.9, fallback=len(self.levels) - 1)]
         self.covered += float(((y >= lo) & (y <= hi)).sum())
@@ -152,8 +156,9 @@ class MetricAccumulator:
             "rse": float(math.sqrt(self.sum_sq) / (math.sqrt(float(self.scalar.m2_t[0])) + 1e-5)),
             "wape": float(self.sum_abs / (self.sum_abs_true + 1e-5)),
             "smape": float(self.sum_smape / n * 100.0),
-            "mase": (float("nan") if not self.naive_n or not np.isfinite(naive) or naive <= 1e-12
-                     else float(mae64 / naive)),
+            "mase": (
+                float("nan") if not self.naive_n or not np.isfinite(naive) or naive <= 1e-12 else float(mae64 / naive)
+            ),
         }
 
     def result(self) -> dict[str, float]:
@@ -169,10 +174,12 @@ class MetricAccumulator:
             crps = self.crps_gauss / n
         else:
             crps = (2.0 / q) * float((self.pinball / n).sum())
-        metrics.update({
-            "crps": float(crps),
-            "wql": float(2.0 * self.pinball.sum() / (self.sum_abs_true + 1e-12) / q),
-            "coverage_80": self.covered / n,
-            "width_80": self.width / n,
-        })
+        metrics.update(
+            {
+                "crps": float(crps),
+                "wql": float(2.0 * self.pinball.sum() / (self.sum_abs_true + 1e-12) / q),
+                "coverage_80": self.covered / n,
+                "width_80": self.width / n,
+            }
+        )
         return {k: float(v) for k, v in metrics.items()}

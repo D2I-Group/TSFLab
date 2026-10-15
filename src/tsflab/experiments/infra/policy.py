@@ -1,8 +1,8 @@
 """Optional execution settings, separate from the scientific run configuration."""
 
+import tomllib
 from pathlib import Path
 from typing import Literal
-import tomllib
 
 from pydantic import BaseModel, ConfigDict, Field
 

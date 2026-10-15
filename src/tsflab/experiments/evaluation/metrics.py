@@ -52,9 +52,7 @@ def corr(pred: np.ndarray, true: np.ndarray) -> float:
     t_dev = t - t_mean
     num = (p_dev * t_dev).sum(axis=0)
     denom = np.sqrt((p_dev**2).sum(axis=0) * (t_dev**2).sum(axis=0))
-    per_channel = np.divide(
-        num, denom, out=np.zeros_like(num), where=denom > 1e-12
-    )
+    per_channel = np.divide(num, denom, out=np.zeros_like(num), where=denom > 1e-12)
     return float(np.nan_to_num(per_channel).mean())
 
 
@@ -175,9 +173,7 @@ def _erfinv_scalar(x: float) -> float:  # pragma: no cover - scipy fallback path
     a = 0.147
     ln = math.log(1.0 - x * x)
     term = 2.0 / (math.pi * a) + ln / 2.0
-    return math.copysign(
-        math.sqrt(math.sqrt(term * term - ln / a) - term), x
-    )
+    return math.copysign(math.sqrt(math.sqrt(term * term - ln / a) - term), x)
 
 
 def _phi_cdf(x: np.ndarray) -> np.ndarray:
@@ -211,9 +207,7 @@ def _quantile_grid(
     loc = pred[..., 0]
     scale = pred[..., 1]
     z = _phi_inv(np.asarray(levels, dtype=np.float64))  # (Q,)
-    return loc[..., None] + scale[..., None] * z.reshape(
-        *([1] * loc.ndim), -1
-    )
+    return loc[..., None] + scale[..., None] * z.reshape(*([1] * loc.ndim), -1)
 
 
 def collect_prob_metrics(
@@ -266,21 +260,11 @@ def collect_prob_metrics(
         mu = pred_arr[..., 0]
         sigma = pred_arr[..., 1]
         omega = (true - mu) / sigma
-        crps_elem = sigma * (
-            omega * (2.0 * _phi_cdf(omega) - 1.0)
-            + 2.0 * _phi_pdf(omega)
-            - 1.0 / math.sqrt(math.pi)
-        )
+        crps_elem = sigma * (omega * (2.0 * _phi_cdf(omega) - 1.0) + 2.0 * _phi_pdf(omega) - 1.0 / math.sqrt(math.pi))
         crps = float(np.mean(crps_elem))
     else:
         # Quantile (CRPS approximation): (2/Q) * sum_q mean(pinball_q).
-        crps = float(
-            (2.0 / Q)
-            * sum(
-                np.mean(_pinball(q_pred[..., i], true, levels[i]))
-                for i in range(Q)
-            )
-        )
+        crps = float((2.0 / Q) * sum(np.mean(_pinball(q_pred[..., i], true, levels[i])) for i in range(Q)))
 
     # --- WQL (GIFT-Eval / GluonTS weighted quantile loss) -----------------
     # GluonTS MeanWeightedSumQuantileLoss / GIFT-Eval WQL is the MEAN over
@@ -289,10 +273,7 @@ def collect_prob_metrics(
     # The 1/Q averaging is required so the metric matches externally published
     # WQL numbers; without it the value is exactly Q times too large. For the
     # quantile path this also satisfies the identity wql == crps / mean|y|.
-    numerator = sum(
-        2.0 * np.sum(_pinball(q_pred[..., i], true, levels[i]))
-        for i in range(Q)
-    )
+    numerator = sum(2.0 * np.sum(_pinball(q_pred[..., i], true, levels[i])) for i in range(Q))
     denominator = np.sum(np.abs(true))
     wql = float(numerator / (denominator + 1e-12) / Q)
 

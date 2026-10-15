@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def build_record_dict(
@@ -42,10 +42,8 @@ def build_record_dict(
         RunRecord,
         RunTiming,
     )
-
-    from tsflab.experiments.utils.env import collect_env, collect_git
-
     from tsflab.experiments.infra.storage import canonical_hash
+    from tsflab.experiments.utils.env import collect_env, collect_git
 
     snapshot = config.model_dump(mode="json")
     mode = config.task.mode
@@ -69,10 +67,7 @@ def build_record_dict(
     env = RunEnv(**{k: v for k, v in env_data.items() if k in env_fields})
 
     record = RunRecord(
-        record_id=(
-            f"{config.model.name}__{dataset_id}__seed{config.experiment.random_seed}"
-            f"__pl{config.task.pred_len}"
-        ),
+        record_id=(f"{config.model.name}__{dataset_id}__seed{config.experiment.random_seed}__pl{config.task.pred_len}"),
         model=config.model.name,
         dataset_id=dataset_id,
         track=track,
