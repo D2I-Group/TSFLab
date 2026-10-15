@@ -131,7 +131,7 @@ def _parse_overrides(pairs: list[str]) -> dict:
     return out
 
 
-def main(argv: list[str] | None = None) -> int:
+def _parser() -> argparse.ArgumentParser:
     from tsflab.cli.inventory import group_usage
 
     parser = argparse.ArgumentParser(
@@ -145,36 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("update", "open", "baselines", "forecast", "score"):
         p = sub.add_parser(name)
         p.add_argument("--track", required=True)
-        if name == "update":
-            p.add_argument("--push", action="store_true", help="publish the release to the Hub")
-            p.add_argument("--repo", default=default_repo("TSFLab-Datasets"))
-            p.add_argument("--pull", action="store_true", help="fetch the published store first")
-            mode = p.add_mutually_exclusive_group()
-            mode.add_argument(
-                "--bootstrap", action="store_true", help="create the store from the full history instead of appending"
-            )
-            mode.add_argument(
-                "--no-fetch",
-                action="store_true",
-                help="skip the source fetch; with --push, publish the local store as is",
-            )
-        if name == "open":
-            p.add_argument("--now")
-        if name in {"baselines", "forecast"}:
-            p.add_argument("--round")
-        if name == "forecast":
-            p.add_argument("--model", required=True)
-            p.add_argument("--submitter")
-            p.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
-            add_option(
-                p,
-                "--records",
-                "work_dir",
-                "--work-dir",
-                type=Path,
-                default=Path("work_dirs") / "_realtime",
-                help="run-records root for the model run (default work_dirs/_realtime)",
-            )
+        _add_track_options(p, name)
     validate = sub.add_parser("validate")
     validate.add_argument("files", nargs="+", type=Path)
     validate.add_argument("--received-at", help="trusted arrival time (e.g. PR creation) checked against the deadline")
@@ -190,118 +161,184 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument("--models", nargs="*", default=[])
     replay.add_argument("--out", type=Path, default=None)
     replay.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
-    args = parser.parse_args(argv)
+    return parser
 
+
+def _add_track_options(p: argparse.ArgumentParser, name: str) -> None:
+    if name == "update":
+        p.add_argument("--push", action="store_true", help="publish the release to the Hub")
+        p.add_argument("--repo", default=default_repo("TSFLab-Datasets"))
+        p.add_argument("--pull", action="store_true", help="fetch the published store first")
+        mode = p.add_mutually_exclusive_group()
+        mode.add_argument(
+            "--bootstrap", action="store_true", help="create the store from the full history instead of appending"
+        )
+        mode.add_argument(
+            "--no-fetch",
+            action="store_true",
+            help="skip the source fetch; with --push, publish the local store as is",
+        )
+    if name == "open":
+        p.add_argument("--now")
+    if name in {"baselines", "forecast"}:
+        p.add_argument("--round")
+    if name == "forecast":
+        p.add_argument("--model", required=True)
+        p.add_argument("--submitter")
+        p.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+        add_option(
+            p,
+            "--records",
+            "work_dir",
+            "--work-dir",
+            type=Path,
+            default=Path("work_dirs") / "_realtime",
+            help="run-records root for the model run (default work_dirs/_realtime)",
+        )
+
+
+def _cmd_list(args) -> int:
+    for track in list_tracks():
+        store = PanelStore(track.id)
+        last = store.manifest()["last_timestamp"] if store.exists else "not bootstrapped"
+        print(f"{track.id:18s} {track.mode:15s} freq={track.freq:3s} H={track.horizon:<4d} last={last}")
+    return 0
+
+
+def _cmd_update(args) -> int:
+    if args.bootstrap:
+        from tsflab.realtime import sources
+
+        store = PanelStore(args.track)
+        release = store.append(sources.bootstrap(get_track(args.track)), note="bootstrap")
+        print(f"{args.track}: bootstrapped through {release['last_timestamp']}")
+        if args.push:
+            _push(store, args.repo)
+    elif args.no_fetch:
+        from tsflab.realtime.publish import push_release
+
+        store = PanelStore(args.track)
+        if not store.exists:
+            raise RuntimeError(f"no local store for {args.track!r}; run `tsf realtime update --bootstrap` first")
+        if not args.push:
+            raise RuntimeError("--no-fetch only makes sense with --push")
+        # Publishing is the only action here, so a refused track is an error.
+        print("hub revision:", push_release(store, args.repo, create=True))
+    else:
+        _update(args.track, args.pull, args.push, args.repo)
+    return 0
+
+
+def _cmd_open(args) -> int:
+    now = pd.Timestamp(args.now).to_pydatetime() if args.now else None
+    spec = R.open_round(get_track(args.track), PanelStore(args.track), now=now)
+    print(
+        f"{spec.track} {spec.round_id}: cutoff {spec.cutoff}, targets "
+        f"{spec.target_timestamps[0]} .. {spec.target_timestamps[-1]}, deadline {spec.deadline}"
+    )
+    return 0
+
+
+def _cmd_baselines(args) -> int:
+    from tsflab.realtime.baselines import run_baselines
+
+    spec = _latest_round(args.track, args.round)
+    results = [
+        _write_validated(submission, spec)
+        for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track))
+    ]
+    return 0 if all(results) else 1
+
+
+def _cmd_forecast(args) -> int:
+    from tsflab.realtime.forecast import forecast_with_model
+
+    spec = _latest_round(args.track, args.round)
+    submission = forecast_with_model(
+        spec,
+        PanelStore(args.track),
+        get_track(args.track),
+        args.model,
+        args.work_dir,
+        _parse_overrides(args.set),
+        args.submitter,
+    )
+    return 0 if _write_validated(submission, spec) else 1
+
+
+def _cmd_validate(args) -> int:
+    failures = 0
+    for path in args.files:
+        try:
+            validate_file(path, args.received_at)
+            print(f"ok   {path}")
+        except (OSError, ValueError) as exc:
+            failures += 1
+            print(f"FAIL {path}: {exc}", file=sys.stderr)
+    return 1 if failures else 0
+
+
+def _cmd_score(args) -> int:
+    summary = _score(args.track)
+    print(f"{args.track}: {len(summary['scored_rounds'])} scored round(s)")
+    return 0
+
+
+def _cmd_weekly(args) -> int:
+    from tsflab.realtime.baselines import run_baselines
+
+    for track_id in args.track:
+        release = _update(track_id, args.pull, args.push, args.repo)
+        _score(track_id)
+        if release is not None:
+            spec = R.open_round(get_track(track_id), PanelStore(track_id), hf_revision=release.get("hf_revision"))
+            for submission in run_baselines(spec, PanelStore(track_id), get_track(track_id)):
+                R.write_forecast(submission, spec)
+            print(f"{track_id}: opened {spec.round_id} with baselines")
+    return 0
+
+
+def _cmd_replay(args) -> int:
+    from tsflab.realtime.replay import replay as run_replay
+
+    summary = run_replay(
+        get_track(args.track),
+        PanelStore(args.track),
+        end=pd.Timestamp(args.end),
+        weeks=args.weeks,
+        models=args.models,
+        overrides=_parse_overrides(args.set),
+    )
+    text = json.dumps(summary, indent=2)
+    if args.out:
+        args.out.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+_ACTIONS = {
+    "list": _cmd_list,
+    "update": _cmd_update,
+    "open": _cmd_open,
+    "baselines": _cmd_baselines,
+    "forecast": _cmd_forecast,
+    "validate": _cmd_validate,  # for files written elsewhere; forecast validates its own
+    "score": _cmd_score,
+    "weekly": _cmd_weekly,
+    "replay": _cmd_replay,
+}
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    handler = _ACTIONS.get(args.action)
+    if handler is None:
+        return 0
     try:
-        if args.action == "list":
-            for track in list_tracks():
-                store = PanelStore(track.id)
-                last = store.manifest()["last_timestamp"] if store.exists else "not bootstrapped"
-                print(f"{track.id:18s} {track.mode:15s} freq={track.freq:3s} H={track.horizon:<4d} last={last}")
-            return 0
-        if args.action == "update":
-            if args.bootstrap:
-                from tsflab.realtime import sources
-
-                store = PanelStore(args.track)
-                release = store.append(sources.bootstrap(get_track(args.track)), note="bootstrap")
-                print(f"{args.track}: bootstrapped through {release['last_timestamp']}")
-                if args.push:
-                    _push(store, args.repo)
-            elif args.no_fetch:
-                from tsflab.realtime.publish import push_release
-
-                store = PanelStore(args.track)
-                if not store.exists:
-                    raise RuntimeError(
-                        f"no local store for {args.track!r}; run `tsf realtime update --bootstrap` first"
-                    )
-                if not args.push:
-                    raise RuntimeError("--no-fetch only makes sense with --push")
-                # Publishing is the only action here, so a refused track is an error.
-                print("hub revision:", push_release(store, args.repo, create=True))
-            else:
-                _update(args.track, args.pull, args.push, args.repo)
-            return 0
-        if args.action == "open":
-            now = pd.Timestamp(args.now).to_pydatetime() if args.now else None
-            spec = R.open_round(get_track(args.track), PanelStore(args.track), now=now)
-            print(
-                f"{spec.track} {spec.round_id}: cutoff {spec.cutoff}, targets "
-                f"{spec.target_timestamps[0]} .. {spec.target_timestamps[-1]}, deadline {spec.deadline}"
-            )
-            return 0
-        if args.action == "baselines":
-            from tsflab.realtime.baselines import run_baselines
-
-            spec = _latest_round(args.track, args.round)
-            results = [
-                _write_validated(submission, spec)
-                for submission in run_baselines(spec, PanelStore(args.track), get_track(args.track))
-            ]
-            return 0 if all(results) else 1
-        if args.action == "forecast":
-            from tsflab.realtime.forecast import forecast_with_model
-
-            spec = _latest_round(args.track, args.round)
-            submission = forecast_with_model(
-                spec,
-                PanelStore(args.track),
-                get_track(args.track),
-                args.model,
-                args.work_dir,
-                _parse_overrides(args.set),
-                args.submitter,
-            )
-            return 0 if _write_validated(submission, spec) else 1
-        if args.action == "validate":  # for files written elsewhere; forecast validates its own
-            failures = 0
-            for path in args.files:
-                try:
-                    validate_file(path, args.received_at)
-                    print(f"ok   {path}")
-                except (OSError, ValueError) as exc:
-                    failures += 1
-                    print(f"FAIL {path}: {exc}", file=sys.stderr)
-            return 1 if failures else 0
-        if args.action == "score":
-            summary = _score(args.track)
-            print(f"{args.track}: {len(summary['scored_rounds'])} scored round(s)")
-            return 0
-        if args.action == "weekly":
-            from tsflab.realtime.baselines import run_baselines
-
-            for track_id in args.track:
-                release = _update(track_id, args.pull, args.push, args.repo)
-                _score(track_id)
-                if release is not None:
-                    spec = R.open_round(
-                        get_track(track_id), PanelStore(track_id), hf_revision=release.get("hf_revision")
-                    )
-                    for submission in run_baselines(spec, PanelStore(track_id), get_track(track_id)):
-                        R.write_forecast(submission, spec)
-                    print(f"{track_id}: opened {spec.round_id} with baselines")
-            return 0
-        if args.action == "replay":
-            from tsflab.realtime.replay import replay as run_replay
-
-            summary = run_replay(
-                get_track(args.track),
-                PanelStore(args.track),
-                end=pd.Timestamp(args.end),
-                weeks=args.weeks,
-                models=args.models,
-                overrides=_parse_overrides(args.set),
-            )
-            text = json.dumps(summary, indent=2)
-            if args.out:
-                args.out.write_text(text + "\n", encoding="utf-8")
-            print(text)
-            return 0
+        return handler(args)
     except (KeyError, RuntimeError, ValueError, FileNotFoundError, PermissionError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    return 0
 
 
 if __name__ == "__main__":

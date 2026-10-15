@@ -14,38 +14,7 @@ def compare_screen(baseline, candidate, *, metric="mse", min_improvement=0.0):
     """Require strict improvement on every supplied, protocol-matched seed/horizon."""
     if metric not in {"mse", "mae"} or not math.isfinite(min_improvement) or not 0 <= min_improvement < 1:
         raise ValueError("screen requires mse/mae and 0 <= min_improvement < 1")
-    groups = []
-    for directories in (baseline, candidate):
-        rows = {}
-        variants = set()
-        for directory in directories:
-            directory = Path(directory).expanduser().resolve()
-            manifest = json.loads((directory / "manifest.json").read_text())
-            config = manifest["config"]
-            if (
-                manifest["status"] != "succeeded"
-                or config["evaluation"]["split"] != "val"
-                or config["evaluation"].get("checkpoint_path")
-            ):
-                raise ValueError("screen requires successful, non-frozen validation runs")
-            result = json.loads((directory / "result.json").read_text())
-            value = float(result["metrics"][metric])
-            if not math.isfinite(value) or value < 0:
-                raise ValueError("screen metric must be finite and nonnegative")
-            key = (config["experiment"]["random_seed"], config["task"]["pred_len"])
-            if key in rows:
-                raise ValueError("duplicate seed/horizon in screen panel")
-            variants.add(canonical_hash(config["model"]))
-            rows[key] = {
-                "run_id": manifest["run_id"],
-                "round": manifest.get("round"),
-                "directory": str(directory),
-                "value": value,
-                "protocol": protocol_fingerprint(config, manifest["data"]),
-            }
-        if not rows or len(variants) != 1:
-            raise ValueError("screen panel must contain exactly one model variant")
-        groups.append(rows)
+    groups = [_screen_panel(directories, metric) for directories in (baseline, candidate)]
     reference, treatment = groups
     if reference.keys() != treatment.keys():
         raise ValueError("baseline and candidate seed/horizon coverage differs")
@@ -71,6 +40,46 @@ def compare_screen(baseline, candidate, *, metric="mse", min_improvement=0.0):
     }
 
 
+def _screen_panel(directories, metric):
+    """Rows of one screen panel keyed by (seed, horizon); exactly one model variant."""
+    rows = {}
+    variants = set()
+    for directory in directories:
+        directory, manifest, value = _screen_run(directory, metric)
+        config = manifest["config"]
+        key = (config["experiment"]["random_seed"], config["task"]["pred_len"])
+        if key in rows:
+            raise ValueError("duplicate seed/horizon in screen panel")
+        variants.add(canonical_hash(config["model"]))
+        rows[key] = {
+            "run_id": manifest["run_id"],
+            "round": manifest.get("round"),
+            "directory": str(directory),
+            "value": value,
+            "protocol": protocol_fingerprint(config, manifest["data"]),
+        }
+    if not rows or len(variants) != 1:
+        raise ValueError("screen panel must contain exactly one model variant")
+    return rows
+
+
+def _screen_run(directory, metric):
+    directory = Path(directory).expanduser().resolve()
+    manifest = json.loads((directory / "manifest.json").read_text())
+    config = manifest["config"]
+    if (
+        manifest["status"] != "succeeded"
+        or config["evaluation"]["split"] != "val"
+        or config["evaluation"].get("checkpoint_path")
+    ):
+        raise ValueError("screen requires successful, non-frozen validation runs")
+    result = json.loads((directory / "result.json").read_text())
+    value = float(result["metrics"][metric])
+    if not math.isfinite(value) or value < 0:
+        raise ValueError("screen metric must be finite and nonnegative")
+    return directory, manifest, value
+
+
 def _reference_identity(directory):
     directory = Path(directory).expanduser().resolve()
     manifest = json.loads((directory / "manifest.json").read_text())
@@ -78,10 +87,7 @@ def _reference_identity(directory):
     return canonical_hash({"manifest": manifest, "result": result})
 
 
-def register_references(round_id, directories):
-    """Reuse saved validation baselines without claiming new training or hiding origin."""
-    from tsflab.research.rounds import _round_dir, _state_lock, _write_json, add_event, load_round
-
+def _reference_records(directories):
     records = {}
     for directory in directories:
         # The ordinary screen reader enforces successful, non-frozen validation.
@@ -94,6 +100,14 @@ def register_references(round_id, directories):
         if row["run_id"] in records and records[row["run_id"]] != record:
             raise ValueError("conflicting reference run identity")
         records[row["run_id"]] = record
+    return records
+
+
+def register_references(round_id, directories):
+    """Reuse saved validation baselines without claiming new training or hiding origin."""
+    from tsflab.research.rounds import _round_dir, _state_lock, _write_json, add_event, load_round
+
+    records = _reference_records(directories)
     if not records:
         raise ValueError("at least one validation reference is required")
     with _state_lock(round_id):
@@ -117,9 +131,42 @@ def register_references(round_id, directories):
     return {"round": round_id, "references": list(records.values()), "new_training_claims": 0}
 
 
+def _check_screen_sides(round_id, state, comparison):
+    """Candidate must be a round claim; baseline a round claim or an unchanged registered reference."""
+    c, b = comparison["candidate"], comparison["baseline"]
+    if c["round"] != round_id or c["run_id"] not in state.get("run_claims", {}):
+        raise ValueError("candidate records must belong to the supplied research round claims")
+    if b["round"] == round_id and b["run_id"] in state.get("run_claims", {}):
+        return
+    reference = state.get("reference_runs", {}).get(b["run_id"])
+    if (
+        not reference
+        or reference["directory"] != b["directory"]
+        or reference["identity"] != _reference_identity(b["directory"])
+    ):
+        raise ValueError("baseline must be a native round claim or an unchanged registered reference")
+
+
+def _record_gate(round_id, state, result, path, stop_on_fail):
+    """Write the screen gate; a failed screen with ``stop_on_fail`` stops the round."""
+    from tsflab.research.rounds import _now, _round_dir, _write_json
+
+    if state["status"] != "running":
+        raise ValueError("research round is not running")
+    stopped = stop_on_fail and not result["passed"]
+    if stopped and state.get("active_runs"):
+        raise ValueError("wait for active runs before stopping a failed screen")
+    result.update(directory=str(path), round=round_id, stopped=bool(stopped))
+    if stopped:
+        state.update(status="stopped", updated_at=_now())
+        _write_json(_round_dir(round_id) / "round.json", state)
+    write_json(path, result)
+    return stopped
+
+
 def screen_candidate(round_id, baseline, candidate, *, metric="mse", min_improvement=0.0, stop_on_fail=False):
     """Record a matched screen; an explicit failed stop closes future run claims."""
-    from tsflab.research.rounds import _now, _round_dir, _state_lock, _write_json, add_event, load_round
+    from tsflab.research.rounds import _round_dir, _state_lock, add_event, load_round
 
     result = compare_screen(baseline, candidate, metric=metric, min_improvement=min_improvement)
     records = [row[side] for row in result["comparisons"] for side in ("baseline", "candidate")]
@@ -130,30 +177,10 @@ def screen_candidate(round_id, baseline, candidate, *, metric="mse", min_improve
     with _state_lock(round_id):
         state = load_round(round_id)
         for comparison in result["comparisons"]:
-            c, b = comparison["candidate"], comparison["baseline"]
-            if c["round"] != round_id or c["run_id"] not in state.get("run_claims", {}):
-                raise ValueError("candidate records must belong to the supplied research round claims")
-            if b["round"] == round_id and b["run_id"] in state.get("run_claims", {}):
-                continue
-            reference = state.get("reference_runs", {}).get(b["run_id"])
-            if (
-                not reference
-                or reference["directory"] != b["directory"]
-                or reference["identity"] != _reference_identity(b["directory"])
-            ):
-                raise ValueError("baseline must be a native round claim or an unchanged registered reference")
+            _check_screen_sides(round_id, state, comparison)
         if path.exists():
             return json.loads(path.read_text())
-        if state["status"] != "running":
-            raise ValueError("research round is not running")
-        stopped = stop_on_fail and not result["passed"]
-        if stopped and state.get("active_runs"):
-            raise ValueError("wait for active runs before stopping a failed screen")
-        result.update(directory=str(path), round=round_id, stopped=bool(stopped))
-        if stopped:
-            state.update(status="stopped", updated_at=_now())
-            _write_json(_round_dir(round_id) / "round.json", state)
-        write_json(path, result)
+        stopped = _record_gate(round_id, state, result, path, stop_on_fail)
     add_event(
         round_id,
         "decision",

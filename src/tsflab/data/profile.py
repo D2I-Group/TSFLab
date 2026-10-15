@@ -192,43 +192,10 @@ def _scale(x: np.ndarray, cols: np.ndarray, block: int) -> dict[str, Any]:
 
 def _periods(z: np.ndarray, steps_per_day: float | None, top_k: int = 5) -> dict[str, Any]:
     n = z.shape[0]
-    power = _power(z)
-    power = power / np.maximum(power.sum(axis=0, keepdims=True), 1e-12)
-    mean_p = power.mean(axis=1)
-    # Spectral entropy per channel; forecastability = 1 - normalized entropy.
-    body = power[1:]
-    body = body / np.maximum(body.sum(axis=0, keepdims=True), 1e-12)
-    ent = -(body * np.log(np.maximum(body, 1e-18))).sum(axis=0) / math.log(body.shape[0])
-    forecastability = 1.0 - ent
-    lo_bin = 3  # need >= 3 cycles in the window
-    hi_bin = mean_p.size - 1
-    floor = float(np.median(mean_p[lo_bin : hi_bin + 1])) or 1e-12
-    cand = [k for k in range(lo_bin, hi_bin) if mean_p[k] >= mean_p[k - 1] and mean_p[k] >= mean_p[k + 1]]
-    cand.sort(key=lambda k: -mean_p[k])
+    mean_p, ent, forecastability = _spectrum(z)
     max_lag = min(n // 3, 4096)
     acf = _acf(z, max_lag)
-    peaks: list[dict[str, Any]] = []
-    for k in cand:
-        period = n / k
-        if period < 2 or any(abs(period - p["period"]) / p["period"] < 0.1 for p in peaks):
-            continue
-        lag = int(round(period))
-        lag_ok = 2 <= lag <= max_lag
-        peaks.append(
-            {
-                "period": _f(period, 2),
-                "peak_ratio": _f(mean_p[k] / floor, 2),
-                "energy_share": _f(mean_p[k] / max(mean_p[lo_bin:].sum(), 1e-12)),
-                "acf_at_period": _f(acf[max(lag - 1, 0) : lag + 2].max()) if lag_ok else None,
-                "tag": _period_tag(period, steps_per_day),
-                "harmonic_of": next(
-                    (q["period"] for q in peaks for m in range(2, 9) if abs(period - q["period"] / m) / period < 0.06),
-                    None,
-                ),
-            }
-        )
-        if len(peaks) == top_k:
-            break
+    peaks = _spectral_peaks(mean_p, n, acf, max_lag, steps_per_day, top_k)
     below = np.where(acf < 0.1)[0]
     return {
         "dominant": peaks,
@@ -243,6 +210,60 @@ def _periods(z: np.ndarray, steps_per_day: float | None, top_k: int = 5) -> dict
     }
 
 
+def _spectrum(z: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Channel-mean normalized power, per-channel spectral entropy, and forecastability."""
+    power = _power(z)
+    power = power / np.maximum(power.sum(axis=0, keepdims=True), 1e-12)
+    mean_p = power.mean(axis=1)
+    # Spectral entropy per channel; forecastability = 1 - normalized entropy.
+    body = power[1:]
+    body = body / np.maximum(body.sum(axis=0, keepdims=True), 1e-12)
+    ent = -(body * np.log(np.maximum(body, 1e-18))).sum(axis=0) / math.log(body.shape[0])
+    forecastability = 1.0 - ent
+    return mean_p, ent, forecastability
+
+
+def _spectral_peaks(
+    mean_p: np.ndarray, n: int, acf: np.ndarray, max_lag: int, steps_per_day: float | None, top_k: int
+) -> list[dict[str, Any]]:
+    lo_bin = 3  # need >= 3 cycles in the window
+    hi_bin = mean_p.size - 1
+    floor = float(np.median(mean_p[lo_bin : hi_bin + 1])) or 1e-12
+    cand = [k for k in range(lo_bin, hi_bin) if mean_p[k] >= mean_p[k - 1] and mean_p[k] >= mean_p[k + 1]]
+    cand.sort(key=lambda k: -mean_p[k])
+    peaks: list[dict[str, Any]] = []
+    for k in cand:
+        period = n / k
+        if period < 2 or _near_known(period, peaks):
+            continue
+        lag = int(round(period))
+        lag_ok = 2 <= lag <= max_lag
+        peaks.append(
+            {
+                "period": _f(period, 2),
+                "peak_ratio": _f(mean_p[k] / floor, 2),
+                "energy_share": _f(mean_p[k] / max(mean_p[lo_bin:].sum(), 1e-12)),
+                "acf_at_period": _f(acf[max(lag - 1, 0) : lag + 2].max()) if lag_ok else None,
+                "tag": _period_tag(period, steps_per_day),
+                "harmonic_of": _harmonic_of(period, peaks),
+            }
+        )
+        if len(peaks) == top_k:
+            break
+    return peaks
+
+
+def _near_known(period: float, peaks: list[dict[str, Any]]) -> bool:
+    return any(abs(period - p["period"]) / p["period"] < 0.1 for p in peaks)
+
+
+def _harmonic_of(period: float, peaks: list[dict[str, Any]]) -> float | None:
+    return next(
+        (q["period"] for q in peaks for m in range(2, 9) if abs(period - q["period"] / m) / period < 0.06),
+        None,
+    )
+
+
 def _trend_season(x: np.ndarray, cols: np.ndarray, period: int | None) -> tuple[dict, dict, dict]:
     n = x.shape[0]
     if not period or period < 2 or period >= n // 2:
@@ -255,15 +276,7 @@ def _trend_season(x: np.ndarray, cols: np.ndarray, period: int | None) -> tuple[
         t, s = ss.trend_and_seasonal_strength(x[:, j], int(period))
         tr.append(t)
         se.append(s)
-    stat, drift_mean, drift_var = [], [], []
-    for j in cols:
-        sc, _ = ss.stationarity(x[:, j])
-        stat.append(sc)
-        blocks = np.array_split(x[:, j], 10)
-        m = np.array([b.mean() for b in blocks])
-        v = np.array([b.var() for b in blocks])
-        drift_mean.append(m.std() / max(x[:, j].std(), 1e-12))
-        drift_var.append(v.std() / max(v.mean(), 1e-12))
+    stat, drift_mean, drift_var = _drift(x, cols)
     trend = {"strength": _f(_median(np.array(tr))), "period_used": int(period)}
     seasonal = {
         "strength": _f(_median(np.array(se))) if seasonal_valid else 0.0,
@@ -277,6 +290,20 @@ def _trend_season(x: np.ndarray, cols: np.ndarray, period: int | None) -> tuple[
         "variance_drift": _f(_median(np.array(drift_var))),
     }
     return trend, seasonal, stationarity
+
+
+def _drift(x: np.ndarray, cols: np.ndarray) -> tuple[list, list, list]:
+    """Per-channel stationarity score and block mean/variance drift."""
+    stat, drift_mean, drift_var = [], [], []
+    for j in cols:
+        sc, _ = ss.stationarity(x[:, j])
+        stat.append(sc)
+        blocks = np.array_split(x[:, j], 10)
+        m = np.array([b.mean() for b in blocks])
+        v = np.array([b.var() for b in blocks])
+        drift_mean.append(m.std() / max(x[:, j].std(), 1e-12))
+        drift_var.append(v.std() / max(v.mean(), 1e-12))
+    return stat, drift_mean, drift_var
 
 
 def _cross_channel(x: np.ndarray, limit: int = 256) -> dict[str, Any]:
@@ -418,24 +445,8 @@ def build_profile(
         return _profile_active(arrays, raw_train, x, active, name, source, freq, spd, max_channels, split_ratio)
 
 
-def _profile_active(arrays, raw_train, x, active, name, source, freq, spd, max_channels, split_ratio):
-    n, c = raw_train.shape
-    cols = _sample_columns(x.shape[1], max_channels)
-    z, _ = _standardize(x[:, cols])
-    periods = _periods(z, spd)
-    top = periods["dominant"][0]["period"] if periods["dominant"] else None
-    block = int(max(top or 24, n // 40, 8))
-    trend, seasonal, stationarity = _trend_season(x, cols, int(round(top)) if top else None)
-    train: dict[str, Any] = {
-        "quality": _quality(raw_train),
-        "scale": _scale(x, cols, block),
-        "periods": periods,
-        "seasonal": seasonal,
-        "trend": trend,
-        "stationarity": stationarity,
-        "cross_channel": _cross_channel(x),
-        "anomalies": _anomalies(x, cols, block),
-    }
+def _shift_section(arrays, x, active, cols, top, n):
+    """Within-train, train-to-val, and diagnostic train-to-test distribution shift."""
     half = n // 2
     within = float(
         _median(
@@ -457,6 +468,28 @@ def _profile_active(arrays, raw_train, x, active, name, source, freq, spd, max_c
             **_shift(x, _fill_nan(test)[:, active], cols),
             "use": "diagnostic-only; never select models, hyperparameters, or rules from it",
         }
+    return shift
+
+
+def _profile_active(arrays, raw_train, x, active, name, source, freq, spd, max_channels, split_ratio):
+    n, c = raw_train.shape
+    cols = _sample_columns(x.shape[1], max_channels)
+    z, _ = _standardize(x[:, cols])
+    periods = _periods(z, spd)
+    top = periods["dominant"][0]["period"] if periods["dominant"] else None
+    block = int(max(top or 24, n // 40, 8))
+    trend, seasonal, stationarity = _trend_season(x, cols, int(round(top)) if top else None)
+    train: dict[str, Any] = {
+        "quality": _quality(raw_train),
+        "scale": _scale(x, cols, block),
+        "periods": periods,
+        "seasonal": seasonal,
+        "trend": trend,
+        "stationarity": stationarity,
+        "cross_channel": _cross_channel(x),
+        "anomalies": _anomalies(x, cols, block),
+    }
+    shift = _shift_section(arrays, x, active, cols, top, n)
     lengths = {k: int(len(v)) for k, v in arrays.items()}
     return {
         "schema": SCHEMA,
@@ -500,39 +533,43 @@ def lookup(profile: Mapping[str, Any], path: str) -> Any:
     return node
 
 
+def _fire(rule: Mapping[str, Any], profile: Mapping[str, Any]) -> dict[str, Any] | None:
+    observed = lookup(profile, rule["metric"])
+    if observed is None or isinstance(observed, bool):
+        return None
+    if not _OPS[rule["op"]](float(observed), float(rule["value"])):
+        return None
+    return {
+        "id": rule["id"],
+        "metric": rule["metric"],
+        "observed": observed,
+        "condition": f"{rule['op']} {rule['value']}",
+        "finding": rule["finding"],
+        "hypothesis": rule["hypothesis"],
+        "components": list(rule.get("components", [])),
+        "models": list(rule.get("models", [])),
+        "slots": {k: list(v) for k, v in rule.get("slots", {}).items()},
+    }
+
+
+def _promoted(name: str, fired: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    promoted: dict[str, list[str]] = {}
+    for item in fired:
+        for option in item["slots"].get(name, []):
+            promoted.setdefault(option, []).append(item["id"])
+    return [{"option": o, "rules": r} for o, r in promoted.items()]
+
+
 def evaluate_rules(profile: Mapping[str, Any], table: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Fire rules against ``profile``; return fired rules and merged slot candidates."""
     table = table or load_rules()
-    fired: list[dict[str, Any]] = []
-    for rule in table.get("rule", []):
-        observed = lookup(profile, rule["metric"])
-        if observed is None or isinstance(observed, bool):
-            continue
-        if not _OPS[rule["op"]](float(observed), float(rule["value"])):
-            continue
-        fired.append(
-            {
-                "id": rule["id"],
-                "metric": rule["metric"],
-                "observed": observed,
-                "condition": f"{rule['op']} {rule['value']}",
-                "finding": rule["finding"],
-                "hypothesis": rule["hypothesis"],
-                "components": list(rule.get("components", [])),
-                "models": list(rule.get("models", [])),
-                "slots": {k: list(v) for k, v in rule.get("slots", {}).items()},
-            }
-        )
+    fired = [item for item in (_fire(rule, profile) for rule in table.get("rule", [])) if item is not None]
     slots: dict[str, dict[str, Any]] = {}
     for name, spec in table.get("slot", {}).items():
-        promoted: dict[str, list[str]] = {}
-        for item in fired:
-            for option in item["slots"].get(name, []):
-                promoted.setdefault(option, []).append(item["id"])
         slots[name] = {
             "description": spec["description"],
             "defaults": list(spec.get("defaults", [])),
-            "promoted": [{"option": o, "rules": r} for o, r in promoted.items()],
+            "promoted": _promoted(name, fired),
         }
     return {"fired": fired, "slots": slots}
 
@@ -540,6 +577,26 @@ def evaluate_rules(profile: Mapping[str, Any], table: Mapping[str, Any] | None =
 # --------------------------------------------------------------------------- #
 # Markdown
 # --------------------------------------------------------------------------- #
+def _dominant_text(dominant: list[Mapping[str, Any]]) -> str:
+    return (
+        ", ".join(
+            f"{p['period']}" + (f" ({p['tag']})" if p["tag"] else "") + f" ratio {p['peak_ratio']}"
+            for p in dominant[:3]
+        )
+        or "none"
+    )
+
+
+def _finding_lines(item: Mapping[str, Any]) -> list[str]:
+    lines = [f"- **{item['id']}** ({item['metric']} = {item['observed']}): {item['finding']}"]
+    if item["components"]:
+        lines.append(f"  - components: {', '.join(item['components'])}")
+    if item["models"]:
+        lines.append(f"  - models: {', '.join(item['models'])}")
+    lines.append(f"  - hypothesis: {item['hypothesis']}")
+    return lines
+
+
 def render_markdown(profile: Mapping[str, Any], recommendations: Mapping[str, Any]) -> str:
     d, tr, sh = profile["dataset"], profile["train"], profile["shift"]
     freq = d["frequency"]
@@ -557,14 +614,7 @@ def render_markdown(profile: Mapping[str, Any], recommendations: Mapping[str, An
         f"(channels mostly zero: {q['channels_mostly_zero']}), outliers(5 MAD) {an['outlier_fraction_5mad']}",
         f"- Scale: std p90/p10 {sc['std_ratio_p90_p10']}, heteroscedasticity {sc['heteroscedasticity']}, "
         f"level-std corr {sc['level_std_correlation']}",
-        "- Dominant periods: "
-        + (
-            ", ".join(
-                f"{p['period']}" + (f" ({p['tag']})" if p["tag"] else "") + f" ratio {p['peak_ratio']}"
-                for p in pe["dominant"][:3]
-            )
-            or "none"
-        ),
+        "- Dominant periods: " + _dominant_text(pe["dominant"]),
         f"- Seasonal strength {tr['seasonal']['strength']}, trend strength {tr['trend']['strength']}, "
         f"forecastability {pe['forecastability']['score']}, stationarity score {tr['stationarity']['score']} "
         f"(mean drift {tr['stationarity']['mean_drift']})",
@@ -585,12 +635,7 @@ def render_markdown(profile: Mapping[str, Any], recommendations: Mapping[str, An
         "",
     ]
     for item in recommendations["fired"]:
-        lines.append(f"- **{item['id']}** ({item['metric']} = {item['observed']}): {item['finding']}")
-        if item["components"]:
-            lines.append(f"  - components: {', '.join(item['components'])}")
-        if item["models"]:
-            lines.append(f"  - models: {', '.join(item['models'])}")
-        lines.append(f"  - hypothesis: {item['hypothesis']}")
+        lines += _finding_lines(item)
     if not recommendations["fired"]:
         lines.append("- No rule fired; start from the baseline panel.")
     lines += ["", f"_{profile['leakage_policy']}_", ""]

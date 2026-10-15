@@ -48,38 +48,46 @@ def _collapse(frame: pd.DataFrame) -> pd.DataFrame:
 def read_xlsx_rows(payload: bytes) -> list[list[str]]:
     """Cell text of the first worksheet of an xlsx file (standard library only)."""
     book = zipfile.ZipFile(io.BytesIO(payload))
-    shared: list[str] = []
-    if "xl/sharedStrings.xml" in book.namelist():
-        for item in ET.fromstring(book.read("xl/sharedStrings.xml")).findall("m:si", _NS):
-            shared.append("".join(t.text or "" for t in item.iter(f"{{{_NS['m']}}}t")))
+    shared = _shared_strings(book)
     sheet = sorted(n for n in book.namelist() if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n))[0]
     rows = []
     for row in ET.fromstring(book.read(sheet)).iter(f"{{{_NS['m']}}}row"):
         cells: dict[int, str] = {}
         for cell in row.findall("m:c", _NS):
-            column = 0
-            for char in re.match(r"[A-Z]+", cell.get("r")).group():
-                column = column * 26 + ord(char) - 64
-            kind, value = cell.get("t"), cell.find("m:v", _NS)
-            if kind == "inlineStr":
-                text = "".join(t.text or "" for t in cell.iter(f"{{{_NS['m']}}}t"))
-            elif value is None:
-                text = ""
-            else:
-                text = shared[int(value.text)] if kind == "s" else value.text
-            cells[column - 1] = text
+            column = _column(cell.get("r"))
+            cells[column - 1] = _cell_text(cell, shared)
         rows.append([cells.get(i, "") for i in range(max(cells) + 1)] if cells else [])
     return rows
 
 
+def _shared_strings(book: zipfile.ZipFile) -> list[str]:
+    shared: list[str] = []
+    if "xl/sharedStrings.xml" in book.namelist():
+        for item in ET.fromstring(book.read("xl/sharedStrings.xml")).findall("m:si", _NS):
+            shared.append("".join(t.text or "" for t in item.iter(f"{{{_NS['m']}}}t")))
+    return shared
+
+
+def _column(reference: str) -> int:
+    """1-based column number of a cell reference such as ``AB12``."""
+    column = 0
+    for char in re.match(r"[A-Z]+", reference).group():
+        column = column * 26 + ord(char) - 64
+    return column
+
+
+def _cell_text(cell: ET.Element, shared: list[str]) -> str:
+    kind, value = cell.get("t"), cell.find("m:v", _NS)
+    if kind == "inlineStr":
+        return "".join(t.text or "" for t in cell.iter(f"{{{_NS['m']}}}t"))
+    if value is None:
+        return ""
+    return shared[int(value.text)] if kind == "s" else value.text
+
+
 def parse_native_load(payload: bytes) -> pd.DataFrame:
     """A ``Native_Load_<year>.zip`` (or bare xlsx) -> hourly load per weather zone, local time."""
-    if payload[:4] == b"PK\x03\x04" and any(
-        n.endswith(".xlsx") for n in zipfile.ZipFile(io.BytesIO(payload)).namelist()
-    ):
-        archive = zipfile.ZipFile(io.BytesIO(payload))
-        payload = archive.read(next(n for n in archive.namelist() if n.endswith(".xlsx")))
-    rows = read_xlsx_rows(payload)
+    rows = read_xlsx_rows(_xlsx_payload(payload))
     header = [h.strip() for h in rows[0]]
     body = pd.DataFrame([r + [""] * (len(header) - len(r)) for r in rows[1:] if r], columns=header)
     # 2019/2020 archives spell the stamp column ``HourEnding``, later ones ``Hour Ending``.
@@ -90,6 +98,16 @@ def parse_native_load(payload: bytes) -> pd.DataFrame:
     frame = body[ZONES].apply(pd.to_numeric, errors="coerce")
     frame.index = _hour_ending(body[stamp_col].map(_stamp_text))
     return _collapse(frame)
+
+
+def _xlsx_payload(payload: bytes) -> bytes:
+    """The workbook bytes, unwrapped from a zip archive that holds it."""
+    if payload[:4] == b"PK\x03\x04" and any(
+        n.endswith(".xlsx") for n in zipfile.ZipFile(io.BytesIO(payload)).namelist()
+    ):
+        archive = zipfile.ZipFile(io.BytesIO(payload))
+        payload = archive.read(next(n for n in archive.namelist() if n.endswith(".xlsx")))
+    return payload
 
 
 _EXCEL_EPOCH = pd.Timestamp("1899-12-30")

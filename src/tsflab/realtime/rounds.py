@@ -65,6 +65,23 @@ def target_timestamps(track: TrackSpec, cutoff: pd.Timestamp, opened_at: pd.Time
     return future[: track.horizon]
 
 
+def _opened_utc(now: datetime | None) -> pd.Timestamp:
+    opened = pd.Timestamp(now or datetime.now(UTC))
+    return opened.tz_localize("UTC") if opened.tzinfo is None else opened.tz_convert("UTC")
+
+
+def _norm_stats(panel: pd.DataFrame, track: TrackSpec) -> tuple[pd.Series, pd.Series]:
+    """Per-channel mean and floored std over the recent history, used to z-score errors."""
+    stats = panel.tail(max(track.seq_len * 4, 64))
+    mean = stats.mean(skipna=True).fillna(0.0)
+    std = stats.std(skipna=True)
+    # Floor the scale so dead or near-constant sensors cannot dominate the
+    # z-scored error: at least 5% of the typical channel scale.
+    floor = max(float(np.nanmedian(std.to_numpy())) * 0.05, 1e-8) if std.notna().any() else 1.0
+    std = std.fillna(floor).clip(lower=floor)
+    return mean, std
+
+
 def open_round(
     track: TrackSpec,
     store: PanelStore,
@@ -82,8 +99,7 @@ def open_round(
     release = store.latest_release()
     if release is None:
         raise RuntimeError(f"track {track.id!r} has no release to open a round on")
-    opened = pd.Timestamp(now or datetime.now(UTC))
-    opened = opened.tz_localize("UTC") if opened.tzinfo is None else opened.tz_convert("UTC")
+    opened = _opened_utc(now)
     year, week, _ = opened.isocalendar()
     round_id = f"{year}-W{week:02d}"
     directory = round_dir(track.id, round_id, root)
@@ -92,13 +108,7 @@ def open_round(
     replay = cutoff is not None
     cutoff = pd.Timestamp(cutoff if replay else release["last_timestamp"])
     panel = store.read(start=cutoff - pd.Timedelta(days=max(28, (track.history_days or 28))), end=cutoff)
-    stats = panel.tail(max(track.seq_len * 4, 64))
-    mean = stats.mean(skipna=True).fillna(0.0)
-    std = stats.std(skipna=True)
-    # Floor the scale so dead or near-constant sensors cannot dominate the
-    # z-scored error: at least 5% of the typical channel scale.
-    floor = max(float(np.nanmedian(std.to_numpy())) * 0.05, 1e-8) if std.notna().any() else 1.0
-    std = std.fillna(floor).clip(lower=floor)
+    mean, std = _norm_stats(panel, track)
     targets = target_timestamps(track, cutoff, opened)
     spec = RoundSpec(
         track=track.id,
@@ -200,11 +210,22 @@ def kendall_tau(a: list[str], b: list[str]) -> float | None:
 def track_summary(track: str, root: Path = ROUNDS_ROOT) -> dict:
     """Aggregate scored rounds: mean rank/MSE per method and rank stability."""
     rounds = load_scores(track, root)
+    methods = _method_rows(rounds)
+    taus = _consecutive_taus(rounds)
+    return {
+        "track": track,
+        "scored_rounds": sorted(rounds),
+        "methods": methods,
+        "rank_stability": {"consecutive_kendall_tau": taus, "mean": float(np.mean(taus)) if taus else None},
+    }
+
+
+def _method_rows(rounds: dict[str, list[RoundScore]]) -> list[dict]:
     per_method: dict[str, list[RoundScore]] = {}
     for scores in rounds.values():
         for score in scores:
             per_method.setdefault(score.model, []).append(score)
-    methods = sorted(
+    return sorted(
         (
             {
                 "model": m,
@@ -216,12 +237,9 @@ def track_summary(track: str, root: Path = ROUNDS_ROOT) -> dict:
         ),
         key=lambda r: (r["mean_rank"], r["mean_mse"]),
     )
+
+
+def _consecutive_taus(rounds: dict[str, list[RoundScore]]) -> list[float]:
     ordered = [[s.model for s in rounds[r]] for r in sorted(rounds)]
     taus = [kendall_tau(x, y) for x, y in zip(ordered, ordered[1:])]
-    taus = [t for t in taus if t is not None]
-    return {
-        "track": track,
-        "scored_rounds": sorted(rounds),
-        "methods": methods,
-        "rank_stability": {"consecutive_kendall_tau": taus, "mean": float(np.mean(taus)) if taus else None},
-    }
+    return [t for t in taus if t is not None]

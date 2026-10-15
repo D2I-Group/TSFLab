@@ -70,18 +70,7 @@ def build_data_loader(
         **dataset_kwargs,
     )
     if window_context == "within-split":
-        from tsflab.data.datasets.base import ForecastingDataset
-
-        if not isinstance(data_set, ForecastingDataset) or not hasattr(data_set, "_history_context_rows"):
-            raise ValueError(
-                "within-split windows require a chronological ForecastingDataset with declared context rows"
-            )
-        context_rows = data_set._history_context_rows
-        data_set.data = data_set.data[context_rows:]
-        if data_set.time_stamp is not None:
-            data_set.time_stamp = data_set.time_stamp[context_rows:]
-        if len(data_set.data) < size[0] + size[2]:
-            raise ValueError("within-split partition is too short for the requested lookback and horizon")
+        _drop_history_context(data_set, size)
     shuffle_flag = flag == "train"
     # Training drops the incomplete final batch (the Informer/Autoformer
     # convention, kept by many official repositories). A trailing batch of one
@@ -100,3 +89,17 @@ def build_data_loader(
         drop_last=drop_last,
     )
     return data_set, data_loader
+
+
+def _drop_history_context(data_set: object, size: tuple[int, int, int]) -> None:
+    """Remove the rows carried over from the previous split so windows stay inside this one."""
+    from tsflab.data.datasets.base import ForecastingDataset
+
+    if not isinstance(data_set, ForecastingDataset) or not hasattr(data_set, "_history_context_rows"):
+        raise ValueError("within-split windows require a chronological ForecastingDataset with declared context rows")
+    context_rows = data_set._history_context_rows
+    data_set.data = data_set.data[context_rows:]
+    if data_set.time_stamp is not None:
+        data_set.time_stamp = data_set.time_stamp[context_rows:]
+    if len(data_set.data) < size[0] + size[2]:
+        raise ValueError("within-split partition is too short for the requested lookback and horizon")

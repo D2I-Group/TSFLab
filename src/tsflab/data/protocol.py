@@ -172,16 +172,20 @@ def _preset(dataset: str, root: Path) -> tuple[str, dict[str, Any]]:
     }
     name = next((key for key in candidates if key.lower() == dataset.lower()), None)
     if name is None:
-        # Accept the loader's registered name (for example ``ETTh1``) as well.
-        for key, path in sorted(candidates.items()):
-            table = tomllib.loads(path.read_text(encoding="utf-8")).get("dataset", {})
-            if str(table.get("name", "")).lower() == dataset.lower() and not table.get("id"):
-                name = key
-                break
+        name = _preset_by_loader(candidates, dataset)
     if name is None:
         known = ", ".join(sorted(key for key in candidates if "/" not in key))
         raise ValueError(f"unknown dataset preset {dataset!r}; known presets: {known}")
     return name, tomllib.loads(candidates[name].read_text(encoding="utf-8")).get("dataset", {})
+
+
+def _preset_by_loader(candidates: dict[str, Path], dataset: str) -> str | None:
+    # Accept the loader's registered name (for example ``ETTh1``) as well.
+    for key, path in sorted(candidates.items()):
+        table = tomllib.loads(path.read_text(encoding="utf-8")).get("dataset", {})
+        if str(table.get("name", "")).lower() == dataset.lower() and not table.get("id"):
+            return key
+    return None
 
 
 def _card_protocol(root: Path, name: str) -> dict[str, Any]:
@@ -319,33 +323,11 @@ def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
         ratio = inspect.signature(cls.__init__).parameters["split_ratio"].default
     ratio = tuple(float(value) for value in ratio)
     limit = cls.max_rows
-    if location.is_file():
-        file_rows, basis = cls.count_rows(str(location)), "counted in the file"
-    else:
-        length = card.get("shape", {}).get("length")
-        if not isinstance(length, int):
-            raise FileNotFoundError(
-                f"{location} not found; download it with `tsf data download {common['dataset']}` or pass --path"
-            )
-        file_rows, basis = None, "file absent; card [shape].length"
-        rows_used = length if limit is None else min(length, limit)
-    if file_rows is not None:
-        rows_used = file_rows if limit is None else min(file_rows, limit)
+    file_rows, basis, rows_used = _rows(cls, location, card, common, limit)
     borders = split_borders(rows_used, ratio, common["seq_len"])
     plain = split_borders(rows_used, ratio)
     splits = {flag: SplitRange(borders[flag][0], plain[flag][0], borders[flag][1]) for flag in SPLITS}
-    notes = []
-    if limit is not None:
-        notes.append(f"the loader keeps only the first {limit} rows; later rows are never read")
-    if not cls.has_header:
-        notes.append("the file has no header row; row 0 is its first line")
-    sentinels = params.get("missing_sentinels") or []
-    if sentinels:
-        notes.append(
-            f"values {sentinels} are missing; filled causally (forward fill; a leading gap becomes zero) before scaling"
-        )
-    if splits["val"].start < 0:
-        notes.append(f"seq_len {common['seq_len']} is longer than the train split; inputs would start before row 0")
+    notes = _chronological_notes(cls, params, limit, splits, common)
     return SplitProtocol(
         kind="chronological",
         **common,
@@ -360,6 +342,39 @@ def _chronological(cls, params, location: Path, card, common) -> SplitProtocol:
     )
 
 
+def _rows(cls, location: Path, card, common, limit) -> tuple[int | None, str, int]:
+    """``(file rows, basis, rows used)``: counted in the file, else the card's [shape].length."""
+    if location.is_file():
+        file_rows, basis = cls.count_rows(str(location)), "counted in the file"
+    else:
+        length = card.get("shape", {}).get("length")
+        if not isinstance(length, int):
+            raise FileNotFoundError(
+                f"{location} not found; download it with `tsf data download {common['dataset']}` or pass --path"
+            )
+        file_rows, basis = None, "file absent; card [shape].length"
+        rows_used = length if limit is None else min(length, limit)
+    if file_rows is not None:
+        rows_used = file_rows if limit is None else min(file_rows, limit)
+    return file_rows, basis, rows_used
+
+
+def _chronological_notes(cls, params, limit, splits, common) -> list[str]:
+    notes = []
+    if limit is not None:
+        notes.append(f"the loader keeps only the first {limit} rows; later rows are never read")
+    if not cls.has_header:
+        notes.append("the file has no header row; row 0 is its first line")
+    sentinels = params.get("missing_sentinels") or []
+    if sentinels:
+        notes.append(
+            f"values {sentinels} are missing; filled causally (forward fill; a leading gap becomes zero) before scaling"
+        )
+    if splits["val"].start < 0:
+        notes.append(f"seq_len {common['seq_len']} is longer than the train split; inputs would start before row 0")
+    return notes
+
+
 def _npz_shape(bundle: Path, key: str = "data") -> tuple[int, ...]:
     """Read an array shape from an ``.npz`` member header without loading the array."""
     import zipfile
@@ -371,18 +386,7 @@ def _npz_shape(bundle: Path, key: str = "data") -> tuple[int, ...]:
     return tuple(shape)
 
 
-def _window_index(location: Path, params, seq_len: int, pred_len: int, common) -> SplitProtocol:
-    centres = {flag: np.load(location / f"idx_{flag}.npy").reshape(-1) for flag in SPLITS}
-    splits = {
-        flag: SplitRange(int(c.min()) - seq_len + 1, int(c.min()) + 1, int(c.max()) + 1 + pred_len)
-        for flag, c in centres.items()
-    }
-    bundle = location / str(params.get("npz_name", "his.npz"))
-    rows = _npz_shape(bundle)[0] if bundle.is_file() else None
-    built = {}
-    if (location / "split.json").is_file():
-        built = json.loads((location / "split.json").read_text(encoding="utf-8"))
-    ratio = tuple(float(value) for value in built.get("splits", ())) or None
+def _window_notes(built, splits, seq_len: int, pred_len: int) -> list[str]:
     notes = [
         f"window centres are fixed in idx_*.npy; a centre c reads rows [c - seq_len + 1, c] "
         f"and predicts [c + 1, c + pred_len] (pred_len {pred_len} here)"
@@ -400,6 +404,22 @@ def _window_index(location: Path, params, seq_len: int, pred_len: int, common) -
             f"the ratio splits windows, not rows: adjacent splits share up to {shared} target rows "
             "(the last train targets overlap the first val targets)"
         )
+    return notes
+
+
+def _window_index(location: Path, params, seq_len: int, pred_len: int, common) -> SplitProtocol:
+    centres = {flag: np.load(location / f"idx_{flag}.npy").reshape(-1) for flag in SPLITS}
+    splits = {
+        flag: SplitRange(int(c.min()) - seq_len + 1, int(c.min()) + 1, int(c.max()) + 1 + pred_len)
+        for flag, c in centres.items()
+    }
+    bundle = location / str(params.get("npz_name", "his.npz"))
+    rows = _npz_shape(bundle)[0] if bundle.is_file() else None
+    built = {}
+    if (location / "split.json").is_file():
+        built = json.loads((location / "split.json").read_text(encoding="utf-8"))
+    ratio = tuple(float(value) for value in built.get("splits", ())) or None
+    notes = _window_notes(built, splits, seq_len, pred_len)
     if params.get("scale", True):
         train_end = built.get("train_end")
         fit = f" fitted on rows [0, {train_end})" if train_end is not None else ""

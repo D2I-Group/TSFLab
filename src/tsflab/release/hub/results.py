@@ -114,8 +114,7 @@ def push_results(
     """
     bundles, rejected = collect(sources)
     if rejected and not skip_invalid:
-        lines = [f"{path}: {'; '.join(errors[:3])}" for path, errors in sorted(rejected.items())]
-        raise ValueError(f"{len(rejected)} invalid submission(s):\n  " + "\n  ".join(lines[:20]))
+        _raise_rejected(rejected)
     summary = {
         "repo": repo_id,
         "found": len(bundles),
@@ -127,6 +126,12 @@ def push_results(
     }
     if dry_run:
         return summary
+    _upload_results(api, repo_id, bundles, summary, force=force, batch=batch, create=create, private=private)
+    return summary
+
+
+def _upload_results(api, repo_id: str, bundles: list, summary: dict, *, force, batch, create, private) -> None:
+    """Commit the bundles not yet in ``repo_id`` in chunks of ``batch``, updating ``summary``."""
     from huggingface_hub import CommitOperationAdd
 
     api = api or _api()
@@ -150,7 +155,11 @@ def push_results(
         )
         summary["commits"].append(commit.oid)
         summary["uploaded"] += len(chunk)
-    return summary
+
+
+def _raise_rejected(rejected: dict) -> None:
+    lines = [f"{path}: {'; '.join(errors[:3])}" for path, errors in sorted(rejected.items())]
+    raise ValueError(f"{len(rejected)} invalid submission(s):\n  " + "\n  ".join(lines[:20]))
 
 
 def results_pattern(
@@ -232,12 +241,7 @@ def publish_board(
     from ``pull_results``) or bundles directly. ``out_dir`` keeps a copy.
     """
     with tempfile.TemporaryDirectory(prefix="tsflab-board-") as tmp:
-        if local is None:
-            mirror = pull_results(repo_id, Path(tmp) / "mirror", metadata_only=True)
-            results_root = mirror / RESULTS_PREFIX
-            curated = curated or (mirror / CURATED if (mirror / CURATED).is_file() else None)
-        else:
-            results_root = local / RESULTS_PREFIX if (local / RESULTS_PREFIX).is_dir() else local
+        results_root, curated = _board_sources(repo_id, Path(tmp), local, curated)
         overlay = json.loads(Path(curated).read_text(encoding="utf-8")) if curated else None
         board, meta, rejected = build_board(results_root, overlay)
         target = Path(out_dir) if out_dir else Path(tmp) / "board"
@@ -254,21 +258,36 @@ def publish_board(
             "commit": None,
         }
         if upload:
-            from huggingface_hub import CommitOperationAdd
-
-            api = api or _api()
-            operations = [
-                CommitOperationAdd(path_in_repo=f"{BOARD_PREFIX}/{name}", path_or_fileobj=str(target / name))
-                for name in BOARD_FILES
-            ]
-            commit = api.create_commit(
-                repo_id=repo_id,
-                repo_type="model",
-                operations=operations,
-                commit_message=f"board: {board['n_submissions']} submission(s)",
-            )
-            summary["commit"] = commit.oid
+            summary["commit"] = _upload_board(api, repo_id, target, board)
     return summary
+
+
+def _board_sources(repo_id: str, tmp: Path, local: Path | None, curated: Path | None) -> tuple[Path, Path | None]:
+    """``(results root, curated overlay)``: a fresh metadata mirror of ``results/``, or ``local``."""
+    if local is None:
+        mirror = pull_results(repo_id, tmp / "mirror", metadata_only=True)
+        results_root = mirror / RESULTS_PREFIX
+        curated = curated or (mirror / CURATED if (mirror / CURATED).is_file() else None)
+    else:
+        results_root = local / RESULTS_PREFIX if (local / RESULTS_PREFIX).is_dir() else local
+    return results_root, curated
+
+
+def _upload_board(api, repo_id: str, target: Path, board: dict) -> str:
+    from huggingface_hub import CommitOperationAdd
+
+    api = api or _api()
+    operations = [
+        CommitOperationAdd(path_in_repo=f"{BOARD_PREFIX}/{name}", path_or_fileobj=str(target / name))
+        for name in BOARD_FILES
+    ]
+    commit = api.create_commit(
+        repo_id=repo_id,
+        repo_type="model",
+        operations=operations,
+        commit_message=f"board: {board['n_submissions']} submission(s)",
+    )
+    return commit.oid
 
 
 def fetch_board_file(repo_id: str = DEFAULT_CHECKPOINTS_REPO, *, max_age_sec: int = 3600) -> Path | None:
@@ -313,28 +332,34 @@ def select_top_runs(
     selected = []
     for group in ranked["horizons"]:
         for rank, row in enumerate(group["rows"], start=1):
-            best = None
-            for path, doc in runs:
-                if doc["model"] != row["model"]:
-                    continue
-                for result in doc["results"]:
-                    value = (result.get("metrics") or {}).get(metric)
-                    if str(result.get("horizon")) != group["horizon"] or not isinstance(value, (int, float)):
-                        continue
-                    if best is None or value < best["run_metric"]:
-                        best = {
-                            "rank": rank,
-                            "model": row["model"],
-                            "horizon": group["horizon"],
-                            "row_metric": row[metric],
-                            "n_runs": row.get("n_runs", 1),
-                            "run_metric": value,
-                            "record": path,
-                            "run_id": result.get("run_id") or path.stem,
-                        }
+            best = _best_run(runs, rank, row, group["horizon"], metric)
             if best is not None:
                 selected.append(best)
     return selected
+
+
+def _best_run(runs: list, rank: int, row: dict, horizon: str, metric: str) -> dict | None:
+    """The run of ``row``'s model at ``horizon`` with the lowest ``metric``."""
+    best = None
+    for path, doc in runs:
+        if doc["model"] != row["model"]:
+            continue
+        for result in doc["results"]:
+            value = (result.get("metrics") or {}).get(metric)
+            if str(result.get("horizon")) != horizon or not isinstance(value, (int, float)):
+                continue
+            if best is None or value < best["run_metric"]:
+                best = {
+                    "rank": rank,
+                    "model": row["model"],
+                    "horizon": horizon,
+                    "row_metric": row[metric],
+                    "n_runs": row.get("n_runs", 1),
+                    "run_metric": value,
+                    "record": path,
+                    "run_id": result.get("run_id") or path.stem,
+                }
+    return best
 
 
 def push_top(
@@ -354,28 +379,23 @@ def push_top(
     """Pack and upload the checkpoints of the top-``top`` runs in one commit."""
     selected = select_top_runs(dataset, horizon=horizon, top=top, metric=metric, records=records)
     for entry in selected:
-        try:
-            entry["record"], entry["checkpoint"] = find_run(entry["record"], Path("."))
-        except FileNotFoundError as exc:
-            entry["checkpoint"], entry["error"] = None, str(exc)
-        record = json.loads(Path(entry["record"]).read_text(encoding="utf-8"))
-        entry["path_in_repo"] = bundle_path(record["dataset_id"], record["model"], entry["run_id"], record.get("track"))
+        _locate_checkpoint(entry)
     summary = {"repo": repo_id, "selected": selected, "commit": None, "uploaded": [], "skipped": []}
     ready = [e for e in selected if e.get("checkpoint")]
     if dry_run or not ready:
         return summary
+    _upload_top(api, repo_id, ready, summary, dataset, top, horizon, force=force, create=create, private=private)
+    return summary
+
+
+def _upload_top(api, repo_id: str, ready: list[dict], summary: dict, dataset, top, horizon, *, force, create, private):
     api = api or _api()
     if create:
         api.create_repo(repo_id, repo_type="model", private=private, exist_ok=True)
     present = set() if force else _existing(api, repo_id)
     with tempfile.TemporaryDirectory(prefix="tsflab-top-") as tmp:
         staging = Path(tmp)
-        for entry in ready:
-            if f"{entry['path_in_repo']}/manifest.json" in present:
-                summary["skipped"].append(entry["path_in_repo"])
-                continue
-            pack(Path(entry["record"]), Path(entry["checkpoint"]), staging / entry["path_in_repo"])
-            summary["uploaded"].append(entry["path_in_repo"])
+        _stage(ready, present, staging, summary)
         if summary["uploaded"]:
             commit = api.upload_folder(
                 repo_id=repo_id,
@@ -384,4 +404,22 @@ def push_top(
                 commit_message=f"checkpoints: top {top} {dataset}" + (f" H={horizon}" if horizon else ""),
             )
             summary["commit"] = commit.oid
-    return summary
+
+
+def _locate_checkpoint(entry: dict) -> None:
+    """Resolve the entry's record and checkpoint, and its bundle path in the repository."""
+    try:
+        entry["record"], entry["checkpoint"] = find_run(entry["record"], Path("."))
+    except FileNotFoundError as exc:
+        entry["checkpoint"], entry["error"] = None, str(exc)
+    record = json.loads(Path(entry["record"]).read_text(encoding="utf-8"))
+    entry["path_in_repo"] = bundle_path(record["dataset_id"], record["model"], entry["run_id"], record.get("track"))
+
+
+def _stage(ready: list[dict], present: set[str], staging: Path, summary: dict) -> None:
+    for entry in ready:
+        if f"{entry['path_in_repo']}/manifest.json" in present:
+            summary["skipped"].append(entry["path_in_repo"])
+            continue
+        pack(Path(entry["record"]), Path(entry["checkpoint"]), staging / entry["path_in_repo"])
+        summary["uploaded"].append(entry["path_in_repo"])
