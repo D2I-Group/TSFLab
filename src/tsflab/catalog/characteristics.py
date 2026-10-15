@@ -67,6 +67,10 @@ def kind_of(term: str) -> str | None:
     return None
 
 
+def _any_problem(label: str, field: str, allow_any: bool) -> str:
+    return f"{label}: {field} 'any' must stand alone" if allow_any else f"{label}: {field} cannot be 'any'"
+
+
 def term_problems(label: str, field: str, terms: object, *, allow_any: bool) -> list[str]:
     """Validate a card's list of characteristic terms against the vocabulary."""
     if not isinstance(terms, list) or not terms or not all(isinstance(t, str) for t in terms):
@@ -79,9 +83,7 @@ def term_problems(label: str, field: str, terms: object, *, allow_any: bool) -> 
             "(tsflab.catalog.characteristics; data terms come from profile_rules.toml)"
         )
     if "any" in terms and (not allow_any or len(terms) > 1):
-        problems.append(
-            f"{label}: {field} 'any' must stand alone" if allow_any else f"{label}: {field} cannot be 'any'"
-        )
+        problems.append(_any_problem(label, field, allow_any))
     if len(set(terms)) != len(terms):
         problems.append(f"{label}: {field} has duplicate terms")
     return problems

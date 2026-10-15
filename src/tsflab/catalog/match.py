@@ -41,22 +41,20 @@ def _rank(entries: list[dict], wanted: set[str]) -> list[dict]:
     return ranked
 
 
-def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
-    from tsflab.catalog.cards.components import component_card_path
-    from tsflab.catalog.cards.depth import read_card
+def _model_entries(root: Path) -> list[dict]:
     from tsflab.catalog.cards.metadata import model_records
-    from tsflab.catalog.characteristics import vocabulary
-    from tsflab.catalog.components import COMPONENT_CATALOG
 
-    name, terms, basis = _dataset_terms(root, dataset)
-    unknown = sorted(set(extra) - set(vocabulary()))
-    if unknown:
-        raise SystemExit(f"unknown characteristic(s) {unknown}; see tsflab.catalog.characteristics")
-    wanted = set(terms) | set(extra)
-    models = [
+    return [
         {"name": str(r["name"]), "fits": list(r.get("fits") or []), "headline": str(r.get("tagline") or r["summary"])}
         for r in model_records(root)
     ]
+
+
+def _component_entries(root: Path) -> list[dict]:
+    from tsflab.catalog.cards.components import component_card_path
+    from tsflab.catalog.cards.depth import read_card
+    from tsflab.catalog.components import COMPONENT_CATALOG
+
     components = []
     for spec in COMPONENT_CATALOG.specs():
         card = read_card(component_card_path(root, spec.name))
@@ -68,9 +66,27 @@ def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
                 "headline": card.headline,
             }
         )
+    return components
+
+
+def _ranked_by_slot(components: list[dict], wanted: set[str]) -> dict[str, list[dict]]:
     by_slot: dict[str, list[dict]] = {}
     for entry in _rank(components, wanted):
         by_slot.setdefault(str(entry["slot"] or "unassigned"), []).append(entry)
+    return by_slot
+
+
+def match(root: Path, dataset: str, extra: list[str]) -> dict[str, object]:
+    from tsflab.catalog.characteristics import vocabulary
+
+    name, terms, basis = _dataset_terms(root, dataset)
+    unknown = sorted(set(extra) - set(vocabulary()))
+    if unknown:
+        raise SystemExit(f"unknown characteristic(s) {unknown}; see tsflab.catalog.characteristics")
+    wanted = set(terms) | set(extra)
+    models = _model_entries(root)
+    components = _component_entries(root)
+    by_slot = _ranked_by_slot(components, wanted)
     generic = sorted(c["name"] for c in components if c["fits"] == ["any"])
     return {
         "dataset": name,

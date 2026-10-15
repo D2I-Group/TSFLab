@@ -104,9 +104,7 @@ def code_lines(source: str) -> int:
     return len(lines - _docstring_lines(ast.parse(source)))
 
 
-def audit_complexity(root: Path | None = None) -> list[str]:
-    root = root or repository_root()
-    models = root / "src" / "tsflab" / "models"
+def _function_errors(root: Path, models: Path) -> list[str]:
     errors: list[str] = []
     for path in sorted(models.rglob("*.py")):
         rel = path.relative_to(root)
@@ -116,6 +114,11 @@ def audit_complexity(root: Path | None = None) -> list[str]:
                     f"{rel}:{line} {name} has cyclomatic complexity {cc} "
                     f"(limit {MAX_FUNCTION_COMPLEXITY}); split it into smaller functions"
                 )
+    return errors
+
+
+def _method_size_errors(root: Path, models: Path) -> list[str]:
+    errors: list[str] = []
     for package in sorted(p for p in models.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))):
         lines = sum(code_lines(f.read_text(encoding="utf-8", errors="ignore")) for f in package.rglob("*.py"))
         if lines > MAX_METHOD_LINES:
@@ -124,6 +127,12 @@ def audit_complexity(root: Path | None = None) -> list[str]:
                 "move reusable parts to shared components"
             )
     return errors
+
+
+def audit_complexity(root: Path | None = None) -> list[str]:
+    root = root or repository_root()
+    models = root / "src" / "tsflab" / "models"
+    return _function_errors(root, models) + _method_size_errors(root, models)
 
 
 def main() -> int:

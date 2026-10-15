@@ -142,15 +142,8 @@ def write_admission(
     return record
 
 
-def changed_models(root: Path, base: str) -> list[str]:
-    """Models whose package, preset, or used component changed since ``base`` (git diff paths)."""
-    from tsflab.catalog.cards.metadata import model_records
-    from tsflab.catalog.component_audit import component_dependency_closure
-
-    diff = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, capture_output=True, text=True, check=False
-    )
-    paths = [line for line in diff.stdout.split() if line]
+def _touched(paths: list[str]) -> tuple[set[str], set[str], set[str]]:
+    """Model packages, components, and presets touched by changed ``paths`` (cards excluded)."""
     docs = {"README.md", "card.toml", "reference.md"}
     touched_packages, touched_components, touched_presets = set(), set(), set()
     for path in paths:
@@ -162,6 +155,19 @@ def changed_models(root: Path, base: str) -> list[str]:
                 touched_packages.add(parts[3])
         elif len(parts) == 3 and parts[:2] == ("configs", "models"):
             touched_presets.add(Path(parts[2]).stem)
+    return touched_packages, touched_components, touched_presets
+
+
+def changed_models(root: Path, base: str) -> list[str]:
+    """Models whose package, preset, or used component changed since ``base`` (git diff paths)."""
+    from tsflab.catalog.cards.metadata import model_records
+    from tsflab.catalog.component_audit import component_dependency_closure
+
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, capture_output=True, text=True, check=False
+    )
+    paths = [line for line in diff.stdout.split() if line]
+    touched_packages, touched_components, touched_presets = _touched(paths)
     names = []
     for record in model_records(root):
         used = set(component_dependency_closure({str(c) for c in record.get("components", ())}))

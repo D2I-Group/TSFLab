@@ -107,15 +107,11 @@ def validated(card: CardFiles):
         raise ValueError(f"{card.directory}/card.toml: {details}") from None
 
 
-def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
-    """Format problems of one card; content checks beyond the schema stay with each kind."""
-    curated = REQUIRE_CURATED if curated is None else curated
-    where = str(card.directory)
+def _schema_problems(card: CardFiles, where: str, curated: bool) -> list[str]:
     out: list[str] = []
     if card.facts.get("schema") != SCHEMA:
         out.append(f"{where}: card.toml schema must be {SCHEMA!r}")
-    kind = card.kind
-    pending_curation = kind == "component" and not (
+    pending_curation = card.kind == "component" and not (
         card.facts.get("role") and card.facts.get("slot") and card.facts.get("fits")
     )
     if not (pending_curation and not curated):
@@ -123,6 +119,12 @@ def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
             validated(card)
         except ValueError as exc:
             out.append(str(exc))
+    return out
+
+
+def _readme_problems(card: CardFiles, where: str) -> list[str]:
+    out: list[str] = []
+    kind = card.kind
     if card.name != card.facts.get("name"):
         out.append(f"{where}: README name {card.name!r} differs from card.toml name")
     if not card.description or len(card.description) > DESCRIPTION_CHARS:
@@ -131,6 +133,11 @@ def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
     titles = tuple(title for title, _ in card.sections)
     if titles != expected:
         out.append(f"{where}: README sections must be exactly {', '.join(expected)} (got {', '.join(titles)})")
+    return out
+
+
+def _length_problems(card: CardFiles, where: str) -> list[str]:
+    out: list[str] = []
     l1 = len(card.body.splitlines())
     if l1 > L1_MAX_LINES:
         out.append(f"{where}: README body has {l1} lines; L1 budget is {L1_MAX_LINES}, move detail to reference.md")
@@ -139,12 +146,28 @@ def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
             out.append(f"{where}: empty reference.md")
         elif l1 + len(card.reference.splitlines()) < L1_MAX_LINES and len(card.reference.splitlines()) < L2_MIN_LINES:
             out.append(f"{where}: reference.md is short enough to fold into README")
+    return out
+
+
+def _curation_problems(card: CardFiles, where: str) -> list[str]:
+    out: list[str] = []
+    text = card.body + (card.reference or "")
+    if TODO in text:
+        out.append(f"{where}: {TODO} placeholders remain")
+    if card.kind == "model" and not card.facts.get("fits"):
+        out.append(f"{where}: card.toml needs fits")
+    return out
+
+
+def problems(card: CardFiles, *, curated: bool | None = None) -> list[str]:
+    """Format problems of one card; content checks beyond the schema stay with each kind."""
+    curated = REQUIRE_CURATED if curated is None else curated
+    where = str(card.directory)
+    out = _schema_problems(card, where, curated)
+    out += _readme_problems(card, where)
+    out += _length_problems(card, where)
     if curated:
-        text = card.body + (card.reference or "")
-        if TODO in text:
-            out.append(f"{where}: {TODO} placeholders remain")
-        if kind == "model" and not card.facts.get("fits"):
-            out.append(f"{where}: card.toml needs fits")
+        out += _curation_problems(card, where)
     return out
 
 

@@ -128,14 +128,19 @@ def split_card(text: str) -> tuple[dict[str, object], str]:
     for line in lines[1:end]:
         if not line.strip() or line.lstrip().startswith("#"):
             continue
-        key, separator, raw = line.partition(":")
-        if not separator or key != key.strip() or not key:
-            raise ValueError(f"invalid front-matter line: {line!r}")
-        try:
-            front[key] = json.loads(raw.strip())
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"front-matter value of {key!r} is not JSON") from exc
+        key, value = _front_matter_item(line)
+        front[key] = value
     return front, "\n".join(lines[end + 1 :]).strip("\n")
+
+
+def _front_matter_item(line: str) -> tuple[str, object]:
+    key, separator, raw = line.partition(":")
+    if not separator or key != key.strip() or not key:
+        raise ValueError(f"invalid front-matter line: {line!r}")
+    try:
+        return key, json.loads(raw.strip())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"front-matter value of {key!r} is not JSON") from exc
 
 
 def read_dataset_facts(path: Path) -> dict[str, object]:
@@ -171,6 +176,25 @@ def _read(path: Path) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _preset_record(root: Path, config: str) -> DatasetRecord:
+    config = Path(config).as_posix()
+    record = next((r for r in dataset_records(root) if Path(r.config).as_posix() == config), None)
+    if record is None:
+        raise ValueError(f"no dataset card resolves to preset {config!r}")
+    return record
+
+
+def _merged_terms(record: DatasetRecord, current: list[str], fired: list[str]) -> list[str]:
+    """``fired`` data terms followed by the curated task terms of ``current``."""
+    from tsflab.catalog.characteristics import TASK_TERMS, data_terms
+
+    task = [term for term in current if term in TASK_TERMS]
+    if "spatiotemporal" in record.task_modes and "spatial-graph" not in task:
+        task.append("spatial-graph")
+    measured = [term for term in fired if term in data_terms()]
+    return measured + [term for term in task if term not in measured]
+
+
 def dataset_facts(root: Path, names: list[str] | None = None) -> dict[str, dict[str, object]]:
     """Read level-0/1 facts for presets (and families) that already have a card."""
     wanted = names or [record.name for record in dataset_records(root)]
@@ -193,12 +217,7 @@ def write_characteristics(root: Path, config: str, fired: list[str], basis: str)
     """
     import json
 
-    from tsflab.catalog.characteristics import TASK_TERMS, data_terms
-
-    config = Path(config).as_posix()
-    record = next((r for r in dataset_records(root) if Path(r.config).as_posix() == config), None)
-    if record is None:
-        raise ValueError(f"no dataset card resolves to preset {config!r}")
+    record = _preset_record(root, config)
     path = dataset_card_path(root, record.name)
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -208,11 +227,7 @@ def write_characteristics(root: Path, config: str, fired: list[str], basis: str)
     for line in front:
         if line.startswith("characteristics: "):
             current = list(json.loads(line.split(": ", 1)[1]))
-    task = [term for term in current if term in TASK_TERMS]
-    if "spatiotemporal" in record.task_modes and "spatial-graph" not in task:
-        task.append("spatial-graph")
-    measured = [term for term in fired if term in data_terms()]
-    terms = measured + [term for term in task if term not in measured]
+    terms = _merged_terms(record, current, fired)
     kept = [line for line in front if not line.startswith(("characteristics: ", "characteristics_basis: "))]
     kept += [f"characteristics: {json.dumps(terms)}", f"characteristics_basis: {json.dumps(basis)}"]
     path.write_text("\n".join(["---", *kept, *lines[end:]]) + ("\n" if text.endswith("\n") else ""), encoding="utf-8")
@@ -263,29 +278,7 @@ def read_dataset_facts(path: Path) -> dict[str, object]:  # noqa: F811 - replace
     }
 
 
-def write_characteristics(root: Path, config: str, fired: list[str], basis: str) -> Path:  # noqa: F811
-    """Record measured data characteristics in the preset's ``card.toml``.
-
-    Measured (data) terms are replaced by ``fired``; curated task terms already in
-    the card are kept, and ``spatial-graph`` is added for spatiotemporal presets.
-    """
-    import tomllib
-
-    from tsflab.catalog.cards.toml_io import dumps
-    from tsflab.catalog.characteristics import TASK_TERMS, data_terms
-
-    config = Path(config).as_posix()
-    record = next((r for r in dataset_records(root) if Path(r.config).as_posix() == config), None)
-    if record is None:
-        raise ValueError(f"no dataset card resolves to preset {config!r}")
-    path = dataset_card_path(root, record.name).with_name("card.toml")
-    facts = tomllib.loads(path.read_text(encoding="utf-8"))
-    task = [term for term in facts.get("characteristics", []) if term in TASK_TERMS]
-    if "spatiotemporal" in record.task_modes and "spatial-graph" not in task:
-        task.append("spatial-graph")
-    measured = [term for term in fired if term in data_terms()]
-    facts["characteristics"] = measured + [term for term in task if term not in measured]
-    facts["characteristics_basis"] = basis
+def _lead_keys_first(facts: dict[str, object]) -> dict[str, object]:
     ordered = {
         k: facts[k]
         for k in (
@@ -302,5 +295,23 @@ def write_characteristics(root: Path, config: str, fired: list[str], basis: str)
         if k in facts
     }
     ordered.update({k: v for k, v in facts.items() if k not in ordered})
-    path.write_text(dumps(ordered), encoding="utf-8")
+    return ordered
+
+
+def write_characteristics(root: Path, config: str, fired: list[str], basis: str) -> Path:  # noqa: F811
+    """Record measured data characteristics in the preset's ``card.toml``.
+
+    Measured (data) terms are replaced by ``fired``; curated task terms already in
+    the card are kept, and ``spatial-graph`` is added for spatiotemporal presets.
+    """
+    import tomllib
+
+    from tsflab.catalog.cards.toml_io import dumps
+
+    record = _preset_record(root, config)
+    path = dataset_card_path(root, record.name).with_name("card.toml")
+    facts = tomllib.loads(path.read_text(encoding="utf-8"))
+    facts["characteristics"] = _merged_terms(record, facts.get("characteristics", []), fired)
+    facts["characteristics_basis"] = basis
+    path.write_text(dumps(_lead_keys_first(facts)), encoding="utf-8")
     return path

@@ -13,12 +13,41 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tsflab.catalog.cards.store import card_directories, load, problems
+from tsflab.catalog.cards.store import CardFiles, card_directories, load, problems
+
+
+def _named_components(facts: dict) -> set[str]:
+    """Components a card's composition names (``component:<name>`` parts)."""
+    return {
+        part.split(":", 1)[1]
+        for value in (facts.get("composition") or {}).values()
+        for part in str(value).split("+")
+        if part.startswith("component:")
+    }
+
+
+def _model_card_problems(root: Path, directory: Path, name: str, card: CardFiles) -> list[str]:
+    """Agreement of one loaded model card with its spec name, family tags, and imports."""
+    from tsflab.catalog.cards.models import FAMILY_TAGS, _composition_problems
+    from tsflab.catalog.component_audit import component_dependency_closure, components_used_by
+
+    out: list[str] = []
+    out += problems(card)
+    where = str(directory.relative_to(root))
+    if card.facts.get("name") != name:
+        out.append(f"{where}: card name {card.facts.get('name')!r} != spec name {name!r}")
+    tags = set(card.facts.get("tags") or [])
+    if not tags & FAMILY_TAGS:
+        out.append(f"{where}: tags must include an architecture family: {', '.join(sorted(FAMILY_TAGS))}")
+    composition = [f"{k}={v}" for k, v in (card.facts.get("composition") or {}).items()]
+    out += _composition_problems(composition, where)
+    used = set(component_dependency_closure(set(components_used_by(directory))))
+    for component in sorted(_named_components(card.facts) - used):
+        out.append(f"{where}: composition names component {component!r} that the model does not import")
+    return out
 
 
 def _model_problems(root: Path) -> list[str]:
-    from tsflab.catalog.cards.models import FAMILY_TAGS, _composition_problems
-    from tsflab.catalog.component_audit import component_dependency_closure, components_used_by
     from tsflab.catalog.registry.models import MODEL_CATALOG
 
     out: list[str] = []
@@ -31,24 +60,7 @@ def _model_problems(root: Path) -> list[str]:
         except ValueError as exc:
             out.append(str(exc))
             continue
-        out += problems(card)
-        where = str(directory.relative_to(root))
-        if card.facts.get("name") != name:
-            out.append(f"{where}: card name {card.facts.get('name')!r} != spec name {name!r}")
-        tags = set(card.facts.get("tags") or [])
-        if not tags & FAMILY_TAGS:
-            out.append(f"{where}: tags must include an architecture family: {', '.join(sorted(FAMILY_TAGS))}")
-        composition = [f"{k}={v}" for k, v in (card.facts.get("composition") or {}).items()]
-        out += _composition_problems(composition, where)
-        used = set(component_dependency_closure(set(components_used_by(directory))))
-        named = {
-            part.split(":", 1)[1]
-            for value in (card.facts.get("composition") or {}).values()
-            for part in str(value).split("+")
-            if part.startswith("component:")
-        }
-        for component in sorted(named - used):
-            out.append(f"{where}: composition names component {component!r} that the model does not import")
+        out += _model_card_problems(root, directory, name, card)
     for directory in card_directories(root)["model"]:
         if directory.resolve() not in registered:
             out.append(f"orphan model card (package without a discoverable spec): {directory.relative_to(root)}")

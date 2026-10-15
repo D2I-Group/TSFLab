@@ -82,12 +82,18 @@ def load_declined(root) -> tuple[list[dict], list[str]]:
         if paper["name"] in names:
             problems.append(f"{label} is listed twice")
         names.add(paper["name"])
-        if paper["reason"] not in DECLINE_REASONS:
-            problems.append(f"{label} reason {paper['reason']!r} is not one of {', '.join(DECLINE_REASONS)}")
-        for issue in paper["issues"]:
-            if issue.get("kind") not in KINDS or not str(issue.get("what") or "").strip():
-                problems.append(f"{label} has an issue without a known kind and text: {issue!r}")
+        problems += _declined_paper_problems(label, paper)
     return papers, problems
+
+
+def _declined_paper_problems(label: str, paper: dict) -> list[str]:
+    problems: list[str] = []
+    if paper["reason"] not in DECLINE_REASONS:
+        problems.append(f"{label} reason {paper['reason']!r} is not one of {', '.join(DECLINE_REASONS)}")
+    for issue in paper["issues"]:
+        if issue.get("kind") not in KINDS or not str(issue.get("what") or "").strip():
+            problems.append(f"{label} has an issue without a known kind and text: {issue!r}")
+    return problems
 
 
 def summarize_declined(papers: list[dict]) -> dict[str, object]:

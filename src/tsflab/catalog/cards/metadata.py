@@ -41,6 +41,14 @@ def declared_model_fields(spec_file: Path) -> dict[str, object]:
 _SPEC_ASSIGNMENT = re.compile(r"^SPEC\s*(?::[^=\n]*)?=", re.MULTILINE)
 
 
+def _spec_tail_name(source: str) -> object:
+    """The literal ``name`` keyword of the ``SPEC`` assignment that starts ``source``."""
+    statement = ast.parse(source).body[0]
+    value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else None
+    keywords = value.keywords if isinstance(value, ast.Call) else []
+    return next((_literal(k.value) for k in keywords if k.arg == "name"), None)
+
+
 def declared_model_name(spec_file: Path) -> str | None:
     """Return the literal ``SPEC = ModelSpec(name=...)`` name, or ``None`` when absent.
 
@@ -56,10 +64,7 @@ def declared_model_name(spec_file: Path) -> str | None:
     if match is None:
         return None
     try:
-        statement = ast.parse(text[match.start() :]).body[0]
-        value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else None
-        keywords = value.keywords if isinstance(value, ast.Call) else []
-        name = next((_literal(k.value) for k in keywords if k.arg == "name"), None)
+        name = _spec_tail_name(text[match.start() :])
     except (SyntaxError, ValueError, TypeError, IndexError):
         try:
             name = declared_model_fields(spec_file).get("name")
@@ -88,6 +93,14 @@ def _scalar(value: str) -> object:
         return value
 
 
+def _composition_strings(facts: dict) -> list[str]:
+    return [f"{slot}={value}" for slot, value in (facts.get("composition") or {}).items()]
+
+
+def _codebase(code: dict | None) -> dict[str, object] | None:
+    return {"url": code["url"], "revision": code["revision"], "license": code["license"]} if code else None
+
+
 def read_model_card(path: Path) -> dict[str, object]:
     """Return normalized metadata for a model card (``card.toml`` + README description).
 
@@ -103,20 +116,19 @@ def read_model_card(path: Path) -> dict[str, object]:
     if facts.get("kind") != "model":
         raise ValueError(f"{card.directory}/card.toml is not a model card")
     paper = facts.get("paper") or {}
-    code = facts.get("code")
     return {
         "name": facts["name"],
         "summary": card.description,
         "tagline": card.description,
         "tags": list(facts.get("tags") or []),
-        "composition": [f"{slot}={value}" for slot, value in (facts.get("composition") or {}).items()],
+        "composition": _composition_strings(facts),
         "paper": {
             "title": paper.get("title", ""),
             "venue": paper.get("venue", ""),
             "year": paper.get("year"),
             "url": paper.get("url", ""),
         },
-        "codebase": ({"url": code["url"], "revision": code["revision"], "license": code["license"]} if code else None),
+        "codebase": _codebase(facts.get("code")),
         "fits": list(facts.get("fits") or []),
         "fidelity": facts.get("fidelity", ""),
         "data_params": dict(facts.get("data_params") or {}),

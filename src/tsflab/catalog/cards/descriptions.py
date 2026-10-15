@@ -32,8 +32,19 @@ def read_model_card_description(path: Path) -> ModelCardDescription:
     if title_index is None:
         raise ValueError(f"{path} has no level-one title")
 
+    summary = declared or " ".join(_first_paragraph(lines[title_index + 1 :]))
+    if not summary:
+        raise ValueError(f"{path} has no introductory method description")
+    placeholders = ("this model is scaffolded", "replace this text", "todo")
+    if any(marker in summary.casefold() for marker in placeholders):
+        raise ValueError(f"{path} still contains a placeholder method description")
+    return ModelCardDescription(summary=summary)
+
+
+def _first_paragraph(lines: list[str]) -> list[str]:
+    """Stripped lines of the first paragraph, stopping at the next heading."""
     paragraph: list[str] = []
-    for line in lines[title_index + 1 :]:
+    for line in lines:
         stripped = line.strip()
         if not stripped:
             if paragraph:
@@ -42,10 +53,4 @@ def read_model_card_description(path: Path) -> ModelCardDescription:
         if stripped.startswith("#"):
             break
         paragraph.append(stripped)
-    summary = declared or " ".join(paragraph)
-    if not summary:
-        raise ValueError(f"{path} has no introductory method description")
-    placeholders = ("this model is scaffolded", "replace this text", "todo")
-    if any(marker in summary.casefold() for marker in placeholders):
-        raise ValueError(f"{path} still contains a placeholder method description")
-    return ModelCardDescription(summary=summary)
+    return paragraph

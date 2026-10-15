@@ -116,6 +116,20 @@ def _card_resources(root: Path, kind: str) -> list[tuple[dict[str, object], dict
     return resources
 
 
+def _scored(record: dict[str, object], surfaces: dict[str, str], terms: set[str]) -> dict[str, object] | None:
+    """``record`` with its score and matched terms, or ``None`` when no term matches."""
+    matched = {t for t in terms if any(t in text for text in surfaces.values())}
+    if terms and not matched:
+        return None
+    # Each matched term scores every surface it appears in, so a term carried by
+    # the tags, the description, and the paper outranks one found only in prose.
+    score = len(matched) * 100 + sum(w for t in matched for surface, w in _WEIGHTS.items() if t in surfaces[surface])
+    # An exact name (or alias) hit outranks partial matches on longer names.
+    if set(surfaces["name"].split()) & terms:
+        score += 50
+    return {**record, "score": score, "matched_terms": sorted(matched)}
+
+
 def search_catalog(
     root: Path,
     query: str,
@@ -132,31 +146,14 @@ def search_catalog(
         for record, surfaces, fields in resources:
             if capabilities and not set(capabilities).issubset(fields.get("capabilities", ())):
                 continue
-            matched = {t for t in terms if any(t in text for text in surfaces.values())}
-            if terms and not matched:
-                continue
-            # Each matched term scores every surface it appears in, so a term carried by
-            # the tags, the description, and the paper outranks one found only in prose.
-            score = len(matched) * 100 + sum(
-                w for t in matched for surface, w in _WEIGHTS.items() if t in surfaces[surface]
-            )
-            # An exact name (or alias) hit outranks partial matches on longer names.
-            if set(surfaces["name"].split()) & terms:
-                score += 50
-            results.append({**record, "score": score, "matched_terms": sorted(matched)})
+            scored = _scored(record, surfaces, terms)
+            if scored is not None:
+                results.append(scored)
     results.sort(key=lambda item: (-int(item["score"]), str(item["kind"]), str(item["name"])))
     return results[:limit]
 
 
-def search_command(
-    root: Path,
-    args: list[str],
-    *,
-    prog: str,
-    kind: str | None = None,
-    augment: Callable[[dict[str, object]], dict[str, object]] | None = None,
-) -> int:
-    """Parse and run one search; print L0 lines, or JSON with ``--json``."""
+def _search_parser(prog: str, kind: str | None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=prog,
         description="Ranked search returning one L0 line per result: "
@@ -174,6 +171,19 @@ def search_command(
         )
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--json", action="store_true")
+    return parser
+
+
+def search_command(
+    root: Path,
+    args: list[str],
+    *,
+    prog: str,
+    kind: str | None = None,
+    augment: Callable[[dict[str, object]], dict[str, object]] | None = None,
+) -> int:
+    """Parse and run one search; print L0 lines, or JSON with ``--json``."""
+    parser = _search_parser(prog, kind)
     parsed = parser.parse_args(args)
     if parsed.limit < 1:
         parser.error("--limit must be positive")
@@ -188,13 +198,22 @@ def search_command(
         capabilities=capabilities,
         limit=parsed.limit,
     )
-    if parsed.json:
+    _print_matches(matches, as_json=parsed.json, augment=augment)
+    return 0
+
+
+def _print_matches(
+    matches: list[dict[str, object]],
+    *,
+    as_json: bool,
+    augment: Callable[[dict[str, object]], dict[str, object]] | None,
+) -> None:
+    if as_json:
         if augment is not None:
             matches = [augment(match) for match in matches]
         print(json.dumps(matches, ensure_ascii=False, indent=2))
-    else:
-        for match in matches:
-            print(l0_line(match))
-        if not matches:
-            print("no matches", file=sys.stderr)
-    return 0
+        return
+    for match in matches:
+        print(l0_line(match))
+    if not matches:
+        print("no matches", file=sys.stderr)
