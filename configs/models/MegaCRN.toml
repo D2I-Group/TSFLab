@@ -1,0 +1,11 @@
+[model]
+name = "MegaCRN"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+rnn_units = 32
+num_layers = 1
+cheb_k = 3
+mem_num = 8
+mem_dim = 16

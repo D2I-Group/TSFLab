@@ -1,0 +1,111 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "VLBM"
+tags = ["gnn", "variational", "latent-basis", "ood-robustness", "graph-attention", "calendar-embedding", "stochastic", "spatiotemporal"]
+fits = ["non-stationary", "train-val-level-shift", "high-cross-correlation", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "VLBM: Variational Latent Basis Modeling for OOD Robust Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2606.02138"
+venue = "arXiv"
+year = 2026
+
+[code]
+url = "https://github.com/leijieruilq/VLBM_OOD_forecast"
+revision = "4786753f851bbdc0b0526ad72c9414f9eac10bb7"
+license = "MIT"
+reference_sources = ["https://github.com/leijieruilq/VLBM_OOD_forecast/blob/4786753f851bbdc0b0526ad72c9414f9eac10bb7/models/VLBM.py", "https://github.com/leijieruilq/VLBM_OOD_forecast/blob/4786753f851bbdc0b0526ad72c9414f9eac10bb7/exp/vlbm_loss.py", "https://github.com/leijieruilq/VLBM_OOD_forecast/blob/4786753f851bbdc0b0526ad72c9414f9eac10bb7/exp/exp_long_term_forecasting_vlbm.py", "https://github.com/leijieruilq/VLBM_OOD_forecast/blob/4786753f851bbdc0b0526ad72c9414f9eac10bb7/data_provider/data_loader.py", "https://github.com/leijieruilq/VLBM_OOD_forecast/blob/4786753f851bbdc0b0526ad72c9414f9eac10bb7/scripts/long_term_forecast/Weather_script/VLBM.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:base-residual-streams"
+temporal = "local:variable-calendar-embedding"
+channel = "local:masked-graph-encoder+local:latent-cosine-topk-graph"
+head = "local:linear-head"
+loss = "loss:mae+local:posterior-prior-kl"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the channel or node count; must match num_nodes on graph datasets" }
+interval = { from = "frequency", rule = "sampling interval in minutes; time-of-day table has 1440 / interval slots" }
+top_k = { from = "channels", rule = "latent-graph neighbours per row; must be <= enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 26-28 and 30 (ridge projection `P_B = B^T (B B^T + eta I)^-1 B`, base input `[Z, X P_B]`, residual input `[X (I - P_B), X]`) vs `models/VLBM.py` `Generator.forward`"
+what = "the code has no projection; the base stream starts from `[Z, X]` and the residual stream from `[X - Z, X]`."
+resolution = "the code is followed; the projection (and its unspecified `eta`) is not implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section IV-B (\"The posterior and prior share B\") vs `models/VLBM.py` `Q_Phi` / `P_Phi`"
+what = "each encoder owns a separate basis parameter, and the posterior's sampled latent `z_q` is never used, so the posterior basis receives no gradient."
+resolution = "one basis (the prior's), which matches the trained behaviour of the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section IV-B.2 (known physical topology as the attention mask and as `A_topo` in Eq. 31) vs `models/VLBM.py` `Model.encoder`"
+what = "the mask and the topology are always `torch.eye(N)`, so each encoder's attention returns `ReLU(Conv_v(V))_i` and its query and score layers get no gradient."
+resolution = "the identity is used; a dataset adjacency is ignored."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 32 (separate base and residual predictions `Y_base + R_res`) vs `models/VLBM.py` `Generator.forward` / `Model.encoder`"
+what = "the forecast is one `1x1` convolution of the summed streams; the separate base and residual heads (`base_pred`, `res_pred`, `prediction1`, `prediction2`) are computed but unused by the loss."
+resolution = "one head on the summed streams; the unused heads and the unused `pos_emb`, `conv2` and `score_proj` parameters are omitted."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/vlbm_loss.py` `loss_fn`"
+what = "`masked_mae_loss(Y, Y_pred)` swaps the `(y_pred, y_true)` arguments, so the zero-target mask is built from the predictions and the training loss is plain MAE, while `vali` in `exp/exp_long_term_forecasting_vlbm.py` masks zero targets."
+resolution = "the configured criterion is used unmasked (MAE recommended, as in the scripts)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 33 (`beta > 0`) vs `exp/exp_long_term_forecasting_vlbm.py` and `exp/exp_ood_forecasting_vlbm.py` `train`"
+what = "the paper gives no value; the code hard-codes `beta = 0.1`."
+resolution = "`kl_weight = 0.1`."
+
+[[issues]]
+kind = "underspecified"
+where = "Section IV-A vs `models/VLBM.py` `Model.encoder`"
+what = "the optional instance normalization (`--use_norm`, on in some scripts and off in others) is not in the paper, and the future window fed to the posterior is embedded without it, on a different scale than the history."
+resolution = "as in the code (`use_norm`)."
+
+[[issues]]
+kind = "code-bug"
+where = "Table I (Flight sampled hourly) vs `scripts/long_term_forecast/Flight_script/VLBM.sh`"
+what = "`--interval 5` gives a 288-slot day, so the hourly series' time-of-day slots wrap every 12 days."
+resolution = "`interval` is a parameter to be set to the sampling interval."
+
+[[issues]]
+kind = "underspecified"
+where = "`data_provider/data_loader.py` `Dataset_Custom_vlbm` and `RobustTimeSeriesDatasetForNPY0_vlbm`"
+what = "time-of-day and day-of-week indices are row position modulo the day length and day count modulo 7 from the first row of the file, not timestamps."
+resolution = "slots are taken from the calendar marks of the window's last step."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_loader.py` `Dataset_Custom_vlbm.inverse_transform`"
+what = "the method uses an undefined `values_only` and raises `NameError` when `--inverse` is set."
+resolution = "not applicable (TSFLab scaling is handled by the data pipeline)."
+
+[[issues]]
+kind = "unreleased"
+where = "Sections III and V-A (\"provided in the supplementary material\")"
+what = "the proofs, implementation details and complete results are not in arXiv v1 or the repository, and the Section V-D ablation variants are not in the code."
+resolution = "hyperparameters are taken from the scripts; ablations are not implemented."
+
+[[issues]]
+kind = "unreleased"
+where = "`README.md` (Reproduction)"
+what = "it installs from a `requirements.txt` and runs `scripts/ood_forecast/pemsbay0/VLBM.sh`, neither of which is in the repository."
+resolution = "no external dependency beyond PyTorch is needed."

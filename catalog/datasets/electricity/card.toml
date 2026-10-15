@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "electricity"
+domain = "energy"
+topic = "electricity consumption"
+benchmarks = ["ltsf", "tfb"]
+tags = ["electricity", "ecl", "load", "consumption", "energy", "ltsf", "benchmark", "multivariate", "hourly", "uci", "lstnet", "high-dimensional"]
+related = ["traffic", "weather", "solar", "gift_eval/electricity_H"]
+characteristics = ["strong-seasonality", "high-forecastability", "level-dependent-variance", "high-cross-correlation", "low-dimensional-channels", "many-channels"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Artur Trindade (UCI ElectricityLoadDiagrams20112014); hourly 321-client preprocessing by Lai et al. (LSTNet)"
+url = "https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014"
+citation = "Modeling Long- and Short-Term Temporal Patterns with Deep Neural Networks (Lai et al., SIGIR 2018)"
+citation_url = "https://arxiv.org/abs/1703.07015"
+license = "CC-BY-4.0 (UCI Machine Learning Repository, dataset 321)"
+license_url = "https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014"
+redistribution = "hosted"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "2012-01-01 00:00:01 to 2014-12-31 23:00:01"
+length = 26304
+channels = 321
+channel_kind = "channels"
+target = "321 (last client column; the TSLib copy names it OT)"
+missing_values = "none; clients that started after 2012 carry zeros before their start; the 1-second timestamp offset is part of the file"
+stats_basis = "mixed"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "LTSF: lookback 96 (336 and 512 also searched), horizons 96/192/336/720, chronological 7:1:2, MSE/MAE on z-scored data"
+split = "7:1:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

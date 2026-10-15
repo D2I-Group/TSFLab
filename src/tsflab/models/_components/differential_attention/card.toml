@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "differential_attention"
+role = "Mixes variate or patch tokens with noise-cancelling attention that subtracts a second attention map to suppress irrelevant tokens."
+slot = "channel"
+fits = ["any"]
+category = "attention"
+tags = ["attention", "differential", "noise-cancelling", "rmsnorm", "non-causal", "learned-lambda", "bidirectional"]
+input = "queries [batch, seq, heads, 2*head_dim]; keys [batch, key_seq, heads, 2*head_dim]; values [batch, key_seq, heads, 2*head_dim] (head_dim = d_model // num_heads)"
+output = "[batch, seq, heads, 2*head_dim]"
+origin = "Differential Transformer (Ye et al., ICLR 2025), as used in WDformer (arXiv 2509.25231, 2025)"
+origin_models = ["wdformer"]

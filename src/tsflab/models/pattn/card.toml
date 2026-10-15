@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PAttn"
+tags = ["transformer", "patching", "channel-independent", "normalization", "baseline", "lightweight"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records an implementation of the patch embedding, single attention layer with residual LayerNorm and flattened linear head from Figure 4 and Appendix D.3, with the pinned Time-Series-Library as reference only; no paper or official-code problem is documented."
+
+[paper]
+title = "Are Language Models Actually Useful for Time Series Forecasting?"
+url = "https://arxiv.org/abs/2406.16964"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "4e938a1767106324dd753b2a44832bf870a0252e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:single-self-attention-patch-layer"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+patch_len = { from = "seq_len", rule = "at most seq_len; token count (seq_len + stride - patch_len) // stride + 1" }
+stride = { from = "seq_len", rule = "with patch_len, sets the token count (seq_len + stride - patch_len) // stride + 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STWave"
+tags = ["transformer", "gnn", "wavelet", "frequency", "spatiotemporal", "decomposition", "covariates"]
+fits = ["spatial-graph", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records a clean-room rewrite of the wavelet disentanglement, dual encoders, spectral graph positions, query sampling, and adaptive fusion from the paper against the pinned BasicTS code; the Haar basis and the omitted auxiliary loss are TSFLab scoping, not documented upstream problems."
+
+[paper]
+title = "When Spatio-Temporal Meet Wavelets: Disentangled Traffic Forecasting via Efficient Spectral Graph Attention Networks"
+url = "https://arxiv.org/abs/2112.02740"
+venue = "ICDE 2023"
+year = 2023
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "local:haar-wavelet-low-high-split"
+temporal = "local:temporal-attention-gated-conv"
+channel = "local:spectral-graph-attention-query-sampling"
+head = "local:band-linear-heads-gated-fusion-readout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes (num_nodes injected overrides); input [B, seq_len, N]" }
+adj_mx = { from = "graph", rule = "dataset adjacency [N, N], injected; masks attention and gives Laplacian positions; ring graph when absent" }
+hidden_size = { from = "nodes", rule = "also the eigenvector count for positions; only min(hidden_size, N) are filled" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

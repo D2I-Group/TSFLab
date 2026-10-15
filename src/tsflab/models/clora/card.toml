@@ -1,0 +1,55 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CLoRA"
+tags = ["transformer", "plug-in", "adapter", "low-rank", "channel-mixing", "channel-identity", "inverted-tokens", "normalization", "parameter-efficient"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Channel-Aware Low-Rank Adaptation in Time Series Forecasting"
+url = "https://arxiv.org/abs/2407.17246"
+venue = "CIKM 2024"
+year = 2024
+
+[code]
+url = "https://github.com/tongnie/C-LoRA"
+revision = "ca869022eeae4e569b8761fc4c5070423dd10601"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/tongnie/C-LoRA/blob/ca869022eeae4e569b8761fc4c5070423dd10601/models/iTransformer.py", "https://github.com/tongnie/C-LoRA/blob/ca869022eeae4e569b8761fc4c5070423dd10601/models/RMLP.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:embed"
+channel = "component:self_attention_family+component:transformer_encdec+local:channel-low-rank-adapter"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the input channel count; one adapter per channel, so channel order is part of the model identity" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`run.py` vs `scripts/long_term_forecast/*`"
+what = "the pinned `run.py` does not declare `--rank` or `--node_dim`, so the published scripts do not run unmodified at that revision."
+resolution = "`rank` and `adaptation_dim` defaults are taken from the scripts' values."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (5)"
+what = "the initialization of the per-channel adapter factors is not given."
+resolution = "Xavier-uniform over the `[C, D, r]` tensor, as in the official code."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision (an MIT `LICENSE` was deleted in commit `2969a28`)."
+resolution = "independent implementation, nothing copied; license recorded as `NOASSERTION`."

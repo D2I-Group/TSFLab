@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CatBoostTS"
+tags = ["tree", "boosting", "normalization", "channel-mixing", "baseline"]
+fits = ["high-cross-correlation"]
+fidelity = "paper-only"
+issues_checked = "no official time-series code is pinned; the card records only TSFLab's clean-room scoping (no permutation-based ordered boosting, target statistics, or categorical-feature processing), and no CatBoost source was inspected."
+
+[paper]
+title = "CatBoost: unbiased boosting with categorical features"
+url = "https://arxiv.org/abs/1706.09516"
+venue = "NeurIPS 2018"
+year = 2018
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:soft_tree+local:ordered-context-boosting-stages"
+channel = "local:flattened-channel-mixing-input"
+head = "local:linear-base-plus-tree-residuals"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count; input and output widths are seq_len*enc_in and pred_len*enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

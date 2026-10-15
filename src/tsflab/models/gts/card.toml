@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GTS"
+tags = ["gnn", "rnn", "spatiotemporal", "graph-learning", "covariates", "probabilistic-graph"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card maps graph discovery, learned diffusion, and the graph GRU encoder-decoder to the paper with the pinned BasicTS code as reference, and documents no paper or official-code problem; the window-based graph features and supplied-adjacency prior are TSFLab choices."
+
+[paper]
+title = "Discrete Graph Structure Learning for Forecasting Multiple Time Series"
+url = "https://arxiv.org/abs/2101.06861"
+venue = "ICLR 2021"
+year = 2021
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:diffusion-graph-gru-encoder-decoder"
+channel = "local:learned-discrete-graph-diffusion"
+head = "local:autoregressive-linear-decoder"
+loss = "loss:mse+local:graph-prior-bce"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes (series); runner-injected num_nodes takes precedence" }
+adj_mx = { from = "graph", rule = "optional known adjacency, injected by the runner; used only as a weak edge-logit prior and BCE target" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

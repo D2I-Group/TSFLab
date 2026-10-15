@@ -1,0 +1,665 @@
+{
+  "$defs": {
+    "HorizonResult": {
+      "additionalProperties": false,
+      "description": "Metrics + profile for a single prediction horizon (= pred_len).",
+      "properties": {
+        "horizon": {
+          "description": "Prediction length (pred_len) this result is for.",
+          "title": "Horizon",
+          "type": "integer"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricSet"
+        },
+        "n_windows": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of evaluation windows.",
+          "title": "N Windows"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "TSFLab run_id that produced this.",
+          "title": "Run Id"
+        },
+        "timing": {
+          "$ref": "#/$defs/RunTiming"
+        }
+      },
+      "required": [
+        "horizon",
+        "metrics"
+      ],
+      "title": "HorizonResult",
+      "type": "object"
+    },
+    "MetricSet": {
+      "additionalProperties": false,
+      "description": "The default metric suite. Keys match collect_metrics() exactly so a row\ncan be built with ``MetricSet(**metrics_dict)`` and no key translation.",
+      "properties": {
+        "corr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corr"
+        },
+        "coverage_80": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage 80"
+        },
+        "crps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crps"
+        },
+        "mae": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mae"
+        },
+        "mape": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mape"
+        },
+        "mase": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mase"
+        },
+        "mse": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mse"
+        },
+        "mspe": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mspe"
+        },
+        "rmse": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rmse"
+        },
+        "rse": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rse"
+        },
+        "smape": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Smape"
+        },
+        "wape": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wape"
+        },
+        "width_80": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width 80"
+        },
+        "wql": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wql"
+        }
+      },
+      "title": "MetricSet",
+      "type": "object"
+    },
+    "ProfileStats": {
+      "additionalProperties": false,
+      "description": "Architecture / performance profile. The two param counts are integers;\nthe remaining fields are kept as the raw unit-bearing strings emitted by\nparse_profile_report() (e.g. '4.80 MB', '1.2345 ms').",
+      "properties": {
+        "dynamic_vram_mb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dynamic Vram Mb"
+        },
+        "latency_avg_ms": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency Avg Ms"
+        },
+        "non_trainable_params": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Trainable Params"
+        },
+        "peak_vram_mb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Peak Vram Mb"
+        },
+        "reserved_vram_mb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reserved Vram Mb"
+        },
+        "throughput_samples_sec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Throughput Samples Sec"
+        },
+        "total_macs_m": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Macs M"
+        },
+        "total_mult_adds_mb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Mult Adds Mb"
+        },
+        "total_params": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Params"
+        },
+        "trainable_params": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trainable Params"
+        }
+      },
+      "title": "ProfileStats",
+      "type": "object"
+    },
+    "RunConfigRef": {
+      "additionalProperties": false,
+      "description": "Pinned config coordinates + optional resolved-config snapshot.",
+      "properties": {
+        "config_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Sha256"
+        },
+        "features": {
+          "default": "M",
+          "title": "Features",
+          "type": "string"
+        },
+        "label_len": {
+          "title": "Label Len",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "time_series",
+            "spatiotemporal",
+            "covariate"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "pred_len": {
+          "title": "Pred Len",
+          "type": "integer"
+        },
+        "seq_len": {
+          "title": "Seq Len",
+          "type": "integer"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved config model_dump (optional).",
+          "title": "Snapshot"
+        }
+      },
+      "required": [
+        "mode",
+        "seq_len",
+        "label_len",
+        "pred_len"
+      ],
+      "title": "RunConfigRef",
+      "type": "object"
+    },
+    "RunEnv": {
+      "additionalProperties": false,
+      "description": "Execution environment captured for reproducibility.",
+      "properties": {
+        "cuda": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cuda"
+        },
+        "framework_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "TSFLab version.",
+          "title": "Framework Version"
+        },
+        "git_dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Dirty"
+        },
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Sha"
+        },
+        "gpu": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gpu"
+        },
+        "platform": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Platform"
+        },
+        "python": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python"
+        },
+        "torch": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Torch"
+        }
+      },
+      "title": "RunEnv",
+      "type": "object"
+    },
+    "RunTiming": {
+      "additionalProperties": false,
+      "description": "Wall-clock timing for a run (seconds).",
+      "properties": {
+        "fit_time_sec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fit Time Sec"
+        },
+        "inference_time_sec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference Time Sec"
+        }
+      },
+      "title": "RunTiming",
+      "type": "object"
+    }
+  },
+  "$id": "https://diaugeia.ai/schema/run_record.schema.json",
+  "additionalProperties": false,
+  "description": "One result = one (model x dataset x seed), folded over horizons.",
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/RunConfigRef"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ISO-8601 UTC timestamp.",
+      "title": "Created At"
+    },
+    "dataset_id": {
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "env": {
+      "$ref": "#/$defs/RunEnv"
+    },
+    "mode": {
+      "enum": [
+        "time_series",
+        "spatiotemporal",
+        "covariate"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "record_id": {
+      "description": "Stable id, e.g. '{model}__{dataset}__seed{seed}'.",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/HorizonResult"
+      },
+      "minItems": 1,
+      "title": "Results",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "seeds": {
+      "description": "All seeds if aggregated.",
+      "items": {
+        "type": "integer"
+      },
+      "title": "Seeds",
+      "type": "array"
+    },
+    "track": {
+      "enum": [
+        "time_series",
+        "spatiotemporal",
+        "covariate",
+        "realtime"
+      ],
+      "title": "Track",
+      "type": "string"
+    }
+  },
+  "required": [
+    "record_id",
+    "model",
+    "dataset_id",
+    "track",
+    "mode",
+    "seed",
+    "results",
+    "config"
+  ],
+  "title": "RunRecord",
+  "type": "object",
+  "x-tsf-schema-version": "1.1.0"
+}

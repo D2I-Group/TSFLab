@@ -1,0 +1,104 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AdaMamba"
+tags = ["ssm", "mamba", "frequency", "patch", "multi-scale", "gating", "channel-independent", "normalization"]
+fits = ["multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "AdaMamba: Adaptive Frequency-Gated Mamba for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2604.23239"
+venue = "arXiv"
+year = 2026
+
+[code]
+url = "https://github.com/XDjiang25/AdaMamba"
+revision = "8f10f4dc88a6d06dd3ac8354ca757fd2893773a4"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/XDjiang25/AdaMamba/blob/8f10f4dc88a6d06dd3ac8354ca757fd2893773a4/models/AdaMamba.py", "https://github.com/XDjiang25/AdaMamba/blob/8f10f4dc88a6d06dd3ac8354ca757fd2893773a4/layers/Embed.py", "https://github.com/XDjiang25/AdaMamba/blob/8f10f4dc88a6d06dd3ac8354ca757fd2893773a4/layers/RevIN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:adaptive-frequency-gated-ssm"
+channel = "local:conv1d-interaction-encoding"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; sizes RevIN and the Conv1d interaction over the variable axis" }
+patch_lens = { from = "seq_len", rule = "every patch length must lie in [1, seq_len]; the default 96/18/9 needs seq_len >= 96" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `8f10f4dc`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (15), (18), (19) vs `models/AdaMamba.py` `SFMMBlock.forward`"
+what = "the paper conditions the output and forgetting gates on the recurrent output `z_{m-1}`, the code on `proxy_z`, the previous input token (`torch.roll` of `x`, zero at step 0)."
+resolution = "follow the code (gates computed before the scan)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (9)-(11) vs `SFMMBlock.forward`"
+what = "the paper drives the state with `B_m u_m^omega` (`B_m` in `R^{S x 1}`), the code with `sigmoid(W_g z + V_g x) * tanh(W_i z + V_i x)` per `(d, S)` cell times `cos`/`sin`."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (14)-(16) and Algorithm 1 lines 17-18, 23 vs `SFMMBlock.forward`"
+what = "the paper output `y_m = C_m E_m + D^u u_m + D^y y_{m-1}` gated by `g_m` (`S x V`) has no counterpart; the code sums `sigmoid(U_o . E + V_o . x + W_o z + b_o)` (one gate per frequency) times `tanh(W_z E + b_z)` over frequencies, with no `D` terms."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 lines 10-11 vs `SFMMBlock.forward` (`times`)"
+what = "the paper modulates with `cos(omega m)`, the code with `cos(omega m / M)` over the concatenated multi-scale sequence."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3) vs `Model.__init__`/`forward` and `run_longExp.py` (`--beta` default 1)"
+what = "the paper's learnable `alpha` weights the convolution; the code's `beta` weights the input and starts at 1, so training starts from the unmixed input."
+resolution = "`beta = 1 - alpha`, initialised to 1."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (6)-(8)"
+what = "the paper does not say that `omega_base` is trained or that `omega` is clipped; the code makes it an `nn.Parameter` and applies `clamp(min=0)`."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3.2 (stride `s~`) vs `layers/Embed.py` `PatchEmbeddingNG`"
+what = "padding and patch count are not given; the code right-pads by `stride` with replication, giving `(L - P) // s + 2` patches per scale."
+resolution = "follow the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`SFMMBlock.reset_parameters`"
+what = "initialisation is chosen by parameter name, so `U_o`, `V_o`, `W_z` (names without \"weight\") keep `randn` while the unused `freq_weights` is reinitialised, and the `isinstance(param, nn.Linear)` branch can never run."
+resolution = "reproduce the effective initialisation (Linear weights Xavier gain 0.1, zero biases, raw output parameters standard normal)."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/AdaMamba.py`"
+what = "dead parameters and computations (`phi`/`U_o_phi`/`u_term_phi`, `freq_weights`, `freq_attn`, `proj`, `alpha`, `gama`, `dropoutlayer`) are built or computed but never affect the output."
+resolution = "omitted."
+
+[[issues]]
+kind = "unreleased"
+where = "`scripts/`"
+what = "only `AdaMamba_ETTh1.sh` is shipped, and it actually trains ETTm1 (`data_path_name=ETTm1.csv`) at horizon 96; `Readme.md` points to a non-existent `scripts/AdaMamba_ETTm1.sh`; settings for the other datasets and horizons are not released."
+resolution = "defaults from that script and the `run_longExp.py` parser."

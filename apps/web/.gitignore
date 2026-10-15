@@ -1,0 +1,18 @@
+node_modules/
+.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+__pycache__/
+*.pyc
+
+# Fetched from board/ of Diaugeia/TSFLab-Checkpoints at dev/build time
+# (pipeline/fetch_board.py); results are not kept in Git.
+/data/leaderboard.json
+/data/model-meta.json
+/public/visualization_data.json
+
+# HF snapshot_download metadata
+/submissions/.cache/
+/submissions/.gitattributes

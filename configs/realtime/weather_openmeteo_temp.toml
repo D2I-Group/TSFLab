@@ -1,0 +1,107 @@
+# Hourly 2 m air temperature at ~80 US and European cities from Open-Meteo.
+# One variable per track keeps every channel on one scale and one unit (deg C).
+[track]
+id = "weather_openmeteo_temp"
+tz = "UTC"
+title = "Open-Meteo hourly temperature, US and EU cities"
+mode = "spatiotemporal"
+freq = "h"
+seq_len = 168
+horizon = 24
+submission_hours = 24
+seasonal_period = 24
+min_coverage = 0.9
+history_days = 365
+
+[source]
+kind = "openmeteo"
+variable = "temperature_2m"
+lag_hours = 3               # the newest model hours are forecasts, not analyses
+sites = [
+  ["new_york", 40.71, -74.01],
+  ["los_angeles", 34.05, -118.24],
+  ["chicago", 41.88, -87.63],
+  ["houston", 29.76, -95.37],
+  ["phoenix", 33.45, -112.07],
+  ["philadelphia", 39.95, -75.17],
+  ["san_antonio", 29.42, -98.49],
+  ["san_diego", 32.72, -117.16],
+  ["dallas", 32.78, -96.80],
+  ["san_jose", 37.34, -121.89],
+  ["austin", 30.27, -97.74],
+  ["jacksonville", 30.33, -81.66],
+  ["columbus", 39.96, -83.00],
+  ["charlotte", 35.23, -80.84],
+  ["indianapolis", 39.77, -86.16],
+  ["san_francisco", 37.77, -122.42],
+  ["seattle", 47.61, -122.33],
+  ["denver", 39.74, -104.99],
+  ["washington_dc", 38.91, -77.04],
+  ["boston", 42.36, -71.06],
+  ["el_paso", 31.76, -106.49],
+  ["nashville", 36.16, -86.78],
+  ["detroit", 42.33, -83.05],
+  ["oklahoma_city", 35.47, -97.52],
+  ["portland_or", 45.52, -122.68],
+  ["las_vegas", 36.17, -115.14],
+  ["memphis", 35.15, -90.05],
+  ["louisville", 38.25, -85.76],
+  ["baltimore", 39.29, -76.61],
+  ["milwaukee", 43.04, -87.91],
+  ["albuquerque", 35.08, -106.65],
+  ["tucson", 32.22, -110.97],
+  ["fresno", 36.74, -119.79],
+  ["sacramento", 38.58, -121.49],
+  ["kansas_city", 39.10, -94.58],
+  ["atlanta", 33.75, -84.39],
+  ["miami", 25.76, -80.19],
+  ["minneapolis", 44.98, -93.27],
+  ["new_orleans", 29.95, -90.07],
+  ["salt_lake_city", 40.76, -111.89],
+  ["honolulu", 21.31, -157.86],
+  ["anchorage", 61.22, -149.90],
+  ["london", 51.51, -0.13],
+  ["paris", 48.86, 2.35],
+  ["berlin", 52.52, 13.40],
+  ["madrid", 40.42, -3.70],
+  ["rome", 41.90, 12.50],
+  ["vienna", 48.21, 16.37],
+  ["hamburg", 53.55, 9.99],
+  ["warsaw", 52.23, 21.01],
+  ["budapest", 47.50, 19.04],
+  ["barcelona", 41.39, 2.17],
+  ["munich", 48.14, 11.58],
+  ["milan", 45.46, 9.19],
+  ["prague", 50.08, 14.44],
+  ["sofia", 42.70, 23.32],
+  ["brussels", 50.85, 4.35],
+  ["amsterdam", 52.37, 4.90],
+  ["stockholm", 59.33, 18.07],
+  ["oslo", 59.91, 10.75],
+  ["copenhagen", 55.68, 12.57],
+  ["helsinki", 60.17, 24.94],
+  ["dublin", 53.35, -6.26],
+  ["lisbon", 38.72, -9.14],
+  ["athens", 37.98, 23.73],
+  ["bucharest", 44.43, 26.10],
+  ["zagreb", 45.81, 15.98],
+  ["rotterdam", 51.92, 4.48],
+  ["lyon", 45.76, 4.84],
+  ["marseille", 43.30, 5.37],
+  ["toulouse", 43.60, 1.44],
+  ["valencia", 39.47, -0.38],
+  ["seville", 37.39, -5.98],
+  ["naples", 40.85, 14.27],
+  ["turin", 45.07, 7.69],
+  ["cologne", 50.94, 6.96],
+  ["frankfurt", 50.11, 8.68],
+  ["stuttgart", 48.78, 9.18],
+  ["krakow", 50.06, 19.94],
+  ["gdansk", 54.35, 18.65],
+  ["edinburgh", 55.95, -3.19],
+  ["manchester", 53.48, -2.24],
+]
+
+[bootstrap]
+kind = "source"             # Historical Forecast API: analysis hours, from 2022
+days = 365

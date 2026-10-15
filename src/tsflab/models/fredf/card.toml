@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FreDF"
+tags = ["mlp", "frequency", "frequency-fusion", "normalization", "channel-mixing", "revin", "marks"]
+fits = ["multi-periodic", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Not All Frequencies Are Created Equal: Towards a Dynamic Fusion of Frequencies in Time-Series Forecasting"
+url = "https://arxiv.org/abs/2407.12415"
+venue = "ACM MM 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Zh-XY22/FreDF"
+revision = "43ba9576f8ef7ccc75e046c8deca08baa7eb0384"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Zh-XY22/FreDF/blob/43ba9576f8ef7ccc75e046c8deca08baa7eb0384/models/FreDF.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:per-frequency-transfer-fusion"
+channel = "local:feature-embedding-mixing"
+head = "local:horizon-mlp-projection"
+loss = "none"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+freq = { from = "frequency", rule = "calendar-feature frequency; only hourly (h) is supported" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/FreDF.py` `ConcatenationWithLearnableCoefficient`"
+what = "the fusion weights are re-softmaxed in place on every forward pass (`self.weights.data = F.softmax(self.weights, dim=0).data`), outside autograd, so the stored parameter is repeatedly renormalized instead of being differentiated through a softmax."
+resolution = "unconstrained logits with `softmax` applied in the forward pass, so the weights stay on the simplex and receive gradients."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/FreDF.py` `FFT_for_Decomp`"
+what = "`torch.fft.irfft` is called without a length, so the output has `2 * (bins - 1)` steps, which equals `seq_len + pred_len` only when that sum is even."
+resolution = "the length is passed explicitly."
+
+[[issues]]
+kind = "underspecified"
+where = "Algorithm 1 and Eqs. 6, 14"
+what = "the paper does not describe the input path (instance normalization, `Linear(seq_len, seq_len)` + ReLU + dropout, zero padding by the horizon, `timeF` data embedding over history and horizon marks), the residual form of each block, the output head, or whether the per-bin complex maps have a bias."
+resolution = "taken from the official code; the per-bin maps are bias-free `d_model x d_model` matrices."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "read only for structure clarification, nothing copied; license recorded as `NOASSERTION`."

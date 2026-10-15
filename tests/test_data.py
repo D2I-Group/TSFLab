@@ -1,0 +1,859 @@
+"""tsflab.data: profiles, loaders, converters, and calendar marks (synthetic data only)."""
+
+from __future__ import annotations
+
+import json
+import sys
+import zipfile
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from tsflab.catalog.cards.metadata import model_records
+from tsflab.catalog.components import COMPONENT_CATALOG
+from tsflab.catalog.registry.losses import LOSS_NAME_MAP
+from tsflab.cli.commands import dataset_analyze
+from tsflab.cli.commands import dataset_characteristics as dc
+from tsflab.cli.commands.convert_traffic import split_windows, train_range_stats
+from tsflab.data import profile as prof
+from tsflab.data.calendar import node_calendar, time_marks
+from tsflab.data.datasets.custom import Dataset_Custom
+from tsflab.data.datasets.gift_eval import (
+    Dataset_GiftEval,
+    _build_stamp,
+    _norm_freq,
+    _pandas_freq,
+)
+from tsflab.data.datasets.solar import Dataset_Solar
+from tsflab.data.prepare.ultratraffic import convert
+from tsflab.data.ultratraffic_store import load_panel
+
+# ---------------------------------------------------------------------------
+# Dataset profile (tsf data analyze)
+# ---------------------------------------------------------------------------
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+PERIOD = 24
+
+
+def _series(n=2400, period=PERIOD, slope=0.0, season=1.0, noise=0.3, channels=3, seed=0, shared=False):
+    rng = np.random.default_rng(seed)
+    t = np.arange(n)
+    base = rng.normal(size=(n, channels)) * noise
+    wave = season * np.sin(2 * np.pi * t / period)[:, None]
+    out = base + slope * t[:, None] / n * 10 + wave
+    if shared:
+        out = out + 3 * rng.normal(size=(n, 1)).cumsum(axis=0) / 30
+    return out
+
+
+def _split(x, ratio=(0.7, 0.1, 0.2)):
+    a, b = int(ratio[0] * len(x)), int((ratio[0] + ratio[1]) * len(x))
+    return {"train": x[:a], "val": x[a:b], "test": x[b:]}
+
+
+def _profile(x, **kw):
+    return prof.build_profile(_split(x), name="syn", frequency=prof.infer_frequency(None), **kw)
+
+
+def test_recovers_period_and_seasonal_strength():
+    p = _profile(_series())
+    top = p["train"]["periods"]["dominant"][0]
+    assert abs(top["period"] - PERIOD) <= 1
+    assert p["train"]["seasonal"]["strength"] > 0.8
+    assert p["train"]["periods"]["forecastability"]["score"] > 0.5
+    assert any(c["value"] % PERIOD == 0 for c in p["lookback_candidates"])
+
+
+def test_trend_strength_separates_trend_from_flat():
+    trended = _profile(_series(slope=1.0, season=0.2, noise=0.1))
+    flat = _profile(_series(slope=0.0, season=1.0, noise=0.3))
+    assert trended["train"]["trend"]["strength"] > 0.8
+    assert flat["train"]["trend"]["strength"] < trended["train"]["trend"]["strength"]
+    assert trended["train"]["stationarity"]["mean_drift"] > flat["train"]["stationarity"]["mean_drift"]
+
+
+def test_white_noise_has_no_structure():
+    p = _profile(np.random.default_rng(1).normal(size=(2400, 3)))
+    assert p["train"]["seasonal"]["strength"] < 0.3
+    assert p["train"]["periods"]["forecastability"]["score"] < 0.2
+    assert "strong-seasonality" not in {r["id"] for r in prof.evaluate_rules(p)["fired"]}
+
+
+def test_cross_channel_structure():
+    rng = np.random.default_rng(2)
+    common = rng.normal(size=(2400, 1)).cumsum(axis=0)
+    correlated = common + 0.05 * rng.normal(size=(2400, 6))
+    independent = rng.normal(size=(2400, 6))
+    hi = _profile(correlated)["train"]["cross_channel"]
+    lo = _profile(independent)["train"]["cross_channel"]
+    assert hi["mean_abs_corr"] > 0.9 and lo["mean_abs_corr"] < 0.2
+    assert hi["pc1_share"] > lo["pc1_share"]
+    assert _profile(_series(channels=1))["train"]["cross_channel"] == {"applicable": False}
+
+
+def test_zero_inflation_missingness_and_outliers():
+    x = _series(channels=2)
+    x[::2] = 0.0
+    x[5, 0] = np.nan
+    x[100, 1] = 500.0
+    q = _profile(x)["train"]["quality"]
+    assert q["zero_fraction"] > 0.4 and q["missing_fraction"] > 0
+    assert _profile(x)["train"]["anomalies"]["outlier_fraction_5mad"] is not None
+
+
+def test_shift_is_split_aware_and_test_is_diagnostic_only():
+    x = _series()
+    splits = _split(x)
+    shifted_val = {**splits, "val": splits["val"] + 4.0}
+    p = prof.build_profile(shifted_val, name="s")
+    assert p["shift"]["train_to_val"]["mean_shift_median"] > 2.0
+    assert "diagnostic-only" in p["shift"]["train_to_test"]["use"]
+    assert prof.lookup(p, "shift.train_to_test.mean_shift_median") is not None
+
+
+def test_changing_test_split_never_changes_recommendations_or_lookbacks():
+    splits = _split(_series(seed=3))
+    base = prof.build_profile(splits, name="a")
+    tampered = prof.build_profile({**splits, "test": splits["test"] * 50 + 100}, name="a")
+    assert prof.evaluate_rules(base) == prof.evaluate_rules(tampered)
+    assert base["lookback_candidates"] == tampered["lookback_candidates"]
+    assert base["train"] == tampered["train"]
+
+
+def test_lookbacks_respect_capacity():
+    p = _profile(_series(n=400))
+    assert max(c["value"] for c in p["lookback_candidates"]) <= 400 * 0.7 // 4
+
+
+def test_too_short_train_is_rejected():
+    with pytest.raises(ValueError):
+        prof.build_profile({"train": np.zeros((10, 2)), "val": np.zeros((4, 2)), "test": np.zeros((4, 2))}, name="x")
+
+
+def test_frequency_inference_and_period_tags():
+    import pandas as pd
+
+    f = prof.infer_frequency(pd.date_range("2020-01-01", periods=50, freq="10min"))
+    assert f["label"] == "10min" and f["steps_per_day"] == 144.0
+    assert prof._period_tag(143.7, 144.0) == "daily"
+    assert prof._period_tag(1008.0, 144.0) == "weekly"
+
+
+def _catalog_names():
+    return {str(r["name"]) for r in model_records(ROOT)}
+
+
+def test_rule_table_names_exist_and_metrics_are_decision_safe():
+    table = prof.load_rules()
+    components, models = set(COMPONENT_CATALOG.names()), _catalog_names()
+    slots = set(table["slot"])
+    assert len({r["id"] for r in table["rule"]}) == len(table["rule"])
+
+    def check(option: str, where: str):
+        kind, _, value = option.partition(":")
+        known = {"component": components, "model": models, "loss": set(LOSS_NAME_MAP)}
+        assert kind in known and value in known[kind], f"{where}: {option}"
+
+    for name, spec in table["slot"].items():
+        for option in spec["defaults"]:
+            check(option, f"slot {name}")
+    for rule in table["rule"]:
+        assert rule["metric"].startswith(prof.DECISION_PREFIXES), rule["id"]
+        assert "train_to_test" not in rule["metric"], rule["id"]
+        assert rule["op"] in prof._OPS
+        assert set(rule["components"]) <= components, rule["id"]
+        assert set(rule["models"]) <= models, rule["id"]
+        for slot, options in rule.get("slots", {}).items():
+            assert slot in slots, rule["id"]
+            for option in options:
+                check(option, rule["id"])
+
+
+def test_every_rule_metric_resolves_in_a_real_profile():
+    p = _profile(_series())
+    for rule in prof.load_rules()["rule"]:
+        assert prof.lookup(p, rule["metric"]) is not None, rule["metric"]
+
+
+def test_seasonal_series_fires_seasonality_rule_and_promotes_slots():
+    p = _profile(_series())
+    result = prof.evaluate_rules(p)
+    assert "strong-seasonality" in {r["id"] for r in result["fired"]}
+    promoted = {o["option"] for o in result["slots"]["decomposition"]["promoted"]}
+    assert "component:series_decomposition" in promoted
+    assert "# Dataset profile" in prof.render_markdown({**p, "recommendations": result}, result)
+
+
+def test_analyze_cli_on_csv_writes_json_and_markdown(tmp_path, capsys):
+    import pandas as pd
+
+    x = _series(n=1500, channels=2)
+    frame = pd.DataFrame(x, columns=["a", "b"])
+    frame.insert(0, "date", pd.date_range("2021-01-01", periods=len(x), freq="h"))
+    path = tmp_path / "syn.csv"
+    frame.to_csv(path, index=False)
+    out = tmp_path / "out"
+    assert dataset_analyze.main(["--path", str(path), "--out", str(out), "--json"]) == 0
+    report = json.loads((out / "profile.json").read_text())
+    assert "train_to_test" not in report["shift"]
+    assert "test" not in report["split"]
+    assert report["dataset"]["frequency"]["label"] == "1h"
+    assert abs(report["train"]["periods"]["dominant"][0]["period"] - PERIOD) <= 1
+    assert report["train"]["periods"]["dominant"][0]["tag"] == "daily"
+    assert (out / "profile.md").read_text().startswith("# Dataset profile")
+    with pytest.raises(SystemExit):
+        dataset_analyze.main([str(path), "--path", str(path)])
+    rows = report["tfb_characteristics"]["rows"]
+    assert report["tfb_characteristics"]["split"] == "train" and rows[0]["scope"] == "dataset"
+    assert (out / "characteristics_train.csv").read_text().startswith("scope,length")
+    with pytest.raises(SystemExit):  # sample windows need a loader
+        dataset_analyze.main(["--path", str(path), "--out", str(out), "--plot"])
+
+
+def test_analyze_covers_inspect_and_plot_for_a_preset(tmp_path, capfd) -> None:
+    from tsflab.cli import main as cli
+    from tsflab.core.paths import repository_root
+
+    if not (repository_root() / "dataset" / "ETT-small" / "ETTh1.csv").exists():
+        pytest.skip("ETTh1 data is not available")
+    out = tmp_path / "etth1"
+    assert (
+        dataset_analyze.main(["etth1", "--out", str(out), "--plot", "--per-channel", "--num-samples", "1", "--json"])
+        == 0
+    )
+    report = json.loads((out / "profile.json").read_text())
+    assert [row["scope"] for row in report["tfb_characteristics"]["rows"]][:2] == ["dataset", "ch0"]
+    assert (out / "samples_train.png").stat().st_size > 0
+    # --config and the hidden --dataset spelling name the same preset
+    assert dataset_analyze.main(["--config", "configs/datasets/etth1.toml", "--out", str(out)]) == 0
+    assert dataset_analyze.main(["--dataset", "etth1", "--out", str(out)]) == 0
+    capfd.readouterr()
+    csv = tmp_path / "inspect.csv"
+    assert cli.main(["data", "inspect", "--config", "configs/datasets/etth1.toml", "--out", str(csv)]) == 0
+    assert "`tsf data inspect` is replaced by `tsf data analyze`; forwarding" in capfd.readouterr().err
+    assert csv.read_text().startswith("scope,length")
+
+
+# ---------------------------------------------------------------------------
+# Custom CSV loader
+# ---------------------------------------------------------------------------
+
+
+def _csv(tmp_path):
+    n = 200
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str),
+            "OT": np.arange(n, dtype=float),  # target not in the last position
+            "a": np.ones(n),
+            "b": np.full(n, 2.0),
+        }
+    )
+    frame.to_csv(tmp_path / "data.csv", index=False)
+    return str(tmp_path)
+
+
+def _load(root, features, target="OT"):
+    return Dataset_Custom(root, "data.csv", (8, 0, 4), features=features, target=target, scale=False)
+
+
+def test_ms_moves_target_to_last_channel(tmp_path) -> None:
+    root = _csv(tmp_path)
+    ms = _load(root, "MS")
+    s = _load(root, "S")
+    assert np.allclose(ms.data[:, -1], s.data[:, 0])
+    assert ms.data.shape[1] == 3
+
+
+def test_missing_target_fails_with_a_clear_error(tmp_path) -> None:
+    with pytest.raises(ValueError, match="target column"):
+        _load(_csv(tmp_path), "S", target="missing")
+
+
+def test_missing_sentinels_are_imputed_causally_before_scaling(tmp_path) -> None:
+    n = 100
+    ot = np.arange(1, n + 1, dtype=float)
+    ot[[0, 1, 50, 51, 99]] = -9999  # leading, interior and trailing gaps
+    pd.DataFrame(
+        {"date": pd.date_range("2020-01-01", periods=n, freq="h").astype(str), "OT": ot, "a": np.ones(n)}
+    ).to_csv(tmp_path / "data.csv", index=False)
+    kw = dict(
+        root_path=str(tmp_path),
+        data_path="data.csv",
+        size=(8, 0, 4),
+        features="S",
+        target="OT",
+        split_ratio=(1.0, 0.0, 0.0),
+        scale=False,
+    )
+    raw = Dataset_Custom(**kw)
+    clean = Dataset_Custom(**kw, missing_sentinels=[-9999])
+    assert raw.data.min() == -9999
+    out = clean.data[:, 0]
+    assert out[0] == out[1] == 0.0  # no future observation fills leading gaps
+    assert out[50] == out[51] == 50.0  # forward fill from the past, never from the future
+    assert out[99] == 99.0
+    assert out.min() == 0.0
+    scaled = Dataset_Custom(**{**kw, "scale": True}, missing_sentinels=[-9999])
+    assert abs(scaled.data).max() < 3
+
+
+# ---------------------------------------------------------------------------
+# Solar loader
+# ---------------------------------------------------------------------------
+
+
+def _solar_file(tmp_path, rows=300):
+    path = tmp_path / "s.txt"
+    np.savetxt(path, np.random.rand(rows, 2), delimiter=",")
+    return str(tmp_path), "s.txt"
+
+
+def test_default_marks_are_constant(tmp_path):
+    root, name = _solar_file(tmp_path)
+    ds = Dataset_Solar(root, name, (8, 4, 4), "train", "M", "0")
+    assert np.unique(ds.time_stamp[:, 4]).size == 1
+
+
+def test_start_freq_synthesises_calendar(tmp_path):
+    root, name = _solar_file(tmp_path)
+    ds = Dataset_Solar(root, name, (8, 4, 4), "train", "M", "0", start="2006-01-01 00:00", freq="10min")
+    assert ds.time_stamp[0].tolist() == [2006, 1, 1, 6, 0, 0]
+    assert ds.time_stamp[7].tolist()[-2:] == [1, 10]
+
+
+# ---------------------------------------------------------------------------
+# GIFT-Eval loader
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("stored", "start", "expected"),
+    [
+        ("H", None, "h"),
+        ("5T", None, "5min"),
+        ("15T", None, "15min"),
+        ("10T", None, "10min"),
+        ("10S", None, "10s"),
+        ("D", None, "D"),
+        ("W-FRI", None, "W-FRI"),
+        ("M", "2020-01-31", "ME"),
+        ("M", "2020-01-01", "MS"),
+        ("Q-DEC", "1750-03-31", "QE-DEC"),
+        ("Q-DEC", "1750-01-01", "QS-JAN"),
+        ("Q-DEC", "1750-02-01", "QE-DEC"),
+        ("A-DEC", "1750-12-31", "YE-DEC"),
+        ("A-DEC", "1750-01-01", "YS-JAN"),
+        ("h", None, "h"),
+        ("15min", None, "15min"),
+        ("QE-DEC", "1750-01-01", "QE-DEC"),
+    ],
+)
+def test_stored_frequencies_map_to_pandas3_aliases(stored, start, expected) -> None:
+    ts = pd.Timestamp(start) if start else None
+    assert _pandas_freq(stored, ts) == expected
+    pd.date_range(start=ts or "2020-01-01", periods=3, freq=expected)  # accepted by pandas
+
+
+@pytest.mark.parametrize(
+    ("freq", "code"),
+    [
+        ("H", "H"),
+        ("h", "H"),
+        ("5T", "T"),
+        ("15min", "T"),
+        ("10S", "S"),
+        ("M", "M"),
+        ("ME", "M"),
+        ("Q-DEC", "Q"),
+        ("QE-DEC", "Q"),
+        ("A-DEC", "A"),
+        ("YE-DEC", "A"),
+        ("W-SUN", "W"),
+        ("D", "D"),
+    ],
+)
+def test_norm_freq_keeps_the_legacy_short_codes(freq, code) -> None:
+    assert _norm_freq(freq) == code
+
+
+def test_build_stamp_starts_at_the_stored_start() -> None:
+    stamp = _build_stamp(pd.Timestamp("1750-01-01"), "M", 3)
+    assert stamp[:, 1].tolist() == [1, 2, 3] and stamp[:, 2].tolist() == [1, 1, 1]
+    stamp = _build_stamp(pd.Timestamp("2020-01-01 00:00"), "15T", 3)
+    assert stamp[:, 5].tolist() == [0, 15, 30]
+
+
+def _gift_file(tmp_path: Path, name: str, rows: list[dict]) -> Path:
+    hf_datasets = pytest.importorskip("datasets")
+    hf_datasets.Dataset.from_list(rows).save_to_disk(str(tmp_path / name))
+    return tmp_path
+
+
+def test_short_series_restaurant_style_start_and_inspection(tmp_path: Path) -> None:
+    # Start stored as a one-element datetime64 array (as in GIFT-EVAL restaurant),
+    # legacy hourly freq, and series much shorter than the base seq_len.
+    rng = np.random.default_rng(0)
+    rows = [
+        {
+            "item_id": f"s{i}",
+            "start": np.array(["2016-01-13T00:00:00"], dtype="datetime64[s]"),
+            "freq": "H",
+            "target": rng.normal(size=120 + 10 * i).astype(np.float32),
+        }
+        for i in range(3)
+    ]
+    root = _gift_file(tmp_path, "tiny", rows)
+    size = (512, 0, 12)
+    train = Dataset_GiftEval(str(root), "tiny", size, flag="train")
+    assert len(train) == 0  # no window fits seq_len=512
+    series = train.series_array()
+    assert series.shape[1] == 3 and series.shape[0] > 0  # still inspectable
+
+    config = dc._PartialConfig(
+        dataset=dc._DatasetConfig(name="gift_eval", alias=None, path=str(root), id="tiny", params={}),
+        task=dc._TaskConfig(seq_len=512, label_len=0, pred_len=12, features="M", seq_len_from_preset=False),
+    )
+    for split in ("train", "val", "test"):
+        dataset, used = dc._build_dataset_for_inspect(config, split)
+        assert used.task.seq_len == 12 and len(dataset) > 0
+        assert dc._extract_series(dataset).shape[1] == 3
+
+    pinned = dc._PartialConfig(
+        dataset=config.dataset,
+        task=dc._TaskConfig(seq_len=512, label_len=0, pred_len=12, features="M", seq_len_from_preset=True),
+    )
+    dataset, used = dc._build_dataset_for_inspect(pinned, "train")
+    assert used.task.seq_len == 512 and len(dataset) == 0  # an explicit preset value is kept
+
+
+def test_extract_series_reduces_and_caps_channels() -> None:
+    class Wide:
+        def series_array(self):
+            return np.ones((10, dc._MAX_CHANNELS + 5, 3))
+
+    assert dc._extract_series(Wide()).shape == (10, dc._MAX_CHANNELS)
+
+    class Neither:
+        pass
+
+    with pytest.raises(RuntimeError, match="series_array"):
+        dc._extract_series(Neither())
+
+
+# ---------------------------------------------------------------------------
+# UltraTraffic store (history of the real-time traffic tracks)
+# ---------------------------------------------------------------------------
+
+
+def _year_csv(year: int, stations: list[str]) -> bytes:
+    index = pd.date_range(f"{year}-01-01", periods=24 * 20, freq="h")
+    t = np.arange(len(index))[:, None]
+    frame = pd.DataFrame(
+        100 + 10 * np.sin(2 * np.pi * t / 24) + np.arange(len(stations))[None, :], index=index, columns=stations
+    )
+    frame.index.name = "date"
+    return frame.to_csv().encode()
+
+
+def _archive(tmp_path: Path) -> Path:
+    path = tmp_path / "UltraTraffic_CL.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        for region, short in (("PEMS_SB", "SB"), ("PEMS_NC", "NC")):
+            zf.writestr(f"UltraTraffic_CL/{region}/{short}_Static/2022.csv", _year_csv(2022, ["801", "802"]))
+            zf.writestr(f"UltraTraffic_CL/{region}/{short}_Static/2023.csv", _year_csv(2023, ["801", "803"]))
+            zf.writestr(f"UltraTraffic_CL/{region}/{short}_CL/2023.csv", _year_csv(2023, ["801", "803"]))
+            zf.writestr(f"UltraTraffic_CL/{region}/{short}_CL/2023_added.csv", _year_csv(2023, ["803"]))
+    return path
+
+
+def test_converter_skips_duplicates_and_redundant_cl_files(tmp_path: Path) -> None:
+    manifest = convert(_archive(tmp_path), tmp_path / "store")
+    assert set(manifest["regions"]) == {"PEMS_SB"}  # PEMS_NC duplicates PEMS_SAC and is skipped
+    files = manifest["regions"]["PEMS_SB"]["files"]
+    assert set(files) == {"static/2022.parquet", "static/2023.parquet", "cl/2023_added.parquet"}
+    assert files["static/2023.parquet"]["stations"] == 2
+
+
+def test_panel_station_policies(tmp_path: Path) -> None:
+    convert(_archive(tmp_path), tmp_path / "store")
+    root = str(tmp_path / "store")
+    last = load_panel(root, "PEMS_SB", [2022, 2023], "static", "last")
+    inter = load_panel(root, "PEMS_SB", [2022, 2023], "static", "intersection")
+    assert list(last.columns) == ["801", "803"] and last["803"].iloc[:10].isna().all()
+    assert list(inter.columns) == ["801"]
+
+
+def test_calendar_covariates() -> None:
+    index = pd.date_range("2026-01-05", periods=3, freq="6h")  # a Monday
+    features = node_calendar(index, 4)
+    assert features.shape == (3, 4, 2)
+    assert features[1, 0, 0] == 0.25 and features[0, 0, 1] == 0.0
+
+
+def test_store_reader_is_torch_free() -> None:
+    import subprocess
+
+    code = "import sys, tsflab.data.ultratraffic_store, tsflab.data.calendar; print('torch' in sys.modules)"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.strip()
+    assert out == "False"
+
+
+# ---------------------------------------------------------------------------
+# Calendar marks
+# ---------------------------------------------------------------------------
+
+
+def test_time_marks_layout():
+    index = pd.date_range("2023-01-02 05:00", periods=3, freq="h")  # a Monday
+    marks = time_marks(index)
+    assert marks.shape == (3, 6)
+    assert marks[0].tolist() == [2023, 1, 2, 0, 5, 0]
+    assert marks[2, 4] == 7
+
+
+# ---------------------------------------------------------------------------
+# Traffic converter
+# ---------------------------------------------------------------------------
+
+
+def test_stats_ignore_validation_and_test_rows():
+    t = 200
+    values = np.zeros((t, 3, 1), np.float32)
+    values[150:] = 1000.0  # lies beyond every training window
+    train, _, _ = split_windows(t, 12, 12, (0.7, 0.1, 0.2))
+    mean, std, train_end = train_range_stats(values, train, 12)
+    assert train_end <= 150
+    assert float(mean[0]) == 0.0 and float(std[0]) == 0.0
+
+
+def test_default_horizon_is_pems_12(monkeypatch, tmp_path):
+    import sys
+
+    from tsflab.cli.commands import convert_traffic
+
+    np.save(tmp_path / "v.npy", np.random.rand(100, 4).astype(np.float32))
+    monkeypatch.setattr(sys, "argv", ["x", "--values", str(tmp_path / "v.npy"), "--output-dir", str(tmp_path / "out")])
+    convert_traffic.main()
+    bundle = np.load(tmp_path / "out" / "his.npz")
+    assert int(bundle["seq_len"]) == 12 and int(bundle["pred_len"]) == 12
+
+
+# ---------------------------------------------------------------------------
+# Dataset configuration and registry
+# ---------------------------------------------------------------------------
+
+
+def test_dataset_default_uses_the_ignored_local_data_layer() -> None:
+    from tsflab.experiments.config.schema.dataset import DatasetConfig
+
+    fields = DatasetConfig.model_fields
+    assert fields["path"].default == ""
+    assert "root_path" not in fields and "data_path" not in fields
+    with pytest.raises(ValueError):
+        DatasetConfig.model_validate({"name": "custom", "root_path": "dataset", "data_path": "x.csv"})
+
+
+def test_dataset_storage_contract_resolves_path_and_optional_id() -> None:
+    from tsflab.catalog.registry.datasets import (
+        DATASET_REGISTRY,
+        register_dataset_by_name,
+    )
+
+    for name in ("weather", "synthetic_st", "gift_eval"):
+        register_dataset_by_name(name)
+    assert DATASET_REGISTRY.get("weather").resolve_location("./dataset/weather/weather.csv", None) == (
+        "./dataset/weather",
+        "weather.csv",
+    )
+    assert DATASET_REGISTRY.get("synthetic_st").resolve_location("", None) == ("", "")
+    assert DATASET_REGISTRY.get("gift_eval").resolve_location("./dataset/gift_eval", "electricity/15T") == (
+        "./dataset/gift_eval",
+        "electricity/15T",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Source fetchers (tsf data prepare --from tfb|dcrnn), no network
+# ---------------------------------------------------------------------------
+
+
+def _tfb_long(rotate: bool = False) -> pd.DataFrame:
+    dates = ["2020-01-01", "2020-01-02", "2020-01-03"]
+    rows = []
+    for j, (col, base) in enumerate((("b", 10.0), ("a", 20.0), ("z", 30.0))):
+        labels = dates[-j:] + dates[:-j] if rotate and j else dates
+        rows += [{"date": d, "data": base + i, "cols": col} for i, d in enumerate(labels)]
+    return pd.DataFrame(rows)
+
+
+def test_tfb_long_to_wide_keeps_first_appearance_order():
+    from tsflab.data.prepare.tfb import long_to_wide
+
+    wide = long_to_wide(_tfb_long())
+    assert list(wide.columns) == ["date", "b", "a", "z"]
+    assert wide["a"].tolist() == [20.0, 21.0, 22.0]
+    assert list(long_to_wide(_tfb_long(), rename_last_to_ot=True).columns) == ["date", "b", "a", "OT"]
+    with pytest.raises(ValueError, match="dates differ"):
+        long_to_wide(_tfb_long(rotate=True))
+    positional = long_to_wide(_tfb_long(rotate=True), positional=True)
+    assert positional["date"].tolist() == ["2020-01-01", "2020-01-02", "2020-01-03"]
+    assert positional["z"].tolist() == [30.0, 31.0, 32.0]
+    with pytest.raises(ValueError, match="ragged"):
+        long_to_wide(_tfb_long().iloc[:-1])
+
+
+def test_tfb_convert_verifies_member_and_output_digests(tmp_path):
+    import hashlib
+
+    from tsflab.data.prepare import tfb
+
+    payload = _tfb_long().to_csv(index=False).encode()
+    archive = tmp_path / "forecasting.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("forecasting/Toy.csv", payload)
+    wide = tfb.long_to_wide(_tfb_long()).to_csv(index=False).encode()
+    good = tfb.TFBSet("Toy", "toy", hashlib.sha256(payload).hexdigest(), hashlib.sha256(wide).hexdigest())
+    written = tfb.convert(archive, [good], tmp_path / "out")
+    assert written == [tmp_path / "out" / "Toy" / "Toy.csv"] and written[0].read_bytes() == wide
+    bad_output = tfb.TFBSet("Toy", "toy", good.member_sha256, "0" * 64)
+    with pytest.raises(ValueError, match="checksum mismatch for converted"):
+        tfb.convert(archive, [bad_output], tmp_path / "other")
+    assert not (tmp_path / "other" / "Toy" / "Toy.csv").exists()
+    with pytest.raises(ValueError, match="archive member"):
+        tfb.convert(archive, [tfb.TFBSet("Toy", "toy", "0" * 64, good.sha256)], tmp_path / "other")
+
+
+def test_tfb_sets_cover_script_class_presets():
+    from tsflab.data.prepare import tfb
+
+    assert {"fred_md", "nasdaq", "nyse", "wike2000"} <= {s.preset for s in tfb.SETS.values()}
+    assert [s.name for s in tfb.resolve(["FRED-MD", "nasdaq"])] == ["FRED-MD", "NASDAQ"]
+    with pytest.raises(ValueError, match="unknown TFB dataset"):
+        tfb.resolve(["m4"])
+    for item in tfb.SETS.values():
+        config = ROOT / "configs" / "datasets" / f"{item.preset}.toml"
+        assert f'"./dataset/{item.relative}"' in config.read_text(encoding="utf-8")
+
+
+def test_verify_sha256_raises_on_mismatch(tmp_path):
+    import hashlib
+
+    from tsflab.data.prepare.fetch import verify_sha256
+
+    path = tmp_path / "x.bin"
+    path.write_bytes(b"abc")
+    assert verify_sha256(path, hashlib.sha256(b"abc").hexdigest()) == path
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        verify_sha256(path, "0" * 64)
+
+
+def test_dcrnn_without_gdown_points_to_manual_download(tmp_path, monkeypatch, capsys):
+    from tsflab.data.prepare import dcrnn
+
+    monkeypatch.setenv("TSFLAB_CACHE", str(tmp_path))
+    monkeypatch.setitem(sys.modules, "gdown", None)
+    assert dcrnn.main(["--out", str(tmp_path / "metr_la")]) == 2
+    assert "--h5" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Official split protocol (tsflab.data.protocol, `tsf data splits`)
+# ---------------------------------------------------------------------------
+
+
+def _ranges(protocol):
+    return {flag: (r.start, r.own_start, r.end) for flag, r in protocol.splits.items()}
+
+
+def _hourly_csv(path: Path, rows: int) -> Path:
+    frame = pd.DataFrame(
+        {
+            "date": pd.date_range("2016-07-01", periods=rows, freq="h").astype(str),
+            "a": np.sin(np.arange(rows) / 24.0),
+            "OT": np.arange(rows, dtype=float),
+        }
+    )
+    frame.to_csv(path, index=False)
+    return path
+
+
+def test_split_borders_offset_val_and_test_by_seq_len() -> None:
+    from tsflab.data.protocol import split_borders, train_rows
+
+    assert split_borders(14400, (0.6, 0.2, 0.2), 96) == {
+        "train": (0, 8640),
+        "val": (8544, 11520),
+        "test": (11424, 14400),
+    }
+    assert split_borders(14400, (12, 4, 4)) == split_borders(14400, (0.6, 0.2, 0.2))
+    assert train_rows(100, (0.7, 0.1, 0.2)) == 70
+
+
+def test_etth1_protocol_truncates_to_14400_rows() -> None:
+    from tsflab.data.protocol import split_protocol
+
+    protocol = split_protocol("ETTh1", 96)  # loader name resolves to the preset
+    assert protocol.dataset == "etth1" and protocol.kind == "chronological"
+    assert protocol.rows_used == 14400 and protocol.row_limit == 14400
+    assert protocol.split_ratio == (0.6, 0.2, 0.2)
+    assert _ranges(protocol) == {"train": (0, 0, 8640), "val": (8544, 8640, 11520), "test": (11424, 11520, 14400)}
+    assert "[0, 8640)" in protocol.scaling
+    facts = protocol.facts()
+    assert "val [8640, 11520)" in facts["split borders"] and "tsf data splits etth1" in facts["protocol facts"]
+
+
+def test_ettm1_protocol_truncates_to_57600_rows() -> None:
+    from tsflab.data.protocol import split_protocol
+
+    protocol = split_protocol("ettm1", 336)
+    assert protocol.rows_used == 57600
+    assert _ranges(protocol) == {"train": (0, 0, 34560), "val": (34224, 34560, 46080), "test": (45744, 46080, 57600)}
+
+
+def test_custom_ratio_preset_on_an_explicit_file(tmp_path) -> None:
+    from tsflab.data.protocol import load_splits, split_protocol
+
+    path = _hourly_csv(tmp_path / "weather.csv", 100)
+    protocol = split_protocol("weather", 10, path=path)
+    assert protocol.split_ratio == (0.7, 0.1, 0.2) and protocol.row_limit is None
+    assert protocol.file_rows == protocol.rows_used == 100
+    assert _ranges(protocol) == {"train": (0, 0, 70), "val": (60, 70, 80), "test": (70, 80, 100)}
+    assert any("-9999" in note for note in protocol.notes)
+    arrays = load_splits("weather", 10, path=path, features="S")
+    loader = Dataset_Custom(
+        str(tmp_path),
+        "weather.csv",
+        (10, 0, 4),
+        flag="val",
+        features="S",
+        target="OT",
+        split_ratio=(0.7, 0.1, 0.2),
+        missing_sentinels=[-9999],
+    )
+    assert np.array_equal(arrays.val, loader.data)
+    assert [len(arrays[flag]) for flag in ("train", "val", "test")] == [70, 20, 30]
+
+
+def test_ett_protocol_and_arrays_on_a_raw_copy(tmp_path) -> None:
+    from tsflab.data.protocol import load_splits, split_protocol
+
+    path = _hourly_csv(tmp_path / "ETTh1.csv", 15000)
+    protocol = split_protocol("etth1", 96, path=path)
+    assert (protocol.file_rows, protocol.rows_used, protocol.rows_basis) == (15000, 14400, "counted in the file")
+    arrays = load_splits("etth1", 96, path=path)
+    assert [len(arrays[flag]) for flag in ("train", "val", "test")] == [8640, 2976, 2976]
+    raw = pd.read_csv(path).iloc[:, 1:].to_numpy()
+    assert np.allclose(arrays.mean, raw[:8640].mean(axis=0))
+    # val/test rows read start seq_len rows early; the last used row is 14,399.
+    assert np.allclose(arrays.test[-1] * arrays.std + arrays.mean, raw[14399])
+    assert np.allclose(arrays.val[96] * arrays.std + arrays.mean, raw[8640])
+
+
+def test_tsf_data_splits_cli(tmp_path, capsys) -> None:
+    from tsflab.cli import main as cli
+
+    path = _hourly_csv(tmp_path / "ETTh1.csv", 15000)
+    assert cli.main(["data", "splits", "etth1", "--path", str(path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["rows_used"] == 14400 and payload["splits"]["test"] == {
+        "start": 11424,
+        "own_start": 11520,
+        "end": 14400,
+    }
+    assert cli.main(["data", "splits", "etth1", "--seq-len", "336", "--path", str(path)]) == 0
+    text = capsys.readouterr().out
+    assert "val    [8304, 11520)" in text and "first 14400" in text
+    assert cli.main(["data", "splits", "no_such_dataset"]) == 2
+    assert "unknown dataset preset" in capsys.readouterr().err
+
+
+def test_new_dataset_target_defaults_to_the_file(tmp_path):
+    from tsflab.cli.commands.new_dataset import default_target
+
+    with_ot, other = tmp_path / "a.csv", tmp_path / "b.csv"
+    with_ot.write_text("date,x,OT\n2020-01-01,1,2\n")
+    other.write_text("date,COAST,EAST\n2020-01-01,1,2\n")
+    assert default_target(str(with_ot)) == "OT" and default_target(str(other)) == "EAST"
+    assert default_target(str(tmp_path / "missing.csv")) == "OT"
+
+
+@pytest.mark.parametrize("include_test", [False, True])
+def test_preset_profile_path_override_uses_native_ett_split(tmp_path, monkeypatch, include_test):
+    # ETTh1's native loader caps 17,420 input rows at 14,400. Monotonic values
+    # expose incorrect ratio splits and duplicated lookback context.
+    frame = pd.DataFrame(
+        {"date": pd.date_range("2021-01-01", periods=17420, freq="h"), "OT": np.arange(17420, dtype=float)}
+    )
+    path = tmp_path / "ETTh1.csv"
+    frame.to_csv(path, index=False)
+    built = []
+    original = dc._build_dataset
+
+    def build(config, flag):
+        built.append(flag)
+        return original(config, flag)
+
+    monkeypatch.setattr(dc, "_build_dataset", build)
+    splits, meta = dataset_analyze.load_preset("ETTh1", "1h", str(path), include_test)
+    assert len(splits["train"]) == 8640 and len(splits["val"]) == 2880
+    assert splits["train"][-1, 0] == 8639
+    assert splits["val"][0, 0] == 8640 and splits["val"][-1, 0] == 11519
+    assert meta["loader"] == "Dataset_ETT_hour" and str(path) in meta["source"]
+    if include_test:
+        assert len(splits["test"]) == 2880
+        assert splits["test"][0, 0] == 11520 and splits["test"][-1, 0] == 14399
+    else:
+        assert "test" not in splits and "test" not in built
+
+
+def test_profile_path_override_requires_preset(tmp_path):
+    with pytest.raises(SystemExit):
+        dataset_analyze.main(["--path", "data.csv", "--data-path", "other.csv"])
+
+
+def test_missing_training_values_cannot_be_filled_from_holdout(tmp_path):
+    models = []
+    for holdout_value in (1.0, 10000.0):
+        frame = pd.DataFrame(
+            {"date": pd.date_range("2020-01-01", periods=100, freq="h"), "OT": [-9999.0] * 60 + [holdout_value] * 40}
+        )
+        path = tmp_path / f"data-{int(holdout_value)}.csv"
+        frame.to_csv(path, index=False)
+        models.append(
+            Dataset_Custom(
+                root_path=str(tmp_path),
+                data_path=path.name,
+                size=(8, 0, 4),
+                flag="train",
+                features="S",
+                target="OT",
+                split_ratio=(0.6, 0.2, 0.2),
+                scale=True,
+                missing_sentinels=[-9999],
+            )
+        )
+    np.testing.assert_array_equal(models[0].data, models[1].data)
+    np.testing.assert_array_equal(models[0].scaler.mean_, models[1].scaler.mean_)
+    np.testing.assert_array_equal(models[0].scaler.scale_, models[1].scaler.scale_)
+    assert np.all(models[0].data == 0)
+
+
+def test_native_weather_schema_matches_preset_missing_value_policy():
+    from tsflab.experiments.config.loader import load_model_request
+
+    settings = ["dataset.path=./weather.csv", "dataset.params.target=OT"]
+    native = load_model_request("StateFlow", settings + ["dataset.name=weather"])[0].config
+    custom = load_model_request("StateFlow", settings + ["dataset.name=custom"])[0].config
+    explicit = load_model_request(
+        "StateFlow", settings + ["dataset.name=weather", "dataset.params.missing_sentinels=[]"]
+    )[0].config
+    assert native.model_dump()["dataset"]["params"]["missing_sentinels"] == [-9999.0]
+    assert custom.model_dump()["dataset"]["params"]["missing_sentinels"] == []
+    assert explicit.model_dump()["dataset"]["params"]["missing_sentinels"] == []

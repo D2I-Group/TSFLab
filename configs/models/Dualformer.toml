@@ -1,0 +1,16 @@
+[model]
+name = "Dualformer"
+
+[model.params]
+enc_in = 7
+c_out = 7
+d_model = 512
+n_heads = 8
+e_layers = 3
+d_ff = 2048
+dropout = 0.1
+activation = "gelu"
+factor = 1.0
+alpha = 1.0
+num_harmonics = 3
+dc_bins = 3

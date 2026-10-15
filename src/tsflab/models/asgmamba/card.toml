@@ -1,0 +1,85 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ASGMamba"
+tags = ["ssm", "mamba", "patching", "multi-scale", "frequency", "gating", "channel-independent", "normalization", "time-series", "long-term"]
+fits = ["multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "ASGMamba: Adaptive Spectral Gating Mamba for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.01668"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/hit636/ASGMamba"
+revision = "16e5539cd2b206cce08deaf27f33e40326310919"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/hit636/ASGMamba/blob/16e5539cd2b206cce08deaf27f33e40326310919/models/ASGMamba.py", "https://github.com/hit636/ASGMamba/blob/16e5539cd2b206cce08deaf27f33e40326310919/run_longExp.py", "https://github.com/hit636/ASGMamba/blob/16e5539cd2b206cce08deaf27f33e40326310919/scripts/ASGMamba_ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:multi-scale-patch-embedding+local:spectral-band-energy-gate+component:mamba"
+channel = "local:node-embedding"
+head = "local:flatten-linear-heads-softmax-scale-fusion"
+loss = "none"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; sizes RevIN and the learned per-channel node embedding" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 4.1.1 vs `models/ASGMamba.py` `PatchScaleLayer.forward`"
+what = "the paper uses overlapping patches with stride `P/2` (50% overlap); the code uses non-overlapping, right-zero-padded patches (both at the pinned revision and at the first commit `01454e6`)."
+resolution = "the default follows the code; `overlap = true` gives the paper's stride."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) and Algorithm 1 line 11 vs `models/ASGMamba.py` `PatchFrequencyRouter`"
+what = "the paper's gate is `sigmoid(W2 ReLU(W1 v))` in `(0, 1)`; the pinned code uses `1 + 0.5 tanh(W2 SiLU(W1 v))` in `(0.5, 1.5)` with a zero-initialised output layer, so the gate can amplify as well as attenuate."
+resolution = "default follows the pinned code; `gate = \"sigmoid\"` gives Eq. (5)."
+
+[[issues]]
+kind = "paper-error"
+where = "Algorithm 1 line 14 vs Section 4.2.2"
+what = "the algorithm writes `H = Mamba(U_gated) + U_gated` (residual of the gated, normalized input), while Section 4.2.2 and the code add the un-normalized, ungated input `Z_in` after dropout."
+resolution = "Section 4.2.2 and the code are followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "band edges, first commit `01454e6` `models/ASGMamba.py` vs Section 4.2.1"
+what = "the paper-time code split the rFFT bins into equal thirds by index; the paper (and the pinned revision) define the bands by normalized frequency `nu_j = 2j/P` at 1/3 and 2/3 of Nyquist."
+resolution = "the paper / pinned definition."
+
+[[issues]]
+kind = "code-bug"
+where = "first commit `01454e6` `models/ASGMamba.py`"
+what = "when `mamba_ssm` was missing the model silently replaced Mamba with one `nn.Linear`, producing a different model with the same shapes; the pinned revision now raises instead."
+resolution = "the shared pure-PyTorch `MambaBlock` is always used."
+
+[[issues]]
+kind = "code-bug"
+where = "`scripts/ASGMamba_*.sh`"
+what = "every script passes `--e_layers` and `--d_ff`, which `models/ASGMamba.py` never reads (one Mamba block per scale, no FFN)."
+resolution = "not exposed as parameters."
+
+[[issues]]
+kind = "underspecified"
+where = "Sections 4.1-4.3"
+what = "the gate MLP width, initialisation of the position and node embeddings and scale logits, the head form, where dropout acts, and the RevIN affine setting are not stated."
+resolution = "taken from `models/ASGMamba.py` (hidden `max(D/4, 8)`, `N(0, 0.02^2)` embeddings, ones logits, `Linear(N_k * D, T)` flatten head, dropout on the Mamba output only, affine RevIN)."
+
+[[issues]]
+kind = "license"
+where = "`LICENSE` at `16e5539c`"
+what = "the Apache-2.0 text carries \"Copyright 2022 DLinear Authors\" (inherited from the LTSF-Linear template), not the ASGMamba authors."
+resolution = "recorded as `Apache-2.0`; independent rewrite, nothing copied."

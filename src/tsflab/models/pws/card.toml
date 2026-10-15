@@ -1,0 +1,28 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PWS"
+tags = ["mlp", "periodicity", "patching", "channel-independent", "normalization", "baseline", "lightweight"]
+fits = ["strong-seasonality", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "PWS is an in-repo TSFLab baseline with no external paper or official code to check."
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:period-patch-analysis-mlp"
+channel = "local:channel-independent-shared-weights"
+head = "local:per-patch-weighted-sum-linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+period = { from = "period", rule = "cycle length in steps, in [1, seq_len]; only whole periods of the lookback are used" }
+patch_size = { from = "period", rule = "in [1, period]" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

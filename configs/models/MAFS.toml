@@ -1,0 +1,11 @@
+[model]
+name = "MAFS"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+num_agents = 4
+num_layers = 2
+num_heads = 4
+topology = "star"

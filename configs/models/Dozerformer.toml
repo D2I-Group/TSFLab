@@ -1,0 +1,20 @@
+[model]
+name = "Dozerformer"
+
+[model.params]
+enc_in = 7
+label_len = 96
+patch_size = 24
+embed_dim = 8
+d_ff = 32
+n_heads = 4
+e_layers = 2
+d_layers = 1
+local_window = 3
+stride = 7
+vary_len = 1
+moving_avg = [13, 17]
+trend_branch = true
+dropout = 0.2
+score_mode = "zero"
+normalize_decoder_input = false

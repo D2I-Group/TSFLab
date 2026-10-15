@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "HDMixer"
+tags = ["mlp", "patching", "channel-mixing", "normalization", "mixer"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "HDMixer: Hierarchical Dependency with Extendable Patch for Multivariate Time Series Forecasting"
+url = "https://ojs.aaai.org/index.php/AAAI/article/view/29155"
+venue = "AAAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/hqh0728/HDMixer"
+revision = "da17f94b63b869633556b6bf65a5c68e3f322e2b"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:length-extendable-patcher+local:within-and-across-patch-mlp-mixers"
+channel = "local:cross-variable-mlp-mixer"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; it is the width of the variable-axis mixer" }
+stride = { from = "seq_len", rule = "nominal patch count is seq_len // stride (at least 1)" }
+patch_len = { from = "seq_len", rule = "nominal sampled patch length (> 1); samples beyond the window clamp to its border" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation of LEP and HDE from the paper; repository used as reference only; license recorded as `NOASSERTION`."

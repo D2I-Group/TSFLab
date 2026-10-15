@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RNNForecasterTS"
+tags = ["rnn", "normalization", "baseline", "direct-multistep", "lightweight"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "Elman's (1990) recurrence was checked; there is no official code, and the forecasting head and RevIN wrapper are TSFLab additions."
+
+[paper]
+title = "Finding Structure in Time"
+url = "https://doi.org/10.1207/s15516709cog1402_1"
+venue = "Cognitive Science 1990"
+year = 1990
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:elman-rnn-encoder"
+channel = "local:channel-mixing-recurrent-input"
+head = "local:final-state-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

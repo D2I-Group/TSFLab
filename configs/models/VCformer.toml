@@ -1,0 +1,15 @@
+[model]
+name = "VCformer"
+
+[model.params]
+enc_in = 7
+d_model = 512
+e_layers = 3
+snap_size = 16
+proj_dim = 128
+hidden_dim = 256
+dropout = 0.1
+koopman_dropout = 0.05
+use_norm = true
+use_marks = true
+freq = "h"

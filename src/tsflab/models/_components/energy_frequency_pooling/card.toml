@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "energy_frequency_pooling"
+role = "Builds one shared key-frequency spectrum across channels, taking each frequency from its highest-energy channel."
+slot = "channel"
+fits = ["any"]
+category = "frequency"
+tags = ["energy", "frequency", "key-frequency", "pooling", "softmax", "stochastic", "complex", "token-axis", "selection", "train-eval-difference"]
+input = "spectrum complex [batch, tokens, freq]"
+output = "complex [batch, tokens, freq]; the same value for every token at each frequency"
+origin = "Energy-based key-frequency pooling of ReFocus, Reinforcing Mid-Frequency and Key-Frequency Modeling for Multivariate Time Series Forecasting (arXiv 2502.16890, 2025)"
+origin_models = ["refocus"]

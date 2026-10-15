@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RAGC"
+tags = ["gnn", "spatiotemporal", "graph-learning", "covariates", "regularization", "traffic"]
+fits = ["spatial-graph", "many-channels", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Efficient Traffic Forecasting on Large-Scale Road Network by Regularized Adaptive Graph Convolution"
+url = "https://arxiv.org/abs/2506.07179"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/wkq-wukaiqi/RAGC"
+revision = "ee9cbb112b31ca704971a6b1d1c8ffdce6412b95"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/wkq-wukaiqi/RAGC/blob/ee9cbb112b31ca704971a6b1d1c8ffdce6412b95/models/RAGC.py", "https://github.com/wkq-wukaiqi/RAGC/blob/ee9cbb112b31ca704971a6b1d1c8ffdce6412b95/main.py"]
+
+[composition]
+normalization = "none"
+decomposition = "local:residual-difference-graph-smoothing"
+temporal = "local:per-node-window-embedding-feedforward"
+channel = "component:regularized_adaptive_graph_conv"
+head = "local:residual-plus-skip-linear-heads"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of nodes (num_nodes and adj_mx are injected by the runner)" }
+input_dim = { from = "covariates", rule = "number of spatiotemporal input features (value, time of day, day of week = 3); the input must provide at least this many" }
+num_time_in_day = { from = "frequency", rule = "time-of-day embedding slots; official value is steps per day (e.g. 96 or 288)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,24 @@
+[model]
+name = "MoU"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+d_model = 128
+n_heads = 16
+d_ff = 256
+e_layers = 1
+num_experts = 4
+top_k = 2
+d_state = 21
+ffn_expand = 2
+dropout = 0.1
+mamba_dropout = 0.1
+ffn_dropout = 0.2
+block_dropout = 0.2
+conv_dropout = 0.3
+attn_dropout = 0.0
+tf_dropout = 0.2
+head_dropout = 0.0
+use_revin = true

@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "KalmanFilterTS"
+tags = ["statistical", "state-space-filter", "channel-independent", "baseline", "lightweight"]
+fits = ["strong-trend", "short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card cites Kalman (1960) for a fixed-gain alpha-beta specialization and documents no paper problem."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels; one gain pair is learned per channel" }
+
+[paper]
+title = "A New Approach to Linear Filtering and Prediction Problems"
+url = "https://doi.org/10.1115/1.3662552"
+venue = "Journal of Basic Engineering 1960"
+year = 1960
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:alpha-beta-constant-velocity-filter"
+channel = "local:channel-independent-learned-gains"
+head = "local:linear-extrapolation-of-level-and-velocity"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

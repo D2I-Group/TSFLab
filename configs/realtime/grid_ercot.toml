@@ -1,0 +1,21 @@
+# ERCOT (Texas) hourly load in the eight weather zones, from public files (no key):
+# yearly Native_Load archives for history, the NP6-345-CD daily reports for updates.
+[track]
+id = "grid_ercot"
+tz = "America/Chicago"      # ERCOT publishes hour-ending values in local clock time
+title = "ERCOT hourly load by weather zone"
+mode = "spatiotemporal"
+freq = "h"
+seq_len = 168
+horizon = 24
+submission_hours = 24
+seasonal_period = 24
+min_coverage = 0.9
+history_days = 365
+
+[source]
+kind = "ercot"
+
+[bootstrap]
+kind = "source"
+start = "2019-01-01"

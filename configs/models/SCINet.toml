@@ -1,0 +1,11 @@
+[model]
+name = "SCINet"
+
+[model.params]
+enc_in = 7
+num_stacks = 1
+num_levels = 3
+kernel_size = 5
+dropout = 0.0
+positional_encoding = false
+instance_norm = false

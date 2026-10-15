@@ -1,0 +1,142 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MoSSL"
+tags = ["cnn", "transformer", "spatiotemporal", "multi-modality", "tensor-time-series", "self-supervised", "contrastive", "gaussian-mixture", "data-augmentation", "dilated-convolution", "aux-loss"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning"
+url = "https://arxiv.org/abs/2405.03255"
+venue = "IJCAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/beginner-sketch/MoSSL"
+revision = "2ca992eae23c4a8684cbb32709a8b7693e2b89a7"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/beginner-sketch/MoSSL/blob/2ca992eae23c4a8684cbb32709a8b7693e2b89a7/models/MoSSL.py", "https://github.com/beginner-sketch/MoSSL/blob/2ca992eae23c4a8684cbb32709a8b7693e2b89a7/models/layers.py", "https://github.com/beginner-sketch/MoSSL/blob/2ca992eae23c4a8684cbb32709a8b7693e2b89a7/traintest_MoSSL.py", "https://github.com/beginner-sketch/MoSSL/blob/2ca992eae23c4a8684cbb32709a8b7693e2b89a7/lib/utils.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:modality-spanning-gated-dilated-conv"
+channel = "local:spatial-attention+local:modality-attention"
+head = "local:two-layer-relu-conv-predictor"
+loss = "loss:mse+local:gaussian-mixture-ssl-nll+local:modality-contrast-bce"
+
+[data_params]
+enc_in = { from = "nodes", rule = "num_modalities * number of nodes, channels ordered modality-major (channel m * L + l)" }
+num_modalities = { from = "channels", rule = "number of modalities per node in the dataset; must divide enc_in" }
+layers = { from = "seq_len", rule = "seq_len must equal 1 + (kernel_size - 1)(2^layers - 1) (16 for 4 layers, kernel 2)" }
+kernel_size = { from = "seq_len", rule = "with layers, seq_len must equal 1 + (kernel_size - 1)(2^layers - 1)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/layers.py` `MDA.__init__`"
+what = "the temporal, spatial and modality embeddings are created as `nn.Parameter(...).to(device)`, which on a CUDA device returns a plain non-leaf tensor; they are then not module parameters, so they are never trained and are missing from the saved `state_dict`."
+resolution = "registered, trained parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/layers.py` `GSSL.get_logPdf`"
+what = "the per-channel Gaussian log densities are combined with `torch.prod` over the channel axis (the log density of a diagonal Gaussian is their sum; the in-code comment notes the product may overflow) and the result is then L2-normalized across positions before `log gamma` is added, so the loss is not the NLL of Eq. 9."
+resolution = "Eq. 9 with summed log densities and a log-sum-exp over components."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/layers.py` `MSSL.pn_sampling`"
+what = "negatives permute modalities with `torch.randperm`, which leaves fixed points, so some \"negative\" pairs are identical to positive pairs and are labeled 0."
+resolution = "a random non-zero cyclic modality shift, so every negative comes from another modality as Eq. 11 requires."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/layers.py` `MDA.forward`"
+what = "the modality relevance is computed under `detach` and used only to sample the mask, so `self.att` never receives a gradient and stays at its random initialization."
+resolution = "kept as in the code (an untrained projection); see the underspecified entry on Eq. 5."
+
+[[issues]]
+kind = "code-bug"
+where = "`traintest_MoSSL.py` `predictModel`"
+what = "evaluation calls the full `forward`, which still runs the augmentation (drawing from the global NumPy RNG), the second encoder pass and both SSL losses; predictions are unaffected but the work and RNG consumption are wasted."
+resolution = "the augmented view runs only in training."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 5"
+what = "masks are sampled from `Bern(1 - phi)`, a non-differentiable step, and the paper gives no other path by which `w_0` could be learned."
+resolution = "as in the code, the relevance projection is not trained."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 5 vs `models/layers.py` `MDA.forward` and `MDA.augmentation`"
+what = "the paper scores relevance with one vector `w_0` and masks each input entry `x_{t,n,m}` independently with `Bern(1 - phi)`; the code averages the softmax of `d_z` learned 1x1 queries, draws a fixed budget of `int(0.1 * B * N * M)` cells with replacement in proportion to `1 - phi` across the whole batch, and zeroes the projected representation `H_in` (detached), not `X`."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 vs `models/MoSSL.py` `MoST_Encoder.__init__`"
+what = "the paper states dilation rates {2, 4, 8, 16}, the code uses 1, 2, 4, 8; with kernel 2 the paper's rates would need 31 input steps, not the stated 16."
+resolution = "follow the code; `seq_len` must equal `1 + (k - 1)(2^layers - 1)`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 vs `models/MoSSL.py` `MoSSL.__init__`"
+what = "the paper's `f(X)` is one ReLU projection, the code's `proj1` is two 1x1 conv + ReLU layers (`d_z / 2`, then `d_z`)."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 8 vs `models/layers.py` `GSSL.get_GaussianPara`"
+what = "the paper's `exp(.)` is the variance `sigma^2`, the code uses it as the standard deviation."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 9 vs `models/layers.py` `GSSL.forward`"
+what = "the code L2-normalizes both representations over channels before the mixture, which the paper does not mention."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 10 vs `models/layers.py` `MSSL.fusion`"
+what = "the paper's fusion weights `w_1, w_2` are `d_z`-vectors, the code's `W1, W2` are `(N * M) x d_z` matrices (one weight vector per node-modality cell)."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 11 vs `models/layers.py` `MSSL.get_logits`"
+what = "the paper's score `r^T w_3 c_M` has no bias, the code's `nn.Bilinear` has one."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 9, 11 and 13 vs `GSSL.forward`, `MSSL.cal_loss` and `traintest_MoSSL.py`"
+what = "the paper sums the losses over `(t, n, m)` (and the regression term over `(O, N, M)`), the code averages them."
+resolution = "averages, as in the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1"
+what = "the learning rate, schedule, optimizer epsilon, gradient clipping and patience are not stated; they exist only in `traintest_MoSSL.py` (lr 0.01, eps 1e-3, milestones 50/100 x0.1, clip 5, patience 15)."
+resolution = "recorded; they belong to the run configuration."
+
+[[issues]]
+kind = "unreleased"
+where = "repository at `2ca992ea`"
+what = "only `data/NYC.h5` is shipped; the BJ Air Quality data and its configuration are not."
+resolution = "recorded."
+
+[[issues]]
+kind = "license"
+where = "repository root at `2ca992ea`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

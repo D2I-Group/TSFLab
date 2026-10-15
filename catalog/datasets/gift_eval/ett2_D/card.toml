@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "gift_eval/ett2_D"
+domain = "energy"
+topic = "electricity transformer"
+benchmarks = ["gift-eval"]
+tags = ["gift-eval", "benchmark", "zero-shot", "foundation-model", "multivariate", "energy", "daily", "ett", "transformer", "oil-temperature"]
+related = ["etth2", "ettm2", "gift_eval/ett2_15T", "gift_eval/ett2_H", "gift_eval/ett2_W"]
+
+[source]
+name = "ETT dataset (Zhou et al., Informer)"
+url = "https://github.com/zhouhaoyi/ETDataset"
+citation = "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation (Aksu et al., 2024)"
+citation_url = "https://arxiv.org/abs/2410.10393"
+license = "CC-BY-ND-4.0"
+redistribution = "upstream"
+
+[shape]
+frequency = "daily (1d)"
+time_span = "2016-07-01 to 2018-06-26 (aggregated from the ETT source)"
+length = 725
+channels = 7
+channel_kind = "channels"
+target = "all variates"
+missing_values = "no missing-value flag recorded by GIFT-Eval; none documented for this id"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "GIFT-Eval short term: horizon 30, last 10% of each series is test (rolling non-overlapping windows, at most 20), context length chosen by the model, zero-shot oriented"
+literature = ""
+split = "per series: last 10% test, one horizon validation, rest train"
+seq_lens = []
+pred_lens = [30]

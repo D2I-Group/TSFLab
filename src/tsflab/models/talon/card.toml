@@ -1,0 +1,134 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TALON"
+tags = ["llm", "transformer", "gpt2", "mixture-of-experts", "pretrained-backbone", "patching", "channel-independent", "autoregressive", "revin"]
+fits = ["heteroscedastic", "long-lookback", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Adapting LLMs to Time Series Forecasting via Temporal Heterogeneity Modeling and Representation Alignment"
+url = "https://arxiv.org/abs/2508.07195"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/syrGitHub/TALON"
+revision = "11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/models/TALON_GPT2.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/layers/expert_extractor_cluster.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/layers/encoders.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/layers/pattern_extractor.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/layers/mlp.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/data_provider/complexity.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/exp/exp_long_term_forecasting.py", "https://github.com/syrGitHub/TALON/blob/11bd7b2b8ae7aed5ade6a4e7fff7d0f48b66ae83/scripts/time_series_forecasting/long_term/ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:gpt2_backbone+local:stl-statistics-routed-heterogeneous-experts"
+channel = "local:channel-independent-shared-weights"
+head = "component:segment_mlp+local:autoregressive-rollout"
+loss = "loss:mse+local:expert-importance-load-balance"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels" }
+token_len = { from = "seq_len", rule = "segment length >= 3; seq_len must be a multiple of token_len within the GPT-2 context" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `11bd7b2b`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. V-A (\"pre-trained GPT2 ... with the first 6 Transformer layers\") vs `models/TALON_GPT2.py` `Model.__init__`"
+what = "the full 12-layer `GPT2Model` is loaded and the `--llm_layers` argument of `run.py` (default 6) is never read."
+resolution = "`llm_layers = 6` (paper); the loader keeps the checkpoint's first six blocks."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (3)-(4) vs `layers/expert_extractor_cluster.py` `Heterogeneous_MoE.noisy_top_k_gating`"
+what = "`W_H` is applied only in the noisy training branch; at evaluation the gate routes on the clean scores without `W_H`, so training and inference use different routing functions."
+resolution = "`W_H` is applied in both modes (paper)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/expert_extractor_cluster.py` `Heterogeneous_MoE.noisy_top_k_gating` / `_prob_in_top_k`"
+what = "the smooth load compares clean and noisy scores taken before `W_H` and the softmax with thresholds taken from the post-`W_H` softmax probabilities, mixing two scales."
+resolution = "probabilities are computed in the routing-score space of Eq. (4), with the noise scale propagated through `W_H`; as in the code it only applies when `top_k < 3` in training (otherwise counts are used)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix D Eq. (20) (`max(0, 1 - Var(R) / Var(s'))`) vs `data_provider/complexity.py` `calculate_complexity` and Algorithm 1"
+what = "no clamp at 0."
+resolution = "followed the code and Algorithm 1 (no clamp)."
+
+[[issues]]
+kind = "paper-error"
+where = "Appendix D Eq. (21)"
+what = "written `sigma(lag(1 + std(Delta s)) - 1.0)`; Algorithm 1 line 11 and `calculate_complexity` use `sigma(log(1 + std(Delta s)) - 1)`."
+resolution = "Algorithm 1."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 line 14 (`|Corr(s_1:S-1, s_2:S)|`, a Pearson correlation of the lagged pairs) vs `calculate_complexity`"
+what = "`statsmodels` `acf(patch, nlags=1, fft=False)` (whole-segment mean and variance)."
+resolution = "followed the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Appendix D"
+what = "the STL settings are not given; `calculate_complexity` uses `statsmodels` `STL(patch, period=max(len // 2, 2))` with its defaults and rounds the descriptors to three decimals."
+resolution = "followed the code (seasonal 7, default trend and low-pass windows, 5 inner and 0 robustness iterations, rounding), STL re-implemented locally as linear operators."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_long_term_forecasting.py` `Exp_Long_Term_Forecast.test`"
+what = "the rolling loop appends each predicted segment to `batch_x` but keeps passing the routing statistics `complexity` of the original window, so later steps are routed with descriptors of segments that are no longer in the input."
+resolution = "the statistics are recomputed for every rolled window (Sec. IV-E)."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Preprocess.py` `Model.tokenize_input` / `forecast`"
+what = "prompts are right-padded to 220 tokens with the EOS token and no attention mask, and `text_outputs[:, -1, :]` is taken, i.e. the hidden state of a padding position, not the prompt's final token (Appendix B)."
+resolution = "the alignment module is not implemented (see below)."
+
+[[issues]]
+kind = "code-bug"
+where = "`preprocess.py` / `data_provider/data_loader.py` `Dataset_ETT_hour.__getitem__` (and `Dataset_ETT_minute`, `Dataset_Custom`)"
+what = "the saved prompt embeddings have one row per (window, channel, segment) in loader order, but the training datasets slice them by the time borders and index `data_stamp[s_begin:s_end:token_len]` as if there were one row per time step, so the contrastive pairs of Eq. (12) do not match their segments."
+resolution = "the alignment module is not implemented."
+
+[[issues]]
+kind = "code-bug"
+where = "`preprocess.py`"
+what = "`os.path.join` is used to save the embeddings but `os` is never imported, so prompt generation fails at its last step."
+resolution = "not applicable."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_loader.py` `Dataset_Patch_Preprocess.__read_data__`"
+what = "`if data_name == 'ETTh1' or 'ETTh2'` is always true, so the prompt statistics of ETTm and custom datasets use a scaler fitted on the hourly-ETT training span."
+resolution = "not applicable."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/mlp.py` `MLP`"
+what = "`mlp_hidden_layers = 1` (used by every shipped script) builds two Linear layers, the same network as 2."
+resolution = "1 is rejected; the preset uses 2, which is the scripts' network."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table VIII vs `scripts/time_series_forecasting/long_term/ETTh1.sh`"
+what = "the paper finds `k = 2` best overall, the script uses `--topk 3` (all three experts, so the gate is never sparse)."
+resolution = "preset follows the script (`top_k = 3`); `top_k` is a parameter."
+
+[[issues]]
+kind = "unreleased"
+where = "`README.md` vs `scripts/`"
+what = "the zero-shot (`scripts/zero_shot_forecasting/`) and method-generality (`scripts/method_generality/`) scripts it cites, and scripts for Weather, Electricity and Traffic, are not in the repository."
+resolution = "preset from the released ETTh1 script."

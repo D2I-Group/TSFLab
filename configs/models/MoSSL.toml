@@ -1,0 +1,14 @@
+[model]
+name = "MoSSL"
+
+# NYC Traffic Demand layout of the paper: 98 nodes x 4 modalities
+# (bike/taxi inflow/outflow), modality-major channels; 16 steps in, 3 out.
+[model.params]
+enc_in = 392
+num_modalities = 4
+hidden_channels = 48
+num_components = 4
+layers = 4
+kernel_size = 2
+mask_ratio = 0.1
+self_supervised = true

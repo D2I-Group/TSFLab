@@ -1,0 +1,8 @@
+[model]
+name = "STGODE"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+hidden_dim = 32
+ode_steps = 2

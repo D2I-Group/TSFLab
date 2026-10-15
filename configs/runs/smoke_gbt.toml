@@ -1,0 +1,27 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/GBT.toml"]
+
+[experiment]
+description = "Smoke: GBT"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6
+fd_model = 8
+d_model = 32
+n_heads = 4

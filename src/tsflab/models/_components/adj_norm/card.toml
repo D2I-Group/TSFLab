@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "adj_norm"
+role = "Normalizes a static graph adjacency into the Laplacian, GCN, or random-walk matrices that graph forecasters consume."
+slot = "support"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["adjacency", "graph", "laplacian", "normalization", "gcn", "transition", "numpy", "stateless"]
+input = "adj [N, N] dense adjacency (array-like, any numeric dtype)"
+output = "[N, N] float64 numpy array"
+origin = "Standard graph-normalization definitions (Kipf and Welling GCN renormalization; DCRNN-style random-walk transitions), following BasicTS adjacent_matrix_norm.py (Apache-2.0)"
+origin_models = []

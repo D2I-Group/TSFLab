@@ -1,0 +1,18 @@
+[model]
+name = "GBT"
+
+[model.params]
+enc_in = 7
+fd_model = 32
+d_model = 512
+n_heads = 8
+ar_blocks = 3
+pyramid = 3
+d_layers = 2
+kernel = 3
+dropout = 0.1
+channel_independent = true
+fused_conv = false
+mix = true
+ar_epochs = 1
+ar_lr = 0.0001

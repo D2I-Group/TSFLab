@@ -1,0 +1,14 @@
+[model]
+name = "DTAF"
+
+[model.params]
+enc_in = 7
+d_model = 32
+e_layers = 1
+patch_len = 16
+stride = 8
+heads = 2
+dropout = 0.1
+expert_num = 2
+expert_hidden = 8
+top_k = 1

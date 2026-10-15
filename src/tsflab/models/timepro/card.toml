@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimePro"
+tags = ["ssm", "patching", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation", "long-horizon", "efficiency"]
+fidelity = "paper-only"
+
+[paper]
+title = "TimePro: Efficient Multivariate Long-term Time Series Forecasting with Variable- and Time-Aware Hyper-state"
+url = "https://arxiv.org/abs/2505.20774"
+venue = "arXiv preprint"
+year = 2025
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:patch-embedding-folded-into-variate-token"
+channel = "component:hyper_state_scan+local:bidirectional-variate-axis-scan"
+head = "local:final-norm-linear-projector"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels = scan length over variates" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len; patch_num = (seq_len + stride - patch_len) // stride + 1 sets the grid height" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root (`xwmaxwma/TimePro` at `70a20e5a257b30eb026ee4316293cf4feeb92a1f`)"
+what = "no license file."
+resolution = "independent rewrite; the card omits `code`/`revision`/`license` because the repository has no license file."

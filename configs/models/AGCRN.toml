@@ -1,0 +1,11 @@
+[model]
+name = "AGCRN"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+rnn_units = 32
+embed_dim = 8
+num_layers = 1
+cheb_k = 2
+output_dim = 1

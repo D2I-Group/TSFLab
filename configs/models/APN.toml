@@ -1,0 +1,8 @@
+[model]
+name = "APN"
+
+[model.params]
+enc_in = 7
+d_model = 64
+d_time = 8
+num_patches = 8

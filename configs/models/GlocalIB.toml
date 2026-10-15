@@ -1,0 +1,12 @@
+[model]
+name = "GlocalIB"
+
+[model.params]
+enc_in = 7
+d_model = 64
+# Alignment regularizer weight + augmentation strength.
+align_weight = 0.5
+mask_ratio = 0.25
+# "cos_align" (robust) or "contrastive" (InfoNCE over time steps).
+align_loss_type = "cos_align"
+kl_weight = 0.01

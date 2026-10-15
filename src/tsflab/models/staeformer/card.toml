@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STAEformer"
+tags = ["transformer", "spatiotemporal", "attention-variant", "covariates", "channel-mixing"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the embeddings, temporal/spatial axis attention, and mixed projection against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "STAEformer: Spatio-Temporal Adaptive Embedding Makes Vanilla Transformer SOTA for Traffic Forecasting"
+url = "https://arxiv.org/abs/2308.10425"
+venue = "CIKM 2023"
+year = 2023
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+steps_per_day = { from = "frequency", rule = "steps per day at the sampling frequency (288 for 5-minute, 24 for hourly)" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-axis-attention-blocks"
+channel = "local:spatial-axis-attention-blocks"
+head = "local:mixed-flatten-linear-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

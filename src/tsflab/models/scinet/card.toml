@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SCINet"
+tags = ["cnn", "multi-scale", "downsampling", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SCINet: Time Series Modeling and Forecasting with Sample Convolution and Interaction"
+url = "https://arxiv.org/abs/2106.09305"
+venue = "NeurIPS 2022"
+year = 2022
+
+[code]
+url = "https://github.com/cure-lab/SCINet"
+revision = "02e6b0af2d58243de09aaa1eac3840237b659847"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/cure-lab/SCINet/blob/02e6b0af2d58243de09aaa1eac3840237b659847/models/SCINet.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+num_levels = { from = "seq_len", rule = "seq_len and any second-stack input must be divisible by 2**num_levels" }
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:sci-tree-downsample-convolve-interact"
+channel = "local:channel-mixing-convolutions"
+head = "local:linear-over-time-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "models/SCINet.py RIN forward"
+what = "In-place division after variance computation breaks input autograd when RIN is enabled."
+resolution = "Out-of-place normalization; output parity retained; default preset disables RIN."

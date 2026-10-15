@@ -1,0 +1,16 @@
+[model]
+name = "PRformer"
+
+# ETTh1 script of the official repository (seq_len = 720).
+[model.params]
+enc_in = 7
+conv_windows = [24, 48, 72, 144]
+conv_channels = 128
+rnn_mix_temperature = 0.002
+d_model = 720
+n_heads = 8
+e_layers = 5
+d_ff = 720
+dropout = 0.1
+activation = "gelu"
+causal_variate_mask = false

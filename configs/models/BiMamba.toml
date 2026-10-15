@@ -1,0 +1,14 @@
+[model]
+name = "BiMamba"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_state = 16
+e_layers = 2
+expand = 2
+d_conv = 4
+dropout = 0.1
+patch_len = 16
+stride = 8
+sra_threshold = 0.5

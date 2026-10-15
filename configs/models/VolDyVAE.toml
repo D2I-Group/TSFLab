@@ -1,0 +1,13 @@
+[model]
+name = "VolDyVAE"
+
+[model.params]
+enc_in = 7
+patch_len = 24
+dynamic_dim = 128
+hidden_layers = 3
+hidden_dim = 256
+vol_hidden_dim = 128
+dropout = 0.05
+beta = 0.01
+num_samples = 100

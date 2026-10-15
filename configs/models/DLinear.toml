@@ -1,0 +1,7 @@
+[model]
+name = "DLinear"
+
+[model.params]
+enc_in = 7
+kernel_size = 25
+individual = false

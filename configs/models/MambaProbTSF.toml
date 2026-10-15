@@ -1,0 +1,18 @@
+[model]
+name = "MambaProbTSF"
+
+[model.params]
+enc_in = 7
+d_model = 512
+d_state = 16
+d_ff = 512
+e_layers = 3
+d_conv = 2
+expand = 1
+dropout = 0.1
+activation = "gelu"
+use_norm = true
+sigma_network = "mlp"
+sigma_hidden = 512
+use_marks = true
+freq = "h"

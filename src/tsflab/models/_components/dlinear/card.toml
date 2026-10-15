@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "dlinear"
+role = "Gives a cheap channel-independent linear forecast after splitting the window into a moving-average trend and a remainder."
+slot = "temporal"
+fits = ["strong-trend", "weak-cross-correlation", "efficiency"]
+category = "backbone"
+tags = ["decomposition", "linear", "moving-average", "seasonal", "trend", "backbone", "stateless"]
+input = "[batch, seq_len, c_in]"
+output = "[batch, pred_len, c_in]"
+origin = "DLinear, Zeng et al., 'Are Transformers Effective for Time Series Forecasting?', AAAI 2023 (LTSF-Linear); decomposition scheme from Autoformer, NeurIPS 2021"
+origin_models = ["dlinear"]

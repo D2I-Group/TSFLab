@@ -1,0 +1,74 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "VCformer"
+tags = ["transformer", "inverted-tokens", "variate-token", "attention-variant", "lagged-correlation", "koopman", "frequency", "channel-mixing", "normalization", "revin", "marks"]
+fits = ["high-cross-correlation", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "VCformer: Variable Correlation Transformer with Inherent Lagged Correlation for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2405.11470"
+venue = "IJCAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/CSyyn/VCformer"
+revision = "67e8dc8ce58cffb024e75176046d3204fba181f9"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/CSyyn/VCformer/blob/67e8dc8ce58cffb024e75176046d3204fba181f9/models/VCformer.py", "https://github.com/CSyyn/VCformer/blob/67e8dc8ce58cffb024e75176046d3204fba181f9/layers/VCformer_Enc.py", "https://github.com/CSyyn/VCformer/blob/67e8dc8ce58cffb024e75176046d3204fba181f9/layers/KTD.py", "https://github.com/CSyyn/VCformer/blob/67e8dc8ce58cffb024e75176046d3204fba181f9/layers/SelfAttention_Family.py", "https://github.com/CSyyn/VCformer/blob/67e8dc8ce58cffb024e75176046d3204fba181f9/scripts/VCformer_scripts/ETT_scripts/ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:koopman-temporal-detector"
+channel = "local:variable-correlation-attention"
+head = "local:token-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+freq = { from = "frequency", rule = "calendar tokens support hourly timeF marks only (h); set use_marks = false for other sampling rates" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3) vs `layers/SelfAttention_Family.py` `VarCorAttention`"
+what = "the paper writes each variate token as a length-`T` series, while the code computes the lagged correlation over the `d_model` axis of the projected tokens."
+resolution = "the code's `d_model` axis."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `layers/SelfAttention_Family.py` `VarCorAttention` (`corr.mean(dim=-1)`)"
+what = "the paper's lag weights `lambda` are learnable; the code takes a plain mean over lags."
+resolution = "learnable weights initialised to `1 / d_model`, equal to the official mean at initialisation."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) vs `layers/KTD.py` `KPLayerApprox`"
+what = "the paper advances the last snapshot embedding by `K^t` for `t = 1..d_model / snap_size`; the code advances every snapshot embedding by `K^(d_model / snap_size)`, predicting the same positions from different starting snapshots."
+resolution = "Eq. (9)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/KTD.py` `KTDlayer` (`padding_len`)"
+what = "tokens whose width is not a multiple of `snap_size` are left-padded, which breaks the residual."
+resolution = "`snap_size` must divide `d_model`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "paper appendix vs `run.py` (`--snap_size` default 16)"
+what = "the appendix mentions snapshot size `S = 32`, while the scripts use the `run.py` default 16."
+resolution = "default `snap_size = 16`."

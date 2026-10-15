@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DecisionTreeTS"
+tags = ["tree", "soft-tree", "baseline", "normalization", "channel-mixing", "lightweight"]
+fits = ["high-cross-correlation"]
+fidelity = "paper-only"
+issues_checked = "no official code is pinned and the book is conceptual background only; the card records only TSFLab's clean-room scoping (a differentiable soft tree, not CART)."
+
+[paper]
+title = "Classification and Regression Trees"
+url = "https://search.worldcat.org/title/1422106714"
+venue = "Wadsworth 1984"
+year = 1984
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:soft_tree"
+channel = "local:flattened-channel-mixing-input"
+head = "local:soft-tree-leaf-outputs"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count; input width is seq_len*enc_in and leaves output pred_len*enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

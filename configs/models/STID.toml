@@ -1,0 +1,10 @@
+[model]
+name = "STID"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+embed_dim = 32
+num_layers = 1
+num_time_in_day = 24
+num_day_in_week = 7

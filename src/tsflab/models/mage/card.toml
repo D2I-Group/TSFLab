@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MAGE"
+tags = ["gnn", "spatiotemporal", "mixture-of-experts", "graph-learning", "covariates"]
+fits = ["spatial-graph", "many-channels", "efficiency", "calendar-effects"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (channels); expert graphs are learned over these nodes" }
+
+[paper]
+title = "Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting"
+url = "https://proceedings.neurips.cc/paper_files/paper/2025/hash/54c9bfb0885ae07f23607f617ab64c2b-Abstract-Conference.html"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/MAGE"
+revision = "f1fdd27da4e72a140c4f341f94d368fbcaec7507"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:flattened-history-linear-embedding"
+channel = "local:sparse-mixture-of-adaptive-graph-experts"
+head = "local:linear-horizon-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from the NeurIPS paper, repository used as reference only; license recorded as `NOASSERTION`."

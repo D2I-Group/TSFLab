@@ -1,0 +1,6 @@
+[model]
+name = "PolynomialRegressionTS"
+
+[model.params]
+enc_in = 7
+degree = 2

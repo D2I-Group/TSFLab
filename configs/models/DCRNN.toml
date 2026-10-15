@@ -1,0 +1,9 @@
+[model]
+name = "DCRNN"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+rnn_units = 16
+num_rnn_layers = 1
+max_diffusion_step = 2

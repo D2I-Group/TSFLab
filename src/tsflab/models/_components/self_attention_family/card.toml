@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "self_attention_family"
+role = "Swappable attention cores (full, ProbSparse, linear flow, tiled) behind one projection layer for Transformer encoders and decoders over time tokens."
+slot = "temporal"
+fits = ["any"]
+category = "attention"
+tags = ["attention", "full", "probabilistic", "probsparse", "causal-mask", "multi-head", "stateless", "flow", "flash", "reformer", "lsh", "informer"]
+input = "AttentionLayer: queries [batch, len_q, d_model], keys/values [batch, len_k, d_model]; cores: queries [batch, len_q, heads, d_head], keys/values [batch, len_k, heads, d_head]"
+output = "AttentionLayer: ([batch, len_q, d_model], attention map or None); FullAttention/FlowAttention/FlashAttention cores: ([batch, len_q, heads, d_head], map or None); ProbAttention core: ([batch, len_q, heads, d_head], map or None)"
+origin = "Attention classes follow the Informer / Time-Series-Library layer API (Zhou et al., AAAI 2021 for ProbSparse; Vaswani et al., 2017 for full attention); FlowAttention, FlashAttention and ReformerLayer are named after Flowformer, tiled flash attention and Reformer LSH attention but their upstream source is not recorded in history"
+origin_models = ["informer", "transformer"]

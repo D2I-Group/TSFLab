@@ -1,0 +1,135 @@
+name: weekly
+
+# Weekly jobs on CPU runners (no GPU, no torch):
+#   realtime  update  - fetch new observations, record a release, mirror it to
+#                       realtime/<track>/ of the HF dataset TSFLab-Datasets. Only tracks
+#                       whose card says redistribution = "hosted" are pulled and pushed;
+#                       the stock tracks print a skip line and need a store on the runner
+#                       (`tsf realtime update --bootstrap --track <track>`).
+#             score  - score every round whose target window is now observed
+#             open    - open this week's round on the new release, submit the baselines
+#             Results land as a pull request (rounds, forecasts, scores, summaries).
+#   merge     checks that PR with `tsf repo check` (no secrets) and squash-merges it
+#             like any other agent change (INTAKE_AUTOMERGE, AGENT_PAUSED respected).
+#   hub-check confirm every file pinned in configs/hub/datasets.json still resolves
+#             on the Hugging Face Hub with its recorded size (no download).
+#
+# Secrets: HF_TOKEN (dataset writes); PEMS_USER / PEMS_PASSWORD (optional PeMS
+# account for live traffic increments; without them the traffic_pems_* tracks keep
+# their UltraTraffic history only and the update step for them is skipped). Stock,
+# AirNow, Open-Meteo, and ERCOT tracks need no secret; the others still run when
+# one track fails.
+
+on:
+  # Manual only until secrets and repository settings are configured; the
+  # schedule trigger returns then (see git history).
+  workflow_dispatch:
+    inputs:
+      tracks:
+        description: "Space-separated track ids"
+        default: "stock_hs300 stock_nasdaq100 stock_sp500 traffic_pems_ba traffic_pems_la traffic_pems_sac traffic_pems_sb air_airnow_us weather_openmeteo_temp solar_openmeteo_ghi grid_ercot"
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly
+  cancel-in-progress: false
+
+jobs:
+  realtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr: ${{ steps.cpr.outputs.pull-request-number }}
+    env:
+      PYTHONPATH: src
+      TSFLAB_HUB_OWNER: ${{ vars.HUB_OWNER || 'Diaugeia' }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      PEMS_USER: ${{ secrets.PEMS_USER }}
+      PEMS_PASSWORD: ${{ secrets.PEMS_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ vars.INTAKE_BASE || 'dev' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the torch-free real-time dependencies
+        run: pip install --quiet "pydantic==2.12.5" pandas pyarrow numpy requests huggingface_hub akshare
+      - name: Run the weekly cycle
+        env:
+          TRACKS: ${{ inputs.tracks || 'stock_hs300 stock_nasdaq100 stock_sp500 traffic_pems_ba traffic_pems_la traffic_pems_sac traffic_pems_sb air_airnow_us weather_openmeteo_temp solar_openmeteo_ghi grid_ercot' }}
+        run: |
+          for track in $TRACKS; do
+            echo "::group::$track"
+            python -m tsflab.realtime weekly --track "$track" --pull --push || echo "::warning::track $track failed"
+            echo "::endgroup::"
+          done
+      - name: Open a pull request with the new rounds and scores
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: ${{ vars.INTAKE_BASE || 'dev' }}
+          branch: realtime/weekly
+          commit-message: "realtime: weekly rounds and scores"
+          title: "Real-time: weekly rounds and scores"
+          labels: realtime
+          add-paths: |
+            apps/web/submissions/realtime/**/rounds/**
+            apps/web/data/realtime/**
+          body: |
+            Weekly cycle: new data releases, scores for completed rounds, and this
+            week's rounds with baseline forecasts. Merged automatically after
+            `tsf repo check` passes. External forecasts for the new rounds can be
+            submitted as pull requests until each round's deadline.
+
+  merge:
+    needs: realtime
+    if: needs.realtime.outputs.pr != '' && vars.AGENT_PAUSED != 'true' && (vars.INTAKE_AUTOMERGE || 'true') == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      UV_NO_SYNC: "1"  # cpu profile: installed with uv pip --torch-backend cpu
+      GH_TOKEN: ${{ github.token }}
+      BASE: ${{ vars.INTAKE_BASE || 'dev' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: realtime/weekly
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+      - name: Install TSFLab (CPU profile)
+        run: |
+          uv venv --python 3.12
+          uv pip install --torch-backend cpu -e ".[models,data,experiments]" pytest
+      - name: Mergeable check
+        run: |
+          git fetch --no-tags origin "$BASE"
+          uv run tsf repo check --scope changed --base "origin/$BASE"
+      - name: Merge
+        env:
+          NUMBER: ${{ needs.realtime.outputs.pr }}
+          DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH || 'main' }}
+        run: |
+          gh pr merge "$NUMBER" --squash --delete-branch
+          # Merges made with GITHUB_TOKEN do not trigger push workflows.
+          [ "$BASE" = "$DEPLOY_BRANCH" ] && gh workflow run ci.yml --ref "$BASE" || true
+
+  hub-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check pinned dataset files
+        run: |
+          pip install --quiet "pydantic==2.12.5"
+          PYTHONPATH=src python -m tsflab.cli.main data download --check

@@ -1,0 +1,41 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "D2STGNN"
+tags = ["gnn", "rnn", "cnn", "decomposition", "graph-learning", "spatiotemporal", "covariates"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card reviews the paper against the pinned official BasicTS code (decoupled diffusion/inherent branches, dynamic graph, estimation gate, residual backcasts, partial forecasts) and records no paper or official-code problem."
+
+[paper]
+title = "Decoupled Dynamic Spatial-Temporal Graph Neural Network for Traffic Forecasting"
+url = "https://www.vldb.org/pvldb/vol15/p2733-shao.pdf"
+venue = "VLDB 2022"
+year = 2022
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "79641b1c75246ab2d8c53bb52f2ac72588be0cdc"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "local:diffusion-inherent-estimation-gate-residual-decomposition"
+temporal = "local:gru-conv-inherent-branch"
+channel = "component:graph_utils+component:adaptive_node_embedding_adjacency+local:dynamic-hidden-state-graph"
+head = "local:accumulated-layer-forecasts-mlp"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of graph nodes N" }
+adj_mx = { from = "graph", rule = "dataset adjacency of shape [N, N]; identity when absent" }
+time_in_day_size = { from = "frequency", rule = "steps per day (288 for 5-minute data)" }
+gap = { from = "pred_len", rule = "pred_len must be divisible by gap" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

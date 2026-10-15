@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "NHiTS"
+tags = ["mlp", "multi-scale", "decomposition", "interpolation", "channel-independent", "normalization"]
+fits = ["long-horizon", "efficiency", "multi-periodic"]
+fidelity = "reference-checked"
+issues_checked = "the card records multi-rate input pooling, coarse forecast knots with interpolation, backcast subtraction and hierarchical forecast summation checked against the paper and the pinned `neuralforecast` implementation; no paper or official-code problem is documented."
+
+[paper]
+title = "N-HiTS: Neural Hierarchical Interpolation for Time Series Forecasting"
+url = "https://arxiv.org/abs/2201.12886"
+venue = "AAAI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/Nixtla/neuralforecast"
+revision = "6c4f3e557d0ed672314323edba972eb550cb3550"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:hierarchical-residual-stacks"
+temporal = "local:pooled-mlp-blocks"
+channel = "local:channel-independent-shared-weights"
+head = "local:interpolated-forecast-coefficients"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+n_freq_downsample = { from = "pred_len", rule = "per stack; each block predicts ceil(pred_len / factor) knots, so factors should stay well below pred_len" }
+n_pool_kernel_size = { from = "seq_len", rule = "per stack; pooled input length ceil(seq_len / kernel) must stay meaningful (kernel well below seq_len)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

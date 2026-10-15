@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AMRC"
+tags = ["mlp", "normalization", "channel-independent", "masking", "loss-framework", "representation-learning"]
+fits = ["long-lookback"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Abstain Mask Retain Core: Time Series Prediction by Adaptive Masking Loss with Representation Consistency"
+url = "https://arxiv.org/abs/2510.19980"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/MazelTovy/AMRC"
+revision = "c0d742c6dad73c2fa5ed1c40ae57affc6740f40e"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:linear-embedding-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-predictor"
+loss = "loss:mse+local:adaptive-masking-loss+local:embedding-similarity-penalty"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (RevIN statistics)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from paper Eq. (6)-(14) without inspecting the code; license recorded as `NOASSERTION`."

@@ -1,0 +1,11 @@
+[model]
+name = "TQNet"
+
+[model.params]
+enc_in = 7
+cycle = 24
+d_model = 64
+dropout = 0.1
+attn_dropout = 0.5
+channel_aggre_heads = 4
+use_revin = true

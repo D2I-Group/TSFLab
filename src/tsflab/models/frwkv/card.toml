@@ -1,0 +1,109 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FRWKV"
+tags = ["transformer", "time-series", "frequency-domain", "rwkv", "linear-attention", "fft", "channel-attention", "revin"]
+fits = ["long-horizon", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "FRWKV: Frequency-Domain Linear Attention for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2512.07539"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/yangqingyuan-byte/FRWKV"
+revision = "d6dbf171b78864bdba93ee692152b3a5918b4852"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yangqingyuan-byte/FRWKV/blob/d6dbf171b78864bdba93ee692152b3a5918b4852/model/FRWKV.py", "https://github.com/yangqingyuan-byte/FRWKV/blob/d6dbf171b78864bdba93ee692152b3a5918b4852/layers/Transformer_EncDec.py", "https://github.com/yangqingyuan-byte/FRWKV/blob/d6dbf171b78864bdba93ee692152b3a5918b4852/layers/RevIN.py", "https://github.com/yangqingyuan-byte/FRWKV/blob/d6dbf171b78864bdba93ee692152b3a5918b4852/experiments/exp_forecast.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:rfft-real-imaginary-split"
+temporal = "local:scalar-embedding-lift+local:inverse-rfft-residual"
+channel = "component:frwkv_linear_attention+component:transformer_encdec"
+head = "local:three-layer-mlp-horizon-head"
+loss = "local:horizon-weighted-l1"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; also sets the number of variable tokens the recurrence runs over, in column order" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.3 (\"we reshape the spectra to Z in R^{T x C} by flattening the batch and variable dimensions\") and Sec. 2.4 (per time step t) vs `model/FRWKV.py` (`Fre_Trans`, `fre_trans_real` / `fre_trans_imag`)"
+what = "the code flattens each variable's `embed_size x freq_bins` spectrum into one token and runs the linear-attention recurrence over the `N` variable tokens of a sample, so the \"O(T)\" path is linear in the number of variables and depends on the dataset's column order."
+resolution = "follows the code (one token per variable, recurrence in column order)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 4 (token shift `z~_t = z_{t-1}`, mixing `(1 - mu) z_t + mu z~_t`) vs `model/FRWKV.py` (`LinearAttentionLayerOptimized.forward`, `queries + self.mu_r` etc.)"
+what = "no token is shifted; each projection input is the current token plus a learned offset."
+resolution = "follows the code (additive offsets)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.4 (\"linear maps ... yield r_t, k_t, v_t\") and Eq. 9 (`o_t = g_t * W_o (y_t + beta_t v_t)`) vs `model/FRWKV.py` (`W_receptance`, `W_key`, `W_value`, `W_output`, `ln_x`)"
+what = "r, k, v and the output map are two-layer GELU MLPs with 1.2x hidden width, and the output is `W_o(LayerNorm(y + bonus) * g)` with the gate before the output map and dropout after it."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 5 (`G_t = Diag(d_t) - k~_t i_t^T`) vs `model/FRWKV.py` (`removal_outer`)"
+what = "the code subtracts `k~_t (i_t * k~_t)^T`, the RWKV-7 form; Eq. 5 drops the second key factor."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 8 (`beta_t = r_t^T B k^_t` with a learnable diagonal `B`) vs `model/FRWKV.py` (`bonus_scalar`, `bonus_multiplier`)"
+what = "the code computes `0.2 (r . k^)` per head without `B` and multiplies `B` (initialized to 1.2) element-wise into `v`."
+resolution = "follows the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 2.4 (\"decay d_t in (0, 1)\") vs `model/FRWKV.py` (`decay = exp(-exp(-0.3) * sigmoid(tanh(.)))`)"
+what = "the decay is confined to about (0.58, 0.82), the low-rank MLP widths (`max(64, d_model // 8)`), the initializations and the internal dropout fractions (0.5, 0.25, 0.3, 0.2, 0.5 of `--dropout`) are not in the paper."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 2.4 (\"selective forgetting along the current-key direction\") vs Eq. 6 (`S_t = G_t S_{t-1} + v_t k^_t^T`)"
+what = "`G_t` multiplies the state from the left, i.e. along its value-indexed rows, so the key-derived decay and removal act on the value axis rather than the key axis (RWKV-7 multiplies from the right); the code does the same."
+resolution = "follows the paper and code (left multiplication)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.2 (\"an end-to-end encoder-decoder ... projected to the horizon\") vs `model/FRWKV.py` (`fc`, `self.dropout`)"
+what = "there is no decoder; a three-layer GELU MLP head maps the flattened `seq_len x embed_size` representation to the horizon and dropout is applied to the forecast itself."
+resolution = "follows the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.1 (training details deferred to the code) vs `experiments/exp_forecast.py` (`WeightedL1Loss`) and `scripts/FRWKV/*.sh` (`--loss_mode L1 --lossfun_alpha 0.5`)"
+what = "the loss is an L1 error weighted by `(h + 1)^-0.5` along the horizon, not stated in the paper."
+resolution = "`weighted_l1_loss = true`, `loss_alpha = 0.5` by default."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3.1 (\"eight real-world datasets spanning power, transportation, weather and solar\") vs Table 1"
+what = "none of the eight datasets (ETT x4, ECL, Exchange, Weather, Solar) is a transportation dataset; Exchange is financial."
+resolution = "not applicable."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/FRWKV.py` (`LinearFreTransformerOptimized.__init__`)"
+what = "the learnable `embeddings2` and `embeddings_time` vectors are registered but never used (dead parameters counted in the model size), and `temp_patch_len` / `temp_stride` and the attention's `token_num` are read but have no effect."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "license"
+where = "repository root at `d6dbf17`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

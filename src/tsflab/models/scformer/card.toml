@@ -1,0 +1,104 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SCFormer"
+tags = ["transformer", "time-series", "channel-attention", "inverted", "hippo", "state-space-memory", "long-input"]
+fits = ["long-lookback", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SCFormer: Structured Channel-wise Transformer with Cumulative Historical State for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.02655"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/ShiweiGuo1995/SCFormer"
+revision = "a6f5aecfcf375833d3a4c6760f01d467e0445c38"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ShiweiGuo1995/SCFormer/blob/a6f5aecfcf375833d3a4c6760f01d467e0445c38/model/SiTransformer.py", "https://github.com/ShiweiGuo1995/SCFormer/blob/a6f5aecfcf375833d3a4c6760f01d467e0445c38/layers/SelfAttention_Family.py", "https://github.com/ShiweiGuo1995/SCFormer/blob/a6f5aecfcf375833d3a4c6760f01d467e0445c38/layers/Transformer_EncDec.py", "https://github.com/ShiweiGuo1995/SCFormer/blob/a6f5aecfcf375833d3a4c6760f01d467e0445c38/utils/hippo.py", "https://github.com/ShiweiGuo1995/SCFormer/blob/a6f5aecfcf375833d3a4c6760f01d467e0445c38/data_provider/data_loader.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+lookback = { from = "seq_len", rule = "lookback <= seq_len; the rest of the window is HiPPO history" }
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:hippo-legs-history-state+local:structured-triangular-linear"
+channel = "component:self_attention_family"
+head = "local:linear-channel-token-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Transformer_EncDec.py` (`EncoderLayer.forward`, mode `time`) vs `layers/SelfAttention_Family.py` (`TwoWayAttentionLayer.forward`, mode `time`)"
+what = "the attention maps use `x @ torch.tril(W)` but the feed-forward maps use `x @ torch.triu(W)`, i.e. opposite directions, so after one layer every embedded position depends on every other and the temporal constraint of Sec. 3.2 is not enforced end to end."
+resolution = "one consistent lower-triangular mask for all structured maps (the paper's \"without loss of generality, one triangular form\")."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 4 and 7 vs `layers/SelfAttention_Family.py` (`TwoWayAttentionLayer`, mode `time`)"
+what = "the paper applies ReLU to the query/key/value maps and to the structured output map; the code applies no activation there."
+resolution = "follows the code (no activation)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 8 vs `layers/SelfAttention_Family.py` (`Conv1dSelfAttention`, `TwoWayAttentionLayer` mode `conv`) and `layers/Transformer_EncDec.py` (`EncoderLayer` mode `conv`)"
+what = "the convolutions pad both sides by `(k - 1) // 2 + 1` and keep the first `D` outputs, so each output reads about `k/2` earlier and `k/2 - 1` later positions instead of the one-sided Toeplitz matrix of Eq. 8, and a LayerNorm over the embedded axis follows the query/key/value convolutions."
+resolution = "`struct_mode = \"conv\"` follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (\"3 convolutional layers with a kernel size of 32\") vs `layers/SelfAttention_Family.py` (`TwoWayAttentionLayer`"
+what = "`Conv1dSelfAttention(k // 2, ...)`): the three stacked query/key/value convolutions use kernel 16; only the output and feed-forward convolutions use 32."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 vs `data_provider/data_loader.py` (`get_hippo_matrix`, called with `max_len 2048`)"
+what = "the paper describes the history \"from the start of the time series\", but beyond 2048 steps the code recomputes LegS from zero over a sliding 2048-step window (256 for PEMS), so the state is a fixed-length window summary, not a cumulative one."
+resolution = "the history length is `seq_len - lookback + 1` steps of the input window (2048 reproduces the code); windows without enough preceding data are not produced by the catalog loaders, whereas the official code uses the shorter available prefix near the series start."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1 (\"HiPPO order set to 512\") vs `scripts/multivariate_forecasting/PEMS/SiTransformer_04.sh`, `SiTransformer_07.sh` (`--d_hippo 64`) and `Dataset_PEMS` (`get_hippo_matrix(..., 64, 256, ...)`)"
+what = "PEMS uses order 64 and 256 history steps."
+resolution = "`hippo_order` and the history length are parameters (defaults 512 and the task window)."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/SiTransformer.py` (`self.W_channels = nn.Parameter(...).to(configs.device)`)"
+what = "on a GPU run `.to(device)` returns a plain non-leaf tensor, so the per-channel embedding is not registered, never optimized, and not saved in checkpoints (a fixed random offset)."
+resolution = "registered as a learnable parameter."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/SiTransformer.py` (`forecast`)"
+what = "every evaluation forward writes `ts_time.npy` to the working directory (`np.save`)."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_loader.py` (`hippo_path = root_path/<data name>.npy`)"
+what = "the precomputed HiPPO cache is keyed only by the data file name, not by `features`, order, or history length, so a later run with other settings silently reuses stale coefficients."
+resolution = "not applicable; coefficients are computed inside the model from its own input."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 2 vs `model/SiTransformer.py`"
+what = "the embedding adds a per-channel vector `W_channels` that the paper does not describe, and Sec. 4.1 says Transformer hyperparameters follow iTransformer while `run.py` defaults to 16 heads."
+resolution = "follows the code (channel embedding, 16 heads)."
+
+[[issues]]
+kind = "license"
+where = "repository root at `a6f5aec`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

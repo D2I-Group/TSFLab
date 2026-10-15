@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "regularized_adaptive_graph_conv"
+role = "Learns a node graph and propagates over it in linear time, for large road networks where a dense learned adjacency is too costly."
+slot = "channel"
+fits = ["spatial-graph", "many-channels", "efficiency"]
+category = "graph"
+tags = ["adaptive", "adjacency", "cosine", "embedding", "graph", "linear-complexity", "node", "regularization", "stochastic"]
+input = "StochasticSharedEmbedding: embeddings [nodes, C]; EfficientCosineGraphConv: x [batch, nodes, hidden_dim]; node_embedding [nodes, spatial_dim]"
+output = "StochasticSharedEmbedding: [nodes, C]; EfficientCosineGraphConv: [batch, nodes, hidden_dim]"
+origin = "RAGC, 'Efficient Traffic Forecasting on Large-Scale Road Network by Regularized Adaptive Graph Convolution' (arXiv 2506.07179, 2025): stochastic shared embedding and Efficient Cosine Operator"
+origin_models = ["ragc"]

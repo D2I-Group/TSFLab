@@ -1,0 +1,11 @@
+[model]
+name = "QuantilePatchTST"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+e_layers = 3
+d_model = 128
+n_heads = 8
+d_ff = 256

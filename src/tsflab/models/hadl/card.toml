@@ -1,0 +1,80 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "HADL"
+tags = ["linear", "time-series", "wavelet", "haar", "dct", "low-rank", "frequency-domain", "noise-robust", "lightweight"]
+fits = ["long-lookback", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "HADL Framework for Noise Resilient Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2502.10569"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/forgee-master/HADL"
+revision = "aecbda0dafd7c1ab6bcdb2d3b0e1f0f053f8e30b"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/forgee-master/HADL/blob/aecbda0dafd7c1ab6bcdb2d3b0e1f0f053f8e30b/models/HADL.py", "https://github.com/forgee-master/HADL/blob/aecbda0dafd7c1ab6bcdb2d3b0e1f0f053f8e30b/exp/exp_main.py"]
+
+[composition]
+normalization = "local:channel-mean-centering"
+decomposition = "component:haar_dwt1d"
+temporal = "local:scaled-orthonormal-dct-ii"
+channel = "local:channel-shared-weights"
+head = "local:low-rank-linear-pq"
+loss = "loss:mse+local:l1-forecast-penalty-aux-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (one shared layer by default; one layer per channel with individual = true)" }
+rank = { from = "seq_len", rule = "low-rank width r; the paper asks r << min(seq_len / 2, pred_len); scripts use 50 with seq_len 512" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.4 (\"L1 regularization ... shrinks the coefficients of less important features\") vs `exp/exp_main.py` (`train`, `train_noise`)"
+what = "the code penalizes the mean absolute value of the forecasts, `regularization_rate * mean(|outputs|)`, not the layer weights."
+resolution = "follows the code (penalty on the forecast through `aux_loss`)."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_main.py` (`train`, `use_amp` branch)"
+what = "the mixed-precision branch computes the plain criterion and never adds the L1 regularizer, so `--use_amp` silently trains without it."
+resolution = "the penalty does not depend on precision."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 1-5 and Algorithm 1 vs `models/HADL.py` (`Model.forward`)"
+what = "the code subtracts each channel's window mean before the Haar step and adds it back to the forecast; the paper does not describe this normalization."
+resolution = "follows the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/HADL.py` (`iDiscreteCosineTransform`)"
+what = "the forward pass uses the unnormalized scipy `idct` but the hand-written backward applies the unnormalized `dct`, which is not its adjoint (gradients are too large by a factor `2N`, `4N` at index 0), and the pair is inconsistent with the orthonormal forward DCT. The path is disabled in every script (`--enable_iDCT 0`)."
+resolution = "the inverse-DCT option is not implemented (the paper omits the inverse transform, Sec. 3.4)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4 (main results) vs `scripts/multivariate/HADL/*.sh` (`rank=50`) and Sec. 6.2 / Appendix C (`r = 40`)"
+what = "the main experiments do not state the rank; the scripts use 50 while `README.md` documents a default of 30, and `r = 50` does not satisfy the stated `r << min(L/2, H)` for `H = 96`."
+resolution = "default `rank=50` (the scripts)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 4 vs `models/HADL.py` (`DiscreteCosineTransform`)"
+what = "the paper does not say which DCT-II normalization is meant; the code uses scipy's orthonormal DCT and then divides by the transformed length `L/2`."
+resolution = "orthonormal DCT-II divided by its length, as in the code."
+
+[[issues]]
+kind = "license"
+where = "`README.md` (\"This project is licensed under the MIT License\") vs `LICENSE` (Apache License 2.0)"
+what = "the repository states two different licenses."
+resolution = "recorded as `Apache-2.0` (the LICENSE file); independent rewrite, nothing copied."

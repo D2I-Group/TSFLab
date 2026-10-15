@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AGCRN"
+tags = ["rnn", "gnn", "graph-learning", "spatiotemporal", "covariates"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card's verification reviewed the paper and the pinned BasicTS AGCRN implementation and records no paper or official-code problem."
+
+[paper]
+title = "Adaptive Graph Convolutional Recurrent Network for Traffic Forecasting"
+url = "https://arxiv.org/abs/2007.02842"
+venue = "NeurIPS 2020"
+year = 2020
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:stacked-graph-gru-encoder"
+channel = "component:adaptive_node_embedding_adjacency+component:node_adaptive_graph_conv"
+head = "local:horizon-embedding-mlp-readout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (series); sizes the node embeddings" }
+input_dim = { from = "covariates", rule = "1 + covariate features per node; 3 = value + time-of-day + day-of-week from calendar stamps" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CARD"
+tags = ["transformer", "patching", "channel-mixing", "attention-variant"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CARD: Channel Aligned Robust Blend Transformer for Time Series Forecasting"
+url = "https://arxiv.org/abs/2305.12095"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/wxie9/CARD"
+revision = "ca6d34bcf26355bfdb6fc05f49c66e7601817f66"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:ema-aligned-patch-token-attention"
+channel = "local:channel-aligned-cross-channel-attention"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; cross-channel attention runs over all of them at each patch" }
+patch_len = { from = "seq_len", rule = "patch_len must not exceed seq_len (unfold with stride, no padding)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from the paper with the repository kept as a provenance link only; license recorded as `NOASSERTION`."

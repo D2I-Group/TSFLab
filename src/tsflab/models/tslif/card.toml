@@ -1,0 +1,73 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TSLIF"
+tags = ["snn", "spiking", "rnn", "neuromorphic", "multi-timescale", "channel-independent", "revin"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TS-LIF: A Temporal Segment Spiking Neuron Network for Time Series Forecasting"
+url = "https://arxiv.org/abs/2503.05108"
+venue = "ICLR"
+year = 2025
+
+[code]
+url = "https://github.com/kkking-kk/TS-LIF"
+revision = "a59826a6c7f62d0f16edbafdbb28db65bebd9f69"
+license = "MIT"
+reference_sources = ["https://github.com/kkking-kk/TS-LIF/blob/a59826a6c7f62d0f16edbafdbb28db65bebd9f69/TS-LIF/SeqSNN/network/snn/TSLIF.py", "https://github.com/kkking-kk/TS-LIF/blob/a59826a6c7f62d0f16edbafdbb28db65bebd9f69/TS-LIF/SeqSNN/network/snn/spikegru.py", "https://github.com/kkking-kk/TS-LIF/blob/a59826a6c7f62d0f16edbafdbb28db65bebd9f69/TS-LIF/SeqSNN/network/snn/surrogate.py", "https://github.com/kkking-kk/TS-LIF/blob/a59826a6c7f62d0f16edbafdbb28db65bebd9f69/TS-LIF/SeqSNN/runner/vsts.py", "https://github.com/kkking-kk/TS-LIF/blob/a59826a6c7f62d0f16edbafdbb28db65bebd9f69/TS-LIF/exp/forecast/spikegru/spikegru_electricity.yml"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:dendrite-soma-compartments"
+temporal = "local:conv-spike-encoder+local:spiking-gru+local:ts-lif-neuron"
+channel = "local:channel-independent-shared-weights"
+head = "local:last-step-linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the root has no license file; `TS-LIF/LICENSE` is the MIT license of Microsoft SeqSNN, on which the code is built."
+resolution = "recorded as `MIT`; independent rewrite, nothing copied or imported."
+
+[[issues]]
+kind = "unreleased"
+where = "official TCN and Transformer backbones"
+what = "only the spiking-GRU path runs with TS-LIF at the pinned revision (only `spikegru_*` configurations are tagged `tslif`; the attention module references undefined neuron classes)."
+resolution = "TS-GRU only."
+
+[[issues]]
+kind = "code-bug"
+where = "`TS-LIF/SeqSNN/network/snn/TSLIF.py`"
+what = "the neuron's mixing weights are hard-coded to width 128, which does not broadcast against the TCN `[B, H, C, L]` tensors for the configured windows."
+resolution = "per-feature mixing sized from the hidden width."
+
+[[issues]]
+kind = "code-bug"
+where = "`TS-LIF/SeqSNN/network/snn/spikegru.py`"
+what = "the GRU cell recomputes its gates from the current input and a zero hidden state at every step, so the hidden-to-hidden weight receives no signal and only its bias contributes."
+resolution = "the official behavior is kept (zero-state gates), with the dead weight matrix replaced by its bias."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (5)-(6) vs `TS-LIF/SeqSNN/network/snn/TSLIF.py`"
+what = "the code learns the input gains separately from `1 - alpha`, subtracts a fixed reset 0.5 and `v_th` right after firing, and mixes dendrite and soma spikes with two free standard-normal per-feature weights."
+resolution = "the equations (tied gains, learnable resets subtracted in the next update, convex `kappa` mix initialized at 0.5)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix A.12 vs official encoder"
+what = "the appendix names the TS-LIF neuron in the encoder, while the code fires with a plain single-step LIF threshold."
+resolution = "the plain LIF threshold, as in the code."

@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GCLSTM"
+tags = ["gnn", "rnn", "spatiotemporal", "covariates", "air-quality"]
+fits = ["spatial-graph", "exogenous-covariates"]
+fidelity = "inferred"
+
+[paper]
+title = "A hybrid model for spatiotemporal forecasting of PM2.5 based on graph convolutional neural network and long short-term memory"
+url = "https://doi.org/10.1016/j.scitotenv.2019.01.333"
+venue = "Science of the Total Environment 2019"
+year = 2019
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:graph-conv-lstm-cell"
+channel = "component:graph_spectral"
+head = "local:node-wise-linear-horizon-readout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (stations); adj_mx must be enc_in x enc_in" }
+adj_mx = { from = "graph", rule = "the runner adjacency, converted to scaled-Laplacian Chebyshev supports; absent means an all-ones graph" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "GC-LSTM paper"
+what = "no author implementation was identified; the recorded `PoorOtterBob/CauAir` repository is a reference-only third-party codebase."
+resolution = "clean-room implementation from the paper."
+
+[[issues]]
+kind = "underspecified"
+where = "paper feature pipeline and graph construction"
+what = "the exact input features and graph construction are not available."
+resolution = "the runner's adjacency as scaled-Laplacian Chebyshev supports and the supplied calendar and node covariates, with one graph-convolutional LSTM cell and a direct multi-horizon decoder."
+
+[[issues]]
+kind = "license"
+where = "`PoorOtterBob/CauAir` repository root"
+what = "no license file at the pinned revision."
+resolution = "the former derived implementation was deleted and replaced by a clean-room rewrite; license recorded as `NOASSERTION`."

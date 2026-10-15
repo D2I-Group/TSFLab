@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "XGBoostTS"
+tags = ["tree", "baseline", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "a clean-room gradient-boosted-tree baseline with no official codebase; XGBoost source was not inspected and only high-level ideas (additive trees, shrinkage, subsampling, regularization) are borrowed."
+
+[paper]
+title = "XGBoost: A Scalable Tree Boosting System"
+url = "https://arxiv.org/abs/1603.02754"
+venue = "KDD 2016"
+year = 2016
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:soft_tree"
+channel = "local:flattened-channel-time-input-with-column-masks"
+head = "local:linear-base-plus-shrunken-tree-corrections"
+loss = "loss:mse+local:leaf-l1-l2-regularization"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count; the flattened input is seq_len * enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

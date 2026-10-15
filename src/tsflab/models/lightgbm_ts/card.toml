@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LightGBMTS"
+tags = ["tree", "ensemble", "boosting", "baseline", "feature-selection", "normalization"]
+fits = ["non-stationary"]
+fidelity = "paper-only"
+issues_checked = "no official code is used; the card cites the LightGBM paper as conceptual background only and documents no paper problem."
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count; input is flattened to seq_len * enc_in features" }
+
+[paper]
+title = "LightGBM: A Highly Efficient Gradient Boosting Decision Tree"
+url = "https://proceedings.neurips.cc/paper/2017/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html"
+venue = "NeurIPS 2017"
+year = 2017
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:stagewise-residual-backcast"
+temporal = "component:soft_tree+local:additive-stagewise-corrections"
+channel = "local:flattened-channel-mixing"
+head = "local:linear-base-plus-tree-corrections"
+loss = "loss:mse+local:feature-gate-sparsity-aux-loss"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

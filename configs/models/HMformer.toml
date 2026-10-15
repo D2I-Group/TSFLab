@@ -1,0 +1,12 @@
+[model]
+name = "HMformer"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+patch_len = 16
+stride = 8
+num_scales = 3
+depth = 1
+num_heads = 4

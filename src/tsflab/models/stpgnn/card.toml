@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STPGNN"
+tags = ["gnn", "spatiotemporal", "graph-learning", "covariates", "cnn"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a clean-room rewrite of pivotal-node identification, Eq. 7 pivotal graph convolution, Eq. 8 diffusion, and the temporal branch, with no documented paper or official-code problem."
+
+[paper]
+title = "Spatio-Temporal Pivotal Graph Neural Networks for Traffic Flow Forecasting"
+url = "https://doi.org/10.1609/aaai.v38i8.28707"
+venue = "AAAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Kongwy5689/STPGNN"
+revision = "df199624259776515a2d287c32b5db459a629f5d"
+license = "MIT"
+reference_sources = ["https://github.com/Kongwy5689/STPGNN/blob/df199624259776515a2d287c32b5db459a629f5d/model.py", "https://github.com/Kongwy5689/STPGNN/blob/df199624259776515a2d287c32b5db459a629f5d/util.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-span-window-and-conv"
+channel = "local:pivotal-node-graph-convolution+local:adaptive-graph"
+head = "local:flatten-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+num_nodes = { from = "nodes", rule = "number of graph nodes (injected, else enc_in); input [B, seq_len, num_nodes]" }
+adj_mx = { from = "graph", rule = "dataset adjacency [N, N], injected by the runner; identity when absent" }
+topk = { from = "nodes", rule = "pivotal set size, clamped to num_nodes" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

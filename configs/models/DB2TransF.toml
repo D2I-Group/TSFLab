@@ -1,0 +1,14 @@
+[model]
+name = "DB2TransF"
+
+[model.params]
+enc_in = 7
+d_model = 256
+e_layers = 3
+levels = 1
+n_heads = 8
+d_ff = 768
+dropout = 0.1
+use_norm = true
+use_marks = true
+freq = "h"

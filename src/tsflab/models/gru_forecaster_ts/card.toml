@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GRUForecasterTS"
+tags = ["rnn", "baseline", "channel-mixing", "normalization"]
+fits = ["short-train", "high-cross-correlation"]
+fidelity = "paper-only"
+issues_checked = "clean-room GRU baseline from the cited GRU equations; there is no official forecasting code to check and the card documents no paper problem."
+
+[paper]
+title = "Empirical Evaluation of Gated Recurrent Neural Networks on Sequence Modeling"
+url = "https://arxiv.org/abs/1412.3555"
+venue = "arXiv preprint"
+year = 2014
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:gru-final-state-encoder"
+channel = "local:channel-mixing-recurrent-input"
+head = "local:linear-direct-multi-horizon-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the GRU reads all channels jointly and the head emits pred_len * enc_in values" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

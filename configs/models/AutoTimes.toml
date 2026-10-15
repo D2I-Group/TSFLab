@@ -1,0 +1,11 @@
+[model]
+name = "AutoTimes"
+
+[model.params]
+enc_in = 7
+token_len = 96
+mlp_hidden_dim = 512
+mlp_hidden_layers = 2
+mlp_activation = "tanh"
+dropout = 0.1
+llm_layers = 12

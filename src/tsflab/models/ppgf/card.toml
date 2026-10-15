@@ -1,0 +1,129 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PPGF"
+tags = ["hybrid", "classification-guided", "training-objective", "value-binning", "confidence-calibration", "transformer", "cnn", "channel-independent"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PPGF: Probability Pattern-Guided Time Series Forecasting"
+url = "https://arxiv.org/abs/2502.12802"
+venue = "IEEE TNNLS"
+year = 2025
+
+[code]
+url = "https://github.com/syrGitHub/PPGF"
+revision = "a478f95f26d9f76da4ea5264e1b7bb9473360176"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/syrGitHub/PPGF/blob/a478f95f26d9f76da4ea5264e1b7bb9473360176/model_multi_task.py", "https://github.com/syrGitHub/PPGF/blob/a478f95f26d9f76da4ea5264e1b7bb9473360176/Group_helper.py", "https://github.com/syrGitHub/PPGF/blob/a478f95f26d9f76da4ea5264e1b7bb9473360176/train.py", "https://github.com/syrGitHub/PPGF/blob/a478f95f26d9f76da4ea5264e1b7bb9473360176/layer/mytransformerencoder.py", "https://github.com/syrGitHub/PPGF/blob/a478f95f26d9f76da4ea5264e1b7bb9473360176/layer/GRNlayer.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:conv-transformer-variable-selection-extractor"
+channel = "local:channel-independent-shared-weights"
+head = "local:tcp-calibrated-group-classifier-and-relative-offset"
+loss = "local:tcp-confidence-group-cross-entropy-relative-regression"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels (one set of group edges per channel)" }
+num_groups = { from = "train-split", rule = "group edges are equal-count quantiles fitted on the scaled training series of each channel by training_setup" }
+conv_kernel = { from = "seq_len", rule = "seq_len must exceed conv_kernel" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`main.py`"
+what = "it imports `regression_error`, a module that is not in the repository, and `Main.run` returns the undefined `test_msle`, so the published entry point cannot run."
+resolution = "implementation built from `model_multi_task.py`, `train.py`, `Group_helper.py` and `layer/`."
+
+[[issues]]
+kind = "code-bug"
+where = "`data.py` `DataGenerator.construct_data`"
+what = "it reads `./data/Series_data_classification/{train,test}.csv` and `list.txt`, which are not shipped (the data folders are `data/1.Power consumption/` to `data/6.Solar wind/`, and `data/4.ElectricityLoadDiagrams/` has no `train.csv`)."
+resolution = "catalog datasets and loaders."
+
+[[issues]]
+kind = "leakage"
+where = "`data.py` `DataGenerator.construct_data`"
+what = "the `val` phase reads `test.csv`, so the early stopping and checkpoint selection in `train.py` are done on the test split."
+resolution = "the runner's chronological train/validation/test splits."
+
+[[issues]]
+kind = "leakage"
+where = "`data.py` `normalized` and `test.py` `test`"
+what = "every split is standardized with its own mean and standard deviation, so test inputs and metrics use test statistics."
+resolution = "the runner scales with training statistics only."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. III-A (multivariate input `X` of `L x D`, horizon `Y` of length `T`) vs `data.py` and `ModelB`"
+what = "the code uses only column 0 as a univariate input (`Conv1d(in_channels=1)`) and predicts one scalar `(input_length + predict_length) * interval` steps ahead."
+resolution = "one channel-independent univariate extractor with shared weights, and one classifier and offset block per horizon step."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. III-C and III-E"
+what = "the class `k`, the confidence `c_hat` and the gate `h * c_hat` are defined per sample, not for a `T`-step horizon."
+resolution = "one TCP classifier, confidence and calibrated classifier block per horizon step (identical to the paper for `T = 1`)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (8) (`Delta Y = ReLU(FC3(g))` with `Delta y` of length `T`) vs `ModelB.final_reg`"
+what = "the code predicts one offset per group (`Linear(416, num_groups)`), and `Group_helper.inference` uses the offset of the predicted group."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. III-E and contribution 1 (predictions are guaranteed to stay in the class interval)"
+what = "the offset only passes a ReLU and is never bounded by 1, so Eq. (10) can leave the interval (`Group_helper.inference`)."
+resolution = "follow the code; listed as a limit."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) and Sec. III-C (a confidence score between 0 and 1) vs `ModelB.TCPConfidenceLayer` and `train.py`"
+what = "the confidence is an unbounded `Linear(hidden, 1)`, `loss_conf` adds the cross-entropy of the TCP classifier, and the TCP target is not detached from the graph."
+resolution = "unbounded confidence and the added cross-entropy as in the code; the TCP target is detached, as in ConfidNet."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) vs `train.py` `train`"
+what = "`L_reg` sums over groups the MSE of the true group's offset over that group's samples, not one MSE over all offsets."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. III-B (GRN) vs `layer/GRNlayer.py` `GatedResidualNetwork.forward`"
+what = "the ELU between the two linear maps is commented out, and the block used is a `VariableSelectionNetwork` over the convolution positions."
+resolution = "follow the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`layer/mytransformerencoder.py` `MultiHeadAttention.forward` and `PoswiseFeedForwardNet.forward`"
+what = "`nn.LayerNorm(d_model)` is created inside `forward` on a hard-coded CUDA device, so its affine parameters are never registered or trained. The attention mask passed by `ModelB` is ignored (the `masked_fill_` line is commented out)."
+resolution = "layer normalization without affine parameters, no mask."
+
+[[issues]]
+kind = "code-bug"
+where = "`model_multi_task.py` `ModelB`"
+what = "the variable-selection sizes are hard-coded (`VariableSelectionNetwork(32, 26, 26 * 16)`, `Linear(416, ...)`), which is valid only for `input_length = 27`, not for the look-back of 32 in Sec. IV-B, and `forward` reshapes by `args.batch` (hence `drop_last=True` on every loader)."
+resolution = "the number of positions follows `seq_len`, `grn_hidden` defaults to 416, and shapes come from the input."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. III-F and IV-B"
+what = "the selected group count, loss weights and hidden width per dataset are not reported (grids `K` in {2, 3, 4, 8}, `lambda` in {1, ..., 5}); `main.py` defaults to `lambda = (1, 1, 1)`, `K = 4`, hidden 300, and the README command uses `--num_groups 2 --lambda_reg 4 --hidden_dim 200`."
+resolution = "`lambda = (1, 1, 5)` from Sec. III-F, `K = 4` and hidden 300 from `main.py`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

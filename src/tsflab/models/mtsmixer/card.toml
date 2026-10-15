@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MTSMixer"
+tags = ["mlp", "mixer", "channel-mixing", "normalization", "lightweight"]
+fits = ["low-dimensional-channels", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "MTS-Mixers: Multivariate Time Series Forecasting via Factorized Temporal and Channel Mixing"
+url = "https://arxiv.org/abs/2302.04501"
+venue = "IJCNN 2025"
+year = 2025
+
+[code]
+url = "https://github.com/plumprc/MTS-Mixers"
+revision = "262448f00cf8b7e0ee38ef2ca510cc70ed4b8dc8"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/plumprc/MTS-Mixers/blob/262448f00cf8b7e0ee38ef2ca510cc70ed4b8dc8/models/MTSMixer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:factorized-subsequence-mlp-mixer"
+channel = "local:channel-interaction-bottleneck-mlp"
+head = "component:channel_wise_linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+d_ff = { from = "channels", rule = "channel-bottleneck rank; smaller than enc_in when fac_C is on" }
+sampling = { from = "seq_len", rule = "interleaved subsequence count; at most seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from Eqs. (3), (6) and (8); license recorded as `NOASSERTION`."

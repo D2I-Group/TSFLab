@@ -1,0 +1,10 @@
+[model]
+name = "MultiPatchFormer"
+
+[model.params]
+enc_in = 7
+d_model = 64
+n_heads = 4
+e_layers = 2
+d_ff = 128
+dropout = 0.1

@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ARKAN"
+tags = ["kan", "hybrid", "statistical", "autoregressive", "channel-independent", "lightweight", "time-series"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "AR-KAN: Autoregressive-Weight-Enhanced Kolmogorov-Arnold Network for Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.02967"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/ChenZeng001/AR-KAN"
+revision = "f9b5edc2842f57aee89bda209effbb7b2116f243"
+license = "MIT"
+reference_sources = ["https://github.com/ChenZeng001/AR-KAN/blob/f9b5edc2842f57aee89bda209effbb7b2116f243/AR_predict_dataset.ipynb", "https://github.com/ChenZeng001/AR-KAN/blob/f9b5edc2842f57aee89bda209effbb7b2116f243/AR_predict_functions.ipynb"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:ar-weighted-lag-memory"
+channel = "local:channel-independent-shared-kan"
+head = "component:bspline_basis+local:bspline-kan-one-step-recursive"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; one row of AR coefficients per channel" }
+lag = { from = "seq_len", rule = "AR order p; must lie in [1, seq_len]" }
+ar_estimator = { from = "train-split", rule = "AR memory is fitted on the training split before training (least_squares default, or yule_walker)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. III-B (Eqs. 9-12, Yule-Walker) vs `AR_predict_functions.ipynb`"
+what = "the official AR memory is fitted by no-intercept least squares on the lag windows, not by the Yule-Walker equations the paper describes."
+resolution = "both estimators are available (`ar_estimator`); least squares, the official choice, is the default."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "appendix (KAN baselines listed as FastKAN, radial basis functions) vs the official notebooks and the error analysis (B-spline KAN)"
+what = "the paper is inconsistent about the KAN basis."
+resolution = "B-splines, as in the official code and Eqs. (5)-(6)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. III-B"
+what = "the KAN size, grid, lag order, lag ordering and training recipe are not fixed in the paper."
+resolution = "the official `pykan` settings (`width=[20, 50, 1]`, grid 3, cubic, `p = 20` chronological lags, one-step MSE, no grid updates)."

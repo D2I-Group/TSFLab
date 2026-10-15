@@ -1,0 +1,10 @@
+[model]
+name = "DSFormer"
+
+[model.params]
+enc_in = 7
+num_layer = 1
+muti_head = 2
+num_samp = 2
+dropout = 0.15
+if_node = true

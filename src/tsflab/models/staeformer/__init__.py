@@ -1,0 +1,1 @@
+"""STAEformer spatiotemporal forecasting model."""

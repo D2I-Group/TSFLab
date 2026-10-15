@@ -1,0 +1,34 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SVTime"
+tags = ["linear", "decomposition", "patching", "channel-independent", "normalization", "lightweight"]
+fits = ["strong-seasonality", "long-horizon", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "no official code was available to inspect; the card records a clean-room rewrite from Sections 3.1, 3.2, 3.4, and Eq. 3 with no documented problem in the paper."
+
+[paper]
+title = "SVTime: Small Time Series Forecasting Models Informed by \\\"Physics\\\" of Large Vision Model Forecasters"
+url = "https://arxiv.org/abs/2510.09780"
+venue = "arXiv preprint"
+year = 2025
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:backcast-residual-trend"
+temporal = "local:patch-wise-period-map"
+channel = "local:channel-independent-shared-weights"
+head = "local:scalar-gated-trend-seasonal-sum"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+period = { from = "period", rule = "dominant seasonal period in steps, in [1, seq_len]; seq_len ideally a multiple" }
+patch_size = { from = "period", rule = "within-period patch length in [1, period]; ideally divides period" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

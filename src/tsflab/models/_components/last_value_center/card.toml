@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "last_value_center"
+role = "Corrects level shifts between the lookback window and the horizon by forecasting relative to the last observed value."
+slot = "normalization"
+fits = ["train-val-level-shift", "non-stationary"]
+category = "normalization"
+tags = ["centering", "detach", "last-value", "level", "residual", "stateless"]
+input = "x [batch, length, channels]; head_output [batch, horizon, channels]; level [batch, 1, channels]"
+output = "center_on_last_value: (centered [batch, length, channels], level [batch, 1, channels]); restore_last_value: [batch, horizon, channels]"
+origin = "Last-value (NLinear-style) normalization, Zeng et al., 'Are Transformers Effective for Time Series Forecasting?', AAAI 2023"
+origin_models = ["nlinear", "segrnn", "crossgnn"]

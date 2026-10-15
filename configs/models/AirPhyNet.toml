@@ -1,0 +1,9 @@
+[model]
+name = "AirPhyNet"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+latent_dim = 4
+rnn_units = 64
+ode_method = "rk4"

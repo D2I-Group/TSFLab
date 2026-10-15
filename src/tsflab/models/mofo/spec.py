@@ -1,0 +1,54 @@
+"""Model specification for MoFo."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+from tsflab.catalog.registry.models import ModelSpec
+from tsflab.models.mofo.model import Model
+
+
+class ModelParameterConfig(BaseModel):
+    """Validated MoFo parameters supplied via ``model.params``."""
+
+    enc_in: int = Field(gt=0)
+    d_model: int = Field(default=64, gt=0)
+    periodic: int = Field(default=24, ge=2)
+    head: int = Field(default=4, gt=0)
+    d_layers: int = Field(default=1, gt=0)
+    bias: Literal[0, 1] = 1
+    cias: Literal[0, 1] = 1
+
+    @model_validator(mode="after")
+    def validate_heads(self):
+        if self.d_model % self.head:
+            raise ValueError("d_model must be divisible by head")
+        return self
+
+
+def build_model(cfg, params):
+    """Construct MoFo from a validated run configuration."""
+    return Model(
+        seq_len=cfg.task.seq_len,
+        pred_len=cfg.task.pred_len,
+        enc_in=params["enc_in"],
+        d_model=params["d_model"],
+        periodic=params["periodic"],
+        head=params["head"],
+        d_layers=params["d_layers"],
+        bias=params["bias"],
+        cias=params["cias"],
+    )
+
+
+SPEC = ModelSpec(
+    name="MoFo",
+    model_class=Model,
+    factory=build_model,
+    params_schema=ModelParameterConfig,
+    capabilities=frozenset(["time-series"]),
+    components=("marks", "revin"),
+    contract_task={"seq_len": 96, "pred_len": 96, "label_len": 0},
+)

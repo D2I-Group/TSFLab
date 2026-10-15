@@ -1,0 +1,100 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tsflab"
+version = "1.0.0"
+description = "TSFLab — Agent-first time-series forecasting with TOML configs and flat model/component catalogs."
+readme = "README.md"
+authors = [{ name = "ChengAo Shen", email = "chengao_shen@ieee.org" }]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scikit-learn",
+    # Used by the probabilistic metrics (gaussian closed-form CRPS / inverse-CDF
+    # in tsflab.experiments.evaluation.metrics). Previously only a transitive dep.
+    "scipy",
+    "pydantic",
+    "packaging>=24",
+    "einops",
+    "fvcore",
+    "ipython",
+    "jupyterlab",
+    # PyTorch — the build/backend (CPU vs CUDA cuXXX) is chosen at install time
+    # via UV_TORCH_BACKEND (auto|cpu|cu126|cu128|cu130). Do NOT pin a +cuXXX local
+    # version or an explicit index here, or it overrides backend selection.
+    # 2.14 ships sm_120 kernels (RTX 50xx / Blackwell).
+    "torch==2.14.1",
+    "torchinfo",
+    # HuggingFace datasets (for GIFT-EVAL data loading)
+    "datasets",
+    # ODE solvers for the CauAir AirPhyNet / AirDualODE physics-informed models
+    "torchdiffeq",
+    # LSH self-attention for the Reformer model.
+    # Transitively pulls local-attention / axial-positional-embedding / etc.
+    "reformer-pytorch",
+    # Wavelet filter banks for the STWave model (src/tsflab/models/stwave).
+    "pywavelets",
+]
+
+[project.optional-dependencies]
+# One extra per module; the core install already runs every model and experiment.
+# data: dataset registration, Hub-published presets, parquet panels, source fetchers (gdown, h5py).
+data = ["pyarrow", "huggingface_hub>=0.25", "gdown>=5.2", "h5py>=3.11"]
+# models: pinned model artifacts and safetensors weights for foundation-model adapters.
+models = ["huggingface_hub>=0.25", "safetensors>=0.4"]
+# experiments: run tracking beyond the built-in records.
+experiments = ["tensorboard>=2.18"]
+# Publish and load checkpoints on the Hugging Face Hub (tsflab.release.hub).
+hub = ["huggingface_hub>=0.25", "safetensors>=0.4"]
+# Live data sources for the rolling real-time tracks (tsflab.realtime).
+realtime = ["akshare", "requests", "pyarrow", "huggingface_hub>=0.25"]
+# autoresearch consumes the context of the other modules.
+autoresearch = ["tsflab[data,models,experiments]"]
+tensorboard = ["tensorboard>=2.18"]
+wandb = ["wandb>=0.19"]
+all = ["tsflab[data,models,experiments,hub,realtime,autoresearch]", "wandb>=0.19"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[project.scripts]
+tsf = "tsflab.cli.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tsflab*"]
+
+[tool.setuptools.package-data]
+"tsflab.core" = ["schema/*.json"]
+"tsflab.data" = ["profile_rules.toml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "e2e: end-to-end CPU runs on fixture data; everything under tests/e2e (run with -m e2e)",
+    "model: builds catalog models; skipped unless TSFLAB_MODEL_TESTS=1 (admission covers models)",
+]
+
+# PyTorch backend (CPU/CUDA) is resolved at install time by uv via
+# UV_TORCH_BACKEND (auto|cpu|cu126|cu128|cu130). No explicit
+# [tool.uv.sources]/[[tool.uv.index]] pin is declared here so backend selection
+# is not overridden.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+# Long strings and docstrings are left to the formatter.
+ignore = ["E501"]

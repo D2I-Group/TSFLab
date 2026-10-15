@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RLinear"
+tags = ["linear", "normalization", "channel-independent", "baseline", "lightweight"]
+fits = ["strong-seasonality", "non-stationary", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Revisiting Long-term Time Series Forecasting: An Investigation on Linear Mapping"
+url = "https://arxiv.org/abs/2305.10721"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/plumprc/RTSF"
+revision = "0fec00104f754f4fbf795b9b4da5fa2459b32e76"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/plumprc/RTSF/blob/0fec00104f754f4fbf795b9b4da5fa2459b32e76/models/RLinear.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:channel_wise_linear"
+channel = "local:channel-independent-shared-weights"
+head = "component:channel_wise_linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

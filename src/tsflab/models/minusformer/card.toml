@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Minusformer"
+tags = ["transformer", "inverted", "variate-token", "residual-learning", "boosting", "gating", "attention", "normalization", "marks"]
+fits = ["high-cross-correlation", "non-stationary"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of variates; one inverted token each" }
+freq = { from = "frequency", rule = "only hourly (h) calendar tokens are supported; set use_marks = false for other sampling rates" }
+d_block = { from = "pred_len", rule = "block output length; defaults to pred_len, otherwise a linear map aligns it to the horizon" }
+
+[paper]
+title = "Minusformer: Improving Time Series Forecasting by Progressively Learning Residuals"
+url = "https://arxiv.org/abs/2402.02332"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/Anoise/Minusformer"
+revision = "78b3031cdf1219b71765a561452dcf3a8a2934b1"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Anoise/Minusformer/blob/78b3031cdf1219b71765a561452dcf3a8a2934b1/model/Minusformer.py", "https://github.com/Anoise/Minusformer/blob/78b3031cdf1219b71765a561452dcf3a8a2934b1/layers/Transformer_EncDec.py", "https://github.com/Anoise/Minusformer/blob/78b3031cdf1219b71765a561452dcf3a8a2934b1/layers/SelfAttention_Family.py", "https://github.com/Anoise/Minusformer/blob/78b3031cdf1219b71765a561452dcf3a8a2934b1/utils/tools.py"]
+
+[composition]
+normalization = "local:series-standardization"
+decomposition = "local:subtractive-dual-stream"
+temporal = "component:embed"
+channel = "component:self_attention_family"
+head = "local:alternating-subtraction-output-stream"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix H, Algorithm 1 vs `layers/Transformer_EncDec.py`"
+what = "the residual-stream sigmoid gate is followed by a second LayerNorm that Algorithm 1 does not show."
+resolution = "the code's second LayerNorm is included."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 2.4 (Eqs. 5-9) vs `model/Minusformer.py`, `layers/Transformer_EncDec.py`"
+what = "the paper leaves open the embedding form, the feed-forward layout and dropout placement, the activation (GELU with attention, ReLU without in the code), and which tensors feed the output-stream gate (the raw attention output concatenated with the feed-forward output)."
+resolution = "the code's choices."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

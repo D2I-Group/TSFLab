@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "gift_eval/SZ_TAXI_H"
+domain = "transport"
+topic = "road speed"
+benchmarks = ["gift-eval"]
+tags = ["gift-eval", "benchmark", "zero-shot", "foundation-model", "univariate", "transport", "hourly", "traffic", "taxi", "shenzhen", "libcity"]
+related = ["gift_eval/SZ_TAXI_15T"]
+
+[source]
+name = "LibCity / SZ-Taxi (Zhao et al., T-GCN)"
+url = "https://github.com/lehaifeng/T-GCN"
+citation = "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation (Aksu et al., 2024)"
+citation_url = "https://arxiv.org/abs/2410.10393"
+license = "unknown"
+redistribution = "upstream"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "2015-01 (one month)"
+length = 744
+channels = 1
+channel_kind = "channels"
+target = "the single value series"
+missing_values = "no missing-value flag recorded by GIFT-Eval; none documented for this id"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "GIFT-Eval short term: horizon 48, last 10% of each series is test (rolling non-overlapping windows, at most 20), context length chosen by the model, zero-shot oriented"
+literature = ""
+split = "per series: last 10% test, one horizon validation, rest train"
+seq_lens = []
+pred_lens = [48]

@@ -1,0 +1,27 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Composed"
+tags = ["hybrid", "recombination", "autoresearch", "slot-assignment"]
+fits = ["non-stationary", "strong-trend"]
+fidelity = "paper-only"
+issues_checked = "TSFLab-originated composition mechanism with no paper or official code; component-level paper differences are recorded on the component cards."
+
+[composition]
+normalization = "component:revin+component:last_value_center"
+decomposition = "component:series_decomposition"
+temporal = "component:channel_wise_linear+component:tst_transformer+component:mamba+component:gated_dilated_conv+component:mixer_block"
+channel = "local:slot-selected"
+head = "component:flatten_forecast_head"
+loss = "loss:mse+loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+patch_len = { from = "seq_len", rule = "must not exceed seq_len for the patched temporal options (tst_transformer, mamba)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "node_visibility"
+role = "Cuts the training cost of attention over many nodes by random node subsampling and attention within small random subgraphs."
+slot = "channel"
+fits = ["many-channels", "efficiency"]
+category = "utility"
+tags = ["graph", "grouping", "masking", "node", "sampling", "subgraph", "visibility", "token"]
+input = "tokens [batch, length, dim] (ungroup takes [batch * num_groups, subgraph_size, dim_out])"
+output = "kept [batch, keep_length, dim] + keep_indices [keep_length]; shuffled [batch, length, dim] + perm [batch, length]; grouped [batch * num_groups, subgraph_size, dim] + num_groups + orig_length"
+origin = "Node-visibility mechanism of VisiFold (ICDE 2026, 'Long-Term Traffic Forecasting via Temporal Folding Graph and Node Visibility')"
+origin_models = ["visifold"]

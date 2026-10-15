@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DCRNN"
+tags = ["rnn", "gnn", "spatiotemporal", "covariates", "autoregressive", "graph-given"]
+fits = ["spatial-graph"]
+fidelity = "reference-checked"
+issues_checked = "the card maps Eq. (2) and the DCGRU encoder-decoder against the paper with the MIT official code as reference and records only TSFLab's scoping (no scheduled sampling, teacher forcing, official preprocessing, or masked-MAE training)."
+
+[paper]
+title = "Diffusion Convolutional Recurrent Neural Network: Data-Driven Traffic Forecasting"
+url = "https://openreview.net/forum?id=SJiHXGWAZ"
+venue = "ICLR 2018"
+year = 2018
+
+[code]
+url = "https://github.com/liyaguang/DCRNN"
+revision = "602afd9d767d3aa1c9b3eac51710d6aeee12c227"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:dcgru-encoder-decoder"
+channel = "component:graph_utils+local:bidirectional-random-walk-diffusion-conv"
+head = "local:autoregressive-linear-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of graph nodes N" }
+adj_mx = { from = "graph", rule = "directed sensor-graph adjacency [N, N] giving forward and reverse random-walk supports; identity when absent" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

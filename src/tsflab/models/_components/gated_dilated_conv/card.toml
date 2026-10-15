@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "gated_dilated_conv"
+role = "Models temporal dependencies causally with WaveNet-style gated dilated convolutions."
+slot = "temporal"
+fits = ["any"]
+category = "convolution"
+tags = ["causal", "dilated", "gate", "gated-activation", "wavenet", "convolution"]
+input = "causal_pad: [batch, channels, time] or [batch, channels, nodes, time]; gated_dilated_conv: same layouts, with caller-owned filter and gate Conv1d/Conv2d"
+output = "causal_pad: same rank, time axis longer by dilation*(kernel_size-1); gated_dilated_conv: filter conv output, time length unchanged"
+origin = "WaveNet gated activation unit, van den Oord et al., 2016 (arXiv 1609.03499), as used in Graph WaveNet (IJCAI 2019) and MTGNN"
+origin_models = ["wavenet", "gwnet", "dfdgcn", "mtgnn"]

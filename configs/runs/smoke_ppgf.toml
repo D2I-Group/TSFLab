@@ -1,0 +1,30 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/PPGF.toml"]
+
+[experiment]
+description = "Smoke: PPGF"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6
+d_model = 8
+n_heads = 2
+d_k = 8
+d_ff = 16
+grn_hidden = 16
+hidden_dim = 16

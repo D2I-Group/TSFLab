@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PatchMLP"
+tags = ["mlp", "patching", "decomposition", "multi-scale", "channel-mixing", "channel-independent", "normalization"]
+fits = ["long-horizon", "high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Unlocking the Power of Patch: Patch-Based MLP for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2405.13575"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/TangPeiwang/PatchMLP"
+revision = "b36bbc92ecfc4732acaabb6d5e8c4ff487876f5d"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/TangPeiwang/PatchMLP/blob/b36bbc92ecfc4732acaabb6d5e8c4ff487876f5d/model/PatchMLP.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "local:moving-average-series-decomp"
+temporal = "local:multi-scale-patch-embedding-mlp-encoder"
+channel = "local:channel-mixing-on-smooth-branch"
+head = "local:linear-projector"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "seq_len", rule = "four lengths in [2, seq_len]; d_model // 4 >= (seq_len - p) / (p // 2) + 1 for each p" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "paper experimental setup"
+what = "initialization and several dataset-specific settings are not fully specified."
+resolution = "TSFLab's stated defaults (see Configuration constraints); no numerical-reference or reported-result claim is made."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,82 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Ister"
+tags = ["transformer", "linear-attention", "attention-variant", "decomposition", "inverted-embedding", "channel-mixing", "efficient", "normalization", "time-series", "revin", "series_decomposition"]
+fits = ["many-channels", "efficiency", "strong-trend"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (variate tokens)" }
+moving_avg = { from = "period", rule = "odd moving-average window for the trend split; official preset uses 25" }
+freq = { from = "frequency", rule = "only h can be rebuilt from raw marks; set use_marks = false for other sampling rates" }
+recon_len = { from = "seq_len", rule = "history steps reconstructed in the training loss; must lie in [0, seq_len]" }
+
+[paper]
+title = "Ister: Linear Transformer for Efficient Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2412.18798"
+venue = "ICASSP 2026"
+year = 2026
+
+[code]
+url = "https://github.com/macovaseas/Ister"
+revision = "a9aae6bae92f02b7bc3eafce5d289a5daec085d0"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/models/CD_Ister/CD_Ister.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/models/CD_Ister/layers/Transformer_EncDec.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/models/CD_Ister/layers/SelfAttention_Family.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/models/CD_Ister/layers/Embed.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/utils/tools.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/exp/exp_long_term_forecasting.py", "https://github.com/macovaseas/Ister/blob/a9aae6bae92f02b7bc3eafce5d289a5daec085d0/scripts/CD_Ister/ETT_script/Ister_ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:inverted-series-embedding"
+channel = "component:transformer_encdec+component:self_attention_family+local:dot-attention+local:trend-residual-mlp"
+head = "local:summed-seasonal-trend-linear-heads"
+loss = "local:reconstruction-plus-horizon"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_long_term_forecasting.py` `test()`"
+what = "every model call passes `is_test=True`, but `Model.forward` in `models/CD_Ister/CD_Ister.py` (and `models/MP_Ister/MP_Ister.py`) has no such argument, so the test phase of `run.py` raises `TypeError` as published."
+resolution = "the standard four-input forward is used; nothing depends on the flag."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 4 (L2 loss on the horizon) vs `exp/exp_long_term_forecasting.py` `train()`"
+what = "the default (non-AMP) branch computes the loss on `label_len + pred_len` outputs against `batch_y`, i.e. it also fits a reconstruction of the last 48 input steps, while the AMP branch and validation use the horizon only."
+resolution = "`recon_len` (default 48, the default branch) in `training_objective`; `recon_len = 0` gives the paper's loss."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (1) vs `models/CD_Ister/CD_Ister.py` `DotAttention.forward`"
+what = "the code applies GELU to `Softmax(Q) ⊙ K` before the token sum, which Eq. (1) does not have; it also wraps the core in an `AttentionLayer` with a fourth output projection besides the three matrices `W_Q, W_K, W_V` the paper describes."
+resolution = "`gelu_scores = true` (official) by default, `false` gives Eq. (1); the output projection is kept."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.3 (RevIN) vs `models/CD_Ister/CD_Ister.py` `Model.forecast`"
+what = "the code uses non-learnable mean/std normalization (no RevIN affine parameters)."
+resolution = "`revin` with `affine=False`, as in the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3.3 Eq. (3) and Algorithm 1"
+what = "the paper says embeddings and projections are \"MLP networks\" and the trend path is `MLP(X_t)`, but does not give their layout; the code uses one `Linear(T -> D)` embedding per part (`DataEmbedding_inverted` in `models/CD_Ister/layers/Embed.py`, which also appends calendar features as extra tokens), a residual `GELU` MLP with a linear shortcut and LayerNorm on trend tokens, and `1 / D`-initialized linear heads."
+resolution = "the code layout is followed."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/CD_Ister/CD_Ister.py` `Model` docstring"
+what = "the \"Paper link\" points to arXiv 2310.06625 (iTransformer), not to the Ister paper."
+resolution = "metadata only; the card links arXiv 2412.18798."
+
+[[issues]]
+kind = "license"
+where = "repository root at `a9aae6ba`"
+what = "`README.md` shows an MIT license badge but the repository has no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

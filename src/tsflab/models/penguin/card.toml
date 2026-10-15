@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PENGUIN"
+tags = ["transformer", "patching", "periodicity", "attention-variant", "channel-independent", "normalization", "revin"]
+fits = ["strong-seasonality", "multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PENGUIN: Enhancing Transformer with Periodic-Nested Group Attention for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2508.13773"
+venue = "AISTATS 2026"
+year = 2026
+
+[code]
+url = "https://github.com/ysygMhdxw/AISTATS2026_PENGUIN"
+revision = "d9a2b84f9fa214c91c4c1c51e5a7f95fb451cefb"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ysygMhdxw/AISTATS2026_PENGUIN/blob/d9a2b84f9fa214c91c4c1c51e5a7f95fb451cefb/models/PENGIUN.py", "https://github.com/ysygMhdxw/AISTATS2026_PENGUIN/blob/d9a2b84f9fa214c91c4c1c51e5a7f95fb451cefb/layers/SelfAttention_Family.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:periodic_alibi_bias+local:grouped-multi-query-causal-attention-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+periods = { from = "period", rule = "cycle lengths in time steps, each a positive multiple of stride; n_heads must be a multiple of len(periods)" }
+patch_len = { from = "seq_len", rule = "seq_len must be at least patch_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.2.2 (`P_S = P / stride`) vs `models/PENGIUN.py`"
+what = "the official model passes `periods` straight into the periodic bias as token counts, which matches the paper only for its scripted `patch_len = stride = 1`."
+resolution = "periods in time steps converted to patch units by `stride`, each period a positive multiple of `stride`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

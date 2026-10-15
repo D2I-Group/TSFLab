@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LatentTSF"
+tags = ["linear", "latent-space", "decomposition", "autoencoder", "two-stage-training"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the observation-to-state autoencoder, latent DLinear forecasting, and Eq. 5 objective were mapped against the pinned official code; the card records only TSFLab scoping choices (no perceptual loss, shorter default AE pretraining)."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (autoencoder observation width)" }
+kernel_size = { from = "period", rule = "DLinear moving-average window on latent states; preset 25" }
+
+[paper]
+title = "From Observations to States: Latent Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.00297"
+venue = "ICML 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Muyiiiii/LatentTSF"
+revision = "7c8ae947ee1220bf4e788ace6bc2f0f122cb26c2"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "local:latent-state-layer-norm"
+decomposition = "component:series_decomposition"
+temporal = "component:dlinear"
+channel = "local:latent-autoencoder-channel-expansion"
+head = "local:autoencoder-decoder"
+loss = "loss:mse+local:latent-mse-and-cosine-alignment"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,1 @@
+"""MSGNet model package."""

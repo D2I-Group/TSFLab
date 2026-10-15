@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FTP"
+tags = ["mlp", "patching", "multi-scale", "channel-mixing", "channel-independent", "normalization"]
+fits = ["long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "the card checks Algorithm 1 against the pinned `models/FTP.py` and `layers/FTP_EncDec.py` and documents no paper or official-code problem; the expectation over dominant-channel sampling is a TSFLab choice for deterministic point forecasts."
+
+[paper]
+title = "Unifying Channel Independence and Mixing: Multi-Scale Patch Recursion for Global-Local Representation Synergy in Multivariate Time Series Forecasting"
+url = "https://doi.org/10.1609/aaai.v40i33.40072"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Zhveh7/FTP"
+revision = "964b6f614a1294f136d03049ee67b35f68605422"
+license = "MIT"
+reference_sources = ["https://github.com/Zhveh7/FTP/blob/964b6f614a1294f136d03049ee67b35f68605422/models/FTP.py", "https://github.com/Zhveh7/FTP/blob/964b6f614a1294f136d03049ee67b35f68605422/layers/FTP_EncDec.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:multiscale-patch-mlp-global-local"
+channel = "local:ci-cm-fusion-and-channel-enhancement"
+head = "local:two-layer-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the channel-mixed path has dense enc_in * seq_len -> enc_in * d_model maps, so parameters grow quadratically with it" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,16 @@
+[model]
+name = "GWNetGMM"
+
+[model.params]
+enc_in = 8
+in_dim = 2
+dropout = 0.3
+hidden_channels = 32
+skip_channels = 256
+end_channels = 512
+kernel_size = 2
+blocks = 4
+layers = 2
+node_embedding_dim = 10
+anchors = [-2.0, -1.0, 0.0, 1.0, 2.0]
+spacing = 1.0

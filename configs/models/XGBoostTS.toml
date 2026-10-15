@@ -1,0 +1,14 @@
+[model]
+name = "XGBoostTS"
+
+[model.params]
+enc_in = 7
+num_estimators = 16
+tree_depth = 3
+learning_rate = 0.1
+column_fraction = 0.8
+l1_penalty = 0.0
+l2_penalty = 0.0001
+temperature = 1.0
+random_seed = 1741
+use_revin = true

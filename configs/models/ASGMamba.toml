@@ -1,0 +1,15 @@
+[model]
+name = "ASGMamba"
+
+[model.params]
+enc_in = 7
+patch_sizes = [8, 16, 32]
+overlap = false
+d_model = 256
+d_state = 16
+d_conv = 4
+expand = 2
+dropout = 0.2
+gate = "identity_centered"
+gate_amplitude = 0.5
+revin_affine = true

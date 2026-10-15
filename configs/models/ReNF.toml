@@ -1,0 +1,13 @@
+[model]
+name = "ReNF"
+
+[model.params]
+enc_in = 7
+variant = "beta"
+num_blocks = 3
+d_ff = 2048
+dropout = 0.5
+body_layers = 1
+block_norm = "layer"
+use_pe = true
+alpha_freq = 0.2

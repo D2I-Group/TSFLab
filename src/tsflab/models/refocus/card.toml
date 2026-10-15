@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ReFocus"
+tags = ["mlp", "frequency", "decomposition", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "ReFocus: Reinforcing Mid-Frequency and Key-Frequency Modeling for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2502.16890"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/Levi-Ackman/ReFocus"
+revision = "5b883b29f364b52a73835f1465e993433f94a1ed"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:frequency-domain-complex-linear-encoder"
+channel = "component:energy_frequency_pooling"
+head = "local:complex-frequency-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+kernel_size = { from = "seq_len", rule = "positive odd moving-average window, at most seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "EKPB energy-based pooling vs `layers/Encoder.py` `Encoder.forward`"
+what = "the paper describes only the training-time stochastic pick of a key channel per frequency bin, and the code calls `torch.multinomial` unconditionally, so evaluation is stochastic too."
+resolution = "`multinomial` sampling in training, a deterministic arg-max pick in evaluation."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

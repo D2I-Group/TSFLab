@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "global_patch_compression_attention"
+role = "Shares cross-variable context among patch tokens through one summary token per variable at reduced cost."
+slot = "channel"
+fits = ["many-channels", "high-cross-correlation"]
+category = "attention"
+tags = ["attention", "compression", "cross-patch", "global", "patch", "sensor", "transformer", "linear-in-patches"]
+input = "patches [batch, groups, patches_per_group, d_model]"
+output = "[batch, groups, patches_per_group, d_model]"
+origin = "Sensor Attention Block of Sensorformer (arXiv 2501.03284, 2025): cross-patch attention with global-patch compression"
+origin_models = ["sensorformer"]

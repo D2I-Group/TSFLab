@@ -1,0 +1,61 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DropoutTS"
+tags = ["transformer", "plug-in", "regularization", "adaptive-dropout", "robustness", "noise", "frequency", "patching", "channel-independent", "normalization"]
+fits = ["heteroscedastic", "low-forecastability"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DropoutTS: Sample-Adaptive Dropout for Robust Time Series Forecasting"
+url = "https://arxiv.org/abs/2601.21726"
+venue = "ICML 2026"
+year = 2026
+
+[code]
+url = "https://github.com/CityMind-Lab/DropoutTS"
+revision = "64a096ec6801d9506ab3a30541b6f1b6dbbd7f40"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/CityMind-Lab/DropoutTS/blob/64a096ec6801d9506ab3a30541b6f1b6dbbd7f40/src/basicts/modules/dropout_ts.py", "https://github.com/CityMind-Lab/DropoutTS/blob/64a096ec6801d9506ab3a30541b6f1b6dbbd7f40/src/basicts/runners/callback/dynamic_dropout.py"]
+
+[composition]
+normalization = "component:patchtst"
+decomposition = "none"
+temporal = "component:patchtst"
+channel = "local:channel-independent-shared-weights"
+head = "component:patchtst"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `src/basicts/modules/dropout_ts.py`"
+what = "the paper computes the spectral flatness of the amplitude spectrum `A`, while the code uses the power of the `log1p` amplitude (`(log(1 + A))^2`, with `1e-8` floors)."
+resolution = "the official form."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `src/basicts/modules/dropout_ts.py` `SFMAnchoredRRF`"
+what = "the paper writes scalar `w_s`, `b_s`, while the code learns them per channel (`[1, C, 1]`)."
+resolution = "per channel, initialized to 1 and 0, as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3)-(4) vs `src/basicts/modules/dropout_ts.py` `NoiseScorer`"
+what = "the paper adds `epsilon` to the min-max range, the code clamps the range at `1e-6` and sets the relative score to 0.5 when all batch scores coincide."
+resolution = "the code's clamp and tie rule."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 5.5 and `run_baselines.py` vs the class defaults in `src/basicts/modules/dropout_ts.py`"
+what = "the paper uses `p_min=0.05` and initial sensitivity 1, the class defaults are `p_min=0.1` and `init_sensitivity=5.0`."
+resolution = "the paper's values."

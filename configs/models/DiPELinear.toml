@@ -1,0 +1,14 @@
+[model]
+name = "DiPELinear"
+
+[model.params]
+enc_in = 7
+num_experts = 1
+use_revin = true
+use_time_w = true
+use_freq_w = true
+loss_alpha = 0.9
+dropout = 0.1
+temperature_start = 30.0
+temperature_end = 1.0
+anneal_epochs = 10

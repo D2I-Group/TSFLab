@@ -1,0 +1,18 @@
+[model]
+name = "GAMMANet"
+
+# Paper Section 4.2 and official model/GAMMANet.yaml (METRLA); enc_in follows the 8-node catalog fixture (set it to the dataset node count).
+[model.params]
+enc_in = 8
+steps_per_day = 288
+input_embedding_dim = 24
+tod_embedding_dim = 24
+dow_embedding_dim = 24
+adaptive_embedding_dim = 80
+num_heads = 4
+num_layers = 3
+gat = true
+d_state = 16
+d_conv = 4
+expand = 2
+scan_layout = "axis"

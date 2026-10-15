@@ -1,0 +1,28 @@
+# Smoke run for CRIB on the tiny built-in smoke dataset (CPU, 1 epoch).
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/CRIB.toml"]
+
+[experiment]
+description = "Smoke: CRIB"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+# seq_len must be divisible by patch_len (8).
+seq_len = 96
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 16
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6
+patch_len = 8
+model_dim = 32
+heads_num = 4

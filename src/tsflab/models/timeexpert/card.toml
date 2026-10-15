@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeExpert"
+tags = ["transformer", "mixture-of-experts", "patching", "channel-independent", "attention-variant", "normalization"]
+fits = ["long-lookback", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimeExpert: Boosting Long Time Series Forecasting with Temporal Mix of Experts"
+url = "https://arxiv.org/abs/2509.23145"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/xwmaxwma/TimeExpert"
+revision = "f53b5220f22767a91040aaa04679c2eb9b2eb9c5"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/xwmaxwma/TimeExpert/blob/f53b5220f22767a91040aaa04679c2eb9b2eb9c5/model/TimeExpert.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:embed+component:topk_expert_attention"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+topk = { from = "seq_len", rule = "at most the patch count (seq_len - patch_len) // stride + 2" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

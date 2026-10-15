@@ -1,0 +1,62 @@
+name = "maintenance"
+title = "Catalog maintenance"
+summary = "Maintenance module: curate shared components, close a bounded admission backlog, or run the complete repository release gate."
+skills = ["audit", "curate-components", "add-model"]
+acceptance = [
+  "Select only models whose card [admission] is failed or pending for a backlog and state the failing contract stage per model; give concurrent work non-overlapping model ownership and serialize shared-file edits.",
+  "For component curation, inventory component cards first, prefer reuse over a new extraction, compare equations, axes, normalization, masking, state, initialization, and outputs, and prove output and gradient equivalence before deleting local code.",
+  "Record reuse, extraction, or keep-local decisions; a fully reviewed no-change result is valid.",
+  "Never hand-edit [admission], fidelity, or card claims to disguise an incomplete implementation; only `tsf model verify` writes admission records; keep failed checks visible.",
+  "Regenerate only derived projections (`tsf repo cards`), re-admit every changed model with `tsf model verify --changed`, then pass infrastructure tests, model audit, component audit, repository audit, and for a release gate `tsf repo check --scope release` (every admission passed).",
+  "Report unresolved paper, license, reference, or runtime failures exactly without weakening or bypassing a gate.",
+]
+prompt = """
+Maintain the catalog for {scope}. Mode: {mode}. Component candidate (if curating):
+{candidate}. Close at most {batch_size} models, prioritizing {priority}.
+Work in independent model packages where possible; apply shared-file edits serially
+after reviewing handoffs. Search for reuse of existing components before extracting
+the smallest paper-neutral API for proven equivalent implementations with at least two
+consumers; leave material variants local. Stop rather than claiming completion when
+paper structure, source facts, or reference behavior cannot be resolved. Finish with
+one repository-wide audit and strict gate; fix only in-scope deterministic defects and
+do not change source claims merely to make counts pass.
+"""
+
+[inputs.scope]
+description = "Release scope, models, or repository area."
+required = false
+default = "the current dev worktree"
+
+[inputs.mode]
+description = "One of: release-gate (full audit), backlog (failed or pending admissions), curation (component extraction)."
+required = false
+default = "release-gate"
+
+[inputs.candidate]
+description = "Component candidate or operation for curation; omit for a repository-wide duplicate scan."
+required = false
+default = "repository-wide repeated implementation scan, prioritizing recently added or changed models"
+
+[inputs.batch_size]
+description = "Maximum number of models to change."
+required = false
+default = "3"
+maximum = 3
+budget_key = "max_models"
+
+[inputs.priority]
+description = "Selection rule for the bounded batch."
+required = false
+default = "failed admissions, then pending admissions, oldest admission date first"
+
+[permissions]
+network = "read-primary-sources-and-pinned-official-code"
+repository = "write-selected-models-components-cards-and-generated-projections"
+external_actions = "none"
+
+[budget]
+max_models = 3
+max_component_extractions = 2
+max_parallel_workers = 3
+max_fix_batches = 3
+max_wall_minutes = 240

@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WDformer"
+tags = ["transformer", "wavelet", "frequency", "attention-variant", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "WDformer: A Wavelet-based Differential Transformer Model for Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.25231"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/xiaowangbc/WDformer"
+revision = "c741e4e428f802df41b8b113ad4a4d5241da4805"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/model/WDformer.py", "https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/layers/SelfAttention_Family.py", "https://github.com/xiaowangbc/WDformer/blob/c741e4e428f802df41b8b113ad4a4d5241da4805/layers/Embed.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "component:wavelet"
+temporal = "local:subband-linear-embedding"
+channel = "component:differential_attention+local:variate-token-encoder"
+head = "local:pseudo-subband-projection+component:wavelet"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count; calendar marks add extra tokens" }
+wave_size = { from = "seq_len", rule = "Haar levels; seq_len and pred_len not multiples of 2**wave_size are padded and trimmed; at most 12" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "differential-attention `lambda_init` schedule vs `model/WDformer.py` (`0.7 - 0.5 * math.exp(-0.3 * l)`, 0-based `l`)"
+what = "the paper uses the Differential-Transformer schedule `0.8 - 0.6 * exp(-0.3 * (l - 1))` with 1-based `l`."
+resolution = "the official code's values."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Transformer_EncDec.py` `EncoderLayer`"
+what = "`conv1`/`conv2` sized by `d_ff` are built but never called, and the feed-forward is `SwiGLU(d_model)`, so `d_ff` has no effect."
+resolution = "`d_ff` is accepted for preset parity and has no effect, matching the official behavior."

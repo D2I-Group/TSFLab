@@ -1,0 +1,46 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AirDualODE"
+tags = ["hybrid", "gnn", "spatiotemporal", "covariates", "physics-informed", "neural-ode"]
+fits = ["spatial-graph", "exogenous-covariates"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Air Quality Prediction with Physics-Guided Dual Neural ODEs in Open Systems"
+url = "https://openreview.net/forum?id=kOJf7Dklyv"
+venue = "ICLR 2025"
+year = 2025
+
+[code]
+url = "https://github.com/decisionintelligence/Air-DualODE"
+revision = "3accfef5d3ab40f685ea29f302f76287706ba821"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/decisionintelligence/Air-DualODE/blob/3accfef5d3ab40f685ea29f302f76287706ba821/models/Air_DualODE.py", "https://github.com/decisionintelligence/Air-DualODE/blob/3accfef5d3ab40f685ea29f302f76287706ba821/models/layers/Explicit_odefunc.py", "https://github.com/decisionintelligence/Air-DualODE/blob/3accfef5d3ab40f685ea29f302f76287706ba821/models/layers/Unk_Dynamics.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:euler-rk4-dual-ode-rollout"
+channel = "local:geographic-graph-diffusion-advection+local:masked-attention-graph-state"
+head = "local:graph-fusion-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of stations (nodes)" }
+cov_dim = { from = "covariates", rule = "meteorology covariates per station; exactly cov_dim features are required (2 for converted calendar marks)" }
+adj_mx = { from = "graph", rule = "[enc_in, enc_in] distance adjacency for diffusion; required, construction fails without it" }
+flow_mx = { from = "graph", rule = "[enc_in, enc_in] directed wind/flow adjacency for advection; no TSFLab data path supplies it, so a directed ring placeholder is used with a warning" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local implementation from Eq. (6)-(10) and the graph-fusion description after inspecting the official model files; license recorded as `NOASSERTION`."

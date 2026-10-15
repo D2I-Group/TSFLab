@@ -1,0 +1,61 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FAITH"
+tags = ["transformer", "frequency", "decomposition", "multi-scale", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation", "strong-trend", "strong-seasonality"]
+fidelity = "reference-checked"
+
+[paper]
+title = "FAITH: Frequency-domain Attention In Two Horizons for Time Series Forecasting"
+url = "https://arxiv.org/abs/2405.13300v1"
+venue = "Knowledge-Based Systems 2025"
+year = 2025
+
+[code]
+url = "https://github.com/LRQ577/FAITH"
+revision = "d445cab53bf017cdd9672fa7c830737640e8c196"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/LRQ577/FAITH/blob/d445cab53bf017cdd9672fa7c830737640e8c196/models/MCTEM.py", "https://github.com/LRQ577/FAITH/blob/d445cab53bf017cdd9672fa7c830737640e8c196/models/local_global.py", "https://github.com/LRQ577/FAITH/blob/d445cab53bf017cdd9672fa7c830737640e8c196/layers/Transformer_Encoder.py", "https://github.com/LRQ577/FAITH/blob/d445cab53bf017cdd9672fa7c830737640e8c196/layers/RevIN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:frequency-temporal-attention-ftem"
+channel = "local:frequency-channel-attention-fcem"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (6) vs `models/MCTEM.py`"
+what = "the paper describes the trend learner as a three-layer MLP without activations (equivalent to one affine map), while the code uses a single linear layer initialised to `1 / seq_len`."
+resolution = "the single linear layer."
+
+[[issues]]
+kind = "code-bug"
+where = "official encoder-block construction"
+what = "the blocks are built without passing the configured dropout or `d_ff`, so their effective values are 0 and 256 whatever the run sets."
+resolution = "dropout 0 and `d_ff = 256` as defaults, both exposed as parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "official FCEM/FTEM bin selection"
+what = "the random frequency-bin subset is redrawn with NumPy on every forward pass, in evaluation too, so inference is not deterministic."
+resolution = "the subset is drawn once at construction and stored in the `bins` buffer; with the shipped settings every candidate bin is selected and both coincide."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "APN"
+tags = ["mlp", "patching", "irregular-sampling", "attention-variant", "channel-independent"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Rethinking Irregular Time Series Forecasting: A Simple yet Effective Baseline"
+url = "https://arxiv.org/abs/2505.11250"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/decisionintelligence/APN"
+revision = "f0d6eeb7a2ee2d7c76475bf725b7ea25f98af3f4"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/decisionintelligence/APN/blob/f0d6eeb7a2ee2d7c76475bf725b7ea25f98af3f4/models/APN.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:time-aware-soft-window-patch-aggregation"
+channel = "local:channel-query-attention-pooling"
+head = "local:query-time-mlp-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; each has its own learned windows and query" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from paper Eq. (2)-(10) after inspecting `models/APN.py`; license recorded as `NOASSERTION`."

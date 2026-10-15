@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ExtraTreesTS"
+tags = ["tree", "ensemble", "baseline", "channel-mixing", "normalization"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "clean-room soft-routing tree baseline; no external source code was inspected and the card documents no paper problem."
+
+[paper]
+title = "Extremely Randomized Trees"
+url = "https://doi.org/10.1007/s10994-006-6226-1"
+venue = "Machine Learning 2006"
+year = 2006
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:soft_tree+local:frozen-random-splits"
+channel = "local:flattened-channel-mixing"
+head = "local:mean-of-tree-leaf-forecasts"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels; split axes are drawn over seq_len * enc_in features" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

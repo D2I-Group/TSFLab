@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "harmonic_energy_gate"
+role = "Measures how periodic each channel is, to weight a frequency-domain branch against a time-domain branch."
+slot = "head"
+fits = ["strong-seasonality"]
+category = "frequency"
+tags = ["energy", "fusion", "gate", "harmonic", "periodicity", "spectral", "weighting", "non-differentiable-selection", "dualformer", "fft", "rfft", "dual-branch", "harmonics"]
+input = "x [batch, length, channels]"
+output = "[batch, 1, channels], values in [0, 1]"
+origin = "Harmonic-energy weighting of Dualformer, Time-Frequency Dual Domain Learning for Long-term Time Series Forecasting (arXiv 2601.15669, 2026)"
+origin_models = ["dualformer"]

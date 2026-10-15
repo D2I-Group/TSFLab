@@ -1,0 +1,1 @@
+"""STOP model package."""

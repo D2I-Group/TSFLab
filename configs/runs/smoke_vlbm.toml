@@ -1,0 +1,29 @@
+extends = ["../base.toml", "../fixtures/synthetic_st.toml", "../models/VLBM.toml"]
+
+[experiment]
+description = "Smoke: VLBM"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "spatiotemporal"
+seq_len = 24
+label_len = 0
+pred_len = 24
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 8
+hidden = 16
+num_blocks = 1
+top_k = 2
+num_basis = 8
+interval = 60.0

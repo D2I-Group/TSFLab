@@ -1,0 +1,101 @@
+{
+  "$id": "https://diaugeia.ai/schema/forecast_submission.schema.json",
+  "additionalProperties": false,
+  "description": "Point forecasts for one round, submitted before the truth is observed.",
+  "properties": {
+    "code_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Git commit that produced the forecast.",
+      "title": "Code Revision"
+    },
+    "model": {
+      "description": "Method name; catalog names bind to TSFLab specs.",
+      "title": "Model",
+      "type": "string"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "predictions": {
+      "description": "Forecast values, shape (horizon, channels), in the round's raw units.",
+      "items": {
+        "items": {
+          "type": "number"
+        },
+        "type": "array"
+      },
+      "title": "Predictions",
+      "type": "array"
+    },
+    "round_id": {
+      "title": "Round Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "1.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "submitted_at": {
+      "description": "Submission instant (ISO 8601), before the deadline.",
+      "title": "Submitted At",
+      "type": "string"
+    },
+    "submitter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Submitter"
+    },
+    "track": {
+      "title": "Track",
+      "type": "string"
+    },
+    "weights_uri": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional pinned hf:// weights bundle.",
+      "title": "Weights Uri"
+    }
+  },
+  "required": [
+    "track",
+    "round_id",
+    "model",
+    "submitted_at",
+    "predictions"
+  ],
+  "title": "ForecastSubmission",
+  "type": "object",
+  "x-tsf-schema-version": "1.1.0"
+}

@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "traffic"
+domain = "transport"
+topic = "road traffic"
+benchmarks = ["ltsf", "tfb"]
+tags = ["traffic", "pems", "road", "occupancy", "california", "bay-area", "ltsf", "benchmark", "multivariate", "hourly", "lstnet", "high-dimensional"]
+related = ["electricity", "pems04", "rt/traffic_pems_ba"]
+characteristics = ["strong-seasonality", "level-dependent-variance", "high-cross-correlation", "low-dimensional-channels", "many-channels"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "California Department of Transportation (Caltrans PeMS); packaged by Lai et al. (LSTNet)"
+url = "http://pems.dot.ca.gov"
+citation = "Modeling Long- and Short-Term Temporal Patterns with Deep Neural Networks (Lai et al., SIGIR 2018)"
+citation_url = "https://arxiv.org/abs/1703.07015"
+license = "Public domain (Caltrans PeMS conditions of use)"
+license_url = "https://pems.dot.ca.gov/?view=tou"
+redistribution = "hosted"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "2015-01-01 00:00:01 to 2016-12-31 23:00:01"
+length = 17544
+channels = 862
+channel_kind = "channels"
+target = "862 (last sensor column; the TSLib copy names it OT)"
+missing_values = "none in this file (measured)"
+stats_basis = "mixed"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "LTSF: lookback 96 (336 and 512 also searched), horizons 96/192/336/720, chronological 7:1:2, MSE/MAE on z-scored data"
+split = "7:1:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

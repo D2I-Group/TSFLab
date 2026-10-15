@@ -1,0 +1,73 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RILoss"
+tags = ["linear", "loss-framework", "hsic", "kernel-dependence", "noise-aware", "decomposition", "lightweight"]
+fits = ["strong-trend", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "RI-Loss: A Learnable Residual-Informed Loss for Time Series Forecasting"
+url = "https://arxiv.org/abs/2511.10130"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/shang-xl/RI-Loss"
+revision = "55a10ae95bb4e7a7e2cd87df33b9748e95dd07b5"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/shang-xl/RI-Loss/blob/55a10ae95bb4e7a7e2cd87df33b9748e95dd07b5/Dlinear/hsic.py", "https://github.com/shang-xl/RI-Loss/blob/55a10ae95bb4e7a7e2cd87df33b9748e95dd07b5/Dlinear/exp/exp_main.py"]
+
+[composition]
+normalization = "none"
+decomposition = "component:dlinear"
+temporal = "component:dlinear"
+channel = "local:channel-shared-linear-projections"
+head = "local:linear-forecast"
+loss = "loss:mse+local:residual-noise-hsic-exponential-penalty"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels; the HSIC term needs at least two target channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 vs `Dlinear/exp/exp_main.py`"
+what = "the paper samples the noise `eps ~ U(-1, 1)`, while the official training functions draw `torch.rand_like`, i.e. `U(0, 1)` (a factor-two noise scale under the distance-based Gaussian kernel)."
+resolution = "the preset follows the code (`noise_low = 0`, `noise_high = 1`); `noise_low = -1` reproduces the paper."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (4) vs `Dlinear/hsic.py` `HSIC`"
+what = "the paper states a U-statistic estimator, the code uses the biased `tr(K H L H) / (n - 1)^2` form."
+resolution = "the code's biased estimator."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3 / Algorithm 1"
+what = "the kernel samples, kernel bandwidth, and batch reduction are not stated; the code transposes the residual so each window's channels are the samples, uses Gaussian Gram matrices with bandwidth 1, and sums per-window HSIC over the batch before the exponential."
+resolution = "the code's choices."
+
+[[issues]]
+kind = "code-bug"
+where = "`Dlinear/hsic.py` `HSIC`"
+what = "with a single channel the centring matrix is zero and the estimator divides by `(n - 1)^2 = 0`, so the loss is NaN for one-channel targets."
+resolution = "the objective raises `ValueError` for one-channel targets such as `features = \"MS\"`."
+
+[[issues]]
+kind = "paper-error"
+where = "title (\"learnable\")"
+what = "there are no learnable loss parameters in the paper or the code; the loss is only learned through."
+resolution = "no loss parameters are added."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

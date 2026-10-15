@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "frwkv_linear_attention"
+role = "Mixes ordered spectral tokens with linear-cost recurrent attention, as in the FRWKV frequency encoders."
+slot = "channel"
+fits = ["any"]
+category = "attention"
+tags = ["rwkv", "linear-attention", "delta-rule", "state-recursion", "frequency-branch", "attention", "causal", "recurrent", "token-mixer", "linear-complexity"]
+input = "FRWKVLinearAttention: queries [batch, tokens, d_model]; FRWKVSpectralBranch: x [batch, tokens, in_features]; frwkv_state_scan: five [batch, tokens, heads, head_size] tensors"
+output = "FRWKVLinearAttention: ([batch, tokens, d_model], None); FRWKVSpectralBranch: [batch, tokens, in_features]; frwkv_state_scan: [batch, tokens, heads, head_size]"
+origin = "FRWKV (arXiv 2512.07539, Sec. 2.4, Eqs. 4-9) as realized by the official model/FRWKV.py, inherited unchanged by FRWKV+ (arXiv 2605.15690, Sec. 3.2)"
+origin_models = ["frwkv"]

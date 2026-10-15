@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AROpt"
+tags = ["transformer", "autoregressive", "loss-framework", "channel-mixing", "normalization", "time-series"]
+fits = ["long-horizon", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "AROpt: An Optimization Method for Autoregressive Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.02288"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/LizhengMathAi/AROpt"
+revision = "c18d9672cb0e57d911f8b7110ebef8ba61b793db"
+license = "MIT"
+reference_sources = ["https://github.com/LizhengMathAi/AROpt/blob/c18d9672cb0e57d911f8b7110ebef8ba61b793db/utils/tools.py", "https://github.com/LizhengMathAi/AROpt/blob/c18d9672cb0e57d911f8b7110ebef8ba61b793db/experiments/exp_long_term_forecasting.py", "https://github.com/LizhengMathAi/AROpt/blob/c18d9672cb0e57d911f8b7110ebef8ba61b793db/model/iTransformer.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:embed+local:autoregressive-patch-rollout"
+channel = "component:self_attention_family+component:transformer_encdec"
+head = "local:linear-patch-projector"
+loss = "loss:mse+local:discounted-monotone-rollout-penalty"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of variates (one token each)" }
+rollout_steps = { from = "pred_len", rule = "pred_len must be divisible by rollout_steps; each call forecasts pred_len / rollout_steps steps" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 (each call reads the last `seq_len` values of history plus predictions) vs `utils/tools.py` `autoregressive_forcast`"
+what = "the official rollout feeds only the previous predicted patch, which agrees only when the patch is at least `seq_len` long."
+resolution = "Algorithm 1."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3 (Algorithm 1, Eqs. 4-5)"
+what = "whether fed-back predictions are detached and which per-patch error is used are not stated."
+resolution = "the official choices (detached feedback, per-patch mean error with the configured criterion, MSE by default)."

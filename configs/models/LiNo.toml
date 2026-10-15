@@ -1,0 +1,8 @@
+[model]
+name = "LiNo"
+
+[model.params]
+enc_in = 7
+d_model = 512
+layers = 2
+dropout = 0.0

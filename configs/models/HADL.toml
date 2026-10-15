@@ -1,0 +1,12 @@
+[model]
+name = "HADL"
+
+[model.params]
+enc_in = 7
+rank = 50
+bias = true
+individual = false
+enable_haar = true
+enable_dct = true
+enable_lowrank = true
+regularization_rate = 0.1

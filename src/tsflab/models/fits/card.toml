@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FITS"
+tags = ["linear", "frequency", "lightweight", "channel-independent", "baseline"]
+fits = ["efficiency", "strong-seasonality", "high-forecastability"]
+fidelity = "reference-checked"
+issues_checked = "the card records a paper-driven implementation of instance normalization, rFFT low-pass truncation, complex frequency interpolation, irFFT reconstruction, and energy compensation, with the pinned official code as reference only, and documents no paper or official-code problem."
+
+[paper]
+title = "FITS: Modeling Time Series with 10k Parameters"
+url = "https://arxiv.org/abs/2307.03756"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/VEWOXIC/FITS"
+revision = "d040bb015b6299da26d879b90dd19c80fb72c160"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:complex-frequency-interpolation"
+channel = "local:channel-independent-shared-weights"
+head = "local:zero-padded-irfft-extension"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+cut_freq = { from = "period", rule = "retain at least the dominant period bin seq_len / period (and some harmonics); capped at seq_len // 2 + 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

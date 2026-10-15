@@ -1,0 +1,13 @@
+[model]
+name = "GPHT"
+
+[model.params]
+enc_in = 7
+token_len = 48
+pooling_rates = [8, 4, 2, 1]
+d_model = 512
+d_ff = 2048
+n_heads = 8
+e_layers = 3
+dropout = 0.1
+activation = "gelu"

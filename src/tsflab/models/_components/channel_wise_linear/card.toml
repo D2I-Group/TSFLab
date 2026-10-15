@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "channel_wise_linear"
+role = "Maps a fixed history window directly to the forecast horizon per channel, with one shared or one per-channel linear map."
+slot = "head"
+fits = ["weak-cross-correlation", "efficiency"]
+category = "head"
+tags = ["channel-wise", "forecast", "individual", "linear", "projection", "stateless"]
+input = "[batch, channels, input_length]"
+output = "[batch, channels, output_length]"
+origin = "Temporal linear projection of the LTSF-Linear family (Zeng et al., 'Are Transformers Effective for Time Series Forecasting?', AAAI 2023): the shared / individual Linear layer of Linear, NLinear, DLinear"
+origin_models = ["linear", "nlinear", "dlinear"]

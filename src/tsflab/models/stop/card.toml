@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STOP"
+tags = ["mlp", "attention-variant", "spatiotemporal", "decomposition", "covariates", "channel-mixing"]
+fits = ["spatial-graph", "calendar-effects", "non-stationary"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Robust Spatio-Temporal Centralized Interaction for OOD Learning"
+url = "https://proceedings.mlr.press/v267/ma25s.html"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/STOP"
+revision = "8babb610ece36a4215b2f66e1ef4a154f0c4f440"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "component:series_decomposition"
+temporal = "local:long-short-linear-encoders+local:residual-mlp-mixer"
+channel = "local:centralized-context-unit-interaction"
+head = "local:dual-linear-temporal-spatial-heads"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes; input must be [B, seq_len, enc_in]" }
+tod_size = { from = "frequency", rule = "time-of-day prompt bins, at most steps per day (24 = hourly)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "paper DRO objective vs `LargeST/src/engines/stop_engine.py` (same in `TrafficStream/`)"
+what = "the training step optimizes the plain masked loss on `pred_corr`, with the worst-environment variance terms commented out, so the paper's weighting is not recoverable from code."
+resolution = "no `training_objective`; `environment_forecasts` are exposed and the DRO selection is left to an external loop."

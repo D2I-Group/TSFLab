@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ExpSmoothingTS"
+tags = ["statistical", "baseline", "lightweight", "channel-independent", "exponential-smoothing"]
+fits = ["short-train", "efficiency", "low-forecastability"]
+fidelity = "paper-only"
+issues_checked = "independent level-only exponential smoothing baseline; there is no official code to check and the card documents no paper problem."
+
+[paper]
+title = "Forecasting Seasonals and Trends by Exponentially Weighted Moving Averages"
+url = "https://doi.org/10.1016/j.ijforecast.2003.09.015"
+venue = "International Journal of Forecasting 2004"
+year = 2004
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:simple-exponential-smoothing-level"
+channel = "local:channel-independent-per-channel-alpha"
+head = "local:repeat-final-level"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels (one alpha per channel)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

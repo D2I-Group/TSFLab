@@ -1,0 +1,26 @@
+[model]
+name = "GCformer"
+
+# Illness (pred_len 24) script of the official repository (seq_len = context_len = 104).
+[model.params]
+enc_in = 7
+patch_len = 24
+stride = 2
+d_model = 16
+n_heads = 4
+d_ff = 128
+e_layers = 3
+dropout = 0.2
+fc_dropout = 0.2
+head_dropout = 0.0
+individual = true
+kernel_dim = 32
+kernel_decay = 2.0
+h_channel = 32
+h_token = 512
+decoder_attention = "full"
+atten_bias = 0.5
+tc_bias = 1.0
+global_bias = 0.3
+local_bias = 0.3
+norm_type = "revin"

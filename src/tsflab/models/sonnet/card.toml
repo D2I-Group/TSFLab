@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Sonnet"
+tags = ["hybrid", "wavelet", "frequency", "koopman", "attention-variant", "channel-mixing"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Sonnet: Spectral Operator Neural Network for Multivariable Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.15312"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/ClaudiaShu/Sonnet"
+revision = "bf3d4801d34c5e7261718490f287c6fb15cadfdb"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ClaudiaShu/Sonnet/blob/bf3d4801d34c5e7261718490f287c6fb15cadfdb/sonnet/mts_model/models/Sonnet.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "none"
+decomposition = "local:learnable-wavelet-atoms"
+temporal = "local:stable-koopman-operator-over-wavelet-atoms"
+channel = "local:multivariable-coherence-attention"
+head = "local:conv-decoder-adaptive-pool"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."

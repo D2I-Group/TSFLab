@@ -1,0 +1,26 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GaussianMLP"
+tags = ["mlp", "probabilistic", "distribution-output", "baseline", "channel-mixing"]
+fits = ["probabilistic-output"]
+fidelity = "paper-only"
+issues_checked = "in-repository Gaussian MLP baseline, not an external paper reproduction; there is no paper or official code to check."
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:flatten-mlp-backbone"
+channel = "local:flattened-channel-mixing"
+head = "component:gaussian_parameter_head"
+loss = "loss:nll_gaussian"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the first layer takes the flattened seq_len * enc_in window" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

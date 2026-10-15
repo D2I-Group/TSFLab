@@ -1,0 +1,13 @@
+[model]
+name = "TimePro"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+d_model = 16
+e_layers = 2
+d_state = 1
+d_conv = 5
+expand = 1.0
+dropout = 0.1

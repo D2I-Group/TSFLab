@@ -1,0 +1,102 @@
+name: Run Codex
+description: >-
+  Run one Codex task with the configured model backend. `openai` uses
+  openai/codex-action (OPENAI_API_KEY or a logged-in self-hosted runner);
+  `huggingface` runs the Codex CLI against Hugging Face Inference Providers
+  (router.huggingface.co, OpenAI-compatible Responses API) with an HF token.
+
+inputs:
+  provider:
+    description: "openai | huggingface"
+    default: openai
+  model:
+    description: >-
+      Model id. For huggingface, any Inference Providers chat model, optionally
+      suffixed with :cheapest, :fastest, or :<provider>.
+    default: ""
+  prompt-file:
+    required: true
+  output-schema:
+    description: JSON Schema for the final message (optional)
+    default: ""
+  openai-api-key:
+    default: ""
+  hf-token:
+    default: ""
+  hf-bill-to:
+    description: Hugging Face organization to bill (optional)
+    default: ""
+  codex-home:
+    default: ""
+  sandbox:
+    description: "workspace-write | read-only"
+    default: workspace-write
+  network:
+    description: "Allow network access in the sandbox (true | false)"
+    default: "true"
+
+outputs:
+  final-message:
+    value: ${{ steps.openai.outputs.final-message || steps.hf.outputs.final-message }}
+
+runs:
+  using: composite
+  steps:
+    - id: openai
+      if: inputs.provider != 'huggingface'
+      uses: openai/codex-action@v1
+      with:
+        openai-api-key: ${{ inputs.openai-api-key }}
+        codex-home: ${{ inputs.codex-home }}
+        prompt-file: ${{ inputs.prompt-file }}
+        model: ${{ inputs.model }}
+        output-schema: ${{ inputs.output-schema }}
+        # Network defaults on for papers and official code; commits are made by the workflow.
+        sandbox: ${{ inputs.sandbox }}
+        codex-args: --config sandbox_workspace_write.network_access=${{ inputs.network }}
+
+    - if: inputs.provider == 'huggingface'
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - id: hf
+      if: inputs.provider == 'huggingface'
+      shell: bash
+      env:
+        HF_ROUTER_TOKEN: ${{ inputs.hf-token }}
+        MODEL: ${{ inputs.model }}
+        PROMPT_FILE: ${{ inputs.prompt-file }}
+        SCHEMA: ${{ inputs.output-schema }}
+        BILL_TO: ${{ inputs.hf-bill-to }}
+        SANDBOX: ${{ inputs.sandbox }}
+        NETWORK: ${{ inputs.network }}
+      run: |
+        test -n "$HF_ROUTER_TOKEN" || { echo "::error::HF inference token is not set"; exit 1; }
+        npm install --global --silent @openai/codex
+        export CODEX_HOME="$RUNNER_TEMP/codex-hf"
+        mkdir -p "$CODEX_HOME"
+        {
+          echo 'model_provider = "huggingface"'
+          echo "model = \"${MODEL:-openai/gpt-oss-120b:cheapest}\""
+          echo '[model_providers.huggingface]'
+          echo 'name = "Hugging Face"'
+          echo 'base_url = "https://router.huggingface.co/v1"'
+          echo 'env_key = "HF_ROUTER_TOKEN"'
+          echo 'wire_api = "responses"'
+          if [ -n "$BILL_TO" ]; then echo "http_headers = { \"X-HF-Bill-To\" = \"$BILL_TO\" }"; fi
+          echo '[sandbox_workspace_write]'
+          echo "network_access = $NETWORK"
+        } > "$CODEX_HOME/config.toml"
+        args=(exec --sandbox "$SANDBOX" --output-last-message "$RUNNER_TEMP/codex-final.txt")
+        if [ -n "$SCHEMA" ]; then
+          printf '%s' "$SCHEMA" > "$RUNNER_TEMP/codex-schema.json"
+          args+=(--output-schema "$RUNNER_TEMP/codex-schema.json")
+        fi
+        codex "${args[@]}" - < "$PROMPT_FILE"
+        {
+          echo "final-message<<CODEX_EOF"
+          cat "$RUNNER_TEMP/codex-final.txt"
+          echo
+          echo "CODEX_EOF"
+        } >> "$GITHUB_OUTPUT"

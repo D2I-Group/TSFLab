@@ -1,0 +1,20 @@
+[model]
+name = "MultiSPANS"
+
+# Official libcity/config/model/traffic_state_pred/STTransformer.json; enc_in follows the 8-node catalog fixture (set it to the dataset node count).
+[model.params]
+enc_in = 8
+mark_features = 0
+embed_dim = 64
+num_layers = 3
+num_heads = 8
+conv_kernels = [1, 2, 3, 6]
+conv_stride = 1
+gconv_hops = 3
+gconv_alpha = 0.0
+att_dropout = 0.1
+ffn_dropout = 0.1
+lape_ratio = 0.5
+spatial_masks = true
+max_tree_height = 3
+position_routing = "official"

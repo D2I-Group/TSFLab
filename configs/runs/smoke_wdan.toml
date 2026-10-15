@@ -1,0 +1,32 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/WDAN.toml"]
+
+[experiment]
+description = "Smoke: WDAN"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 0
+pred_len = 24
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6
+stat_d_model = 32
+stat_d_ff = 32
+stat_pretrain_epochs = 1
+joint_after_epochs = 0
+e_layers = 1
+d_model = 32
+n_heads = 4
+d_ff = 64

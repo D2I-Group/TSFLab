@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "rt/traffic_pems_ba"
+domain = "transport"
+topic = "road traffic"
+benchmarks = ["realtime"]
+tags = ["traffic", "pems", "flow", "hourly", "california", "district-4", "real-time", "stations", "spatiotemporal", "frozen-release", "covariate"]
+related = ["pems04", "rt/traffic_pems_la", "rt/traffic_pems_sac", "rt/traffic_pems_sb"]
+realtime_track = "traffic_pems_ba"
+characteristics = ["strong-seasonality", "high-forecastability", "level-dependent-variance", "high-cross-correlation", "low-dimensional-channels", "many-channels", "spatial-graph"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Caltrans PeMS hourly total flow per station (District 4 (San Francisco Bay Area)); 2019-2023 history from the UltraTraffic_CL archive, later weeks from the PeMS clearinghouse station_5min files"
+url = "https://pems.dot.ca.gov"
+citation = "n/a (no dataset paper; TSFLab real-time track)"
+citation_url = "n/a"
+license = "Public domain (Caltrans PeMS conditions of use)"
+license_url = "https://pems.dot.ca.gov/?view=tou"
+redistribution = "hosted"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "2019-01-01 00:00 to 2023-12-31 23:00 in release 2026.09.28-2003 (grows with each weekly release)"
+length = 43824
+channels = 2472
+channel_kind = "nodes"
+target = "total flow of every station"
+missing_values = "2.15% of cells are NaN in the stored panel (measured); the loader forward-fills them, back-filling only a series' start"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab static protocol on a frozen release: chronological 7:1:2 split, one z-score from the training rows, seq_len 168 and horizon 24 as in the real-time track; the live rolling rounds are the separate real-time evaluation"
+literature = ""
+split = "7:1:2"
+seq_lens = [168]
+pred_lens = [24]

@@ -1,0 +1,91 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TFKAN"
+tags = ["kan", "frequency", "fft", "time-frequency", "b-spline", "dual-branch", "channel-independent", "embedding"]
+fits = ["multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TFKAN: Time-Frequency KAN for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2506.12696"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/LcWave/TFKAN"
+revision = "d787829c68de6f98f303d63ffbab9cf04806f740"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/LcWave/TFKAN/blob/d787829c68de6f98f303d63ffbab9cf04806f740/models/TFKAN.py", "https://github.com/LcWave/TFKAN/blob/d787829c68de6f98f303d63ffbab9cf04806f740/models/KAN.py", "https://github.com/LcWave/TFKAN/blob/d787829c68de6f98f303d63ffbab9cf04806f740/run_longExp.py", "https://github.com/LcWave/TFKAN/blob/d787829c68de6f98f303d63ffbab9cf04806f740/exp/exp_main.py", "https://github.com/LcWave/TFKAN/blob/d787829c68de6f98f303d63ffbab9cf04806f740/scripts/etth1.sh"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:bspline_basis+local:time-domain-kan+local:frequency-domain-kan"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-kan-predictor"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV-A (Experimental Settings) vs `models/TFKAN.py` (`Model.__init__`)"
+what = "the paper gives a KAN hidden size of 258, the code hard-codes `hidden_size = 256`."
+resolution = "`hidden_size = 256` by default (configurable)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (8)-(9) vs `models/TFKAN.py` (`KAN_frequency`)"
+what = "the code soft-shrinks the KAN outputs (`F.softshrink`, threshold `0.001`) before the inverse FFT, a step the paper does not mention."
+resolution = "kept as `sparsity_threshold = 0.001` (set 0 to disable)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (12)"
+what = "the predictor is described as one KAN from `L·d` to `tau`; the code (`models/TFKAN.py`, `self.fc`) uses two KAN layers `L·d -> 256 -> tau`, and the paper does not state the hidden width of FreqKAN and TimeKAN either (the code uses 256 for all three)."
+resolution = "the code's two-layer layout with `hidden_size` shared by the three KANs."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. III-B"
+what = "the KAN initialization and the per-edge spline scale are not described."
+resolution = "taken from `models/KAN.py` (`KANLinear.reset_parameters`): Kaiming-uniform base weight and spline scale, spline coefficients fitted by least squares to uniform noise of width `0.1 / s` at the interior knots."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (11)"
+what = "`BIAS = F_t + T_t` is not optional in the paper, but the code gates it with the `--use_bias` flag (default off in `run_longExp.py`, switched on in every script under `scripts/`)."
+resolution = "`use_bias = true` by default."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_factory.py` (`data_provider`, `flag == 'test'`)"
+what = "the test loader uses `drop_last = True`, so the last incomplete test batch is never scored and reported metrics depend on the batch size."
+resolution = "not applicable; TSFLab's evaluator scores every test window."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_loader.py` (`Dataset_Custom_.inverse_transform`)"
+what = "\"inverse\" scaling fits a fresh `MinMaxScaler` to the predictions instead of inverting the training-split scaler."
+resolution = "not applicable; TSFLab's data pipeline owns scaling."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TFKAN.py`"
+what = "`channel_independence`, `scale = 0.02` and the KAN regularization settings (`regularize_activation`, `regularize_entropy`) are set but never used (no regularization loss is added in `exp/exp_main.py`), and the `--channel_independence` help text in `run_longExp.py` inverts its meaning."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "license"
+where = "repository root at `d787829c`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

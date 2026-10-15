@@ -1,0 +1,19 @@
+[model]
+name = "SST"
+
+[model.params]
+enc_in = 7
+m_patch_len = 48
+m_stride = 16
+m_layers = 1
+d_state = 16
+d_conv = 4
+patch_len = 16
+stride = 8
+local_ws = 7
+e_layers = 3
+n_heads = 4
+d_model = 16
+d_ff = 128
+dropout = 0.3
+head_dropout = 0.0

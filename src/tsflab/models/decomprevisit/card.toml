@@ -1,0 +1,49 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DecompRevisit"
+tags = ["mlp", "decomposition", "normalization", "non-stationary", "lightweight", "channel-independent"]
+fits = ["non-stationary", "strong-trend", "strong-seasonality"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Revisiting the Seasonal Trend Decomposition for Enhanced Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.18465"
+venue = "ICASSP 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Sanjeev97/Time-Series-Decomposition"
+revision = "73f0a4b48689844ce0e6f0dba9d12bcdff2e19f6"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Sanjeev97/Time-Series-Decomposition/blob/73f0a4b48689844ce0e6f0dba9d12bcdff2e19f6/models/RMSM.py", "https://github.com/Sanjeev97/Time-Series-Decomposition/blob/73f0a4b48689844ce0e6f0dba9d12bcdff2e19f6/models/RMM.py", "https://github.com/Sanjeev97/Time-Series-Decomposition/blob/73f0a4b48689844ce0e6f0dba9d12bcdff2e19f6/layers/MLPs.py", "https://github.com/Sanjeev97/Time-Series-Decomposition/blob/73f0a4b48689844ce0e6f0dba9d12bcdff2e19f6/layers/Decomposition.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:trend-mlp+local:seasonal-shift-mlp"
+channel = "none"
+head = "local:trend-plus-seasonal-sum"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (affine RevIN on the trend)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (12) and the setup's hidden sizes `[64, 128, 128]` vs `layers/MLPs.py` `MLPfreq`"
+what = "the paper puts a ReLU on the shift-MLP output, while the code ends with a linear layer after the 64- and 128-unit layers, which lets the seasonal forecast be negative."
+resolution = "the code's linear output."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with the repository used as reference only; license recorded as `NOASSERTION`."

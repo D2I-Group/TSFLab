@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Amplifier"
+tags = ["mlp", "frequency", "decomposition", "normalization", "channel-mixing", "lightweight"]
+fits = ["strong-seasonality", "strong-trend", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "clean-room implementation mapping paper Eqs. 5-13 without copying the Apache-2.0 reference code; the card records no paper or official-code problem."
+
+[paper]
+title = "Amplifier: Bringing Attention to Neglected Low-Energy Components in Time Series Forecasting"
+url = "https://arxiv.org/abs/2501.17216"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/aikunyi/amplifier"
+revision = "6cc089312254a0eeda7767342f690fd4536a1758"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:seasonal-trend-mlp-forecasters"
+channel = "local:semi-channel-interaction"
+head = "local:complex-frequency-restoration"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; sizes RevIN and the semi-channel interaction" }
+moving_average = { from = "period", rule = "positive odd moving-average window that separates trend from seasonal part" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

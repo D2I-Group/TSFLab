@@ -1,0 +1,14 @@
+[model]
+name = "ReCycle"
+
+[model.params]
+enc_in = 7
+cycle_len = 24
+rhp_cycles = 3
+rhp_mode = "last"
+d_model = 32
+n_heads = 1
+e_layers = 1
+d_layers = 1
+d_ff = 32
+dropout = 0.0

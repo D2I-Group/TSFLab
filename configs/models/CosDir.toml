@@ -1,0 +1,10 @@
+[model]
+name = "CosDir"
+
+[model.params]
+enc_in = 7
+kernel_size = 25
+individual = false
+weighting = "fixed"
+dir_lambda = 0.5
+eps = 1e-8

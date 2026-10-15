@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PCATransformer"
+tags = ["transformer", "dimensionality-reduction", "pca", "covariates", "plug-in", "channel-mixing", "single-target"]
+fits = ["exogenous-covariates", "high-cross-correlation", "low-dimensional-channels", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Transformer Multivariate Forecasting: Less is More?"
+url = "https://arxiv.org/abs/2401.00230"
+venue = "AI4TS@AAAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/jingjing-unilu/PCA_Transformer"
+revision = "524a3b79bba9fe153491e08d46f4687ff964b1d2"
+license = "MIT"
+reference_sources = ["https://github.com/jingjing-unilu/PCA_Transformer/blob/524a3b79bba9fe153491e08d46f4687ff964b1d2/pca_tran/data_provider/data_loader.py", "https://github.com/jingjing-unilu/PCA_Transformer/blob/524a3b79bba9fe153491e08d46f4687ff964b1d2/pca_tran/models/Transformer.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:transformer_encdec+component:self_attention_family"
+channel = "local:training-split-pca-covariate-reduction+component:embed"
+head = "local:decoder-linear-projection-to-target"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[data_params]
+enc_in = { from = "channels", rule = "total channel count including the target (last channel); at least 2" }
+n_components = { from = "train-split", rule = "in [1, enc_in - 1]; chosen from the covariates' explained variance on the training split" }
+freq = { from = "frequency", rule = "the dataset's sampling frequency for the timeF calendar embedding" }
+
+[[issues]]
+kind = "leakage"
+where = "`pca_tran/data_provider/data_loader.py` (`pca.fit_transform(data_feat)`)"
+what = "the PCA is fitted on the whole standardized series, including the validation and test rows."
+resolution = "the PCA is fitted on the training split only (`training_setup`)."
+
+[[issues]]
+kind = "unreleased"
+where = "repository root"
+what = "the `run.py` entry point is not included at the pinned revision, so the scripts cannot run as published."
+resolution = "runner defaults follow the Time-Series-Library the code builds on."
+
+[[issues]]
+kind = "underspecified"
+where = "Fig. 2 and the PCA component study"
+what = "the paper does not state that PCA runs after per-column standardization on every column except the last (target) column, nor the reduced layout `[principal scores, target]`."
+resolution = "the official loader's layout and order."

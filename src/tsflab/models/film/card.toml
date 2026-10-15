@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FiLM"
+tags = ["mlp", "frequency", "multi-scale", "channel-independent", "normalization"]
+fits = ["long-horizon", "long-lookback"]
+fidelity = "reference-checked"
+issues_checked = "the card maps the Legendre state recurrence with bilinear discretization, lowest-mode Fourier selection, low-rank complex factors, reconstruction, and the multiscale expert mixture to the paper, with the pinned official code as reference only, and documents no paper or official-code problem."
+
+[paper]
+title = "FiLM: Frequency improved Legendre Memory Model for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2205.08897"
+venue = "NeurIPS 2022"
+year = 2022
+
+[code]
+url = "https://github.com/tianzhou2011/FiLM"
+revision = "2794355ff6258743a29715263414283782910521"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:legendre-memory-and-low-rank-fourier-experts"
+channel = "local:channel-independent-shared-weights"
+head = "local:legendre-reconstruction-expert-mixture"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+multiscale = { from = "pred_len", rule = "expert windows are min(seq_len, scale * pred_len); seq_len >= max(multiscale) * pred_len keeps experts distinct" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WaveNet"
+tags = ["cnn", "channel-independent", "normalization", "baseline"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the gated dilated causal layers and residual/skip paths as mapping the paper; direct regression and RevIN are TSFLab forecasting choices, and no paper or official-code problem is documented."
+
+[paper]
+title = "WaveNet: A Generative Model for Raw Audio"
+url = "https://arxiv.org/abs/1609.03499"
+venue = "arXiv preprint"
+year = 2016
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "79641b1c75246ab2d8c53bb52f2ac72588be0cdc"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:gated_dilated_conv"
+channel = "local:channel-independent-shared-weights"
+head = "local:skip-sum-pool-linear-horizon"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CrossGNN"
+tags = ["gnn", "multi-scale", "frequency", "graph-learning", "channel-mixing", "normalization"]
+fits = ["multi-periodic", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CrossGNN: Confronting Noisy Multivariate Time Series Via Cross Interaction Refinement"
+url = "https://proceedings.neurips.cc/paper_files/paper/2023/hash/9278abf072b58caf21d48dd670b4c721-Abstract-Conference.html"
+venue = "NeurIPS 2023"
+year = 2023
+
+[code]
+url = "https://github.com/hqh0728/CrossGNN"
+revision = "0407abd085ee8342abe0bbe6de5b2ab17c44373c"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/hqh0728/CrossGNN/blob/0407abd085ee8342abe0bbe6de5b2ab17c44373c/models/CrossGNN.py"]
+
+[composition]
+normalization = "component:last_value_center"
+decomposition = "local:fft-period-average-pooling-multi-scale"
+temporal = "local:scale-sensitive-temporal-graph"
+channel = "local:signed-variable-graph"
+head = "local:channel-collapse-and-temporal-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count and be at least 2 * tk" }
+tk = { from = "channels", rule = "top-k neighbours per channel; at least 2 and at most enc_in / 2" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with `models/CrossGNN.py` used as reference only; license recorded as `NOASSERTION`."

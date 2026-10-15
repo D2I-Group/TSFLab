@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "nyse"
+domain = "finance"
+topic = "stock market"
+benchmarks = ["tfb"]
+tags = ["stock", "nyse", "equity", "finance", "moving-average", "daily", "trading-days", "tfb", "multivariate", "short-series", "rsr"]
+related = ["nasdaq", "exchange", "rt/stock_sp500"]
+characteristics = ["high-forecastability", "non-stationary", "train-val-level-shift", "within-train-drift", "regime-changes", "high-cross-correlation", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Feng et al., Temporal Relational Ranking for Stock Prediction, processed NYSE data (file NYSE_CHS_1.csv, from Google Finance end-of-day prices); TFB packaging by Qiu et al."
+url = "https://github.com/fulifeng/Temporal_Relational_Stock_Ranking"
+citation = "Temporal Relational Ranking for Stock Prediction (Feng et al., ACM Transactions on Information Systems 37(2), 2019)"
+citation_url = "https://arxiv.org/abs/1809.09441"
+license = "Google Finance prices; no redistribution (the Feng et al. repository's AGPL-3.0 covers code)"
+license_url = "https://github.com/fulifeng/Temporal_Relational_Stock_Ranking"
+redistribution = "script"
+
+[shape]
+frequency = "daily trading days (1 business day; file dates are an integer row index)"
+time_span = "1,243 consecutive trading days from early 2013 to December 2017 (the file stores row numbers 1 to 1243, not calendar dates)"
+length = 1243
+channels = 5
+channel_kind = "channels"
+target = "Volume (the last channel, which is actually the max-normalized close price; the preset names it explicitly)"
+missing_values = "none (no NaN, no zeros)"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "TFB multivariate: lookback 36 or 104, horizons 24/36/48/60, chronological 7:1:2 (TFB `train_ratio_in_tv` default 0.875 with `tv_ratio` 0.8)"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LSINet"
+tags = ["mlp", "patching", "channel-independent", "sparse-interaction", "normalization", "lightweight"]
+fits = ["efficiency", "long-horizon"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count and equal c_out (channel-independent)" }
+n_patches = { from = "seq_len", rule = "target patch count; stride = seq_len // n_patches, patch_len = 2 * stride, so keep n_patches well below seq_len" }
+
+[paper]
+title = "A Lightweight Sparse Interaction Network for Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.01585"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Meteor-Stars/LSINet"
+revision = "57358db80ce633c5fcd2019ece3c2e39fd4f4074"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Meteor-Stars/LSINet/blob/57358db80ce633c5fcd2019ece3c2e39fd4f4074/models/LSINet.py", "https://github.com/Meteor-Stars/LSINet/blob/57358db80ce633c5fcd2019ece3c2e39fd4f4074/layers/RevIN.py", "https://github.com/Meteor-Stars/LSINet/blob/57358db80ce633c5fcd2019ece3c2e39fd4f4074/layers/common_layers.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-mixing-sti-blocks+component:sparse_connection_router+component:positional_encoding"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/LSINet.py` `MultiheadSIM.forward`"
+what = "`learned_patch_embedding.view(n_heads, PatchNum, -1)` reinterprets a `(PatchNum, n_heads * d_model)` memory buffer, mixing the patch and head axes instead of giving each head one `d_model` slice per patch as Sec. 3 and Fig. 3(b) describe."
+resolution = "a per-head split so each head owns its own slice of each patch's memory embedding."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation, repository used as reference only; license recorded as `NOASSERTION`."

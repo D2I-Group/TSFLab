@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "fft_extrapolation_conv"
+role = "Maps history to horizon with a parameter-efficient frequency-domain linear filter instead of a dense lookback-by-horizon map."
+slot = "temporal"
+fits = ["efficiency", "long-lookback"]
+category = "frequency"
+tags = ["complex", "convolution", "fft", "frequency-domain", "horizon", "zero-padding", "stateless", "linear", "parameter-efficient", "forecast-head"]
+input = "x [batch, channels, input_length]; mixing [num_sets, channels] or None"
+output = "[batch, channels, output_length]"
+origin = "Independent Frequential Mapping of DiPE-Linear (Zhao et al., arXiv 2411.17257): zero-pad, rfft, complex multiply-accumulate per bin, irfft, keep the last H samples"
+origin_models = ["dipelinear"]

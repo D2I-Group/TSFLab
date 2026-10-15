@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AutoRegressiveTS"
+tags = ["statistical", "linear", "baseline", "channel-independent", "lightweight"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "classical autoregressive baseline with no official code; the card records only TSFLab's direct multi-horizon, channel-shared formulation, no problem in the source."
+
+[paper]
+title = "Time Series Analysis: Forecasting and Control"
+url = "https://search.worldcat.org/title/1422106714"
+venue = "Holden-Day 1970"
+year = 1970
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:direct-linear-lag-regression"
+channel = "local:channel-independent-shared-weights"
+head = "local:direct-multi-horizon-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shape check; the map is shared)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

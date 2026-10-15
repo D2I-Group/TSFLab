@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "decomposition_encdec"
+role = "Separates trend from seasonal parts progressively inside a Transformer encoder-decoder so the trend is forecast in its own stream."
+slot = "decomposition"
+fits = ["strong-trend"]
+category = "decomposition"
+tags = ["autoformer", "decoder", "decomposition", "encoder", "fedformer", "progressive", "seasonal", "trend", "injected-mixer", "moving-average", "encoder-decoder"]
+input = "Encoder: values [batch, len, d_model]; Decoder: seasonal [batch, len_dec, d_model], memory [batch, len_enc, d_model], trend [batch, len_dec, c_out]"
+output = "Encoder: seasonal [batch, len, d_model]; Decoder: (seasonal [batch, len_dec, d_model], trend [batch, len_dec, c_out])"
+origin = "Decomposition architecture of Autoformer, Wu et al., NeurIPS 2021 (Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting), Eqs. (3)-(4); reused with Fourier mixers by FEDformer, Zhou et al., ICML 2022"
+origin_models = ["autoformer", "fedformer"]

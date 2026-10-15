@@ -1,0 +1,26 @@
+[model]
+name = "DynGDiff"
+
+# ETTh1 setting of the paper (Tables 2-3) and the official configs:
+# diffusion_small_config backbone (hidden 64, 3 S4 blocks), guidance scale 3,
+# 100 trajectories, 300 x 100 backbone batches.
+[model.params]
+enc_in = 7
+hidden_dim = 64
+num_blocks = 3
+step_embedding_dim = 128
+state_size = 128
+dropout = 0.0
+diffusion_steps = 100
+beta_start = 0.0001
+beta_end = 0.1
+policy_hidden = 64
+policy_step_dim = 32
+guidance_scale = 3.0
+num_samples = 100
+sample_batch_size = 100
+backbone_epochs = 300
+backbone_batches_per_epoch = 100
+backbone_lr = 0.001
+backbone_grad_clip = 1.0
+backbone_lr_patience = 10

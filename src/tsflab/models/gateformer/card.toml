@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Gateformer"
+tags = ["transformer", "patching", "channel-mixing", "attention-variant", "gating"]
+fits = ["high-cross-correlation"]
+fidelity = "paper-only"
+inspected_sources = ["https://github.com/nyuolab/Gateformer/blob/298fd10db4af8ddab67e9d0044481279a2b11241/models/Gateformer.py", "https://github.com/nyuolab/Gateformer/blob/298fd10db4af8ddab67e9d0044481279a2b11241/layers/Embed.py"]
+
+[paper]
+title = "Gateformer: Advancing Multivariate Time Series Forecasting through Temporal and Variate-Wise Attention with Gated Representations"
+url = "https://arxiv.org/abs/2505.00307"
+venue = "arXiv preprint"
+year = 2025
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:patch-transformer-encoder+component:positional_encoding+component:flatten_forecast_head"
+channel = "local:cross-variate-attention+component:gated_fusion"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (variate tokens)" }
+patch_len = { from = "seq_len", rule = "must not exceed seq_len; patch count is (seq_len + stride - patch_len) // stride + 1 after stride-length end replication" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "paper patch embedding and gate equations"
+what = "the patch padding and the exact form of the two gates are not fully specified."
+resolution = "taken from `nyuolab/Gateformer` `models/Gateformer.py` and `layers/Embed.py` at revision `298fd10db4af8ddab67e9d0044481279a2b11241` (`stride`-length end replication)."
+
+[[issues]]
+kind = "license"
+where = "`nyuolab/Gateformer` repository root"
+what = "no license file at the inspected revision."
+resolution = "no source copied; the card omits `code`, `revision`, and `license`, and the inspected files are recorded in `inspected_sources`."

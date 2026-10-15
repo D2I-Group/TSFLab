@@ -1,0 +1,15 @@
+[model]
+name = "SCFormer"
+
+[model.params]
+enc_in = 7
+lookback = 96
+hippo_order = 512
+d_model = 512
+n_heads = 16
+e_layers = 2
+dropout = 0.1
+activation = "gelu"
+struct_mode = "triangular"
+kernel_size = 32
+use_norm = true

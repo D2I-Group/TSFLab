@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GWNetGMM"
+tags = ["gnn", "cnn", "spatiotemporal", "probabilistic", "gaussian-mixture", "mixture-density", "graph-learning", "dilated-convolution", "training-objective", "marks"]
+fits = ["spatial-graph", "probabilistic-output", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Unveiling Stochasticity: Universal Multi-modal Probabilistic Modeling for Traffic Forecasting"
+url = "https://arxiv.org/abs/2604.16084"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/Weijiang-Xiong/OpenSkyTraffic"
+revision = "824534a112b37973481eedaa705d1a14279f0743"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Weijiang-Xiong/OpenSkyTraffic/blob/824534a112b37973481eedaa705d1a14279f0743/skytraffic/models/layers/gmmpred.py", "https://github.com/Weijiang-Xiong/OpenSkyTraffic/blob/824534a112b37973481eedaa705d1a14279f0743/skytraffic/models/gwnet.py", "https://github.com/Weijiang-Xiong/OpenSkyTraffic/blob/824534a112b37973481eedaa705d1a14279f0743/skytraffic/models/gwnet_gmm.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:valid-dilated-gated-conv"
+channel = "component:diffusion_conv+component:adaptive_node_embedding_adjacency"
+head = "local:anchored-gaussian-mixture-head"
+loss = "local:gaussian-mixture-nll"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes; runner-injected num_nodes takes precedence" }
+layers = { from = "seq_len", rule = "with blocks and kernel_size, seq_len + 1 must not exceed the receptive field 1 + blocks * (2**layers - 1) * (kernel_size - 1) (13 with the preset)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2 vs official GMM head"
+what = "the paper calls the component spacing `s` fixed, while the code multiplies it by a learnable `(1 + spacing_scale)` factor."
+resolution = "the learnable factor, as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 5 vs `skytraffic/models/layers/gmmpred.py` `GMMPredictionHead.losses`"
+what = "the official loss drops the `log(2 pi)` constant of the Gaussian log-density."
+resolution = "the constant is kept (gradients are identical)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sections 3.1-3.3"
+what = "the paper names no model and does not give the projection's LayerNorm, ReLU, and dropout before the three branches, or the Graph WaveNet backbone settings (adaptive adjacency only, input channels, widths, depth, input pad, dropout)."
+resolution = "taken from `skytraffic/models/gwnet_gmm.py` and `config/gwnet/GWNET_GMM.py`; the entry is named after the official `GWNET_GMM` class."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "reference only, nothing copied; license recorded as `NOASSERTION`."

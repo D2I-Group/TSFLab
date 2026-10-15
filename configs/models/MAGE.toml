@@ -1,0 +1,9 @@
+[model]
+name = "MAGE"
+
+[model.params]
+enc_in = 6
+model_dim = 64
+recur_num = 8
+topk = 2
+node_dim = 16

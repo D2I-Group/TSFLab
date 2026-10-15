@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: hierarchical_sales/D
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 300 (10x),  long = 450 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/hierarchical_sales_D"
+path = "./dataset/gift_eval"
+id = "hierarchical_sales/D"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 30
+features = "M"

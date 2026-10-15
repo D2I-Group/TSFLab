@@ -1,0 +1,10 @@
+[model]
+name = "CatBoostTS"
+
+[model.params]
+enc_in = 7
+num_estimators = 16
+tree_depth = 3
+learning_rate = 0.1
+temperature = 1.0
+use_revin = true

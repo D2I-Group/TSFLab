@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "node_adaptive_graph_conv"
+role = "Learns a node graph and a node-specific filter from node embeddings when nodes behave differently and no adjacency is given."
+slot = "channel"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["adaptive", "chebyshev", "graph", "graph-convolution", "meta-parameter", "node-adaptive", "weight-bank", "spatiotemporal"]
+input = "x [batch, nodes, in_dim]; embeddings [nodes, embed_dim] (shared) or [batch, nodes, embed_dim] (per sample)"
+output = "[batch, nodes, out_dim]"
+origin = "Node Adaptive Parameter Learning and Data Adaptive Graph Generation of AGCRN (Bai et al., NeurIPS 2020); reused with meta embeddings by HimNet (Dong et al., KDD 2024)"
+origin_models = ["agcrn", "himnet"]

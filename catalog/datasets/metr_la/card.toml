@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "metr_la"
+domain = "transport"
+topic = "road traffic"
+benchmarks = ["tfb", "st-graph"]
+tags = ["traffic", "graph", "spatiotemporal", "5min", "california", "sensors", "adjacency", "benchmark", "nodes", "metr_la", "speed", "los-angeles", "dcrnn", "metr-la"]
+related = ["pems_bay", "pems04", "traffic"]
+characteristics = ["weak-seasonality", "multi-periodic", "regime-changes", "outliers", "high-cross-correlation", "low-dimensional-channels", "spatial-graph"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Los Angeles County loop detectors (via Jagadish et al., 2014); packaged by Li, Yu, Shahabi and Liu (DCRNN)"
+url = "https://github.com/liyaguang/DCRNN"
+citation = "Diffusion Convolutional Recurrent Neural Network: Data-Driven Traffic Forecasting (Li et al., ICLR 2018)"
+citation_url = "https://arxiv.org/abs/1707.01926"
+license = "No data license (the DCRNN repository's MIT license covers code only)"
+license_url = "https://github.com/liyaguang/DCRNN"
+redistribution = "script"
+
+[shape]
+frequency = "5-minute (5min)"
+time_span = "2012-03-01 to 2012-06-27 (file); the DCRNN paper says to 2012-06-30"
+length = 34272
+channels = 207
+channel_kind = "nodes"
+target = "traffic speed"
+missing_values = "zeros mark missing readings in the DCRNN file (8.1% of values; practice, not stated in its README); no NaN"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split of the 12-in/12-out windows, not of the rows (window centres fixed in idx_*.npy; adjacent splits share up to 11 target rows), values unscaled by default (scale = false, calendar covariates kept raw); lookback 12, horizons 12"
+literature = "DCRNN: 12 steps in, 12 steps out (reported at 15/30/60 minutes), chronological 7:1:2, masked MAE/RMSE/MAPE"
+split = "7:1:2"
+seq_lens = [12]
+pred_lens = [12]

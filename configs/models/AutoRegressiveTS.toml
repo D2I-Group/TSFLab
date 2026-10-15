@@ -1,0 +1,5 @@
+[model]
+name = "AutoRegressiveTS"
+
+[model.params]
+enc_in = 7

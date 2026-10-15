@@ -1,0 +1,80 @@
+# Hourly global horizontal irradiance at PV-relevant US and European sites.
+# Irradiance is the weather driver of PV output and is available without a key.
+[track]
+id = "solar_openmeteo_ghi"
+tz = "UTC"
+title = "Open-Meteo hourly solar irradiance (GHI), US and EU sites"
+mode = "spatiotemporal"
+freq = "h"
+seq_len = 168
+horizon = 24
+submission_hours = 24
+seasonal_period = 24
+min_coverage = 0.9
+history_days = 365
+
+[source]
+kind = "openmeteo"
+variable = "shortwave_radiation"   # W/m2, global horizontal irradiance
+lag_hours = 3
+sites = [
+  ["mojave", 35.00, -117.50],
+  ["imperial_valley", 32.80, -115.60],
+  ["bakersfield", 35.37, -119.02],
+  ["fresno", 36.74, -119.79],
+  ["sacramento", 38.58, -121.49],
+  ["san_diego", 32.72, -117.16],
+  ["reno", 39.53, -119.81],
+  ["las_vegas", 36.17, -115.14],
+  ["phoenix", 33.45, -112.07],
+  ["tucson", 32.22, -110.97],
+  ["albuquerque", 35.08, -106.65],
+  ["el_paso", 31.76, -106.49],
+  ["salt_lake_city", 40.76, -111.89],
+  ["boise", 43.62, -116.20],
+  ["denver", 39.74, -104.99],
+  ["amarillo", 35.22, -101.83],
+  ["lubbock", 33.58, -101.86],
+  ["midland_tx", 32.00, -102.08],
+  ["abilene", 32.45, -99.73],
+  ["san_antonio", 29.42, -98.49],
+  ["austin", 30.27, -97.74],
+  ["dallas", 32.78, -96.80],
+  ["houston", 29.76, -95.37],
+  ["oklahoma_city", 35.47, -97.52],
+  ["kansas_city", 39.10, -94.58],
+  ["minneapolis", 44.98, -93.27],
+  ["chicago", 41.88, -87.63],
+  ["indianapolis", 39.77, -86.16],
+  ["columbus", 39.96, -83.00],
+  ["nashville", 36.16, -86.78],
+  ["atlanta", 33.75, -84.39],
+  ["charlotte", 35.23, -80.84],
+  ["raleigh", 35.78, -78.64],
+  ["jacksonville", 30.33, -81.66],
+  ["orlando", 28.54, -81.38],
+  ["miami", 25.76, -80.19],
+  ["philadelphia", 39.95, -75.17],
+  ["new_york", 40.71, -74.01],
+  ["boston", 42.36, -71.06],
+  ["seattle", 47.61, -122.33],
+  ["honolulu", 21.31, -157.86],
+  ["madrid", 40.42, -3.70],
+  ["seville", 37.39, -5.98],
+  ["faro", 37.02, -7.93],
+  ["lisbon", 38.72, -9.14],
+  ["barcelona", 41.39, 2.17],
+  ["valencia", 39.47, -0.38],
+  ["rome", 41.90, 12.50],
+  ["bari", 41.12, 16.87],
+  ["athens", 37.98, 23.73],
+  ["munich", 48.14, 11.58],
+  ["berlin", 52.52, 13.40],
+  ["paris", 48.86, 2.35],
+  ["london", 51.51, -0.13],
+  ["amsterdam", 52.37, 4.90],
+]
+
+[bootstrap]
+kind = "source"
+days = 365

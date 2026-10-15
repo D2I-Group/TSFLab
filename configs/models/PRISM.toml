@@ -1,0 +1,12 @@
+[model]
+name = "PRISM"
+
+# Official scripts/*_quick.sh (context 336; ETTh1 alone adds --use_last_layer_only,
+# which keeps only the root level's bands in the forecast). The official runs
+# train with an L1 (MAE) loss although the paper states MSE.
+[model.params]
+enc_in = 7
+num_components = 5
+tree_depth = 2
+overlap = 8
+use_last_layer_only = false

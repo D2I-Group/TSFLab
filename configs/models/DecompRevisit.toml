@@ -1,0 +1,10 @@
+[model]
+name = "DecompRevisit"
+
+[model.params]
+enc_in = 7
+kernel_size = 25
+trend_hidden = 512
+seasonal_head = "shift_mlp"
+shift_hidden = 64
+shift_mix_hidden = 128

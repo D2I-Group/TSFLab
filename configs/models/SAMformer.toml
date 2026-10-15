@@ -1,0 +1,8 @@
+[model]
+name = "SAMformer"
+
+[model.params]
+enc_in = 7
+hid_dim = 16
+rho = 0.5
+use_revin = true

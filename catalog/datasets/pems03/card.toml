@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "pems03"
+domain = "transport"
+topic = "road traffic"
+benchmarks = ["st-graph"]
+tags = ["traffic", "graph", "spatiotemporal", "5min", "california", "sensors", "adjacency", "benchmark", "nodes", "pems03", "flow", "district-3", "stsgcn", "astgcn"]
+related = ["pems04", "pems07", "metr_la"]
+characteristics = ["strong-seasonality", "high-forecastability", "high-cross-correlation", "low-dimensional-channels", "weak-cross-correlation", "many-channels", "spatial-graph"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Caltrans PeMS District 3; processed by Song et al. (STSGCN) and Guo et al. (ASTGCN)"
+url = "https://github.com/Davidham3/STSGCN"
+citation = "Spatial-Temporal Synchronous Graph Convolutional Networks (Song et al., AAAI 2020)"
+citation_url = "https://ojs.aaai.org/index.php/AAAI/article/view/5438"
+license = "Public domain (Caltrans PeMS conditions of use)"
+license_url = "https://pems.dot.ca.gov/?view=tou"
+redistribution = "hosted"
+
+[shape]
+frequency = "5-minute (5min)"
+time_span = "2018-09-01 to 2018-11-30"
+length = 26208
+channels = 358
+channel_kind = "nodes"
+target = "traffic flow"
+missing_values = "not stated in the papers"
+stats_basis = "mixed"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split of the 12-in/12-out windows, not of the rows (window centres fixed in idx_*.npy; adjacent splits share up to 11 target rows), values unscaled by default (scale = false, calendar covariates kept raw); lookback 12, horizons 12"
+literature = "STSGCN: 12 steps in, 12 steps out (one hour), chronological 6:2:2, MAE/RMSE/MAPE"
+split = "7:1:2"
+seq_lens = [12]
+pred_lens = [12]

@@ -1,0 +1,1 @@
+"""CrossGNN model package."""

@@ -1,0 +1,68 @@
+name = "autoresearch"
+title = "Bounded forecasting autoresearch"
+summary = "AutoResearch module: reading the other modules' context (dataset profile, model cards, component interfaces, result board, round ledger), profile the data, hypothesize, run a baseline panel, recombine catalog pieces, and conclude under explicit budgets and leakage guards."
+skills = ["run-autoresearch"]
+acceptance = [
+  "Profile every approved dataset with the dataset analyzer before choosing models, and retrieve candidates with `tsf catalog match` on its characteristics.",
+  "State falsifiable hypotheses tied to profile facts and a fixed validation-based selection rule before execution.",
+  "Evaluate a baseline panel first; validate each matrix through the runner and stay within the declared run budget.",
+  "Change one experimental factor per iteration; preserve failed runs; never select on test metrics.",
+  "Confirm finalists with multiple seeds and return evidence, uncertainty, limitations, and a stop/continue recommendation.",
+  "Register a recombined winner as a catalog model only when separately authorized, with composition provenance and a passed admission (`tsf model add --verify`).",
+]
+prompt = """
+Investigate: {question}. Use datasets {datasets}, primary metric {metric}, and no
+more than {max_runs} total runs. Profile each dataset first, then write hypotheses
+tied to the profile. Retrieve candidates with `tsf catalog match <dataset>` (card fits
+against dataset characteristics), then the catalog shortest card level first,
+run the baseline panel, and search from the best baseline by changing one slot
+(normalization, decomposition, temporal backbone, channel strategy, head, loss) per
+iteration. Set data-dependent parameters from card [data_params] and the profile;
+tune generic hyperparameters yourself within the run budget. Read local validation
+results with `tsf result board --dataset <dataset> --split val`; never rank search
+candidates against published test metrics. Keep the strongest baseline eligible as
+the final incumbent; select across baseline and derived candidates by validation,
+and report no discovery gain when a baseline wins. Confirm finalists over seeds, record
+hypotheses, decisions, runs, and conclusions in the research round, never overwrite
+outputs, and stop on budget exhaustion, repeated infrastructure failure, or lack of
+measurable progress. Heavy runs execute on GPU machines or CI: the runner validates each matrix,
+then executes on the authorized run machine and wait on the original process (or use
+`tsf run wait DIRECTORY --json`); do not repeatedly inspect healthy logs or GPUs.
+Baseline, screening and seed confirmation use `--eval-split val`; evaluate frozen
+finalists using `tsf run evaluate RUN_DIRECTORY... --eval-split test` without
+retraining, only after selection. On a design-only local
+machine, hand off the exact command and report pending results; never train locally.
+"""
+
+[inputs.question]
+description = "Falsifiable research question."
+required = true
+
+[inputs.datasets]
+description = "Approved dataset names."
+required = false
+default = "smoke, then one representative configured dataset"
+
+[inputs.metric]
+description = "Primary comparison metric."
+required = false
+default = "MSE"
+
+[inputs.max_runs]
+description = "Hard cap on resolved experiment runs."
+required = false
+default = "12"
+maximum = 12
+budget_key = "max_runs"
+
+[permissions]
+network = "read-only-for-citations"
+repository = "write-run-configs-and-experiment-outputs"
+model_code = "no-change-without-separate-authorization"
+external_actions = "none"
+
+[budget]
+max_runs = 12
+max_iterations = 4
+max_parallel_jobs = 2
+max_wall_minutes = 360

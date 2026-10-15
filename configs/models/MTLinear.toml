@@ -1,0 +1,12 @@
+[model]
+name = "MTLinear"
+
+[model.params]
+enc_in = 7
+layer_type = "DLinear"
+kernel_size = 25
+cluster_dist = 0.5
+max_clusters = 8
+penalty_param = 2.0
+use_horizon_penalty = true
+use_variates_penalty = true

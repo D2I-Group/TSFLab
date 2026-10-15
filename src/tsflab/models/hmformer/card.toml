@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "HMformer"
+tags = ["transformer", "patching", "multi-scale", "channel-independent", "attention-variant"]
+fits = ["multi-periodic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "HMformer: Unleashing Transformer's Potential for Time Series Forecasting via Hierarchical Multi-Scale Modeling"
+url = "https://ojs.aaai.org/index.php/AAAI/article/view/39355"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/dantian123121/HMformer"
+revision = "18e014934a7c7010c16822689f5332dd1ebd49a6"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/dantian123121/HMformer/blob/18e014934a7c7010c16822689f5332dd1ebd49a6/Code/Long-term_Forecasting/models/HMformer.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:rotary-attention-patch-branches"
+channel = "local:channel-independent-shared-weights"
+head = "local:sum-of-flattened-branch-forecasts"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (folded into the batch, shared weights)" }
+patch_len = { from = "seq_len", rule = "finest patch length; scale s is kept only if patch_len * 2**s <= seq_len" }
+num_scales = { from = "seq_len", rule = "requested scale count; scales whose patch length 2**s * patch_len exceeds seq_len are dropped" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation of Eqs. (2)-(5); `Code/Long-term_Forecasting/models/HMformer.py` used as reference only; license recorded as `NOASSERTION`."

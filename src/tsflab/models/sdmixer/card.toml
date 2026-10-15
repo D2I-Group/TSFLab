@@ -1,0 +1,75 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SDMixer"
+tags = ["mlp", "mixer", "frequency", "decomposition", "sparse-attention", "channel-mixing", "normalization"]
+fits = ["strong-seasonality", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SDMixer: Sparse Dual-Mixer for Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.23581"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/SDMixer/SDMixer"
+revision = "c330c01fa01cdcb3dbf2cde6b0a73a2bbd80a08a"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/SDMixer/SDMixer/blob/c330c01fa01cdcb3dbf2cde6b0a73a2bbd80a08a/models/SDMixer.py", "https://github.com/SDMixer/SDMixer/blob/c330c01fa01cdcb3dbf2cde6b0a73a2bbd80a08a/layers/RevIN.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+c_out = { from = "channels", rule = "equal to the dataset channel count (enc_in == c_out)" }
+spectral_top_k = { from = "seq_len", rule = "at most seq_len // 2 + 1 rFFT bins" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:top-k-fft-seasonal-trend-split"
+temporal = "local:sparse-temporal-mixer+local:frequency-enhancement-branch+local:sparse-cross-attention-fusion"
+channel = "local:channel-sparse-variable-mixing"
+head = "local:linear-over-time-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/SDMixer.py` `Model.forward`"
+what = "`ForecastHead` and `linear3` are defined but never used, so `forward` returns a `[batch, seq_len, enc_in]` tensor and never reaches `pred_len`."
+resolution = "a linear forecast head over the sequence axis, as implied by Eq. 6 (`Y_hat in R^{B x L' x C}`)."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/SDMixer.py` `DFT_series_decomp.forward`"
+what = "`freq[0] = 0` zeroes the whole first batch row instead of the DC bin, and a single global `topk` threshold is taken over the entire tensor instead of per series."
+resolution = "Eqs. 3-5 literally, an independent top-k magnitude mask over frequency per (batch, channel), `irfft` for the season and `trend = x - season`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 8 vs `models/SDMixer.py` `SparseTopK`"
+what = "the paper keeps the top-k channels at each time step, the code sparsifies along the sequence axis."
+resolution = "the paper (channel axis per time step)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 12-13 vs `models/SDMixer.py` `SparseCrossMixer`"
+what = "the code calls `nn.MultiheadAttention` with no sparsification of the attention map, and its trend/season MLP branches are commented-out dead code."
+resolution = "the paper's scaled dot-product attention (trend queries, frequency keys and values), top-k sparsified softmax weights, and a sigmoid-gated residual onto the trend branch."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. 10 and 12"
+what = "the hidden width and mixing axis of `MLP_T` and the `Q/K/V` projection width are not stated."
+resolution = "a two-layer GELU MLP over time with configurable `d_ff`; `Q/K/V` at width `enc_in`, consistent with the `sqrt(C)` scale."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

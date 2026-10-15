@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeXer"
+tags = ["transformer", "patching", "covariates", "attention-variant", "channel-mixing", "normalization"]
+fits = ["exogenous-covariates", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimeXer: Empowering Transformers for Time Series Forecasting with Exogenous Variables"
+url = "https://arxiv.org/abs/2402.19072"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/thuml/TimeXer"
+revision = "76011909357972bd55a27adba2e1be994d81b327"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-self-attention-with-global-token"
+channel = "local:exogenous-variate-cross-attention"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count; for MS/S the target must be the last channel" }
+patch_len = { from = "seq_len", rule = "patch count is ceil(seq_len / patch_len) with zero padding; prefer a divisor of seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

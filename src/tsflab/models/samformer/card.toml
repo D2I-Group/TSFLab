@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SAMformer"
+tags = ["transformer", "channel-mixing", "attention-variant", "normalization", "lightweight", "sam", "training-objective"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the channel-wise attention, linear forecaster, RevIN, and SAM procedure were checked against the paper and `samformer_pytorch/samformer/` at the pinned revision; the card records no paper or code problem."
+
+[paper]
+title = "SAMformer: Unlocking the Potential of Transformers in Time Series Forecasting with Sharpness-Aware Minimization and Channel-Wise Attention"
+url = "https://arxiv.org/abs/2402.10198"
+venue = "ICML 2024"
+year = 2024
+
+[code]
+url = "https://github.com/romilbert/samformer"
+revision = "71f10eaa696f2a098798779ee14b6ecd6b69bcd9"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/romilbert/samformer/blob/71f10eaa696f2a098798779ee14b6ecd6b69bcd9/samformer_pytorch/samformer/samformer.py", "https://github.com/romilbert/samformer/blob/71f10eaa696f2a098798779ee14b6ecd6b69bcd9/samformer_pytorch/samformer/utils/sam.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:channel_wise_linear"
+channel = "local:channel-wise-attention"
+head = "component:channel_wise_linear"
+loss = "loss:mse+component:sharpness_aware"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

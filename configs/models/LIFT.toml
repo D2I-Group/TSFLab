@@ -1,0 +1,9 @@
+[model]
+name = "LIFT"
+
+[model.params]
+enc_in = 7
+leader_num = 4
+state_num = 8
+temperature = 1.0
+kernel_size = 25

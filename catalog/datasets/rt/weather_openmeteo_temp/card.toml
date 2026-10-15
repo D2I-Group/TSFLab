@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "rt/weather_openmeteo_temp"
+domain = "environment"
+topic = "air temperature"
+benchmarks = ["realtime"]
+tags = ["weather", "temperature", "open-meteo", "hourly", "cities", "real-time", "spatiotemporal", "covariate"]
+related = ["rt/solar_openmeteo_ghi", "weather"]
+realtime_track = "weather_openmeteo_temp"
+characteristics = ["strong-seasonality", "multi-periodic", "non-stationary", "train-val-level-shift", "train-val-scale-shift", "within-train-drift", "regime-changes", "high-cross-correlation", "low-dimensional-channels", "spatial-graph"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Open-Meteo Historical Forecast API, 2 m temperature"
+url = "https://open-meteo.com/en/docs/historical-forecast-api"
+citation = "n/a (no dataset paper; TSFLab real-time track)"
+citation_url = "n/a"
+license = "CC-BY-4.0 (Open-Meteo data; the free API is non-commercial, used here for collection only)"
+license_url = "https://open-meteo.com/en/terms"
+redistribution = "hosted"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "the 365 days before the bootstrap (the API's analysis hours start in 2022); grows with each weekly release"
+length = "grows weekly; the bootstrap covers 365 days of the same API (analysis hours from 2022)"
+channels = "82 (cities in the track config)"
+channel_kind = "stations"
+target = "2 m air temperature per city (degrees Celsius per the API default; unit not re-measured)"
+missing_values = "model-analysis grid values have no gaps by construction in normal operation; any unobserved hours are NaN in the store and forward-filled"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab static protocol on a frozen release: chronological 7:1:2 split, one z-score from the training rows, seq_len 168 and horizon 24 as in the real-time track; the live rolling rounds are the separate real-time evaluation"
+literature = ""
+split = "7:1:2"
+seq_lens = [168]
+pred_lens = [24]

@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SRSNet"
+tags = ["mlp", "patching", "selective-representation", "channel-independent", "normalization"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "Selective Patching, Dynamic Reassembly, and the selective representation space were mapped to the paper and checked against the pinned official repository; the card records no paper or code problem."
+
+[paper]
+title = "Enhancing Time Series Forecasting through Selective Representation Spaces: A Patch Perspective"
+url = "https://arxiv.org/abs/2510.14510"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/decisionintelligence/SRSNet"
+revision = "6ee35d498f48eefecf84530b362b137de38e6592"
+license = "MIT"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:selective-representation-space"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

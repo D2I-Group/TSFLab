@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MQRNN"
+tags = ["rnn", "probabilistic", "quantile", "covariates", "channel-independent", "multi-horizon"]
+fits = ["probabilistic-output", "calendar-effects"]
+fidelity = "paper-only"
+issues_checked = "the card records a local implementation from the Section 3.2 equations (global context MLP `m_G`, horizon-shared local MLP `m_L`); no official code is linked, and the listed differences (monotone quantile head, no static covariates or forking-sequences objective) are TSFLab scoping choices, not paper problems."
+
+[paper]
+title = "A Multi-Horizon Quantile Recurrent Forecaster"
+url = "https://arxiv.org/abs/1711.11053"
+venue = "NeurIPS 2017 Time Series Workshop"
+year = 2017
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:lstm-encoder-global-decoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:horizon-shared-local-mlp+component:quantile_head"
+loss = "loss:quantile"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+future_covariate_size = { from = "covariates", rule = "equal to the width of x_mark_enc/x_mark_dec (time features for the dataset's frequency); 0 disables covariates" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

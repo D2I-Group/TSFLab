@@ -1,0 +1,17 @@
+[model]
+name = "TALON"
+
+# Official scripts/time_series_forecasting/long_term/ETTh1.sh (context 672 = 7 segments of 96)
+# and Sec. V-A (first 6 GPT-2 layers). The script's `--mlp_hidden_layers 1` builds two
+# Linear layers in the official MLP, which is `mlp_hidden_layers = 2` here.
+[model.params]
+enc_in = 7
+token_len = 96
+top_k = 3
+expert_hidden = 1024
+mlp_hidden_dim = 1024
+mlp_hidden_layers = 2
+mlp_activation = "tanh"
+dropout = 0.1
+llm_layers = 6
+moe_weight = 0.02

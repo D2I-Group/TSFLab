@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CauAir"
+tags = ["transformer", "spatiotemporal", "covariates", "attention-variant", "linear-attention", "air-quality"]
+fits = ["exogenous-covariates", "many-channels", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Causal Learning Meet Covariates: Empowering Lightweight and Effective Nationwide Air Quality Forecasting"
+url = "https://www.ijcai.org/proceedings/2025/353"
+venue = "IJCAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/PoorOtterBob/CauAir/blob/73dae00ca6ad14abb15174a0a0286d500e868b94/src/models/cauair.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:linear-history-summaries"
+channel = "local:cache-attention-over-stations"
+head = "local:linear-horizon-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of stations N" }
+cov_dim = { from = "covariates", rule = "must equal the covariate features per station, historical and future alike (2 for the calendar fallback)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with `src/models/cauair.py` used as reference only; license recorded as `NOASSERTION`."

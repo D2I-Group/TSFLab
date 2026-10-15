@@ -1,0 +1,13 @@
+# PeMS District 7 hourly traffic flow frozen as a static dataset (see docs/en/realtime.md).
+# Reads the track's panel store at dataset/realtime/traffic_pems_la (or set dataset.params.revision to pull a Hub revision).
+[dataset]
+name = "realtime_panel_st"
+alias = "rt_traffic_pems_la"
+track = "realtime"
+path = "./dataset/realtime/traffic_pems_la"
+
+[dataset.params]
+track = "traffic_pems_la"
+version = "2026.09.28-2003"
+split_ratio = [0.7, 0.1, 0.2]
+scale = true

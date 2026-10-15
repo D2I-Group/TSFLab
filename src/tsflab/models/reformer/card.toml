@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Reformer"
+tags = ["transformer", "attention-variant", "sparse-attention", "reversible", "channel-mixing", "covariates"]
+fits = ["long-lookback", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "LSH attention with shared-QK hashing and reversible blocks were checked against the paper; the linked Time-Series-Library wrapper is reference-only, and the card records no paper or code problem."
+
+[paper]
+title = "Reformer: The Efficient Transformer"
+url = "https://openreview.net/forum?id=rkgNKkHtvB"
+venue = "ICLR 2020"
+year = 2020
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "3a4819420d14095354aae96750ce8c499ef5f05e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:lsh-attention-reversible-encoder"
+channel = "local:channel-mixing-value-embedding"
+head = "local:last-pred-len-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+c_out = { from = "channels", rule = "number of output channels; defaults to enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

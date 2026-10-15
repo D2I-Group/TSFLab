@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "hyper_state_scan"
+role = "Linear-time recurrent scan over a token axis (variates in TimePro) whose raw state can be mixed across a patch-by-variate grid before read-out."
+slot = "channel"
+fits = ["any"]
+category = "state-space"
+tags = ["grid", "hyper-state", "mamba", "scan", "ssm", "state-space", "depthwise", "scalar-state"]
+input = "diagonal_selective_scan: u, delta, b [batch, channels, length]; a [channels]; GridStateMixer: [batch, channels, height, width]"
+output = "diagonal_selective_scan: [batch, channels, length] state trajectory; GridStateMixer: [batch, channels, height, width]"
+origin = "TimePro hyper-state, 'TimePro: Efficient Multivariate Long-term Time Series Forecasting with Variable- and Time-Aware Hyper-state' (arXiv 2505.20774, 2025), built on the Mamba selective scan; GridStateMixer is a portable stand-in for DCNv4-style deformable convolution"
+origin_models = ["timepro"]

@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STDN"
+tags = ["hybrid", "gnn", "spatiotemporal", "decomposition", "graph-learning", "covariates", "attention-variant"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the Laplacian/calendar embeddings, trend-seasonal gate, dynamic diffusion, and history attention against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "Spatiotemporal-aware Trend-Seasonality Decomposition Network for Traffic Flow Forecasting"
+url = "https://doi.org/10.1609/aaai.v39i11.33247"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/GestaltCogTeam/BasicTS/blob/c218c07b6ce5e4cf908b147fd180c486346fed9c/baselines/STDN/arch/model.py", "https://github.com/GestaltCogTeam/BasicTS/blob/c218c07b6ce5e4cf908b147fd180c486346fed9c/baselines/STDN/runner/stdn_runner.py", "https://github.com/GestaltCogTeam/BasicTS/blob/c218c07b6ce5e4cf908b147fd180c486346fed9c/baselines/STDN/PEMS04.py"]
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+time_slice_size = { from = "frequency", rule = "minutes per step; 1440 // time_slice_size time-of-day slots" }
+
+[composition]
+normalization = "none"
+decomposition = "local:learned-gate-trend-seasonal-split"
+temporal = "local:trend-gru+local:seasonal-cross-attention"
+channel = "local:dynamic-graph-diffusion+local:laplacian-spatial-embedding"
+head = "local:concat-linear-output"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

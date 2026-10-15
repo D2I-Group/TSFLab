@@ -1,0 +1,10 @@
+[model]
+name = "PPM"
+
+[model.params]
+enc_in = 7
+d_model = 256
+d_ff = 512
+num_samples = 100
+bandwidth = 0.3
+alpha = 0.1

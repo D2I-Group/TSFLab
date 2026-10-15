@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "series_decomposition"
+role = "Separates a smooth moving-average trend from the residual (seasonal) part so each can be modelled separately."
+slot = "decomposition"
+fits = ["strong-trend", "non-stationary"]
+category = "decomposition"
+tags = ["decomposition", "moving-average", "residual", "smoothing", "trend", "padding", "stateless"]
+input = "[batch, length, channels]"
+output = "EdgePaddedMovingAverage: [batch, length, channels] (stride 1); SeriesDecomposition: (residual, trend), each [batch, length, channels]"
+origin = "Moving-average series decomposition block of Autoformer, Wu et al., NeurIPS 2021, reused by DLinear (AAAI 2023) and others"
+origin_models = ["autoformer", "dlinear", "fedformer"]

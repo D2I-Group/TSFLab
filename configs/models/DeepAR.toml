@@ -1,0 +1,10 @@
+[model]
+name = "DeepAR"
+
+[model.params]
+enc_in = 7
+embedding_size = 32
+hidden_size = 64
+num_layers = 2
+cov_feat_size = 0
+dropout = 0.1

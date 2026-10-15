@@ -1,0 +1,21 @@
+[model]
+name = "WaveRoRA"
+
+# Official scripts/LTSF/WaveRoRA/ETTh.sh, ETTh1 block, pred_len 96 (seq_len 96,
+# MSE loss, learning rate 1e-4, batch size 32). n_heads is the official default;
+# router_num = 0 selects the official rule (2 routing tokens for 7 variates).
+[model.params]
+enc_in = 7
+wavelet = "sym3"
+wavelet_layers = 3
+wavelet_dim = 64
+d_model = 256
+d_ff = 256
+n_heads = 8
+e_layers = 1
+router_num = 0
+kernel_size = 1
+dropout = 0.3
+rotary = true
+residual = true
+gate = true

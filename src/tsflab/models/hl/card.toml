@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "HL"
+tags = ["statistical", "baseline", "persistence", "naive", "spatiotemporal"]
+fits = ["efficiency", "low-data"]
+fidelity = "reference-checked"
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:last-observation-persistence"
+channel = "none"
+head = "none"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes or channels; used only to check the input shape" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root (`PoorOtterBob/CauAir`)"
+what = "no license file at the pinned revision."
+resolution = "clean-room persistence formula with no source copied; license recorded as `NOASSERTION`."

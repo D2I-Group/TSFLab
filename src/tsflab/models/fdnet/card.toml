@@ -1,0 +1,68 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FDNet"
+tags = ["cnn", "time-series", "channel-independent", "long-input", "focal-decomposition", "weight-norm"]
+fits = ["long-lookback", "efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "FDNet: Focal Decomposed Network for Efficient, Robust and Practical Time Series Forecasting"
+url = "https://arxiv.org/abs/2306.10703"
+venue = "Knowledge-Based Systems"
+year = 2023
+
+[code]
+url = "https://github.com/OrigamiSL/FDNet"
+revision = "b636bd09ef8c6bd38bdc889d207837b923ceb169"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/OrigamiSL/FDNet/blob/b636bd09ef8c6bd38bdc889d207837b923ceb169/FDNet/model.py", "https://github.com/OrigamiSL/FDNet/blob/b636bd09ef8c6bd38bdc889d207837b923ceb169/FDNet/ConvBlock.py", "https://github.com/OrigamiSL/FDNet/blob/b636bd09ef8c6bd38bdc889d207837b923ceb169/FDNet/embed.py", "https://github.com/OrigamiSL/FDNet/blob/b636bd09ef8c6bd38bdc889d207837b923ceb169/scripts/FDNet.sh"]
+
+[composition]
+normalization = "none"
+decomposition = "local:focal-input-decomposition"
+temporal = "local:weight-norm-2d-conv-layers"
+channel = "none"
+head = "local:per-variate-flatten-linear-average"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+focal_parts = { from = "seq_len", rule = "seq_len must be divisible by 2^(focal_parts - 1); more parts for longer lookbacks (5 for 672 inputs)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Fig. 6 vs `FDNet/model.py`"
+what = "the figure gives the sub-sequences the depths N, N-1, ..., N-f+1, while the code gives the two latest sub-sequences N layers each, then N-1, and so on."
+resolution = "the official depth schedule."
+
+[[issues]]
+kind = "code-bug"
+where = "`FDNet/model.py`"
+what = "the model builds one more branch than it has inputs; that branch never receives data and its parameters are unused."
+resolution = "the extra branch is not constructed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "paper training setup (MSE) vs `exp/exp_model.py`"
+what = "the official training loop minimizes MSE + MAE."
+resolution = "the catalog trainer and configured loss."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 5.1-5.2"
+what = "dropout placement, the span of each residual connection (one 1x1 + 3x1 pair), the shared flatten-and-project head, branch averaging, and the absence of instance normalization are not stated."
+resolution = "taken from the official code (`d_model = 8`, 5 layers, kernel 3, dropout 0.1)."
+
+[[issues]]
+kind = "license"
+where = "`README.md` vs `LICENSE`"
+what = "the README badge says CC BY-NC-SA while the license file is Apache-2.0."
+resolution = "the license file governs; recorded as `Apache-2.0`."

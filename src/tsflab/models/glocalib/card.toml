@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GlocalIB"
+tags = ["mlp", "regularization", "probabilistic", "representation-learning", "normalization"]
+fits = ["missing-values"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Glocal Information Bottleneck for Time Series Imputation"
+url = "https://arxiv.org/abs/2510.04910"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Muyiiiii/NeurIPS-25-Glocal-IB"
+revision = "1ee232e6d6b28329010db0305899511cb7fc9016"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Muyiiiii/NeurIPS-25-Glocal-IB/blob/1ee232e6d6b28329010db0305899511cb7fc9016/Glocal_IB/Glocal_IB.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:linear-seq-to-pred-map"
+channel = "local:variational-channel-encoder"
+head = "local:linear-value-decoder"
+loss = "loss:mse+local:kl-and-latent-alignment-aux-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the encoder maps each time step's channel vector to one latent" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from Eqs. (6)-(8) and (12)-(14); `Glocal_IB/Glocal_IB.py` used as reference only; license recorded as `NOASSERTION`."

@@ -1,0 +1,74 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "NsDiff"
+tags = ["diffusion", "probabilistic", "quantile", "non-stationary", "transformer", "channel-mixing"]
+fits = ["probabilistic-output", "non-stationary", "heteroscedastic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Non-stationary Diffusion For Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.04278"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/wwy155/NsDiff"
+revision = "dd7b97ae0c47629986f72ba01effbbdc1d44be2b"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/models/NsDiff.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/layer/nsdiff_utils.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/layer/denoise.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/layer/mu_backbone.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/layer/g_backbone.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/utils/sigma.py", "https://github.com/wwy155/NsDiff/blob/dd7b97ae0c47629986f72ba01effbbdc1d44be2b/src/experiments/NsDiff.py"]
+
+[composition]
+normalization = "local:series-stationarization"
+decomposition = "none"
+temporal = "local:non-stationary-transformer-prior+component:transformer_encdec"
+channel = "local:channel-concatenated-step-scaled-mlp-denoiser"
+head = "local:reverse-diffusion-sampler+component:empirical_quantiles"
+loss = "local:nsdiff-kl-plus-prior-regression"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count; the diffusion is multivariate over all channels" }
+rolling_length = { from = "seq_len", rule = "0 < rolling_length < seq_len; window of the sliding variance (official 96 or 24 at seq_len 168); preset 24, valid for seq_len >= 25" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1, Sec. 4.3 vs `src/experiments/NsDiff.py` (`load_pretrain = False`)"
+what = "the paper pre-trains `f` and `g` separately, while the official default used by the released scripts trains `f`, `g` and the denoiser jointly on the Eq. 13 KL term plus `MSE(f, Y)` and `MSE(sqrt(g), sqrt(sigma_Y0))`."
+resolution = "the official joint objective (App. B.2 reports it as comparable)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "paper text (`beta_T = 0.02`) vs `src/experiments/NsDiff.py` (`NsDiffParameters.beta_end = 0.01`)"
+what = "the schedule endpoint differs."
+resolution = "the runnable official `0.01`."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. 12 (and `src/layer/nsdiff_utils.py`, `gamma_2`)"
+what = "the coefficient `sqrt(alpha_t)(alpha_t - 1)` differs from exact Gaussian conditioning on Eq. 6, which gives `sqrt(alpha_t)(sqrt(alpha_t) - 1)`."
+resolution = "the paper and official form is kept and pinned by a test."
+
+[[issues]]
+kind = "code-bug"
+where = "official Eq. 15-18 variance inversion"
+what = "the quadratic for `sigma_Y0` is solved without a guard, so a negative discriminant or root yields NaN."
+resolution = "the discriminant is floored at `1e-20` and the root at zero (identity whenever Eq. 17 holds)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "App. C.2.2 (`Linear(seq_len, ...)`) vs `src/layer/g_backbone.py`"
+what = "the variance-prior MLP reads the `seq_len - rolling_length` trailing-window variances of the history, not the raw window."
+resolution = "the code's input."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SVRForecasterTS"
+tags = ["statistical", "channel-independent", "lightweight", "baseline"]
+fits = ["short-train", "low-data", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "classical 1996 method with no official code; the card records a differentiable adaptation of the epsilon-insensitive kernel expansion, with no documented problem in the paper."
+
+[paper]
+title = "Support Vector Regression Machines"
+url = "https://papers.nips.cc/paper/1996/hash/d38901788c533e8286cb6400b40b386d-Abstract.html"
+venue = "NeurIPS 1996"
+year = 1996
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:rbf-kernel-support-centres"
+channel = "local:channel-independent-shared-weights"
+head = "local:kernel-feature-linear-readout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+kernel_gamma = { from = "seq_len", rule = "RBF width; squared distance sums over seq_len steps, so shrink gamma as seq_len grows" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

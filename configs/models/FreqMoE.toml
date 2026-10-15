@@ -1,0 +1,8 @@
+[model]
+name = "FreqMoE"
+
+[model.params]
+enc_in = 7
+expert_num = 4
+freq_num_blocks = 1
+dropout_freq = 0.1

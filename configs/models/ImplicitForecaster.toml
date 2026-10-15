@@ -1,0 +1,9 @@
+[model]
+name = "ImplicitForecaster"
+
+[model.params]
+enc_in = 7
+d_model = 64
+frequency_pool = 192
+dropout = 0.0
+use_revin = true

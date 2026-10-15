@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Aurora"
+tags = ["transformer", "patching", "multimodal", "frequency", "retrieval", "flow-matching", "channel-independent", "normalization"]
+fits = ["exogenous-covariates"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Aurora: Towards Universal Generative Multimodal Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.22295"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/decisionintelligence/Aurora"
+revision = "a247760abbc9d17a861bc365c032368d317815f2"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/decisionintelligence/Aurora/blob/a247760abbc9d17a861bc365c032368d317815f2/aurora/modeling_aurora.py", "https://github.com/decisionintelligence/Aurora/blob/a247760abbc9d17a861bc365c032368d317815f2/aurora/prototype_retriever.py", "https://github.com/decisionintelligence/Aurora/blob/a247760abbc9d17a861bc365c032368d317815f2/aurora/flow_loss.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-transformer-encoder+local:modality-guided-attention"
+channel = "local:channel-independent-shared-weights"
+head = "local:prototype-retrieval-flow-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (RevIN statistics; channels share weights)" }
+patch_len = { from = "seq_len", rule = "clipped to seq_len; the history is right-padded to ceil(seq_len / patch_len) patches" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local rewrite of Eq. (1)-(25) after inspecting `aurora/modeling_aurora.py`, `aurora/prototype_retriever.py` and `aurora/flow_loss.py`, with no official weights; license recorded as `NOASSERTION`."

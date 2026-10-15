@@ -1,0 +1,14 @@
+[model]
+name = "VLBM"
+
+# Official scripts/long_term_forecast/Weather_script/VLBM.sh, pred_len 96
+# (seq_len 96, 10-minute interval, MAE + 0.1 KL, learning rate 1e-3, batch 16).
+[model.params]
+enc_in = 21
+hidden = 128
+num_blocks = 1
+top_k = 1
+num_basis = 100
+interval = 10.0
+use_norm = true
+kl_weight = 0.1

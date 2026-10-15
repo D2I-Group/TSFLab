@@ -1,0 +1,14 @@
+[model]
+name = "PatchTSMixer"
+
+[model.params]
+enc_in = 7
+d_model = 16
+patch_len = 16
+stride = 8
+num_layers = 3
+expansion_factor = 2
+dropout = 0.1
+head_dropout = 0.1
+mode = "common_channel"
+gated_attn = true

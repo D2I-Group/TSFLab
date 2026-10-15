@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PULSE"
+tags = ["mlp", "periodicity", "decomposition", "normalization", "attention-variant", "non-stationary"]
+fits = ["non-stationary", "strong-seasonality"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Generative Phase Evolution for Non-Stationary Time Series Forecasting"
+url = "https://arxiv.org/abs/2605.16793"
+venue = "ICML 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Gemost/PULSE"
+revision = "b26449764b72bfc6aa0d5b961d702f0b59da3848"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Gemost/PULSE/blob/b26449764b72bfc6aa0d5b961d702f0b59da3848/models/PULSE.py"]
+
+[composition]
+normalization = "local:phase-anchored-residual-normalization"
+decomposition = "local:phase-codebook-anchor-disentangle"
+temporal = "local:mlp-backbone-latent-future"
+channel = "local:channel-mixing-phase-router"
+head = "local:residual-denormalized-anchor-sum"
+loss = "loss:mse+local:frequency-mae-utility"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+phase_period = { from = "period", rule = "cycle length in steps indexing the phase codebook" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

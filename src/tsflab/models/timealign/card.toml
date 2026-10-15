@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeAlign"
+tags = ["mlp", "patching", "channel-independent", "normalization", "lightweight"]
+fits = ["non-stationary", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Bridging Past and Future: Distribution-Aware Alignment for Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.14181"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/TROUBADOUR000/TimeAlign"
+revision = "ab2dff5bde250f82e29d8755f87a494921857d71"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-mlp-branch"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse+local:reconstruction-and-alignment-aux"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (sizes RevIN)" }
+patch_num = { from = "seq_len", rule = "must divide both seq_len and pred_len so history and future tokens align" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

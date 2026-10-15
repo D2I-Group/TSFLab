@@ -1,0 +1,75 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TFPS"
+tags = ["transformer", "patching", "fourier", "frequency-domain", "mixture-of-experts", "clustering", "distribution-shift", "normalization", "auxiliary-loss"]
+fits = ["regime-changes", "non-stationary", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Learning Pattern-Specific Experts for Time Series Forecasting Under Patch-level Distribution Shift"
+url = "https://arxiv.org/abs/2410.09836"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/syrGitHub/TFPS"
+revision = "83a11827e27e6617e8c8a8771f0a1dd7e10976a5"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/models/PatchTST_MoE_cluster.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/layers/PatchTST_MoE_backbone_cluster_time.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/layers/PatchTST_MoE_backbone_cluster_frequency.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/layers/Cluster.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/layers/Constraint.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/layers/SparseMoE.py", "https://github.com/syrGitHub/TFPS/blob/83a11827e27e6617e8c8a8771f0a1dd7e10976a5/exp/exp_main.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:time-frequency-dual-encoder"
+temporal = "local:residual-attention-and-fourier-patch-encoders"
+channel = "local:cross-variate-subspace-clustering-experts"
+head = "component:flatten_forecast_head"
+loss = "loss:mse+local:subspace-clustering-kl-and-basis-regularizer"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; enc_in * d_model >= number of experts" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len; patch counts are floor((L - P) / stride) + 2 for L = seq_len and pred_len" }
+stride = { from = "pred_len", rule = "pred_len must yield at least one output patch: floor((pred_len - patch_len) / stride) + 2 >= 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied or imported."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/PatchTST_MoE_backbone_cluster_time.py` (same in `..._frequency.py`)"
+what = "the clustering input `[B, C, D, N_out]` is reshaped to `[B * N_out, C * D]` without a permute, mixing patches and variates inside each clustered row."
+resolution = "each row is one output patch's `C x D` feature, as in Section 3.5."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Cluster.py` (`self.D = Parameter(torch.Tensor(...))`)"
+what = "the subspace bases are an uninitialised tensor never initialised in the repository, and the square `K d x K d` shape requires `K` to divide `q`."
+resolution = "standard Gaussian bases as in Algorithm 1, shape `q x K floor(q / K)`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (10) vs `layers/SparseMoE.py`"
+what = "the router adds softplus-scaled Gaussian noise to the affinities in both training and evaluation, while Eq. (10) is a deterministic `Softmax(TopK(s))`."
+resolution = "deterministic gating per Eq. (10)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (3)-(8) vs `layers/Cluster.py` and the official training loop"
+what = "the paper sets `eta = d` and uses squared, halved norms and a summed KL; the code uses `eta = 5`, unsquared Frobenius norms scaled by `1e-3`, and a mean KL with `beta = 0.1`."
+resolution = "the official scales."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3"
+what = "the linear map over the patch axis from `N_in` input patches to `N_out = floor((H - P) / S) + 2` output patches before clustering is not described."
+resolution = "included as in the official code."

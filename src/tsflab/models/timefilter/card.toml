@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeFilter"
+tags = ["gnn", "mixture-of-experts", "graph-learning", "patching", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation", "regime-changes"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimeFilter: Patch-Specific Spatial-Temporal Graph Filtration for Time Series Forecasting"
+url = "https://arxiv.org/abs/2501.13041"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/TROUBADOUR000/TimeFilter"
+revision = "dffde87e4fff0fdeeebbacde03dc1e432e15b3a1"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-embedding-graph-nodes"
+channel = "local:patch-graph-moe-filter"
+head = "local:flatten-linear-head"
+loss = "loss:mse+local:router-load-balance"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; graph nodes = enc_in * ceil(seq_len / patch_len)" }
+patch_len = { from = "seq_len", rule = "ideally divides seq_len (else zero-padded); larger patches shrink the dense node graph" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

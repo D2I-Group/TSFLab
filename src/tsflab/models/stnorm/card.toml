@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STNorm"
+tags = ["cnn", "spatiotemporal", "normalization", "covariates", "channel-mixing"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the spatial and temporal normalization streams in a causal dilated backbone against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "ST-Norm: Spatial and Temporal Normalization for Multi-variate Time Series Forecasting"
+url = "https://doi.org/10.1145/3447548.3467330"
+venue = "KDD 2021"
+year = 2021
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+
+[composition]
+normalization = "local:spatial-and-temporal-normalization-streams"
+decomposition = "none"
+temporal = "local:gated-dilated-causal-conv"
+channel = "local:spatial-normalization-across-nodes"
+head = "local:relu-conv-skip-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

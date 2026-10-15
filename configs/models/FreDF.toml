@@ -1,0 +1,9 @@
+[model]
+name = "FreDF"
+
+[model.params]
+enc_in = 7
+d_model = 128
+e_layers = 1
+dropout = 0.1
+freq = "h"

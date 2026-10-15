@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CANet"
+tags = ["cnn", "patching", "frequency", "multi-scale", "normalization", "channel-independent"]
+fits = ["non-stationary", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CANet: ChronoAdaptive Network for Enhanced Long-Term Time Series Forecasting under Non-Stationarity"
+url = "https://arxiv.org/abs/2504.17913"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/mertsonmezer/CANet"
+revision = "8b5d9cbdbf091805de0d22fa57b41173c21df95e"
+license = "MIT"
+reference_sources = ["https://github.com/mertsonmezer/CANet/blob/8b5d9cbdbf091805de0d22fa57b41173c21df95e/canet/canet.py", "https://github.com/mertsonmezer/CANet/blob/8b5d9cbdbf091805de0d22fa57b41173c21df95e/canet/modules/canet_layer.py", "https://github.com/mertsonmezer/CANet/blob/8b5d9cbdbf091805de0d22fa57b41173c21df95e/canet/modules/asb.py", "https://github.com/mertsonmezer/CANet/blob/8b5d9cbdbf091805de0d22fa57b41173c21df95e/canet/modules/nsan.py", "https://github.com/mertsonmezer/CANet/blob/8b5d9cbdbf091805de0d22fa57b41173c21df95e/canet/modules/icb.py"]
+
+[composition]
+normalization = "local:instance-standardization+component:adain_style_norm"
+decomposition = "none"
+temporal = "local:adaptive-spectral-block+local:interactive-convolutional-block+component:positional_encoding"
+channel = "local:channel-independent-shared-weights"
+head = "local:concat-branches-two-layer-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels" }
+patch_sizes = { from = "seq_len", rule = "every patch size must not exceed seq_len (half-stride overlapping patches)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "paper method description"
+what = "the exact patch, style, spectral, NSAN and ICB execution order, the straight-through adaptive frequency mask and the NSAN statistic-blending equations are not fully specified."
+resolution = "resolved from `canet/canet.py` and `canet/modules/` at the pinned revision."

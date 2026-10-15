@@ -1,0 +1,14 @@
+[model]
+name = "FRWKV"
+
+[model.params]
+enc_in = 7
+d_model = 512
+d_ff = 512
+n_heads = 8
+e_layers = 2
+embed_size = 16
+dropout = 0.2
+activation = "gelu"
+weighted_l1_loss = true
+loss_alpha = 0.5

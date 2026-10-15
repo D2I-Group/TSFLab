@@ -1,0 +1,25 @@
+[model]
+name = "StaTS"
+
+# Paper Sec. 4.1 and App. C.6 (lookback 168, T = 50, beta 1e-5 -> 0.1, k = 3,
+# B = 2 bands, STS weights) with the official code's denoiser width 256 and
+# Adam weight decay 5e-4 / clipping 5 for the stage-I optimizers.
+[model.params]
+enc_in = 7
+hidden = 256
+bands = 2
+diffusion_steps = 50
+beta_start = 0.00001
+beta_end = 0.1
+schedule_epochs = 3
+stage_lr = 0.001
+stage_weight_decay = 0.0005
+stage_grad_clip = 5.0
+lambda_smooth = 5.0
+lambda_init = 0.5
+lambda_end = 0.5
+lambda_bar = 0.005
+lambda_prog = 0.5
+lambda_obj = 0.01
+num_samples = 100
+sample_batch_size = 100

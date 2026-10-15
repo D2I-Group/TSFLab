@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Dualformer"
+tags = ["transformer", "frequency", "attention-variant", "multi-scale", "normalization", "covariates"]
+fits = ["weak-seasonality", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Dualformer: Time-Frequency Dual Domain Learning for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2601.15669"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/Akira-221/Dualformer"
+revision = "ebd4ccf8bc5634f0c965d0b8d5797d1b926daa19"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Akira-221/Dualformer/blob/ebd4ccf8bc5634f0c965d0b8d5797d1b926daa19/models/dualformer.py", "https://github.com/Akira-221/Dualformer/blob/ebd4ccf8bc5634f0c965d0b8d5797d1b926daa19/layers/RevIN.py", "https://github.com/Akira-221/Dualformer/blob/ebd4ccf8bc5634f0c965d0b8d5797d1b926daa19/layers/AutoCorrelation.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:frequency_band_sampler"
+temporal = "component:transformer_encdec+component:self_attention_family+local:auto-correlation-attention-frequency-branch"
+channel = "component:forecast_embedding"
+head = "component:harmonic_energy_gate+local:last-step-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+c_out = { from = "channels", rule = "equals enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/dualformer.py` `Model.forward`"
+what = "each layer's band-limited input is recomputed from the original embedding's spectrum and each layer's output overwrites the previous one, so only the last encoder layer of each branch reaches the output or receives a gradient, and the depth-wise frequency curriculum never composes."
+resolution = "the spectrum is re-derived from each branch's running state, so all `e_layers` layers are stacked."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/dualformer.py` (`irfft(x_fft, n=target_len)` on the sliced bins)"
+what = "the selected band is inverted as if it started at frequency 0."
+resolution = "unselected bins are zero-padded back to their true positions before the inverse FFT (the paper's \"Padding\" step)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.1"
+what = "the band edges `p_n`, `q_n` are real-valued and the integer rounding is not given, although case 1 must tile the spectrum without gaps."
+resolution = "shared integer edges `floor(n*k/L)`, so bands tile exactly."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room rewrite with the repository used as reference only; license recorded as `NOASSERTION`."

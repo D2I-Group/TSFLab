@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "adain_style_norm"
+role = "Re-injects supplied per-sample level and scale statistics into normalized features, so non-stationary series keep their own moments."
+slot = "normalization"
+fits = ["non-stationary"]
+category = "normalization"
+tags = ["adain", "adaptive", "non-stationary", "normalization", "style", "instance", "detach", "stateless", "parameter-free"]
+input = "x [batch, length, channels]; style_mean [batch|1, 1, channels]; style_std [batch|1, 1, channels]"
+output = "[batch, length, channels]"
+origin = "Adaptive instance normalization (AdaIN; Huang and Belongie, ICCV 2017, image style transfer) used as the NSAN block of CANet (arXiv 2504.17913, 2025); extracted when CANet was added"
+origin_models = ["canet"]

@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LSTM"
+tags = ["rnn", "spatiotemporal", "covariates", "baseline", "channel-independent"]
+fits = ["calendar-effects", "exogenous-covariates"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the node/channel count" }
+cov_dim = { from = "covariates", rule = "number of covariate features per node: 2 for calendar marks (time of day, day of week), else the dataset covariate count F" }
+
+[paper]
+title = "Long Short-Term Memory"
+url = "https://doi.org/10.1162/neco.1997.9.8.1735"
+venue = "Neural Computation 1997"
+year = 1997
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:lstm-per-node-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:two-layer-mlp-horizon-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root (`PoorOtterBob/CauAir`)"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation, CauAir used as reference only; license recorded as `NOASSERTION`."

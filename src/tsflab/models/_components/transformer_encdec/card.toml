@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "transformer_encdec"
+role = "Encoder-decoder Transformer skeleton for sequence-to-sequence forecasting, with swappable attention and optional Informer distilling."
+slot = "temporal"
+fits = ["any"]
+category = "backbone"
+tags = ["attention", "decoder", "encoder", "transformer", "post-norm", "distilling", "stateless", "encoder-decoder", "conv-ffn", "informer", "injected-attention", "vanilla-transformer"]
+input = "Encoder/EncoderLayer: x [batch, len, d_model]; Decoder/DecoderLayer: x [batch, len_dec, d_model] and cross [batch, len_enc, d_model]; ConvLayer: [batch, len, d_model]"
+output = "Encoder: ([batch, len', d_model], list of attention maps); EncoderLayer: ([batch, len, d_model], attn); DecoderLayer: [batch, len_dec, d_model]; Decoder: [batch, len_dec, d_model] or projection output; ConvLayer: [batch, ~len/2, d_model]"
+origin = "Transformer (Vaswani et al., NeurIPS 2017) encoder/decoder layout with Informer (Zhou et al., AAAI 2021) distilling ConvLayer, in the Time-Series-Library layer API; upstream copy not recorded in history"
+origin_models = ["informer", "transformer"]

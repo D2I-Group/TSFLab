@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeKAN"
+tags = ["kan", "frequency", "decomposition", "multi-scale", "channel-independent", "lightweight", "normalization"]
+fits = ["multi-periodic", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records Eqs. 3-12 (FFT-padding upsampling, cascaded bands, Chebyshev KAN orders, depthwise convolution, bottom-up mixing) as followed from the paper and documents no paper or official-code problem."
+
+[paper]
+title = "TimeKAN: KAN-based Frequency Decomposition Learning Architecture for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2502.06910"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/huangst21/TimeKAN"
+revision = "3a7c366a9e8547fd8840c5d27f25ee3e30615e33"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:cascaded-frequency-band-decomposition"
+temporal = "local:multi-order-chebyshev-kan"
+channel = "local:channel-independent-shared-weights"
+head = "local:band-mixing-readout+local:linear-forecast"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (sizes RevIN); c_out must equal enc_in" }
+down_sampling_layers = { from = "seq_len", rule = "seq_len divisible by down_sampling_window ** down_sampling_layers" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

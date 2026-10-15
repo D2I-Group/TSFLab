@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimesNet"
+tags = ["cnn", "frequency", "multi-scale", "channel-mixing", "covariates", "normalization"]
+fits = ["multi-periodic", "strong-seasonality", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimesNet: Temporal 2D-Variation Modeling for General Time Series Analysis"
+url = "https://arxiv.org/abs/2210.02186"
+venue = "ICLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "4e938a1767106324dd753b2a44832bf870a0252e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:dominant_periods+local:period-2d-fold+component:inception_block"
+channel = "local:channel-linear-embedding-and-projection+component:forecast_embedding"
+head = "local:linear-length-extension+local:output-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; must equal c_out" }
+top_k = { from = "seq_len", rule = "dominant periods per block, at most (seq_len + pred_len) // 2" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TimesNet.py` `FFT_for_Period` (`x.shape[1] // top_list`)"
+what = "the period division is unguarded, so a degenerate all-zero spectrum can select the DC bin and give period 0."
+resolution = "detected periods are clamped to at least 1."

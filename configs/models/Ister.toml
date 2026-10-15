@@ -1,0 +1,16 @@
+[model]
+name = "Ister"
+
+# CD_Ister, official scripts/CD_Ister/ETT_script/Ister_ETTh1.sh at horizon 96 (run.py defaults for unset flags).
+[model.params]
+enc_in = 7
+d_model = 128
+d_ff = 2048
+layers = 2
+moving_avg = 25
+dropout = 0.1
+activation = "gelu"
+use_marks = true
+freq = "h"
+recon_len = 48
+gelu_scores = true

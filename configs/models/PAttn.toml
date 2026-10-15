@@ -1,0 +1,9 @@
+[model]
+name = "PAttn"
+
+[model.params]
+d_model = 128
+n_heads = 8
+patch_len = 16
+stride = 8
+dropout = 0.1

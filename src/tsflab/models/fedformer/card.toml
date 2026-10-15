@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FEDformer"
+tags = ["transformer", "frequency", "decomposition", "attention-variant", "channel-mixing", "long-horizon"]
+fits = ["long-horizon", "strong-seasonality", "strong-trend", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card maps the Fourier-mode frequency-enhanced block and attention to Eqs. (3)-(4) and (6)-(7) and the decoder trend accumulation, with the pinned official code as reference, and documents no paper or official-code problem."
+
+[paper]
+title = "FEDformer: Frequency Enhanced Decomposed Transformer for Long-term Series Forecasting"
+url = "https://proceedings.mlr.press/v162/zhou22g.html"
+venue = "ICML 2022"
+year = 2022
+
+[code]
+url = "https://github.com/MAZiqing/FEDformer"
+revision = "c0f6b972def125691434d62be1ecadf710ae921a"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "component:series_decomposition"
+temporal = "component:decomposition_encdec+local:fourier-enhanced-block-and-frequency-attention"
+channel = "component:forecast_embedding"
+head = "local:seasonal-projection-plus-accumulated-trend"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+dec_in = { from = "channels", rule = "equals enc_in" }
+c_out = { from = "channels", rule = "equals enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

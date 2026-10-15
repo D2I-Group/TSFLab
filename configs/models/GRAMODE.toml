@@ -1,0 +1,22 @@
+[model]
+name = "GRAMODE"
+
+# Official model.py / odegcn.py / args.py defaults (PEMS, 12 -> 12); enc_in follows the 8-node catalog fixture (set it to the dataset node count).
+[model.params]
+enc_in = 8
+input_dim = 1
+hidden_dim = 64
+tcn_mid_dim = 32
+kernel_size = 2
+dropout = 0.2
+channels = 3
+layers = 2
+local_chunks = 4
+local_heads = 32
+output_heads = 12
+graph_alpha = 0.8
+ode_beta = 0.6
+steps_per_day = 288
+semantic_sigma = 0.1
+semantic_threshold = 0.6
+huber_delta = 1.0

@@ -1,0 +1,7 @@
+[model]
+name = "COSA"
+
+[model.params]
+enc_in = 7
+context_len = 10
+gate_init = 0.1

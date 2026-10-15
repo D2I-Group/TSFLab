@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STGODE"
+tags = ["gnn", "cnn", "spatiotemporal", "graph-learning", "covariates"]
+fits = ["spatial-graph"]
+fidelity = "reference-checked"
+issues_checked = "the card records a clean-room rewrite from the paper equations against the pinned BasicTS code; the replacement of the DTW semantic graph and the unreproduced `torchdiffeq` solver details are TSFLab scoping, not documented upstream problems."
+
+[paper]
+title = "Spatial-Temporal Graph ODE Networks for Traffic Flow Forecasting"
+url = "https://doi.org/10.1145/3447548.3467430"
+venue = "KDD 2021"
+year = 2021
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count; adjacency from the dataset graph" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:dilated-causal-conv+local:tensor-ode-block"
+channel = "local:spatial-and-semantic-graph-branches"
+head = "local:gated-fusion-flatten-linear"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,71 @@
+# GIFT-EVAL full sweep — "short" term (1x prediction length).
+# Each dataset TOML uses the short-term pred_len.
+# For medium (10x) or long (15x) terms, update pred_len in the
+# individual dataset TOMLs (see comments inside each file).
+
+extends = ["../base.toml", "../models/DLinear.toml"]
+
+[experiment]
+description = "GIFT-EVAL full sweep (short term)"
+
+[evaluation]
+enable_profile = true
+
+[sweep.extend]
+datasets = [
+  "../datasets/gift_eval/LOOP_SEATTLE_5T.toml",
+  "../datasets/gift_eval/LOOP_SEATTLE_D.toml",
+  "../datasets/gift_eval/LOOP_SEATTLE_H.toml",
+  "../datasets/gift_eval/M_DENSE_D.toml",
+  "../datasets/gift_eval/M_DENSE_H.toml",
+  "../datasets/gift_eval/SZ_TAXI_15T.toml",
+  "../datasets/gift_eval/SZ_TAXI_H.toml",
+  "../datasets/gift_eval/bitbrains_fast_storage_5T.toml",
+  "../datasets/gift_eval/bitbrains_fast_storage_H.toml",
+  "../datasets/gift_eval/bitbrains_rnd_5T.toml",
+  "../datasets/gift_eval/bitbrains_rnd_H.toml",
+  "../datasets/gift_eval/bizitobs_application.toml",
+  "../datasets/gift_eval/bizitobs_l2c_5T.toml",
+  "../datasets/gift_eval/bizitobs_l2c_H.toml",
+  "../datasets/gift_eval/bizitobs_service.toml",
+  "../datasets/gift_eval/car_parts_with_missing.toml",
+  "../datasets/gift_eval/covid_deaths.toml",
+  "../datasets/gift_eval/electricity_15T.toml",
+  "../datasets/gift_eval/electricity_D.toml",
+  "../datasets/gift_eval/electricity_H.toml",
+  "../datasets/gift_eval/electricity_W.toml",
+  "../datasets/gift_eval/ett1_15T.toml",
+  "../datasets/gift_eval/ett1_D.toml",
+  "../datasets/gift_eval/ett1_H.toml",
+  "../datasets/gift_eval/ett1_W.toml",
+  "../datasets/gift_eval/ett2_15T.toml",
+  "../datasets/gift_eval/ett2_D.toml",
+  "../datasets/gift_eval/ett2_H.toml",
+  "../datasets/gift_eval/ett2_W.toml",
+  "../datasets/gift_eval/hierarchical_sales_D.toml",
+  "../datasets/gift_eval/hierarchical_sales_W.toml",
+  "../datasets/gift_eval/hospital.toml",
+  "../datasets/gift_eval/jena_weather_10T.toml",
+  "../datasets/gift_eval/jena_weather_H.toml",
+  "../datasets/gift_eval/jena_weather_D.toml",
+  "../datasets/gift_eval/kdd_cup_2018_with_missing_D.toml",
+  "../datasets/gift_eval/kdd_cup_2018_with_missing_H.toml",
+  "../datasets/gift_eval/m4_daily.toml",
+  "../datasets/gift_eval/m4_hourly.toml",
+  "../datasets/gift_eval/m4_monthly.toml",
+  "../datasets/gift_eval/m4_quarterly.toml",
+  "../datasets/gift_eval/m4_weekly.toml",
+  "../datasets/gift_eval/m4_yearly.toml",
+  "../datasets/gift_eval/restaurant.toml",
+  "../datasets/gift_eval/saugeenday_D.toml",
+  "../datasets/gift_eval/saugeenday_M.toml",
+  "../datasets/gift_eval/saugeenday_W.toml",
+  "../datasets/gift_eval/solar_10T.toml",
+  "../datasets/gift_eval/solar_D.toml",
+  "../datasets/gift_eval/solar_H.toml",
+  "../datasets/gift_eval/solar_W.toml",
+  "../datasets/gift_eval/temperature_rain_with_missing.toml",
+  "../datasets/gift_eval/us_births_D.toml",
+  "../datasets/gift_eval/us_births_M.toml",
+  "../datasets/gift_eval/us_births_W.toml",
+]

@@ -1,0 +1,17 @@
+[model]
+name = "STAEformer"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+steps_per_day = 24
+input_embedding_dim = 8
+tod_embedding_dim = 4
+dow_embedding_dim = 4
+spatial_embedding_dim = 0
+adaptive_embedding_dim = 8
+feed_forward_dim = 16
+num_heads = 2
+num_layers = 1
+dropout = 0.1
+use_mixed_proj = true

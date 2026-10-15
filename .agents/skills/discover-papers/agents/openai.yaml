@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discover TSF Papers"
+  short_description: "Find and triage forecasting papers for TSFLab"
+  default_prompt: "Use $discover-papers to scan for new forecasting papers and produce reviewable candidate tasks."

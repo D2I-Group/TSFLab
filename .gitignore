@@ -1,0 +1,37 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Data and outputs
+dataset/
+temp/
+work_dirs/
+*.csv
+*.npy
+configs/exp/
+
+# OS
+.DS_Store
+
+# Harness-local preferences
+.claude/settings.local.json
+
+# Local experiment workspace (run files, measurements, raw result bundles)
+/experiments/
+
+# Local scratch
+tmp/
+
+# Agent worktrees
+.claude/worktrees/
+.worktrees/

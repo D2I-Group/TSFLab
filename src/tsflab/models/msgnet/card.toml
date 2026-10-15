@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MSGNet"
+tags = ["gnn", "graph-learning", "frequency", "multi-scale", "attention-variant", "channel-mixing"]
+fits = ["multi-periodic", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "MSGNet: Learning Multi-Scale Inter-Series Correlations for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2401.00423"
+venue = "AAAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/YoZhibo/MSGNet"
+revision = "953b8330a2ca469dab4955e804b46a61eb08a9c2"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:dominant_periods+local:period-segment-self-attention"
+channel = "local:adaptive-mixhop-graph"
+head = "local:linear-over-time-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+top_k = { from = "seq_len", rule = "at most seq_len // 2 non-DC FFT bins" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

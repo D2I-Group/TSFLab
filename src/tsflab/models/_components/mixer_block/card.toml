@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "mixer_block"
+role = "All-MLP block that mixes information across time steps and across channels, a cheap alternative to attention for multivariate series."
+slot = "channel"
+fits = ["high-cross-correlation"]
+category = "mixer"
+tags = ["feature", "gelu", "layernorm", "mixer", "residual", "time", "tsmixer", "mlp", "pre-norm", "time-mixing", "feature-mixing"]
+input = "[batch, seq_len, channels]"
+output = "[batch, seq_len, channels]"
+origin = "TSMixer, Chen et al., TMLR 2023 (An All-MLP Architecture for Time Series Forecasting), Appendix B.3.2 basic block"
+origin_models = ["tsmixer"]

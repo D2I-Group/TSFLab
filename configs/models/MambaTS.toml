@@ -1,0 +1,18 @@
+[model]
+name = "MambaTS"
+
+[model.params]
+enc_in = 7
+d_model = 128
+e_layers = 4
+d_state = 16
+d_conv = 4
+expand = 2
+dropout = 0.2
+patch_len = 48
+stride = 48
+use_causal_conv = false
+vpt_mode = 1
+atsp_solver = "SA"
+atsp_steps = 20000
+atsp_seed = 0

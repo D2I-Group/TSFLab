@@ -1,0 +1,12 @@
+[model]
+name = "ST-SSDL"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+rnn_units = 16
+rnn_layers = 1
+cheb_k = 2
+prototype_num = 8
+prototype_dim = 8
+output_dim = 1

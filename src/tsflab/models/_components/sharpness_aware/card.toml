@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "sharpness_aware"
+role = "Training objective that seeks flat loss minima (SAM/ASAM) to improve generalization, as SAMformer trains its attention model."
+slot = "loss"
+fits = ["any"]
+category = "objective"
+tags = ["sam", "sharpness", "training-objective", "adversarial-weights", "functional-call", "optimizer-agnostic", "asam", "loss-wrapper", "stateless"]
+input = "model nn.Module; loss_fn(run) -> (aux or None, scalar loss); rho float >= 0; adaptive bool; eps float"
+output = "(aux detached or None, scalar loss that differentiates to the SAM gradient)"
+origin = "SAM, Foret et al., ICLR 2021 (Sharpness-Aware Minimization for Efficiently Improving Generalization); adaptive form from ASAM, Kwon et al., ICML 2021"
+origin_models = ["samformer"]

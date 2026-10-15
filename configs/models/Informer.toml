@@ -1,0 +1,16 @@
+[model]
+name = "Informer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+n_heads = 8
+e_layers = 2
+d_layers = 1
+d_ff = 256
+dropout = 0.1
+factor = 3
+activation = "gelu"
+distil = true
+embed = "timeF"
+freq = "h"

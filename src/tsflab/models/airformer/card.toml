@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AirFormer"
+tags = ["transformer", "spatiotemporal", "covariates", "attention-variant", "probabilistic", "air-quality"]
+fits = ["spatial-graph", "many-channels", "exogenous-covariates"]
+fidelity = "reference-checked"
+
+[paper]
+title = "AirFormer: Predicting Nationwide Air Quality in China with Transformers"
+url = "https://doi.org/10.1609/aaai.v37i12.26676"
+venue = "AAAI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/yoshall/airformer"
+revision = "ef7d3933768490e3a06921b8eb0f837c61741194"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yoshall/airformer/blob/ef7d3933768490e3a06921b8eb0f837c61741194/src/models/airformer.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:causal-windowed-temporal-attention"
+channel = "local:dartboard-region-spatial-attention"
+head = "local:temporal-linear-head+local:linear-output-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of stations (nodes)" }
+cov_dim = { from = "covariates", rule = "covariate features per station (2 for converted calendar marks)" }
+adj_mx = { from = "graph", rule = "dartboard projection [enc_in, regions, enc_in] from station geography, or a plain [enc_in, enc_in] adjacency (one region); required, construction fails without it" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local implementation from the paper after inspecting `src/models/airformer.py`; license recorded as `NOASSERTION`."

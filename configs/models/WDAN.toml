@@ -1,0 +1,22 @@
+[model]
+name = "WDAN"
+
+[model.params]
+enc_in = 7
+wavelet = "coif3"
+dwt_levels = 1
+window_len = 5
+stat_d_model = 512
+stat_d_ff = 1024
+stat_dropout = 0.1
+stat_ffn_layers = 2
+stat_pretrain_epochs = 5
+stat_lr = 0.0001
+joint_after_epochs = 1
+patch_len = 16
+stride = 8
+e_layers = 3
+d_model = 512
+n_heads = 8
+d_ff = 2048
+dropout = 0.0

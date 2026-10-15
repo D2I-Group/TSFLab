@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MGSFformer"
+tags = ["transformer", "spatiotemporal", "multi-scale", "attention-variant", "normalization", "air-quality"]
+fits = ["high-cross-correlation", "spatial-graph"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of monitoring stations (channels); spatial attention runs across them" }
+seq_len = { from = "seq_len", rule = "task seq_len must be a positive multiple of 24 (granularity factors 1, 3, 6, 12, 24)" }
+
+[paper]
+title = "MGSFformer: A Multi-Granularity Spatiotemporal Fusion Transformer for air quality prediction"
+url = "https://doi.org/10.1016/j.inffus.2024.102607"
+venue = "Information Fusion 2025"
+year = 2025
+
+[code]
+url = "https://github.com/GestaltCogTeam/MGSFformer"
+revision = "ff665a422a0ae001cfdd1b60ec9b4338a5ab406e"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:residual-de-redundant-multi-granularity"
+temporal = "local:per-station-temporal-attention"
+channel = "local:station-spatial-attention"
+head = "local:dynamic-fusion-of-granularity-heads"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation of the three named modules, repository used as reference only; license recorded as `NOASSERTION`."

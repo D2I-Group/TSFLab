@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "flatten_forecast_head"
+role = "Projects the encoded patch tokens of each channel to the forecast horizon in one linear step."
+slot = "head"
+fits = ["any"]
+category = "head"
+tags = ["channel-wise", "flatten", "forecast", "head", "linear", "patch", "individual", "patchtst", "point-forecast", "linear-head", "shared-head"]
+input = "[batch, n_vars, d_model, patches] (any [batch, n_vars, ..., ...] whose last two axes flatten to nf)"
+output = "[batch, n_vars, target_window]"
+origin = "PatchTST flatten head (Nie et al., ICLR 2023, A Time Series is Worth 64 Words); extracted from the PatchTST backbone component and four model-local copies"
+origin_models = ["patchtst", "hdmixer", "moderntcn", "timexer", "umixer"]

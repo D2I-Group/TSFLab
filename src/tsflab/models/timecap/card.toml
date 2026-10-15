@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeCAP"
+tags = ["transformer", "patching", "channel-mixing", "attention-variant", "normalization", "hybrid"]
+fits = ["high-cross-correlation", "long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "`models/TimeCAP.py` and `layers/TimeCAP_EncDec.py` were inspected; the card's differences are TSFLab scope only (no pre-trained checkpoint, pre-training/fine-tuning schedule, or self-distillation)."
+
+[paper]
+title = "TimeCAP: A Channel-Aware Pre-Training Framework for Multivariate Time Series Forecasting"
+url = "https://doi.org/10.1609/aaai.v40i30.39700"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/RCR-LYY/TimeCAP"
+revision = "16b8fdadc9844a2aea8c65518f3c5f9c44001b60"
+license = "MIT"
+reference_sources = ["https://github.com/RCR-LYY/TimeCAP/blob/16b8fdadc9844a2aea8c65518f3c5f9c44001b60/models/TimeCAP.py", "https://github.com/RCR-LYY/TimeCAP/blob/16b8fdadc9844a2aea8c65518f3c5f9c44001b60/layers/TimeCAP_EncDec.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-projection+local:temporal-first-masked-attention"
+channel = "local:overlapping-channel-groups+local:meta-router-attention"
+head = "local:autoregressive-gru-one-shot-sigmoid-fusion"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; ceil(enc_in / group_stride) groups" }
+group_size = { from = "channels", rule = "channels per group, clamped to enc_in; overlap when group_stride < group_size" }
+patch_len = { from = "seq_len", rule = "ideally divides seq_len (else end replicate-padded)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

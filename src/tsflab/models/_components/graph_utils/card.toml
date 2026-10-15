@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "graph_utils"
+role = "Turns a predefined adjacency into the standard list of normalized supports a graph forecaster consumes."
+slot = "support"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["adjacency", "chebyshev", "graph", "laplacian", "support", "transition", "random-walk", "normalization", "support-list", "doubletransition"]
+input = "adj_mx [nodes, nodes] array; adj_type string; matrix [nodes, nodes] with order int"
+output = "list of [nodes, nodes] supports (numpy/COO/torch float32); cheb_poly returns [order, nodes, nodes]"
+origin = "Support-list helpers common to DCRNN/Graph WaveNet-style traffic code (normalized adjacency, random-walk transition matrices); first appeared as a vendored external helper in the CauAir model port, source not recorded"
+origin_models = ["gwnet", "dcrnn", "dfdgcn", "d2stgnn"]

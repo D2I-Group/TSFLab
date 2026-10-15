@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "KNNForecasterTS"
+tags = ["statistical", "retrieval", "nearest-neighbor", "baseline", "channel-mixing"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card cites Cover and Hart (1967) as conceptual background only and documents no paper problem."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels; reference windows span all channels" }
+
+[paper]
+title = "Nearest Neighbor Pattern Classification"
+url = "https://doi.org/10.1109/TIT.1967.1053964"
+venue = "IEEE Transactions on Information Theory 1967"
+year = 1967
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:soft-kernel-nearest-reference-weights"
+channel = "local:flattened-channel-mixing"
+head = "local:kernel-weighted-learned-futures"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

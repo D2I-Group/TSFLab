@@ -1,0 +1,67 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SORMamba"
+tags = ["ssm", "mamba", "inverted-tokens", "channel-mixing", "regularization", "normalization"]
+fits = ["high-cross-correlation"]
+fidelity = "paper-only"
+
+[paper]
+title = "Sequential Order-Robust Mamba for Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.23356"
+venue = "NeurIPS 2024 Workshop"
+year = 2024
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "none"
+temporal = "local:layer-normalized-token-mlp"
+channel = "component:mamba+local:shared-scan-of-reversed-channel-order"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse+local:channel-order-regularizer"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`https://github.com/seunghan96/SOR-Mamba` (link in the abstract)"
+what = "the repository returns 404 as of 2026-10-03, is absent from the author's public repositories, and has no Wayback Machine or Software Heritage snapshot."
+resolution = "independent implementation from the paper only; no reference comparison is possible."
+
+[[issues]]
+kind = "paper-error"
+where = "Algorithm 1, lines 4-5"
+what = "`Z2 = CD-Mamba(Z*)` is computed on the reversed channel order and added to `Z1` and `Z` without reversing it back, which would sum the tokens of channel `c` and channel `C + 1 - c`; Fig. 2(a) and Fig. C.1 draw a reverse after the second block."
+resolution = "`z2` is flipped back to the original order before the sum and before Eq. (3)."
+
+[[issues]]
+kind = "underspecified"
+where = "Algorithm 1, line 6 vs Sec. 5.1 (\"adhering to the values used in S-Mamba\")"
+what = "`Z <- LN(MLP(LN(Z)))` has no residual around the MLP, whereas S-Mamba's layer adds one (`LN(Z' + MLP(Z'))`)."
+resolution = "Algorithm 1 literally by default; `mlp_residual = true` gives the S-Mamba form."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1 and Fig. D.2"
+what = "only the 1D convolution is said to be removed; whether its SiLU activation stays before the selective SSM is not stated."
+resolution = "the activation is removed with the convolution (`mamba` component, `use_conv=False`)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 5.1 and App. A"
+what = "the architecture and optimization hyperparameters are \"those used in S-Mamba\" without values, and `lambda` is grid-searched over {0.001, 0.01, 0.1} without reporting the selected value per dataset; the MLP activation, dropout and per-window normalization are likewise inherited from S-Mamba without being stated."
+resolution = "the catalog S-Mamba widths (`d_model = d_ff = 128`, `d_state = 16`, two layers, `expand = 1`, dropout 0.1, GELU, per-window standardization) and `lambda = 0.01`."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.3, Eq. (5) and Fig. 3"
+what = "CCM pretraining does not give the width of the additional linear projection, which layer's tokens enter `R_z`, or the pretraining epochs, optimizer and fine-tuning schedule."
+resolution = "CCM pretraining is not included; the entry is the supervised (SL) variant of Table 2."

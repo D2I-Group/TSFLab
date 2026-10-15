@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MegaCRN"
+tags = ["gnn", "rnn", "spatiotemporal", "graph-learning", "memory-bank"]
+fits = ["spatial-graph", "non-stationary", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a rewrite of the meta-node memory query, memory-derived meta-graph and graph-polynomial GRU encoder-decoder from the paper; omitted contrastive memory losses and curriculum teacher forcing are TSFLab scoping choices, and no paper or official-code problem is documented."
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of spatial nodes N (becomes num_nodes)" }
+adj_mx = { from = "graph", rule = "N x N adjacency injected by the runner from the dataset; identity when absent; used as a soft prior blended with the meta-graph" }
+
+[paper]
+title = "Spatio-Temporal Meta-Graph Learning for Traffic Forecasting"
+url = "https://arxiv.org/abs/2211.14701"
+venue = "AAAI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:meta-graph-gru-encoder-decoder"
+channel = "local:meta-node-bank-dynamic-graph"
+head = "local:autoregressive-linear-decoder"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

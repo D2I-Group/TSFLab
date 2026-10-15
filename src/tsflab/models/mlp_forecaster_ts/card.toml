@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MLPForecasterTS"
+tags = ["mlp", "channel-independent", "normalization", "baseline", "lightweight"]
+fits = ["weak-cross-correlation", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card uses Rumelhart et al. (1986) for back-propagation concepts only and documents no paper problem."
+
+[paper]
+title = "Learning Representations by Back-Propagating Errors"
+url = "https://doi.org/10.1038/323533a0"
+venue = "Nature 1986"
+year = 1986
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:lag-window-mlp"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count (RevIN statistics are per channel)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

@@ -1,0 +1,17 @@
+[model]
+name = "PENGUIN"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_ff = 256
+n_heads = 8
+e_layers = 2
+patch_len = 16
+stride = 8
+dropout = 0.1
+periods = [24]
+activation = "relu"
+use_rmsnorm = false
+alibi = true
+causal = true

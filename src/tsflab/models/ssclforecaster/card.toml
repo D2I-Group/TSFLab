@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SSCLForecaster"
+tags = ["cnn", "tcn", "linear", "decomposition", "contrastive", "self-supervised", "representation-learning", "channel-independent", "auxiliary-loss", "marks"]
+fits = ["long-horizon", "weak-cross-correlation", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Self-Supervised Contrastive Learning for Long-term Forecasting"
+url = "https://arxiv.org/abs/2402.02023"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/junwoopark92/Self-Supervised-Contrastive-Forecsating"
+revision = "f394705adbf5217811276f5e59576c6e7ea7586c"
+license = "MIT"
+reference_sources = ["https://github.com/junwoopark92/Self-Supervised-Contrastive-Forecsating/blob/f394705adbf5217811276f5e59576c6e7ea7586c/models/AutoConCI.py", "https://github.com/junwoopark92/Self-Supervised-Contrastive-Forecsating/blob/f394705adbf5217811276f5e59576c6e7ea7586c/layers/losses.py", "https://github.com/junwoopark92/Self-Supervised-Contrastive-Forecsating/blob/f394705adbf5217811276f5e59576c6e7ea7586c/layers/dilated_conv.py", "https://github.com/junwoopark92/Self-Supervised-Contrastive-Forecsating/blob/f394705adbf5217811276f5e59576c6e7ea7586c/exp/exp_long_term_forecasting_with_AutoCon.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+freq = { from = "frequency", rule = "calendar features support hourly timeF only; set use_marks = false for other rates" }
+
+[composition]
+normalization = "local:window-last-value-or-mean"
+decomposition = "local:short-linear-long-representation-branches"
+temporal = "local:dilated-conv-encoder+component:embed"
+channel = "local:channel-independent-shared-weights"
+head = "local:multi-scale-moving-average-decoder+component:series_decomposition"
+loss = "loss:mse+local:autocorrelation-contrastive-autocon"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/AutoConCI.py` `Model.forward` (`x_mark_enc.squeeze(1).repeat(1, C, 1, 1).reshape(B*C, T, -1)`)"
+what = "the calendar marks are tiled sample-wise while the series rows are ordered channel-within-sample, so with several samples in a batch a channel row is paired with another sample's marks."
+resolution = "every channel row uses its own sample's marks."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3) vs `layers/losses.py`"
+what = "the paper treats every pair with lower autocorrelation as a negative of each anchor pair and averages over all `N - 1` partners, while the code takes the highest-`r` partners (plus same-position partners) as positives weighted by `r` with all non-self members in the denominator."
+resolution = "the official selection."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3 and Appendix A.2"
+what = "the embedding, the dilated-convolution encoder, the multi-scale decoder layout, the autocorrelation estimate, and the AutoCon temperature and sampling are not fully specified."
+resolution = "the official code's choices (TSLib `DataEmbedding`, TS2Vec-style dilated encoder, moving averages of kernel `scale + 1` summed over scales, statsmodels ACF after a length `seq_len + 1` moving average, temperature 1, `seq_len // 3` local steps)."

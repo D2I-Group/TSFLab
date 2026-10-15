@@ -1,0 +1,14 @@
+[model]
+name = "SSCLForecaster"
+
+[model.params]
+enc_in = 7
+d_model = 16
+d_ff = 16
+e_layers = 2
+dropout = 0.1
+scales = [96]
+window_norm = "last"
+autocon_lambda = 1.0
+use_marks = true
+freq = "h"

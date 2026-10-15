@@ -1,0 +1,19 @@
+[model]
+name = "DFDGCN"
+
+[model.params]
+enc_in = 8
+dropout = 0.3
+residual_channels = 16
+dilation_channels = 16
+skip_channels = 64
+end_channels = 128
+kernel_size = 2
+blocks = 2
+layers = 2
+a = 1.0
+fft_emb = 10
+identity_emb = 10
+hidden_emb = 30
+subgraph = 20
+steps_per_day = 288

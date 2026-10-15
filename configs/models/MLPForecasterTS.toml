@@ -1,0 +1,9 @@
+[model]
+name = "MLPForecasterTS"
+
+[model.params]
+enc_in = 7
+d_model = 128
+dropout = 0.1
+num_layers = 1
+use_revin = true

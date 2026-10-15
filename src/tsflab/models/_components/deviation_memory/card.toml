@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "deviation_memory"
+role = "Scores how far an encoder state lies from learned normal prototype patterns, as an auxiliary self-supervised signal."
+slot = "support"
+fits = ["any"]
+category = "memory"
+tags = ["contrastive", "deviation", "memory", "prototype", "retrieval", "self-supervised"]
+input = "PrototypeMemory: h [..., query_dim]; deviation_score: current [..., D]; reference [..., D]"
+output = "PrototypeRetrieval fields value/query/nearest/second_nearest [..., prototype_dim] and indices [..., 2]; deviation_score: [...]"
+origin = "prototype memory and deviation learning of ST-SSDL, 'How Different from the Past? Spatio-Temporal Time Series Forecasting with Self-Supervised Deviation Learning' (NeurIPS 2025, arXiv 2510.04908)"
+origin_models = ["st_ssdl"]

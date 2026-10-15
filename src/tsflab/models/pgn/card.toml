@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PGN"
+tags = ["rnn", "gating", "periodicity", "channel-independent", "normalization", "calendar-features", "lightweight"]
+fits = ["strong-seasonality", "long-lookback", "calendar-effects"]
+fidelity = "paper-only"
+
+[paper]
+title = "PGN: The RNN's New Successor is Effective for Long-Range Time Series Forecasting"
+url = "https://arxiv.org/abs/2409.17703"
+venue = "NeurIPS 2024"
+year = 2024
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:period-2d-reshape"
+temporal = "local:parallel-gated-network"
+channel = "local:per-variate-parameters"
+head = "local:long-short-branch-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels (per-variate parameters)" }
+period = { from = "period", rule = "seq_len and pred_len must be multiples of period; seq_len must cover at least two periods" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "`Water2sea/TPGN` repository root (revision `4bbe2bee016094acd4299b2ad6fcd1db386bc99f`)"
+what = "no license file, so the official code is reference only and is not recorded as a source fact of this entry."
+resolution = "independent rewrite from Sections 3.1-3.2."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TPGN.py` (`pred_R = ceil(pred_len / period)`)"
+what = "when `pred_len` is not a multiple of `period` the forecast rows are rounded up and the experiment loop keeps the trailing `pred_len` outputs, misaligning the horizon."
+resolution = "`seq_len` and `pred_len` must be multiples of `period`; other lengths are rejected."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. 1-5 vs `models/TPGN.py`"
+what = "the paper does not state that the HIE kernel spans the `rows - 1` strictly earlier rows, that gate and candidate come from one linear layer over `[value, calendar, H]` split in half, that every linear map is per variate, or the short-branch row-then-column pooling."
+resolution = "the reference code's layout."

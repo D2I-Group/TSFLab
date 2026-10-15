@@ -1,0 +1,15 @@
+[model]
+name = "TimeKAN"
+
+[model.params]
+enc_in = 7
+d_model = 16
+e_layers = 1
+down_sampling_window = 2
+down_sampling_layers = 1
+begin_order = 0
+moving_avg = 25
+dropout = 0.1
+embed = "timeF"
+freq = "h"
+use_norm = 1

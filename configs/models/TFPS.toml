@@ -1,0 +1,22 @@
+[model]
+name = "TFPS"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+e_layers = 3
+n_heads = 4
+d_model = 16
+d_ff = 128
+dropout = 0.3
+head_dropout = 0.0
+t_experts = 4
+t_top_k = 1
+f_experts = 4
+f_top_k = 1
+eta = 5.0
+beta = 0.1
+lambda_time = 1.0
+lambda_freq = 1.0
+individual = true

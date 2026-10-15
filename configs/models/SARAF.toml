@@ -1,0 +1,17 @@
+[model]
+name = "SARAF"
+
+# Official ETTh1 scripts (seq_len 720, topm 20) with the run.py defaults and Table 7 values.
+[model.params]
+enc_in = 7
+top_k = 20
+candidate_pool = 100
+time_aware_weight = 0.5
+sigma_min = 0.05
+sigma_max = 0.3
+lambda_min = 0.3
+lambda_max = 0.9
+mmr_temperature = 0.1
+n_sub_windows = 6
+freq = "h"
+eval_seed = 0

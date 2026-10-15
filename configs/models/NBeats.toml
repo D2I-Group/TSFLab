@@ -1,0 +1,10 @@
+[model]
+name = "NBeats"
+
+[model.params]
+enc_in = 7
+stack_types = ["trend", "seasonality", "generic"]
+nb_blocks_per_stack = 3
+thetas_dim = [4, 8, 8]
+hidden_layer_units = 256
+share_weights_in_stack = false

@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SST"
+tags = ["ssm", "mamba", "transformer", "patching", "multi-scale", "mixture-of-experts", "channel-independent", "normalization"]
+fits = ["long-lookback", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SST: Multi-Scale Hybrid Mamba-Transformer Experts for Time Series Forecasting"
+url = "https://arxiv.org/abs/2404.14757"
+venue = "CIKM 2025"
+year = 2025
+
+[code]
+url = "https://github.com/XiongxiaoXu/SST"
+revision = "b39292bfc54536c48a7932486d797116701083b8"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/XiongxiaoXu/SST/blob/b39292bfc54536c48a7932486d797116701083b8/models/SST.py", "https://github.com/XiongxiaoXu/SST/blob/b39292bfc54536c48a7932486d797116701083b8/layers/Long_encoder.py", "https://github.com/XiongxiaoXu/SST/blob/b39292bfc54536c48a7932486d797116701083b8/layers/Short_encoder.py", "https://github.com/XiongxiaoXu/SST/blob/b39292bfc54536c48a7932486d797116701083b8/scripts/etth1.sh"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+m_patch_len = { from = "seq_len", rule = "m_patch_len <= seq_len" }
+patch_len = { from = "seq_len", rule = "patch_len <= short_len (default seq_len // 2)" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:multi-scale-range-patcher"
+temporal = "component:mamba+local:local-window-transformer"
+channel = "local:long-short-router"
+head = "local:weighted-concat-flatten-linear"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Short_encoder.py` `get_local_mask`"
+what = "the mask marks the in-window positions and is then filled with `-inf` (`attn_scores.masked_fill_(local_mask, -np.inf)`), so attention reaches only patches outside the local window, the opposite of Fig. 6, and a row is fully masked when the patch count is at most the half window."
+resolution = "each patch attends only to patches within `local_ws // 2` positions, as in Fig. 6."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied or imported."

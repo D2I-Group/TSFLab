@@ -1,0 +1,85 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SCAM"
+tags = ["mlp", "loss-framework", "self-supervised", "label-correction", "reconstruction", "ensemble", "spectral-norm", "channel-independent", "time-series"]
+fits = ["outliers", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Not All Data are Good Labels: On the Self-supervised Labeling for Time Series Forecasting"
+url = "https://arxiv.org/abs/2502.14704"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/SuDIS-ZJU/SCAM"
+revision = "dafe51de469f7b25460670792f3f7289f949a346"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/SuDIS-ZJU/SCAM/blob/dafe51de469f7b25460670792f3f7289f949a346/src/models/nets/scam_multi.py", "https://github.com/SuDIS-ZJU/SCAM/blob/dafe51de469f7b25460670792f3f7289f949a346/src/models/nets/components/scam/embeddings.py", "https://github.com/SuDIS-ZJU/SCAM/blob/dafe51de469f7b25460670792f3f7289f949a346/src/models/nets/components/scam/decoders.py", "https://github.com/SuDIS-ZJU/SCAM/blob/dafe51de469f7b25460670792f3f7289f949a346/src/models/nets/mlp.py", "https://github.com/SuDIS-ZJU/SCAM/blob/dafe51de469f7b25460670792f3f7289f949a346/src/models/modules/snrlinear.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "local:per-window-standardization"
+decomposition = "none"
+temporal = "local:mlp-predictor-ensemble"
+channel = "local:channel-independent-shared-weights"
+head = "local:ensemble-mean"
+loss = "local:scam-adaptive-mask-relabeling+local:conv-concat-reconstruction-network"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `src/models/nets/scam_multi.py` `Model.compute_loss`"
+what = "the paper's loss is L1 throughout, while the code uses the squared error for the masked supervised term and adds `M * (y_hat - y_rec)^2` to the prediction term (\"for faster convergence\")."
+resolution = "`loss_form = \"official\"` (default) follows the code, `\"paper\"` gives Eq. (5)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.4, Eq. (6) vs `src/models/modules/snrlinear.py` `SNLinear` and `src/models/nets/mlp.py`"
+what = "the paper scales the normalized weight by a learnable `gamma`; `SNLinear` has no scale (the MLP instead inserts an extra `Linear(d/2, d)` after it) and refreshes the power-iteration vector on every call, including evaluation."
+resolution = "the code form is followed."
+
+[[issues]]
+kind = "underspecified"
+where = "Sections 3.2-3.3 and Appendix D.2"
+what = "the paper says only that \"multiple reconstructed samples\" are fed to the predictor; the number of candidates, the pairing of each candidate with its own independently initialised predictor copy, and averaging the copies at inference are not stated."
+resolution = "taken from `configs/model/scam.yaml` (`num_series: 8`), `configs/task/scam_mlp.yaml` (`num_models: 8`), `src/models/nets/components/scam/predictors.py` `MultiPredictor`, and `scam_multi.py` `forward` (`y_hat.mean(dim=-2)`)."
+
+[[issues]]
+kind = "underspecified"
+where = "Appendix D.1"
+what = "channel multiplier, depth, and width of the conv-concat layers are not given; `configs/model/components/embeddings/conv_embedding.yaml` says `dim_multiplier: 2` but `configs/model/scam.yaml` overrides it to 4."
+resolution = "the effective `scam.yaml` values (4 layers, multiplier 4, width 128)."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/models/nets/components/scam/decoders.py` `Decoder.__init__`"
+what = "`nn.ModuleList([nn.Linear(d_h, 1)] * num_series)` repeats one module, so all `N` candidate heads start from identical weights (they differ only through their input feature groups)."
+resolution = "reproduced as the official behaviour (`CandidateDecoder` copies one initial head) and recorded."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/models/nets/components/scam/embeddings.py` `ConvEmbedding.forward`"
+what = "the crop of the zero-padded tail back to the series length is conditioned on the feature width (`x_emb.shape[-1] % 2 ** num_layers`) rather than on the length, so for configurations where `(num_layers + 1) * dim_multiplier` is a multiple of `2 ** num_layers` the padded steps are kept and the reconstruction no longer matches `y`; the shipped configurations happen to crop."
+resolution = "always crop to the series length."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/models/modules/snrlinear.py` `max_singular_value`"
+what = "when no vector is passed it allocates one with `.cuda()`, which fails on CPU-only machines; `SNLinear` always passes its buffer, so the shipped path is unaffected."
+resolution = "the local layer keeps a device-agnostic buffer."
+
+[[issues]]
+kind = "license"
+where = "repository root at `dafe51de`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

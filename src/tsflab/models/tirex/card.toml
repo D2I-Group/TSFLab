@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TiRex"
+tags = ["rnn", "probabilistic", "patching", "channel-independent", "normalization"]
+fits = ["probabilistic-output", "long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "`src/tirex/models/tirex.py` and `src/tirex/models/slstm/block.py` were inspected; the card's differences are TSFLab scope only (random initialization, no released checkpoint or optimized xLSTM kernels, CPM not applied at inference)."
+
+[paper]
+title = "TiRex: Zero-Shot Forecasting Across Long and Short Horizons with Enhanced In-Context Learning"
+url = "https://arxiv.org/abs/2505.23719"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/NX-AI/tirex"
+revision = "2226da4c9fa298ff34ad5af05369851674d622e5"
+license = "LicenseRef-NXAI-Community"
+reference_sources = ["https://github.com/NX-AI/tirex/blob/2226da4c9fa298ff34ad5af05369851674d622e5/src/tirex/models/tirex.py", "https://github.com/NX-AI/tirex/blob/2226da4c9fa298ff34ad5af05369851674d622e5/src/tirex/models/slstm/block.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:scalar-lstm-memory-blocks"
+channel = "local:channel-independent-shared-weights"
+head = "component:quantile_head+local:multi-patch-residual-projection"
+loss = "loss:quantile"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "lookback is left-padded to a multiple of patch_len and the horizon uses ceil(pred_len / patch_len) patches; prefer a divisor of seq_len and pred_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

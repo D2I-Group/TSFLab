@@ -1,0 +1,73 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PPM"
+tags = ["mlp", "probabilistic", "generative", "push-forward", "kernel-density", "quantile-output", "non-stationary", "channel-independent", "training-objective"]
+fits = ["non-stationary", "probabilistic-output"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Parametric Prior Mapping Framework for Non-stationary Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2605.23402"
+venue = "ICML"
+year = 2026
+
+[code]
+url = "https://github.com/ljl8336/PPM"
+revision = "6b4206a8c6bd3d298d8bdc58ebc88e5f5f6c13f9"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/ljl8336/PPM/blob/6b4206a8c6bd3d298d8bdc58ebc88e5f5f6c13f9/model_ppm/PPMF/MLP_PPM.py", "https://github.com/ljl8336/PPM/blob/6b4206a8c6bd3d298d8bdc58ebc88e5f5f6c13f9/model_ppm/exp/exp_main.py", "https://github.com/ljl8336/PPM/blob/6b4206a8c6bd3d298d8bdc58ebc88e5f5f6c13f9/scripts/MLP/ETTh1.sh"]
+
+[composition]
+normalization = "local:window-mean-std-instance-normalization"
+decomposition = "none"
+temporal = "local:mlp-gaussian-latent-prior-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:latent-push-forward-mlp-sampler+component:empirical_quantiles"
+loss = "local:kde-nll-plus-sample-mean-mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) (the mapping `g_phi` takes the latent `z` alone, from `C x D` to `L x C`) vs `model_ppm/PPMF/MLP_PPM.py` `Model.decode`"
+what = "the mapping input concatenates `z` with a linear embedding `x_emb` of the normalized history."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.2 and Appendix B.1 (only dataset-level z-score normalization is described) vs `model_ppm/PPMF/MLP_PPM.py` `Model.forward`"
+what = "every window is standardized by its own mean and unbiased standard deviation plus `1e-6` before encoding, and the samples are de-normalized."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (12)-(14) (per-element floor `max(log q, log eps)`) vs `model_ppm/exp/exp_main.py` `Exp_Main.kde_loss`"
+what = "the floor `-25` is applied to each window's log-likelihood averaged over horizon and channels, not to each element."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Table 6 vs `scripts/MLP/*.sh`"
+what = "Table 6 gives only the hidden width (`d_model` 256, 512 for Weather); the mapping width `d_ff` (512 for ETT, 256 for Electricity and Traffic, 1024 for Weather) appears only in the scripts."
+resolution = "defaults `d_model = 256`, `d_ff = 512` from `scripts/MLP/ETTh1.sh`."
+
+[[issues]]
+kind = "code-bug"
+where = "`scripts/MLP/*.sh`"
+what = "every run pipes into `tee ./logs/MLP/...`, but no `logs/` folder is shipped or created, so the logs are not written."
+resolution = "not applicable (catalog runner)."
+
+[[issues]]
+kind = "code-bug"
+where = "`model_ppm/exp/exp_main.py` `Exp_Main.vali` and `Exp_Main.train`"
+what = "`kde_loss` receives `self.args.tau` as its `tau` argument, which the function never uses, and the loss weight `tau` doubles as the paper's `alpha`."
+resolution = "one explicit `alpha` parameter."

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "periodic_alibi_bias"
+role = "Biases attention toward tokens a whole period apart, so attention follows known seasonal cycles (one period per head group)."
+slot = "temporal"
+fits = ["strong-seasonality", "multi-periodic"]
+category = "attention"
+tags = ["alibi", "bias", "periodic", "relative-position", "attention", "stateless", "triangle-wave", "positional-bias"]
+input = "seq_len, num_heads, periods (one integer or None per head group)"
+output = "[num_heads, seq_len, seq_len] bias to add to attention scores"
+origin = "ALiBi (Press et al., 2022) extended with periodic distances by PENGUIN (arXiv 2508.13773, AISTATS 2026), Eq. 5-6"
+origin_models = ["penguin"]

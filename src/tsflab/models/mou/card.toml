@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MoU"
+tags = ["hybrid", "mamba", "attention-variant", "patching", "mixture-of-experts", "channel-independent", "normalization"]
+fits = ["long-horizon", "long-lookback", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Mamba or Transformer for Time Series Forecasting? Mixture of Universals (MoU) Is All You Need"
+url = "https://arxiv.org/abs/2408.15997"
+venue = "KDD 2025"
+year = 2025
+
+[code]
+url = "https://github.com/lunaaa95/mou"
+revision = "5a73fd797fc177355fdae93bef7de95ea6d009aa"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/lunaaa95/mou/blob/5a73fd797fc177355fdae93bef7de95ea6d009aa/layers/MoU_backbone.py", "https://github.com/lunaaa95/mou/blob/5a73fd797fc177355fdae93bef7de95ea6d009aa/layers/MoE3.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:mamba+local:ffn-conv-attention-hierarchy"
+channel = "none"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "seq_len", rule = "at most seq_len; with end padding the token count is (seq_len - patch_len)//stride + 2" }
+stride = { from = "seq_len", rule = "with patch_len, sets the token count (seq_len - patch_len)//stride + 2" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/MoU_backbone.py` `Encoder_MFCA.forward`"
+what = "the loop assigns `output = block(x)`, so every block reads the encoder input and only the last block's output is used; earlier blocks are dead for `e_layers > 1`."
+resolution = "blocks are stacked sequentially."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/MoE3.py` `forward`"
+what = "the load-balancing loss (`cv_squared` of importance and load, scaled by `loss_coef`) is commented out, so `loss_coef` has no effect and training is MSE only."
+resolution = "no auxiliary loss, matching the effective official objective; the gate computes all extractors densely and keeps the top-k weights."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

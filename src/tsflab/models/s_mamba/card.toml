@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "S_Mamba"
+tags = ["ssm", "mamba", "inverted-tokens", "channel-mixing", "normalization"]
+fits = ["high-cross-correlation", "many-channels"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Is Mamba Effective for Time Series Forecasting?"
+url = "https://arxiv.org/abs/2403.11144"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/wzhwzhwzh0921/S-D-Mamba"
+revision = "e7e8bf04066135afa43d85b0a87afa97cda16e3f"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:temporal-ffn-per-variate-token"
+channel = "component:mamba"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input variates" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."

@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SparseTSF"
+tags = ["linear", "periodicity", "lightweight", "channel-independent", "downsampling", "baseline"]
+fits = ["strong-seasonality", "long-horizon", "low-data", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records a paper-driven rewrite of the period-aggregating convolution, cross-period sparse forecasting, and phase interleaving against the pinned official code, with no documented paper or code problem."
+
+[paper]
+title = "SparseTSF: Modeling Long-term Time Series Forecasting with 1k Parameters"
+url = "https://arxiv.org/abs/2405.00946"
+venue = "ICML 2024"
+year = 2024
+
+[code]
+url = "https://github.com/lss-1138/SparseTSF"
+revision = "b8c2740eecc84d8095ffce49ba5acafe68e53bb8"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+period = { from = "period", rule = "dominant period in steps; period <= seq_len; seq_len and pred_len best multiples of it" }
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "local:mean-centering"
+decomposition = "local:cross-period-phase-split"
+temporal = "local:cross-period-linear-forecaster"
+channel = "local:channel-independent-shared-weights"
+head = "local:phase-unfold-to-horizon"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

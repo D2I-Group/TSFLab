@@ -1,0 +1,8 @@
+[dataset]
+name = "custom"
+path = "./dataset/CzeLan/CzeLan.csv"
+
+[dataset.params]
+target = "CZE_LAN_Cbe_Jt_16"
+scale = true
+split_ratio = [0.7, 0.1, 0.2]

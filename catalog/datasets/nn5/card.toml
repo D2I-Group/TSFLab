@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "nn5"
+domain = "finance"
+topic = "retail banking"
+benchmarks = ["tfb"]
+tags = ["nn5", "atm", "cash-withdrawal", "banking", "daily", "competition", "monash", "tfb", "multivariate", "weekly-seasonality", "short-series"]
+related = ["ili", "fred_md", "gift_eval/restaurant"]
+characteristics = ["strong-seasonality", "low-forecastability", "regime-changes", "high-cross-correlation", "low-dimensional-channels", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "NN5 neural-network forecasting competition (Crone et al.); Monash archive (Godahewa et al.) and TFB packaging"
+url = "https://zenodo.org/records/3889740"
+citation = "Monash Time Series Forecasting Archive (Godahewa et al., NeurIPS 2021 Datasets and Benchmarks)"
+citation_url = "https://arxiv.org/abs/2105.06643"
+license = "CC-BY-4.0 (Monash/Zenodo copy)"
+license_url = "https://zenodo.org/records/3889740"
+redistribution = "hosted"
+
+[shape]
+frequency = "daily (1d)"
+time_span = "791 consecutive days (TFB file dates 1996-03-18 to 1998-05-17 are nominal)"
+length = 791
+channels = 111
+channel_kind = "series"
+target = "OT (last series; TFB's long-format file names it channel_111, renamed OT when pivoted to wide)"
+missing_values = "the TFB file is the imputed version (no NaN); raw NN5 contains missing values and zeros"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "TFB multivariate: lookback 36 or 104, horizons 24/36/48/60, chronological 7:1:2; the original competition used horizon 56 days"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

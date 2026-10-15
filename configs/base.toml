@@ -1,0 +1,40 @@
+[experiment]
+description = "ETT baseline"
+random_seed = 42
+work_dir = "./work_dirs"
+
+[experiment.runtime]
+device = "cuda"
+use_multi_gpu = false
+device_ids = [0]
+amp = false
+num_workers = 4
+
+[task]
+seq_len = 512
+label_len = 0
+pred_len = 96
+features = "M"
+inverse = false
+
+[training]
+epochs = 10
+batch_size = 128
+loss = "mse"
+patience = 3
+
+[training.loss_params]
+
+[training.optimizer]
+name = "Adam"
+lr = 0.001
+weight_decay = 0.0001
+lradj = "constant"
+
+[training.checkpoint]
+strategy = "best"
+save_k = 0 # Used when staregy is topk
+
+[evaluation]
+metrics = ["mae", "mse", "rmse", "mape", "mspe", "corr", "rse", "wape", "smape"]
+enable_profile = false

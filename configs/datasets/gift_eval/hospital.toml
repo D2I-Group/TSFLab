@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: hospital
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 120 (10x),  long = 180 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/hospital"
+path = "./dataset/gift_eval"
+id = "hospital"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 12
+features = "M"

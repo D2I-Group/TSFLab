@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LLM4TS"
+tags = ["llm", "transformer", "patching", "channel-independent", "pretraining", "pretrained-backbone", "autoregressive", "normalization", "revin", "gpt2"]
+fits = ["low-data", "calendar-effects"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count (channels are folded into the batch axis)" }
+freq = { from = "frequency", rule = "h for hourly-or-coarser marks, t for minute data (adds a 15-minute-bin minute table)" }
+patch_len = { from = "seq_len", rule = "must not exceed seq_len + stride; num_patches = (seq_len + stride - patch_len) // stride + 1" }
+
+[paper]
+title = "LLM4TS: Aligning Pre-Trained LLMs as Data-Efficient Time-Series Forecasters"
+url = "https://arxiv.org/abs/2308.08469"
+venue = "ACM TIST"
+year = 2025
+
+[code]
+url = "https://github.com/blacksnail789521/LLM4TS"
+revision = "cb2426c7fd6393c649d5c82e506ee003071fbfd0"
+license = "MIT"
+reference_sources = ["https://github.com/blacksnail789521/LLM4TS/blob/cb2426c7fd6393c649d5c82e506ee003071fbfd0/models/LLM4TS.py", "https://github.com/blacksnail789521/LLM4TS/blob/cb2426c7fd6393c649d5c82e506ee003071fbfd0/layers/Embed.py", "https://github.com/blacksnail789521/LLM4TS/blob/cb2426c7fd6393c649d5c82e506ee003071fbfd0/layers/RevIN.py", "https://github.com/blacksnail789521/LLM4TS/blob/cb2426c7fd6393c649d5c82e506ee003071fbfd0/exp/exp_supervised_finetuning.py", "https://github.com/blacksnail789521/LLM4TS/blob/cb2426c7fd6393c649d5c82e506ee003071fbfd0/exp/exp_long_term_forecasting.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:gpt2_backbone+component:embed+component:marks+local:lora-c-attn"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head-no-bias"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Embed.py` `TemporalEmbedding.forward`"
+what = "the official pipeline feeds continuous `timeF` marks to the learned calendar tables and `x.long()` truncates them to index 0, so the temporal term is effectively one constant learned vector."
+resolution = "integer calendar marks (via `marks.adapt_tslib_marks`) indexing the tables as Eqs. (3)-(6) describe."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4 (LoRA on query and key) vs official `peft` settings"
+what = "LoRA targets the fused `c_attn` projection, i.e. query, key, and value."
+resolution = "the official `c_attn` target."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4 (LayerNorm tuning) vs `exp/exp_supervised_finetuning.py` fine-tuning stage"
+what = "GPT-2 LayerNorms and positions stay frozen after linear probing."
+resolution = "the official trainable sets."

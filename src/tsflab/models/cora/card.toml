@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CoRA"
+tags = ["linear", "channel-mixing", "adapter", "normalization", "lightweight"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CoRA: Boosting Time Series Foundation Models for Multivariate Forecasting through Correlation-aware Adapter"
+url = "https://arxiv.org/abs/2603.21828"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/decisionintelligence/CoRA"
+revision = "1292f7b114e26d477675291004acb018e81896ca"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/decisionintelligence/CoRA/blob/1292f7b114e26d477675291004acb018e81896ca/ts_benchmark/plugin/plugin.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:linear-base-forecaster"
+channel = "local:dynamic-polynomial-low-rank-correlation+local:pearson-prior"
+head = "local:gated-residual-fusion-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with `ts_benchmark/plugin/plugin.py` used as reference only; license recorded as `NOASSERTION`."

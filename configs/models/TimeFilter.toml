@@ -1,0 +1,13 @@
+[model]
+name = "TimeFilter"
+
+[model.params]
+enc_in = 7
+d_model = 64
+d_ff = 128
+e_layers = 2
+patch_len = 16
+dropout = 0.1
+top_p = 0.5
+pos = true
+num_experts = 4

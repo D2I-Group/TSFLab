@@ -1,0 +1,49 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FreqMoE"
+tags = ["mlp", "frequency", "mixture-of-experts", "decomposition", "channel-independent"]
+fits = ["multi-periodic", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "FreqMoE: Enhancing Time Series Forecasting through Frequency Decomposition Mixture of Experts"
+url = "https://arxiv.org/abs/2501.15125"
+venue = "AISTATS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/sunbus100/FreqMoE-main"
+revision = "b34e93703159a22fdc9f97f0be4fa32b5600a3bf"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "local:per-block-instance-standardization"
+decomposition = "component:freq_band_moe"
+temporal = "local:residual-frequency-extension-blocks"
+channel = "local:channel-independent-shared-weights"
+head = "local:irfft-horizon-extension-summed-blocks"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/FreqMoE.py` `FreqDecompMoE`"
+what = "the paper says the band boundaries are learned end to end, but the `band_boundaries` parameter is turned into slice indices with `.long()`, which blocks autograd, so the boundaries never train."
+resolution = "the official behaviour, `band_boundaries` as a fixed buffer under the same state-dict key; the shared component's straight-through `learnable_boundaries=True` is available but not enabled."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite, nothing copied; license recorded as `NOASSERTION`."

@@ -1,0 +1,10 @@
+[model]
+name = "CANet"
+
+[model.params]
+enc_in = 7
+patch_sizes = [8, 64]
+embed_dim = 32
+output_features = 1024
+dropout = 0.5
+blend_ratio = 0.1

@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TSMixer"
+tags = ["mlp", "channel-mixing", "lightweight", "baseline"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records a clean-room rewrite of the basic TSMixer from Appendix B.3.1-B.3.2 against the pinned Google Research code; the omitted auxiliary-feature extension and BatchNorm variant are TSFLab scoping, not documented upstream problems."
+
+[paper]
+title = "TSMixer: An All-MLP Architecture for Time Series Forecasting"
+url = "https://arxiv.org/abs/2303.06053"
+venue = "TMLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/google-research/google-research/tree/5b09c22d73a9d35eb6c5d2a99b95677a45053466/tsmixer"
+revision = "5b09c22d73a9d35eb6c5d2a99b95677a45053466"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:mixer_block"
+channel = "component:mixer_block"
+head = "component:channel_wise_linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

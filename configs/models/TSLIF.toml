@@ -1,0 +1,10 @@
+[model]
+name = "TSLIF"
+
+[model.params]
+enc_in = 7
+hidden_size = 128
+layers = 1
+kernel_size = 3
+v_threshold = 1.0
+surrogate_alpha = 2.0

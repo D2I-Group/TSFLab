@@ -1,0 +1,8 @@
+[model]
+name = "GCLSTM"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+Ks = 2
+hidden_dim = 64

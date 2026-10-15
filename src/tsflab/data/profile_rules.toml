@@ -1,0 +1,316 @@
+# Profile -> catalog mapping used by `tsf data analyze`.
+#
+# Each [[rule]] fires when a decision-safe profile metric crosses a threshold
+# (metrics may start only with dataset., split., train., shift.within_train. or
+# shift.train_to_val.; test-split diagnostics are never rule inputs). A fired rule
+# names catalog facts: `components` (tsf catalog list --kind component), `models` (tsf model
+# list), and `slots` options for the recombination slots below. Options are
+# "component:<name>", "model:<name>" (a donor design to borrow the idea from),
+# or "loss:<name>" (training.loss). tests/test_data.py checks that every
+# name exists. Thresholds are priors, not laws: treat a fired rule as a hypothesis
+# to test against the baseline panel.
+
+[slot.normalization]
+description = "Input normalization / de-normalization around the forecaster."
+defaults = ["component:revin", "component:last_value_center"]
+
+[slot.decomposition]
+description = "Trend/seasonal or frequency decomposition of the input."
+defaults = ["component:series_decomposition"]
+
+[slot.temporal]
+description = "Temporal backbone or mixer along the time axis."
+defaults = ["component:channel_wise_linear", "component:patchtst", "component:mixer_block"]
+
+[slot.channel]
+description = "Cross-channel strategy: independent, mixed, or graph/low-rank."
+defaults = ["component:channel_wise_linear", "model:iTransformer"]
+
+[slot.head]
+description = "Forecast head mapping features to the horizon (or a distribution)."
+defaults = ["component:flatten_forecast_head", "component:channel_wise_linear"]
+
+[slot.loss]
+description = "Training loss (a registered training.loss name)."
+defaults = ["loss:mse", "loss:mae"]
+
+# ---------------------------------------------------------------- seasonality
+[[rule]]
+id = "strong-seasonality"
+metric = "train.seasonal.strength"
+op = ">="
+value = 0.6
+finding = "A stable seasonal pattern explains much of the detrended variance."
+hypothesis = "Explicit period-aware structure (decomposition, cycle table, frequency view) beats a plain linear map at equal lookback."
+components = ["series_decomposition", "periodic_query_bank", "dominant_periods", "freq_band_moe"]
+models = ["CycleNet", "SparseTSF", "FITS", "TimesNet", "DLinear"]
+[rule.slots]
+decomposition = ["component:series_decomposition", "component:periodic_query_bank", "component:dominant_periods"]
+temporal = ["model:CycleNet", "model:SparseTSF"]
+
+[[rule]]
+id = "weak-seasonality"
+metric = "train.seasonal.strength"
+op = "<="
+value = 0.2
+finding = "Little stable seasonality; period-specific machinery is unlikely to pay off."
+hypothesis = "Instance-normalized local-pattern models (patching, linear) match or beat period-aware ones."
+components = ["patchtst", "revin"]
+models = ["PatchTST", "RLinear", "NLinear"]
+[rule.slots]
+temporal = ["component:patchtst", "component:channel_wise_linear"]
+
+[[rule]]
+id = "multi-periodic"
+metric = "train.periods.n_strong"
+op = ">="
+value = 2
+finding = "Two or more strong spectral peaks (for example daily and weekly)."
+hypothesis = "Multi-scale or multi-period handling beats a single-period model."
+components = ["wavelet", "dominant_periods", "freq_band_moe"]
+models = ["TimesNet", "TimeMixer", "Pathformer"]
+[rule.slots]
+decomposition = ["component:wavelet", "component:freq_band_moe", "component:dominant_periods"]
+
+[[rule]]
+id = "high-forecastability"
+metric = "train.periods.forecastability.score"
+op = ">="
+value = 0.65
+finding = "Spectral energy is concentrated (low spectral entropy); structure is learnable."
+hypothesis = "Longer lookback and frequency-domain models can use the concentrated spectrum."
+components = ["dominant_periods", "wavelet"]
+models = ["FITS", "FreTS", "Amplifier"]
+[rule.slots]
+decomposition = ["component:dominant_periods"]
+
+[[rule]]
+id = "low-forecastability"
+metric = "train.periods.forecastability.score"
+op = "<="
+value = 0.3
+finding = "Near-flat spectrum; the series is close to noise at this resolution."
+hypothesis = "Gains over naive and linear baselines are small; complex models mostly overfit."
+components = ["last_value_center"]
+models = ["NLinear", "ARIMATS", "ExpSmoothingTS"]
+[rule.slots]
+normalization = ["component:last_value_center"]
+loss = ["loss:mae"]
+
+# ---------------------------------------------------------------------- trend
+[[rule]]
+id = "strong-trend"
+metric = "train.trend.strength"
+op = ">="
+value = 0.9
+finding = "A smooth trend carries most of the variance."
+hypothesis = "Explicit trend/residual split or last-value anchoring beats modelling the raw level."
+components = ["series_decomposition", "last_value_center"]
+models = ["DLinear", "NLinear", "Koopa"]
+[rule.slots]
+decomposition = ["component:series_decomposition"]
+normalization = ["component:last_value_center"]
+
+[[rule]]
+id = "non-stationary"
+metric = "train.stationarity.mean_drift"
+op = ">="
+value = 0.5
+finding = "Block means drift across the training window."
+hypothesis = "Reversible instance normalization or de-stationarization improves over unnormalized backbones."
+components = ["revin", "last_value_center"]
+models = ["RLinear", "NSTransformer", "Koopa"]
+[rule.slots]
+normalization = ["component:revin", "component:last_value_center"]
+
+# ---------------------------------------------------------------------- shift
+[[rule]]
+id = "train-val-level-shift"
+metric = "shift.train_to_val.mean_shift_median"
+op = ">="
+value = 0.5
+finding = "Validation means sit far from train means (train-std units): a level shift is already visible without touching test."
+hypothesis = "Per-window normalization (RevIN variants, last-value centering) is required for the model to transfer across the split."
+components = ["revin", "last_value_center"]
+models = ["RLinear", "NLinear", "NSTransformer", "DUET"]
+[rule.slots]
+normalization = ["component:revin", "component:last_value_center"]
+
+[[rule]]
+id = "train-val-scale-shift"
+metric = "shift.train_to_val.log2_std_ratio_median"
+op = ">="
+value = 0.5
+finding = "Validation variance differs from train by more than ~40 percent."
+hypothesis = "Scale-robust components (instance normalization, robust loss) beat raw z-scored inputs."
+components = ["revin"]
+models = ["RLinear", "NSTransformer"]
+[rule.slots]
+normalization = ["component:revin"]
+loss = ["loss:mae"]
+
+[[rule]]
+id = "within-train-drift"
+metric = "shift.within_train.half_mean_shift_median"
+op = ">="
+value = 0.5
+finding = "The two halves of the training window have different means."
+hypothesis = "Expect early-stopping on validation to prefer shift-robust variants; compare with and without RevIN."
+components = ["revin"]
+models = ["RLinear", "NSTransformer"]
+[rule.slots]
+normalization = ["component:revin"]
+
+[[rule]]
+id = "regime-changes"
+metric = "train.anomalies.level_shift_max"
+op = ">="
+value = 0.9
+finding = "The mean jumps by roughly a full standard deviation between adjacent blocks inside the training window."
+hypothesis = "Regime-aware or normalization-heavy designs generalize better than long fixed-statistics models."
+components = ["revin", "freq_band_moe", "topk_expert_router"]
+models = ["DUET", "DynamicTMoE", "RLinear"]
+[rule.slots]
+normalization = ["component:revin"]
+channel = ["component:topk_expert_router"]
+
+# ----------------------------------------------------------- scale and tails
+[[rule]]
+id = "heteroscedastic"
+metric = "train.scale.heteroscedasticity"
+op = ">="
+value = 0.5
+finding = "Local variance changes strongly over time."
+hypothesis = "Instance normalization plus a scale-aware or probabilistic head beats a fixed-variance MSE model."
+components = ["revin", "gaussian_parameter_head", "quantile_head"]
+models = ["QuantileDLinear", "GaussianMLP", "RLinear"]
+[rule.slots]
+normalization = ["component:revin"]
+head = ["component:gaussian_parameter_head", "component:quantile_head"]
+loss = ["loss:nll_gaussian", "loss:quantile", "loss:mae"]
+
+[[rule]]
+id = "level-dependent-variance"
+metric = "train.scale.level_std_correlation"
+op = ">="
+value = 0.6
+finding = "Variance grows with level (multiplicative noise)."
+hypothesis = "Per-window scaling (RevIN) removes the level-variance coupling; MAE-type losses are less dominated by high-level windows."
+components = ["revin"]
+models = ["RLinear"]
+[rule.slots]
+normalization = ["component:revin"]
+loss = ["loss:mae"]
+
+[[rule]]
+id = "heavy-tails"
+metric = "train.scale.excess_kurtosis_median"
+op = ">="
+value = 5
+finding = "Heavy-tailed marginals (spikes)."
+hypothesis = "MAE or quantile training is more robust than MSE; metric ranking may differ between MSE and MAE."
+components = ["quantile_head"]
+models = ["QuantileDLinear", "QuantilePatchTST"]
+[rule.slots]
+head = ["component:quantile_head"]
+loss = ["loss:mae", "loss:quantile"]
+
+[[rule]]
+id = "outliers"
+metric = "train.anomalies.outlier_fraction_5mad"
+op = ">="
+value = 0.02
+finding = "More than 2 percent of points are more than 5 robust sigmas from the median."
+hypothesis = "Robust loss (MAE) and instance normalization outperform MSE training."
+components = ["revin"]
+models = ["RLinear"]
+[rule.slots]
+loss = ["loss:mae"]
+normalization = ["component:revin"]
+
+[[rule]]
+id = "zero-inflation"
+metric = "train.quality.zero_fraction"
+op = ">="
+value = 0.2
+finding = "A large share of exact zeros (intermittent or gated signal such as solar at night)."
+hypothesis = "Period-aware models capture the on/off schedule; MAE and quantile objectives avoid collapsing to the mean."
+components = ["periodic_query_bank", "quantile_head"]
+models = ["CycleNet", "QuantileDLinear"]
+[rule.slots]
+decomposition = ["component:periodic_query_bank"]
+loss = ["loss:mae", "loss:quantile"]
+
+[[rule]]
+id = "missing-values"
+metric = "train.quality.missing_fraction"
+op = ">"
+value = 0.0
+finding = "Missing values exist in the raw split (statistics here fill them with channel means)."
+hypothesis = "Imputation policy, not architecture, may dominate error; verify what the loader does before comparing models."
+components = []
+models = []
+[rule.slots]
+loss = ["loss:masked_mae"]
+
+# ------------------------------------------------------------ channel layout
+[[rule]]
+id = "high-cross-correlation"
+metric = "train.cross_channel.mean_abs_corr"
+op = ">="
+value = 0.5
+finding = "Channels are strongly correlated (levels)."
+hypothesis = "Channel-mixing or inverted-token models beat channel-independent ones."
+components = ["mixer_block", "self_attention_family", "embed"]
+models = ["iTransformer", "SOFTS", "TSMixer", "TQNet", "Crossformer", "CARD"]
+[rule.slots]
+channel = ["model:iTransformer", "model:SOFTS", "model:TQNet", "component:mixer_block", "component:self_attention_family"]
+
+[[rule]]
+id = "low-dimensional-channels"
+metric = "train.cross_channel.effective_rank_ratio"
+op = "<="
+value = 0.1
+finding = "Few principal components explain the channel set (low effective rank)."
+hypothesis = "A low-rank or pooled channel mixer (STAR-style) captures cross-channel signal at a fraction of attention cost."
+components = ["mixer_block"]
+models = ["SOFTS", "TQNet", "OLinear"]
+[rule.slots]
+channel = ["model:SOFTS", "model:OLinear"]
+
+[[rule]]
+id = "weak-cross-correlation"
+metric = "train.cross_channel.mean_abs_corr_diff"
+op = "<="
+value = 0.1
+finding = "Channels move nearly independently after differencing."
+hypothesis = "Channel independence (shared weights per channel) is the strong default; channel mixing adds variance."
+components = ["channel_wise_linear", "patchtst"]
+models = ["PatchTST", "DLinear", "RLinear"]
+[rule.slots]
+channel = ["component:channel_wise_linear", "component:patchtst"]
+
+[[rule]]
+id = "many-channels"
+metric = "dataset.channels"
+op = ">="
+value = 300
+finding = "Hundreds of channels; full channel attention is expensive."
+hypothesis = "Parameter-shared or low-rank channel handling scales better than per-channel parameters."
+components = ["channel_wise_linear"]
+models = ["SOFTS", "TQNet", "SparseTSF", "iTransformer"]
+[rule.slots]
+channel = ["model:SOFTS", "model:TQNet", "component:channel_wise_linear"]
+
+# ------------------------------------------------------------------- capacity
+[[rule]]
+id = "short-train"
+metric = "split.train"
+op = "<="
+value = 5000
+finding = "Short training window; capacity must stay small."
+hypothesis = "Linear and very light models beat deep attention models; use fewer epochs and stronger regularization."
+components = ["channel_wise_linear", "series_decomposition"]
+models = ["DLinear", "SparseTSF", "FITS", "RLinear"]
+[rule.slots]
+temporal = ["component:channel_wise_linear"]

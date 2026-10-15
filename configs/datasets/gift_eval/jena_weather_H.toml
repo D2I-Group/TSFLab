@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: jena_weather/H
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 480 (10x),  long = 720 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/jena_weather_H"
+path = "./dataset/gift_eval"
+id = "jena_weather/H"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 48
+features = "M"

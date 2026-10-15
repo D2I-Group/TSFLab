@@ -1,0 +1,72 @@
+name = "intake"
+title = "Model intake"
+summary = "Models module: watch for forecasting papers, or turn one approved paper or a bounded search into admitted catalog models; read-only unless implementation is authorized."
+skills = ["discover-papers", "add-model", "integrate-foundation-model", "curate-components", "audit"]
+acceptance = [
+  "Search arXiv and Hugging Face Papers, deduplicate against canonical model cards, and return source-linked candidates or an explicit no-change result.",
+  "Without implementation authorization, do not edit the repository or dispatch work.",
+  "Before writing code, confirm paper identity, deduplication, inputs, outputs, defining equations, and official-source facts (pinned revision and license).",
+  "Classify every required block as reuse-existing, extract-new, or model-local; reuse an existing equivalent first.",
+  "Write ordinary architectures locally; use the official offline runtime only for a released pretrained foundation model.",
+  "Admit at most the authorized number of models with `tsf model add <Name> --verify`; each has a tsflab.card/1 card with truthful facts, [admission] status passed, and passes the model audit, component audit, and repository audit.",
+  "Adding no model is a valid outcome when no candidate clears the threshold.",
+]
+prompt = """
+Scan for time-series forecasting papers published since {since}, focusing on
+{focus}. Deduplicate against the canonical model catalog and rank at most
+{candidate_limit} candidates, separating verified source facts from inference.
+Target paper (if any): {paper_url} as model {model_name}.
+Approval context: {approval}
+Without explicit implementation approval, return the ranked queue only. When approved,
+integrate at most one model: before writing code, confirm the paper identity, inputs,
+outputs, defining equations, and official-source facts; build a component decision
+map and reuse existing components when equivalence is proven; keep unmatched
+paper-specific operations model-local; use the official offline runtime for a released
+pretrained foundation model. Record deviations, upstream issues, and source facts in
+the card, and admit the model with `tsf model add {model_name} --verify`. Do not weaken
+contracts, edit unrelated models, publish, push, dispatch additional tasks, or open
+external issues. If nothing clears the gate, leave the repository unchanged.
+"""
+
+[inputs.since]
+description = "Inclusive date or relative time boundary for discovery."
+required = false
+default = "30 days before this task's invocation time"
+
+[inputs.focus]
+description = "Target task, data regime, or methodological novelty."
+required = false
+default = "general-purpose time-series forecasting"
+
+[inputs.candidate_limit]
+description = "Maximum number of candidates to rank before selection."
+required = false
+default = "5"
+maximum = 5
+budget_key = "max_candidates"
+
+[inputs.paper_url]
+description = "Primary URL of one approved paper to integrate."
+required = false
+default = "none (search the literature instead)"
+
+[inputs.model_name]
+description = "Approved public model name for the target paper."
+required = false
+default = "none"
+
+[inputs.approval]
+description = "Implementation scope and any user constraints."
+required = false
+default = "Read-only: do not implement; return the ranked queue."
+
+[permissions]
+network = "read-primary-sources-and-authoritative-code"
+repository = "read-only-unless-approved-then-write-at-most-one-model-and-proven-components"
+external_actions = "none"
+
+[budget]
+max_candidates = 5
+max_models = 1
+max_component_extractions = 2
+max_wall_minutes = 300

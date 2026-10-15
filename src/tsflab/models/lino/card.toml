@@ -1,0 +1,61 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LiNo"
+tags = ["mlp", "decomposition", "linear", "frequency", "channel-mixing", "inverted-tokens", "normalization"]
+fits = ["non-stationary"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count (variates become inverted tokens)" }
+
+[paper]
+title = "LiNo: Advancing Recursive Residual Decomposition of Linear and Nonlinear Patterns for Robust Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.17159"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/Levi-Ackman/LiNo"
+revision = "0e726e34188ea5c7af5d224d65076d5f5ccbac93"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Levi-Ackman/LiNo/blob/0e726e34188ea5c7af5d224d65076d5f5ccbac93/models/LiNo.py", "https://github.com/Levi-Ackman/LiNo/blob/0e726e34188ea5c7af5d224d65076d5f5ccbac93/layers/LiNo.py", "https://github.com/Levi-Ackman/LiNo/blob/0e726e34188ea5c7af5d224d65076d5f5ccbac93/layers/RevIN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:recursive-residual-linear-nonlinear"
+temporal = "local:time-frequency-linear-tanh"
+channel = "local:softmax-weighted-channel-mean-mlp"
+head = "local:per-level-linear-sum"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 (No block) vs `layers/LiNo.py` `Non_Linear_ext.forward`"
+what = "the paper concatenates the softmax-weighted channel mean with `N^TF`, the code with the block input `R^L`."
+resolution = "the official form."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/LiNo.py` `FLinear.forward`"
+what = "`torch.fft.irfft` is called without an output length, so the inverse transform returns `d_model - 1` steps for odd `d_model`."
+resolution = "the explicit length `d_model` (identical for even widths)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (2)"
+what = "the form and initialisation of the Li block's AR coefficients are not stated; the code uses a shift-invariant depthwise kernel of length `d_model` over `d_model - 1` zero left-padding, initialised to `1 / d_model` with zero bias."
+resolution = "the official choices."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from Sec. 3 with nothing copied; license recorded as `NOASSERTION`."

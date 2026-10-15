@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "ili"
+domain = "healthcare"
+topic = "epidemiology"
+benchmarks = ["ltsf", "tfb"]
+tags = ["ili", "influenza", "illness", "flu", "cdc", "fluview", "epidemiology", "weekly", "ltsf", "benchmark", "multivariate", "short-series"]
+related = ["exchange", "fred_md", "nn5"]
+characteristics = ["multi-periodic", "within-train-drift", "level-dependent-variance", "high-cross-correlation", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "US Centers for Disease Control and Prevention (FluView ILINet); packaged by Wu et al. (Autoformer)"
+url = "https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html"
+citation = "Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting (Wu et al., NeurIPS 2021)"
+citation_url = "https://arxiv.org/abs/2106.13008"
+license = "US Government work, public domain (CDC FluView)"
+license_url = "https://www.cdc.gov/other/agencymaterials.html"
+redistribution = "hosted"
+
+[shape]
+frequency = "weekly (1w)"
+time_span = "2002 to 2020 (file dates 2002-01-01 to 2020-06-30; Autoformer says 2002-2021)"
+length = 966
+channels = 7
+channel_kind = "channels"
+target = "OT (last column)"
+missing_values = "none in the standard file"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "LTSF: lookback 36, horizons 24/36/48/60, chronological 7:1:2, MSE/MAE on z-scored data"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

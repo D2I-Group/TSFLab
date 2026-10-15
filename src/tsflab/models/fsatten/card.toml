@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FSatten"
+tags = ["transformer", "attention-variant", "frequency", "channel-mixing", "normalization", "time-series"]
+fits = ["high-cross-correlation"]
+fidelity = "paper-only"
+
+[paper]
+title = "Revisiting Attention for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2407.13806"
+venue = "arXiv preprint"
+year = 2024
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:embed"
+channel = "local:frequency-spectrum-attention+component:transformer_encdec"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; each variate has its own MSS weight row, so the trained model is tied to this count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`Joeland4/FSatten-SOatten` `README.md` (revision `c1b0b6132ef1304fc70d1dcf10270cf845b7e394`)"
+what = "the repository holds only a README stating that the code \"will be released soon\" and training logs."
+resolution = "independent implementation from Sections 2.2 and 3.1-3.2 and Appendix B.2; no code, revision, or license is recorded."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.1-3.2 (Eqs. 2-6)"
+what = "the paper does not say whether every encoder layer scales its query/key by the same input amplitude spectrum, how the MSS weights are initialised, where attention dropout applies, or how calendar marks enter; the logs tie `d_model = d_f * n_heads`."
+resolution = "one amplitude spectrum of the normalized input for all layers with per-layer MSS weights initialised to one, unnormalized rFFT as in Eq. (3), dropout on the attention weights, marks ignored, and `d_model` left free."

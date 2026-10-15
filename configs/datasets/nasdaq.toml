@@ -1,0 +1,8 @@
+[dataset]
+name = "custom"
+path = "./dataset/NASDAQ/NASDAQ.csv"
+
+[dataset.params]
+target = "Volume"
+scale = true
+split_ratio = [0.7, 0.1, 0.2]

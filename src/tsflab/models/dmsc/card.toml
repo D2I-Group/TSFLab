@@ -1,0 +1,116 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DMSC"
+tags = ["cnn", "mixture-of-experts", "time-series", "multi-scale", "patch", "adaptive-patching", "revin", "training-objective"]
+fits = ["multi-periodic", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DMSC: Dynamic Multi-Scale Coordination Framework for Time Series Forecasting"
+url = "https://arxiv.org/abs/2508.02753"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/1327679995/DMSC"
+revision = "57d03f11f809b581b5654cbaf8fbf3324d013d38"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/1327679995/DMSC/blob/57d03f11f809b581b5654cbaf8fbf3324d013d38/models/DMSC.py", "https://github.com/1327679995/DMSC/blob/57d03f11f809b581b5654cbaf8fbf3324d013d38/layers/DMSC_Layer.py", "https://github.com/1327679995/DMSC/blob/57d03f11f809b581b5654cbaf8fbf3324d013d38/layers/StandardNorm.py", "https://github.com/1327679995/DMSC/blob/57d03f11f809b581b5654cbaf8fbf3324d013d38/experiments/exp_forecasting_DMSC.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:dynamic-multiscale-patch-decomposition"
+temporal = "local:triad-interaction-block"
+channel = "local:cross-variable-sigmoid-gate"
+head = "local:asr-moe+component:topk_expert_router"
+loss = "local:mse-plus-routing-entropy"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+patch_max = { from = "seq_len", rule = "patch_min <= patch_max <= seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 22 vs `layers/DMSC_Layer.py` (`AdaptiveScaleRoutingMoEBlock.calculate_balance_loss`) and `experiments/exp_forecasting_DMSC.py` (`loss = criterion(outputs, batch_y) + balance_loss`)"
+what = "the paper defines `L_balance = -lambda E[H]` so that minimizing it maximizes routing entropy, but the code returns `+balance_coeff * H`, which minimizes entropy (sharper, less balanced routing)."
+resolution = "follows the paper's sign and stated intent."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 20 vs `layers/DMSC_Layer.py` (`TemporalAwareWeighting.forward`, `AdaptiveScaleRoutingMoEBlock.forward`)"
+what = "the paper's `w_hist` is a learnable dataset-level memory vector, while the code feeds the detached scale weights of the previous mini-batch (`self.prev_weights`) and uses the learnable `weight_memory` only on the first call or when the batch size changes, so a forecast depends on which batch was processed before it (also at evaluation)."
+resolution = "the learnable vector is always used; no cross-batch state."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 18-19 vs `layers/DMSC_Layer.py` (`DynamicRouter`)"
+what = "the paper uses a sigmoid MLP for global-expert weights and a separate softmax for local ones; the code takes one softmax over all experts, slices the global part, and keeps the top-k local weights without renormalization."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table 2 (`P_min, P_max = 8, 64`) vs `layers/DMSC_Layer.py` (`MultiScalePatchDecompositionBlock`)"
+what = "the code floors patches at a hard-coded 4 and takes `P_max = clamp(max_patch_param, 32, --patch_len)`, which with `--patch_len 16` (the `run.py` default) has `min > max` in `torch.clamp` and evaluates to 16."
+resolution = "`patch_min` / `patch_max` are explicit parameters with the Table 2 defaults (8, 64), used both in Eq. 7 and as the Eq. 8 floor."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/DMSC_Layer.py` (`MultiScalePatchDecompositionBlock.forward`)"
+what = "the patch length goes through `.item()` and `int(...)`, so `init_net`, `min_patch_param` and `max_patch_param` never receive gradients; the scale network stays at its random initialization and the learnable bounds are dead parameters. The paper gives no gradient estimator for this discrete choice."
+resolution = "the same non-differentiable selection is kept (documented); the bounds are fixed configuration values."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/DMSC.py` / `layers/DMSC_Layer.py`"
+what = "every cascade layer builds its own scale network and bound parameters, but only the first layer's are used (later layers reuse `base_patch_len`)."
+resolution = "one scale network is built."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 6 vs `layers/DMSC_Layer.py` (`init_net`)"
+what = "the scale net ends with `Dropout` after the sigmoid, so during training `alpha` is randomly zeroed or scaled by `1/(1-p)` (possibly above one), and the batch mean of `alpha` sets one patch length for the whole batch."
+resolution = "kept, with the base length clipped to `[P_min, P_max]`."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 8"
+what = "the paper writes `P_base / tau^l` without fixing whether `l` starts at 0 or 1; the code uses `layer_idx` from 0, so the first layer uses `P_base`."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 10 and 16 vs `layers/DMSC_Layer.py`"
+what = "the projector first average-pools every patch to 8 samples (`AdaptiveAvgPool1d(8)`) before the linear map, and the Eq. 16 residual `AvgPool(Z)` passes through an extra `Linear + LayerNorm` adapter."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 20 vs `layers/DMSC_Layer.py` (`TemporalAwareWeighting`)"
+what = "the descriptors `phi` are computed from each scale's forecast (variate-averaged, `pred_len` wide), not from the scale features `F_l`."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 vs `models/DMSC.py` (`self.res`)"
+what = "the output adds a `seq_len -> d_ff -> pred_len` GELU MLP of the normalized input that the paper does not describe."
+resolution = "follows the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Table 2 vs `run.py`"
+what = "no training scripts are released; `run.py` defaults (`d_ff 2048`, `num_experts 8` including shared, `top_k 5`, `balance_coeff 0.1`, `learning_rate 1e-4`, `patch_len 16`) disagree with Table 2 (expert hidden `2 d_model`, 8 local experts, top-K 2, lambda 0.2, lr 1e-3), and the cross-variable MLP bottleneck is `d_ff` (passed as `d_c`)."
+resolution = "Table 2 defaults; `d_ff = 2 d_model` serves the experts, the cross-variable bottleneck, and the residual MLP."
+
+[[issues]]
+kind = "license"
+where = "repository root at `57d03f1`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

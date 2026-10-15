@@ -1,0 +1,7 @@
+[model]
+name = "KNNForecasterTS"
+
+[model.params]
+enc_in = 7
+num_prototypes = 32
+kernel_gamma = 0.08

@@ -1,0 +1,68 @@
+name = "experiment"
+title = "Bounded forecasting experiment"
+summary = "Experiments module: design, preview, run, diagnose, and analyze one budgeted experiment, or reproduce one paper experiment cell by cell."
+skills = ["run-experiment", "reproduce-paper-results", "diagnose-experiment", "analyze-results", "setup-environment"]
+acceptance = [
+  "State a falsifiable comparison, fair baseline, metric direction, seeds, and stopping rule.",
+  "Preview the resolved matrix and keep its total run count within the declared budget.",
+  "Preserve resolved configs, environments, raw outputs, and failed runs without overwriting artifacts.",
+  "Compare only protocol-compatible cells and report uncertainty, exclusions, and failures.",
+  "For a paper reproduction, classify every protocol field as aligned, adapted, unknown, or blocked; keep faithful replication separate from adaptations; verify the local model is audited before spending compute.",
+  "Report paper and local values and deviations without overstating reproduction success.",
+]
+prompt = """
+Test this forecasting hypothesis: {question}
+Paper to reproduce (if any): {paper_url}, focusing on {target}.
+Use datasets {datasets}, primary metric {metric}, and no more than {max_runs} resolved
+runs. Design the smallest fair comparison, preview it before execution, diagnose
+failures narrowly, and analyze only compatible completed cells. For a paper
+reproduction, map its protocol first and stop for a decision when missing data or
+protocol ambiguity changes the claim. Do not change model code, publish, push, or
+dispatch additional tasks. Training and sweeps run on GPU machines or CI, not locally:
+preview the whole sweep, execute on the authorized run machine, and wait on the
+original process or `tsf run wait DIRECTORY --json` for metrics. Inspect logs only
+for returned failures. On a design-only local machine, hand off the exact command
+and report pending results.
+"""
+
+[inputs.question]
+description = "Falsifiable hypothesis or comparison to test."
+required = true
+
+[inputs.paper_url]
+description = "Primary paper URL when reproducing a published experiment."
+required = false
+default = "none (a new comparison, not a reproduction)"
+
+[inputs.target]
+description = "Table, dataset, horizon, or ablation to reproduce."
+required = false
+default = "not applicable"
+
+[inputs.datasets]
+description = "Approved dataset names or configured dataset scope."
+required = false
+default = "one representative configured dataset"
+
+[inputs.metric]
+description = "Primary metric, including its direction when ambiguous."
+required = false
+default = "MSE (lower is better)"
+
+[inputs.max_runs]
+description = "Hard cap on resolved experiment runs."
+required = false
+default = "8"
+maximum = 20
+budget_key = "max_runs"
+
+[permissions]
+network = "read-primary-paper-and-approved-data-access"
+repository = "write-run-configs-and-experiment-outputs"
+model_code = "read-only"
+external_actions = "none"
+
+[budget]
+max_runs = 8
+max_parallel_jobs = 2
+max_wall_minutes = 720

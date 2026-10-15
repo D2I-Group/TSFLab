@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DSFormer"
+tags = ["transformer", "channel-mixing", "attention-variant", "multi-scale", "normalization"]
+fits = ["high-cross-correlation", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DSformer: A Double Sampling Transformer for Multivariate Time Series Long-term Prediction"
+url = "https://arxiv.org/abs/2308.03274"
+venue = "CIKM 2023"
+year = 2023
+
+[code]
+url = "https://github.com/GestaltCogTeam/DSformer"
+revision = "ccdbc354603e7842a89603649b0e33a8142c7701"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/GestaltCogTeam/DSformer/blob/ccdbc354603e7842a89603649b0e33a8142c7701/main_model.py", "https://github.com/GestaltCogTeam/DSformer/blob/ccdbc354603e7842a89603649b0e33a8142c7701/block/TVA_block.py", "https://github.com/GestaltCogTeam/DSformer/blob/ccdbc354603e7842a89603649b0e33a8142c7701/block/decoder_block.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:double-sampling-views+local:temporal-attention"
+channel = "local:variable-attention-gated-cross-fusion"
+head = "local:decoder-attention-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+num_samp = { from = "seq_len", rule = "seq_len must be divisible by num_samp" }
+muti_head = { from = "seq_len", rule = "seq_len and seq_len / num_samp must be divisible by muti_head" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with `main_model.py`, `block/TVA_block.py`, and `block/decoder_block.py` used as reference only; license recorded as `NOASSERTION`."

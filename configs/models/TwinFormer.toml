@@ -1,0 +1,13 @@
+[model]
+name = "TwinFormer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+n_heads = 4
+d_ff = 512
+patch_len = 12
+top_k = 5
+local_layers = 1
+global_layers = 1
+dropout = 0.15

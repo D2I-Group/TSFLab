@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "channel_alignment"
+role = "Adapts the feature width of an input (values plus marks) to a model's fixed input width by slicing or zero-padding."
+slot = "input"
+fits = ["any"]
+category = "utility"
+tags = ["adapter", "channel", "feature", "padding", "shape", "slice", "stateless"]
+input = "values [..., channels]; width int >= 1"
+output = "[..., width]"
+origin = "Repository utility extracted from graph recurrent forecasters; origin paper not applicable"
+origin_models = ["dcrnn", "gclstm", "gts"]

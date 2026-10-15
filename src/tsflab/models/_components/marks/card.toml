@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "marks"
+role = "Feeds timestamps to models as calendar covariates (time of day, weekday, absolute time) in the tensor layout each model family expects."
+slot = "input"
+fits = ["calendar-effects", "spatial-graph"]
+category = "utility"
+tags = ["calendar", "covariate", "spatiotemporal", "timestamp", "time-in-day", "day-in-week", "adapter", "time-series-library", "time-feature", "marks", "civil-date", "epoch-minutes", "day-count"]
+input = "values [batch, time, nodes]; marks raw [batch, time, 6] = [year, month, day, weekday, hour, minute] or node covariates [batch, time, nodes, features]"
+output = "normalized_time_features [batch, time, 2]; to_spatiotemporal [batch, time, nodes, 1 + F]; future_time_features [batch, time, nodes, F]; adapt_tslib_marks / encoder_timef_marks [batch, time, k]; days_from_civil / elapsed_minutes int64 [...]; cycle_phase int64 [batch]"
+origin = "TSFLab's own input contract; the value-plus-normalized-calendar layout follows the BasicTS / LargeST tensor convention as stated in the module docstring; days_from_civil is Howard Hinnant's civil-date algorithm"
+origin_models = ["db2_transf", "karma", "mambaprobtsf", "minusformer", "ssclforecaster", "vcformer", "basisformer", "emaformer", "mfrs", "cyclenet", "gtr"]

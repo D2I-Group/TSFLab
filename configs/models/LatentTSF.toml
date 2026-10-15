@@ -1,0 +1,20 @@
+[model]
+name = "LatentTSF"
+
+[model.params]
+enc_in = 7
+# Latent state dim / AE hidden width.
+d_model = 64
+d_ff = 128
+# Latent objective weights (paper Sec. 5.3.2): alpha (Pred), beta (Align).
+mse_weight = 10.0
+cosine_weight = 15.0
+use_latent_norm = true
+# DLinear backbone (paper primary).
+kernel_size = 25
+individual = false
+# Stage-1 AE pretraining. Paper trains the shipped AEs for 500 epochs with MAE;
+# 100 is a lighter default — raise toward 500 for paper-faithful reproduction.
+ae_train_epochs = 100
+ae_lr = 0.0005
+ae_loss = "MAE"

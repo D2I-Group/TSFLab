@@ -1,0 +1,14 @@
+[model]
+name = "CLoRA"
+
+[model.params]
+enc_in = 7
+backbone = "itransformer"
+d_model = 512
+n_heads = 8
+e_layers = 2
+d_ff = 512
+dropout = 0.1
+activation = "gelu"
+rank = 16
+adaptation_dim = 32

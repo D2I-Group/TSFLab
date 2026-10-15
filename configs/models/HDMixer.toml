@@ -1,0 +1,19 @@
+[model]
+name = "HDMixer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_ff = 256
+e_layers = 3
+patch_len = 16
+stride = 8
+dropout = 0.1
+head_dropout = 0.0
+revin = true
+affine = true
+subtract_last = false
+deform_range = 0.25
+mix_time = true
+mix_variable = true
+mix_channel = true

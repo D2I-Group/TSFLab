@@ -1,0 +1,8 @@
+[model]
+name = "OLinear"
+
+[model.params]
+enc_in = 7
+d_model = 32
+dropout = 0.0
+use_revin = true

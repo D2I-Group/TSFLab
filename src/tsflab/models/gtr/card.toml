@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GTR"
+tags = ["mlp", "retrieval", "cnn", "normalization", "plug-in", "channel-independent"]
+fits = ["strong-seasonality", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card checks Eqs. (1)-(5) (cycle-index retrieval, temporal alignment, 2D convolution, residual, MLP and RevIN path) against the pinned `models/GTR.py` and documents no paper or official-code problem."
+
+[paper]
+title = "Enhancing Multivariate Time Series Forecasting with Global Temporal Retrieval"
+url = "https://arxiv.org/abs/2602.10847"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/macovaseas/GTR"
+revision = "d94161906151bdc0c94f4d21c2b0ca356aeb3135"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/macovaseas/GTR/blob/d94161906151bdc0c94f4d21c2b0ca356aeb3135/models/GTR.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:marks+local:global-cycle-retrieval-and-2d-conv-fusion+local:residual-mlp"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the cycle memory is cycle_length x enc_in" }
+cycle_length = { from = "period", rule = "length of the global cycle in steps (e.g. 168 for weekly on hourly data); must be >= seq_len" }
+local_period = { from = "period", rule = "local period in steps (e.g. 24 for daily on hourly data); sets the fusion kernel width 1 + 2 * (local_period // 2)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

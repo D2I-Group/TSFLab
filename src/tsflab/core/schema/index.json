@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.1.0",
+  "schemas": {
+    "dataset_spec": "dataset_spec.schema.json",
+    "forecast_submission": "forecast_submission.schema.json",
+    "round_score": "round_score.schema.json",
+    "round_spec": "round_spec.schema.json",
+    "run_record": "run_record.schema.json",
+    "submission_report": "submission_report.schema.json"
+  }
+}

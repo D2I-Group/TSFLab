@@ -1,0 +1,29 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/SiamTST.toml"]
+
+[experiment]
+description = "Smoke: SiamTST"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 0
+pred_len = 16
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mse"
+patience = 1
+
+[model.params]
+enc_in = 6
+d_model = 16
+n_heads = 2
+e_layers = 1
+d_ff = 32
+pretrain_epochs = 1

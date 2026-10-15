@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeEmb"
+tags = ["mlp", "frequency", "decomposition", "covariates", "channel-independent", "lightweight", "normalization"]
+fits = ["calendar-effects", "strong-seasonality", "non-stationary", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimeEmb: A Lightweight Static-Dynamic Disentanglement Framework for Time Series Forecasting"
+url = "https://arxiv.org/abs/2510.00461"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/showmeon/TimeEmb"
+revision = "9adf3fba801b34642e7191b45e08aff224b26e67"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:calendar-embedding-static-spectrum-split"
+temporal = "local:dynamic-spectrum-filter"
+channel = "local:channel-independent-shared-weights"
+head = "local:two-layer-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; one spectrum per channel per slot" }
+hour_length = { from = "frequency", rule = "hour-of-day slots, index = hour mark mod hour_length (24)" }
+day_length = { from = "frequency", rule = "day-of-week slots (7), used only with use_day_index" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

@@ -1,0 +1,29 @@
+extends = ["../base.toml", "../fixtures/synthetic_st.toml", "../models/MultiSPANS.toml"]
+
+[experiment]
+description = "Smoke: MultiSPANS"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "spatiotemporal"
+seq_len = 12
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 8
+embed_dim = 32
+num_heads = 4
+num_layers = 1
+conv_kernels = [1, 2]
+gconv_hops = 1

@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TQNet"
+tags = ["mlp", "attention-variant", "channel-mixing", "normalization", "lightweight", "covariates"]
+fits = ["strong-seasonality", "calendar-effects", "high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Temporal Query Network for Efficient Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.12917"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/ACAT-SCUT/TQNet"
+revision = "15e19cb23483ed52398566c4baa959168cfffa57"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:periodic_query_bank+local:two-layer-mlp-backbone"
+channel = "local:temporal-query-channel-attention"
+head = "local:dropout-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+cycle = { from = "period", rule = "dominant period in steps: 24 (hour), 7 (weekday), or 168 (weekday*24+hour); other values index by hour, so hourly data only" }
+channel_aggre_heads = { from = "seq_len", rule = "seq_len must be divisible by channel_aggre_heads" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TQNet.py` (`nn.MultiheadAttention(..., dropout=0.5)`)"
+what = "the attention dropout is hard-coded to 0.5 regardless of the model's configured dropout."
+resolution = "a separate `attn_dropout` parameter with default `0.5`."

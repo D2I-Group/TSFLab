@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ReNF"
+tags = ["mlp", "time-series", "boosting", "forecast-combination", "multi-output-supervision", "frequency-loss", "long-term"]
+fits = ["long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "ReNF: Rethinking the Design of Neural Long-Term Time Series Forecasters"
+url = "https://arxiv.org/abs/2509.25914"
+venue = "ICML"
+year = 2026
+
+[code]
+url = "https://github.com/Luoauoa/ReNF"
+revision = "c232ec5998ea82c29e7a22cfc0f41828261aa5e4"
+license = "MIT"
+reference_sources = ["https://github.com/Luoauoa/ReNF/blob/c232ec5998ea82c29e7a22cfc0f41828261aa5e4/models/ReNF_alpha.py", "https://github.com/Luoauoa/ReNF/blob/c232ec5998ea82c29e7a22cfc0f41828261aa5e4/models/ReNF_beta.py", "https://github.com/Luoauoa/ReNF/blob/c232ec5998ea82c29e7a22cfc0f41828261aa5e4/layers/RevIN.py", "https://github.com/Luoauoa/ReNF/blob/c232ec5998ea82c29e7a22cfc0f41828261aa5e4/exp/exp_main.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:positional_encoding+local:boosted-direct-output-mlp-blocks"
+channel = "none"
+head = "local:growing-horizon-linear-heads"
+loss = "local:block-wise-time-frequency-l1"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+num_blocks = { from = "pred_len", rule = "must divide pred_len" }
+block_norm = { from = "channels", rule = "\"instance\" normalizes across variates and needs at least two channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/ReNF_beta.py` `Model.__init__`"
+what = "`Model` passes `n_b` and `norm` to a `Decoder` whose signature no longer accepts them (an April 2026 refactor), so the beta variant does not construct at the pinned revision."
+resolution = "the arguments are forwarded to the blocks as the earlier `CapDecoder` did (revision `6bad210`)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 2.3-2.4 and Fig. 3"
+what = "block-wise dropout schedules, the layer order inside alpha and beta blocks, the loss scale `gamma`, and the reduction of the frequency term are not given."
+resolution = "the official code's choices (e.g. alpha dropout `min(0.3(k+1), 0.6)`, beta dropout `max(0.1 * 0.8^k, 0.05)`, `gamma = 20`, mean modulus of the rFFT difference)."

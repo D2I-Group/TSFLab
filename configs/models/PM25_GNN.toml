@@ -1,0 +1,7 @@
+[model]
+name = "PM25_GNN"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+hid_dim = 64

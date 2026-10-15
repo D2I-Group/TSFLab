@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WPMixer"
+tags = ["mlp", "wavelet", "frequency", "decomposition", "patching", "multi-scale", "channel-independent", "normalization"]
+fits = ["long-lookback", "long-horizon", "efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the orthogonal multi-resolution analysis, per-resolution patching, token/feature mixing and resolution fusion as derived from the paper and documents no paper or official-code problem."
+
+[paper]
+title = "WPMixer: Efficient Multi-Resolution Mixing for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2412.17176"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Secure-and-Intelligent-Systems-Lab/WPMixer"
+revision = "74104c9dddd54d279eb8323f48934b4fd75fcae7"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:orthogonal-wavelet-analysis"
+temporal = "local:patch-token-feature-mixer-per-resolution"
+channel = "local:channel-independent-shared-weights"
+head = "local:per-resolution-linear-softmax-weighted-sum"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+level = { from = "seq_len", rule = "each level roughly halves the resolution length; keep seq_len / 2**level well above patch_len" }
+patch_len = { from = "seq_len", rule = "patch count per resolution ceil((length - patch_len) / stride) + 1 with zero padding; capped at the resolution length" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

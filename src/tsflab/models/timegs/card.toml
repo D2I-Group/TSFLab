@@ -1,0 +1,81 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeGS"
+tags = ["cnn", "unet", "gaussian-splatting", "rendering", "periodicity", "2d-variation", "dictionary-learning", "multi-branch", "channel-independent", "training-objective", "time-series", "revin"]
+fits = ["strong-seasonality", "multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Forecasting as Rendering: A 2D Gaussian Splatting Framework for Time Series Forecasting"
+url = "https://arxiv.org/abs/2603.02220"
+venue = "KDD 2026"
+year = 2026
+
+[code]
+url = "https://github.com/yixinwang1/TimeGS"
+revision = "b794d5bd096742f5186b74e1ac3af2933cff8791"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yixinwang1/TimeGS/blob/b794d5bd096742f5186b74e1ac3af2933cff8791/models/TimeGS.py", "https://github.com/yixinwang1/TimeGS/blob/b794d5bd096742f5186b74e1ac3af2933cff8791/layers/TimeGS_Enc.py", "https://github.com/yixinwang1/TimeGS/blob/b794d5bd096742f5186b74e1ac3af2933cff8791/scripts/long_term_forecast/ETTh1.sh", "https://github.com/yixinwang1/TimeGS/blob/b794d5bd096742f5186b74e1ac3af2933cff8791/utils/losses.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:folded-2d-unet-encoder+local:gaussian-basis-kernel-generation"
+channel = "local:channel-independent-shared-weights+local:channel-adaptive-aggregation"
+head = "local:chronologically-continuous-gaussian-rasterization"
+loss = "local:mse-mae-hybrid"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (channel-specific aggregation weights)" }
+periods = { from = "period", rule = "one branch per period in steps (24 ETTh1, 96 ETTm1, 144 Weather); 0 or > horizon span means the span" }
+fold_width = { from = "period", rule = "history fold row width; paper uses the period, official code 24" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 4.2 Eq. (4) vs `models/TimeGS.py` `Model.get_img`"
+what = "the paper folds the history by the period `T`, but the code folds every branch's input with a hard-coded `self.ori_width = 24` regardless of the branch periods (e.g. ETTm1 runs with periods 96 and Weather with 144 in `scripts/long_term_forecast/ETTm1.sh` and `weather.sh`), and all `K` encoders receive the same folded image."
+resolution = "`fold_width` parameter (default 24, the code value), one shared folded image."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (7)-(8) vs `models/TimeGS.py` `Model.init_gaussian_dict`"
+what = "the code centres each row's profile at a sheared column `draft_len // 2 - l21 j / l11`, truncates with `|dx| <= sqrt(1 - (l22 j)^2) / l11` instead of the ellipse `δᵀΣ⁻¹δ ≤ 1`, and multiplies the exponent by an extra `coefficient` dictionary axis that the paper does not describe."
+resolution = "the code construction is followed (it produced the reported results)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (15)-(16) vs `models/TimeGS.py` `Model.forward`"
+what = "the code applies the softmax to the branch and component weights after dividing each row by its own sum (`w / w.sum(-1)`), not to the raw weights; the division is undefined if a row sum reaches zero."
+resolution = "`weight_norm = \"official\"` (default) follows the code, `\"paper\"` gives the plain softmax."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 4.3 Eq. (9)"
+what = "the softmax temperature of the basis mixing weights is not stated; `models/TimeGS.py` hard-codes `self.tem = 0.1`."
+resolution = "`temperature` parameter, default 0.1."
+
+[[issues]]
+kind = "underspecified"
+where = "Sections 4.2-4.4"
+what = "the UNet layout (stem, three stride-2 stages, residual bottleneck with `Dropout(0.5)`, skip concatenation, tanh output), the basis grid size (`m = 7` rows, `draft_len = 11` columns), the anchor stride/extension (`ratio`, `extend_len`), and the basis-bank entries are not given in the paper."
+resolution = "taken from `layers/TimeGS_Enc.py` `GlobalGenerator`/`ResnetBlock`, `run.py` defaults, and `scripts/long_term_forecast/ETTh1.sh`."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TimeGS.py` `Model.__init__` and `layers/TimeGS_Enc.py` `GlobalGenerator.__init__`"
+what = "`self.linear = nn.Linear(G, pred_len)` and `self.skip_linear` are created but never used in `forward`, so they add dead parameters to the optimizer and checkpoints."
+resolution = "omitted locally (no effect on the forecast)."
+
+[[issues]]
+kind = "license"
+where = "repository root at `b794d5bd`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DLinear"
+tags = ["linear", "decomposition", "channel-independent", "ltsf-linear", "baseline", "lightweight"]
+fits = ["strong-trend", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card describes a paper-driven rewrite (moving-average decomposition, two temporal linear maps) with the Apache-2.0 official code as reference and records no paper or official-code problem."
+
+[paper]
+title = "Are Transformers Effective for Time Series Forecasting?"
+url = "https://arxiv.org/abs/2205.13504"
+venue = "AAAI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/cure-lab/LTSF-Linear"
+revision = "0c113668a3b88c4c4ee586b8c5ec3e539c4de5a6"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "component:series_decomposition"
+temporal = "component:dlinear"
+channel = "local:channel-independent-shared-weights"
+head = "component:dlinear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

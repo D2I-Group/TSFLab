@@ -1,0 +1,16 @@
+[model]
+name = "SRSNet"
+
+[model.params]
+enc_in = 7
+d_model = 512
+patch_len = 24
+stride = 24
+hidden_size = 128
+dropout = 0.2
+head_dropout = 0.1
+alpha = 2.0
+pos = true
+head_mode = "linear"
+affine = true
+subtract_last = false

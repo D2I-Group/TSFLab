@@ -1,0 +1,11 @@
+[model]
+name = "AirDualODE"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+phy_latent_dim = 16
+unk_latent_dim = 16
+gcn_hidden_dim = 32
+n_heads = 4
+ode_method = "euler"

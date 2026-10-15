@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "graph_conv_gru"
+role = "Updates a recurrent spatiotemporal state whose GRU gates mix information over a graph through a caller-chosen filter."
+slot = "temporal"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["gru", "graph", "graph-convolution", "recurrent", "cell", "spatiotemporal", "dcrnn", "gating"]
+input = "x [batch, nodes, in_dim]; state [batch, nodes, hidden]; any graph arguments the filters take"
+output = "next state [batch, nodes, hidden]"
+origin = "Graph convolutional recurrent network of Seo et al. (GCRN, ICONIP 2018, arXiv 1612.07659) and the DCGRU of DCRNN (Li et al., ICLR 2018)"
+origin_models = ["agcrn", "dcrnn", "dgcrn", "graphlassomtsf", "gts", "himnet", "megacrn", "pm25gnn", "st_ssdl"]

@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TSRAG"
+tags = ["mlp", "retrieval", "attention-variant", "channel-mixing", "normalization"]
+fits = ["non-stationary"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local retrieval-augmented forecaster checked against `TS-RAG/retrieve.py` and `TS-RAG/models/ChronosBolt.py`; the absent TSFM checkpoint, retrieval encoder, and knowledge base are TSFLab scoping, not documented upstream problems."
+
+[paper]
+title = "TS-RAG: Retrieval-Augmented Generation based Time Series Foundation Models are Stronger Zero-Shot Forecaster"
+url = "https://arxiv.org/abs/2503.07649"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/UConn-DSIS/TS-RAG"
+revision = "73ac807789d2e61b8a3dfc8514e3fc947fe185cc"
+license = "MIT"
+reference_sources = ["https://github.com/UConn-DSIS/TS-RAG/blob/73ac807789d2e61b8a3dfc8514e3fc947fe185cc/TS-RAG/retrieve.py", "https://github.com/UConn-DSIS/TS-RAG/blob/73ac807789d2e61b8a3dfc8514e3fc947fe185cc/TS-RAG/models/ChronosBolt.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:flatten-mlp-query-backbone"
+channel = "local:flattened-all-channel-embedding"
+head = "local:linear-forecast-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count; knowledge-base windows must match (seq_len, enc_in) and (pred_len, enc_in)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

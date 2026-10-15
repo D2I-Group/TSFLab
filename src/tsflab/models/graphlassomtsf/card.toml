@@ -1,0 +1,115 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GraphLassoMTSF"
+tags = ["gnn", "rnn", "graph-learning", "sparse-graph", "graphical-lasso", "encoder-decoder", "channel-mixing"]
+fits = ["spatial-graph", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Sparsity exploitation via discovering graphical models in multi-variate time-series forecasting"
+url = "https://arxiv.org/abs/2306.17090"
+venue = "arXiv"
+year = 2023
+
+[code]
+url = "https://github.com/HySonLab/GraphLASSO"
+revision = "84eb0fadae2fd2dfec7f16190e8a2fc130f23a8e"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/HySonLab/GraphLASSO/blob/84eb0fadae2fd2dfec7f16190e8a2fc130f23a8e/scripts/generate_adj_lasso.py", "https://github.com/HySonLab/GraphLASSO/blob/84eb0fadae2fd2dfec7f16190e8a2fc130f23a8e/model/pytorch/model.py", "https://github.com/HySonLab/GraphLASSO/blob/84eb0fadae2fd2dfec7f16190e8a2fc130f23a8e/model/pytorch/cell.py", "https://github.com/HySonLab/GraphLASSO/blob/84eb0fadae2fd2dfec7f16190e8a2fc130f23a8e/model/pytorch/supervisor.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:diffusion-graph-gru-encoder-decoder"
+channel = "local:graphical-lasso-sampled-graph"
+head = "local:autoregressive-linear-decoder"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of series; each is one graph node of the learned precision matrix" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `84eb0fad`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV-A (Bernoulli sampling) vs `model/pytorch/model.py` `GCRNModel.forward` (`static_lasso`)"
+what = "the paper samples `A_ij ~ Bernoulli(Theta_ij)` after rescaling `Theta` into `[0, 1]`; the code applies a hard Gumbel-softmax to each row of the raw precision matrix (diagonal included), i.e. exactly one edge per node."
+resolution = "follow the code sampler."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. IV-A"
+what = "the rescaling of `Theta` into `[0, 1]` is not defined, and `scripts/generate_adj_lasso.py` saves the unscaled precision."
+resolution = "no rescaling (the official sampler uses raw `Theta` as logits)."
+
+[[issues]]
+kind = "leakage"
+where = "`scripts/generate_adj_lasso.py` (`t_train = round(len_data * 0.8)`) vs `scripts/generate_training_data.py` (`t_train = round(len_data * 0.7)`)"
+what = "the graph is estimated on the first 80% of the series while the forecaster trains on the first 70%, so half of the validation period enters the graph."
+resolution = "`training_setup` fits the precision on the catalog training split only."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/pytorch/supervisor.py` `evaluate` and `GCRNModel.forward`"
+what = "the graph is re-sampled at evaluation, so validation and test metrics are stochastic."
+resolution = "evaluation uses the expected graph `softmax(Theta)`."
+
+[[issues]]
+kind = "code-bug"
+where = "`GCRNModel.forward` (`dynamic_lasso`)"
+what = "the interval graph is indexed by `batches_seen * batch_size / len_interval`, a training-step count rather than the window's time position, and evaluation reuses a fixed `batches_seen`, so every test window gets the same graph pair."
+resolution = "only the static variant is implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (7) vs `GCRNModel.forward` (`dynamic_lasso`)"
+what = "the paper averages the graph convolution over intersecting graphs; the code averages two encoder hidden states and decodes with the second graph only."
+resolution = "dynamic variant omitted."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (3), (5) vs `model/pytorch/cell.py` `DCGRUCell`"
+what = "the paper's operator is `(I + D^{-1/2} A D^{-1/2}) X W + W_b`; the code concatenates `[X, P X, 2 P (P X) - X, ...]` with `P = (D^{-1}(A + I))^T` before one linear map."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (6)"
+what = "the candidate `G_c(X_t || r_t * h_{t-1})` omits the graph argument `A`, whereas the code (`DCGRUCell.forward`) uses the graph convolution for it."
+resolution = "graph convolution for the candidate."
+
+[[issues]]
+kind = "code-bug"
+where = "`DCGRUCell.__init__`"
+what = "the `filter_type` option (`dual_random_walk` in `data/config/para_CA1_Food1.yaml`) is ignored because the support construction is commented out; one random-walk support is always used."
+resolution = "single support."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV-B vs `GCRNModel.decoder` and `para_CA1_Food1.yaml` (`use_curriculum_learning"
+what = "true`): scheduled teacher forcing is used in training but not described in the paper."
+resolution = "kept in the training objective."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV-A (\"standard interior-point methods\") vs `scripts/generate_adj_lasso.py`"
+what = "Eq. (1) is solved with `gglasso` ADMM after correlation scaling."
+resolution = "same objective and scaling, solved with a local rewrite of the `gglasso` path the script uses (`block_SGL` screening, `ADMM_SGL` with `tol = rtol = 1e-10`, 1000 iterations at most)."
+
+[[issues]]
+kind = "unreleased"
+where = "`data/` and `data/config/`"
+what = "only the CA1_Food1 series and configuration are shipped; settings for the other datasets in Sec. V are absent."
+resolution = "defaults from `para_CA1_Food1.yaml`."

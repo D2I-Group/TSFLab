@@ -1,0 +1,68 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WinNet"
+tags = ["cnn", "decomposition", "periodicity", "2d-variation", "channel-independent", "lightweight"]
+fits = ["strong-seasonality", "efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "WinNet: Make Only One Convolutional Layer Effective for Time Series Forecasting"
+url = "https://arxiv.org/abs/2311.00214"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/ouwen18/WinNet"
+revision = "2012c30dc32ef5ff5bb76f6d4ffa04dfff8ab3c9"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ouwen18/WinNet/blob/2012c30dc32ef5ff5bb76f6d4ffa04dfff8ab3c9/WinNet.py", "https://github.com/ouwen18/WinNet/blob/2012c30dc32ef5ff5bb76f6d4ffa04dfff8ab3c9/run_longExp.py"]
+
+[composition]
+normalization = "component:last_value_center"
+decomposition = "local:two-dimensional-hybrid-decomposition"
+temporal = "local:sub-window-division+local:dual-forecasting-heads"
+channel = "local:per-channel-decomposition-correlation-conv"
+head = "local:flatten-linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+window = { from = "period", rule = "grid side and sub-window length; follow the dominant period in steps (24 for hourly daily cycles)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (1) vs `WinNet.py`"
+what = "the paper normalizes with RevIN; the code subtracts and restores the detached last value."
+resolution = "the official last-value normalization."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (4) vs `WinNet.py` (DCB)"
+what = "the paper applies ReLU then sigmoid after the convolution; the code applies only the sigmoid."
+resolution = "sigmoid only."
+
+[[issues]]
+kind = "code-bug"
+where = "`WinNet.py` 2D moving-average padding"
+what = "the 47 x 47 padding writes shifted slices that overwrite part of the unpadded tensor, uses an offset of one instead of the wrap-around, and is hard-coded to a 24 x 24 tensor."
+resolution = "each row is extended by its true predecessors and successors in the flattened sequence (Fig. 3), for any `window`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Figs. 2-4 vs `WinNet.py`"
+what = "the cross-window head stacks the maps in the opposite order to the inter-window head and labels the moving average as the seasonal term."
+resolution = "both heads stack (trend, seasonal)."

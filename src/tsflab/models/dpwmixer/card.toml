@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DPWMixer"
+tags = ["mlp", "wavelet", "multi-scale", "patching", "channel-independent", "normalization"]
+fits = ["long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DPWMixer: Dual-Path Wavelet Mixer for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2512.02070"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/hit636/DPWMixer"
+revision = "0a787be2aeba845914bd4ea88428a1ddb982abad"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/hit636/DPWMixer/blob/0a787be2aeba845914bd4ea88428a1ddb982abad/models/DPWMixer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:wavelet"
+temporal = "local:dual-path-global-linear-and-patch-mlp-mixer"
+channel = "local:channel-independent-shared-weights"
+head = "local:softmax-multi-scale-fusion"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "`models/DPWMixer.py` `DualTrendMixer` and `Model.forward`"
+what = "the paper does not say how patching adapts to the downsampled resolutions; the code keeps the configured `patch_len`/`stride` at every scale and zero-pads inputs shorter than `patch_len`, so very short scales get a degenerate patch count."
+resolution = "`patch_len`/`stride` are clamped to each resolution's length."

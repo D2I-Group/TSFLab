@@ -1,0 +1,14 @@
+[model]
+name = "AdaMamba"
+
+[model.params]
+enc_in = 7
+d_model = 32
+d_freq = 32
+e_layers = 2
+patch_lens = [96, 18, 9]
+stride = 16
+conv_kernel = 3
+beta = 1.0
+dropout = 0.05
+head_dropout = 0.0

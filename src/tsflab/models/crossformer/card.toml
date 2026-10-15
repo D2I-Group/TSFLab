@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Crossformer"
+tags = ["transformer", "patching", "channel-mixing", "attention-variant", "multi-scale", "hierarchical"]
+fits = ["high-cross-correlation", "many-channels"]
+fidelity = "reference-checked"
+issues_checked = "the card maps DSW embedding, two-stage attention, router stages, and segment merging against the paper with the Apache-2.0 official code as reference, and records only TSFLab's own simplification of the hierarchical decoder."
+
+[paper]
+title = "Crossformer: Transformer Utilizing Cross-Dimension Dependency for Multivariate Time Series Forecasting"
+url = "https://openreview.net/forum?id=vSVLM2j9eie"
+venue = "ICLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/Thinklab-SJTU/Crossformer"
+revision = "c10c8eadb153d1dd9798250967747ca3ebb81383"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:dsw-segment-embedding+local:hierarchical-segment-merging"
+channel = "local:two-stage-attention-router-cross-dimension"
+head = "local:per-scale-linear-heads-averaged"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+seg_len = { from = "seq_len", rule = "1 <= seg_len <= seq_len; non-divisible lookbacks are front-padded with the first value" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

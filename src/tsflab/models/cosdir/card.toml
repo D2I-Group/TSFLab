@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CosDir"
+tags = ["linear", "loss-framework", "plug-in", "direction-aware", "scale-invariant", "decomposition", "channel-independent", "lightweight"]
+fits = ["heteroscedastic", "strong-trend"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Beyond Magnitude and Shape: A Direction-Aware Loss for Time Series Forecasting"
+url = "https://arxiv.org/abs/2608.01857"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/seunghan96/cosdir"
+revision = "c1ecebb4a37aa60562e067506b3811e0767fc9f9"
+license = "MIT"
+reference_sources = ["https://github.com/seunghan96/cosdir/blob/c1ecebb4a37aa60562e067506b3811e0767fc9f9/losses/tslib_losses.py", "https://github.com/seunghan96/cosdir/blob/c1ecebb4a37aa60562e067506b3811e0767fc9f9/exp/exp_tslib.py", "https://github.com/seunghan96/cosdir/blob/c1ecebb4a37aa60562e067506b3811e0767fc9f9/models/DLinear.py"]
+
+[composition]
+normalization = "none"
+decomposition = "component:dlinear"
+temporal = "component:dlinear"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-forecast"
+loss = "loss:mse+local:cosine-direction-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (2) vs `losses/tslib_losses.py`"
+what = "the paper's cosine uses the denominator `||a|| ||b|| + eps`, while the code calls `F.cosine_similarity`, which clamps each norm at `1e-8`; the two differ only for near-zero difference vectors."
+resolution = "the paper's denominator with `eps = 1e-8`."

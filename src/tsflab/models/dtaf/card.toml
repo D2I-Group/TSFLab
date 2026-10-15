@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DTAF"
+tags = ["transformer", "patching", "frequency", "mixture-of-experts", "channel-independent", "non-stationary"]
+fits = ["non-stationary", "train-val-level-shift", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Towards Non-Stationary Time Series Forecasting with Temporal Stabilization and Frequency Differencing"
+url = "https://arxiv.org/abs/2511.08229"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/decisionintelligence/DTAF"
+revision = "9d12aa4061c771b419c5a5bba9f2bf95d9419c41"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:temporal-stabilizing-fusion-moe+local:frequency-wave-modeling"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len + stride" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the published TFS/FWM description with the repository used as reference only; license recorded as `NOASSERTION`."

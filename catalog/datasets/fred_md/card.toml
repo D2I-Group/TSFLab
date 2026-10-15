@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "fred_md"
+domain = "finance"
+topic = "macroeconomics"
+benchmarks = ["tfb"]
+tags = ["fred-md", "macroeconomic", "fred", "monthly", "economics", "us", "tfb", "multivariate", "short-series", "high-dimensional"]
+related = ["ili", "nn5", "exchange"]
+characteristics = ["weak-seasonality", "multi-periodic", "strong-trend", "non-stationary", "within-train-drift", "regime-changes", "heteroscedastic", "high-cross-correlation", "low-dimensional-channels", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Michael W. McCracken and Serena Ng, Federal Reserve Bank of St. Louis; TFB packaging"
+url = "https://www.stlouisfed.org/research/economists/mccracken/fred-databases"
+citation = "FRED-MD: A Monthly Database for Macroeconomic Research (McCracken and Ng, Journal of Business & Economic Statistics 2016)"
+citation_url = "https://doi.org/10.20955/wp.2015.012"
+license = "FRED terms of use (no archiving or compiling of FRED data)"
+license_url = "https://fred.stlouisfed.org/legal/"
+redistribution = "script"
+
+[shape]
+frequency = "monthly (1mo)"
+time_span = "1959-01 to 2019-08 (TFB file)"
+length = 728
+channels = 107
+channel_kind = "series"
+target = "OT (last series; TFB's long-format file names it channel_107, renamed OT when pivoted to wide)"
+missing_values = "the paper's database has 134 series; the TFB file keeps 107 (selection undocumented) with no NaN"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "TFB multivariate: lookback 36 or 104, horizons 24/36/48/60, chronological 7:1:2"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

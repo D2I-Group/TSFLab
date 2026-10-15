@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FreTS"
+tags = ["mlp", "frequency", "channel-mixing", "baseline"]
+fits = ["efficiency", "high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card maps Eqs. 1-7 (orthonormal FFT, channel and temporal frequency learners, full complex matrix MLPs, two-layer direct head) to the paper, with the pinned official code as reference only, and documents no paper or official-code problem."
+
+[paper]
+title = "Frequency-domain MLPs are More Effective Learners in Time Series Forecasting"
+url = "https://proceedings.neurips.cc/paper_files/paper/2023/hash/f1d16af76939f476b5f040fd1398c0a3-Abstract-Conference.html"
+venue = "NeurIPS 2023"
+year = 2023
+
+[code]
+url = "https://github.com/aikunyi/FreTS"
+revision = "6de28ab19f83955087e2690cdfbb29b065ab0b9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:frequency-domain-complex-mlp"
+channel = "local:frequency-channel-learner"
+head = "local:two-layer-ffn-direct-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels; the channel learner needs enc_in >= 3" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

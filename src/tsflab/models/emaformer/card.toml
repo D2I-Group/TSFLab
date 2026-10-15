@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "EMAformer"
+tags = ["transformer", "inverted-tokens", "channel-mixing", "periodicity", "normalization", "covariates"]
+fits = ["strong-seasonality", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "EMAformer: Enhancing Transformer through Embedding Armor for Time Series Forecasting"
+url = "https://arxiv.org/abs/2511.08396"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/PlanckChang/EMAformer"
+revision = "b8f37c0c7d089e7263bbaeb681672a94f5afe233"
+license = "MIT"
+reference_sources = ["https://github.com/PlanckChang/EMAformer/blob/b8f37c0c7d089e7263bbaeb681672a94f5afe233/model/EMAformer.py", "https://github.com/PlanckChang/EMAformer/blob/b8f37c0c7d089e7263bbaeb681672a94f5afe233/data_provider/data_loader.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:embed"
+channel = "component:transformer_encdec+component:self_attention_family+local:channel-phase-joint-embeddings"
+head = "local:residual-three-layer-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+cycle = { from = "period", rule = "the dominant seasonal period in steps (24 for hourly data with a daily cycle)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (6)-(7) vs `data_provider/data_loader.py` (`cycle_index[s_end]`)"
+what = "the paper indexes the phase at the last observed step, while the loader uses `row index mod cycle`, counted from the first CSV row, at the first forecast step."
+resolution = "the first forecast step as in the code, with the step index derived from calendar marks (a constant per-dataset relabeling of the learnable tables)."
+
+[[issues]]
+kind = "underspecified"
+where = "paper forecasting head (\"an MLP\")"
+what = "its layout is not given."
+resolution = "`d -> 2d -> 4d -> pred_len` with GELU and dropout applied to the encoder output plus the embedded tokens, as in `model/EMAformer.py`."

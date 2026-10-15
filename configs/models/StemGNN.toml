@@ -1,0 +1,8 @@
+[model]
+name = "StemGNN"
+
+[model.params]
+enc_in = 8
+multi_layer = 3
+dropout_rate = 0.5
+leaky_rate = 0.2

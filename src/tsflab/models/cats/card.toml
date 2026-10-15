@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CATS"
+tags = ["transformer", "patching", "attention-variant", "channel-independent", "parameter-sharing"]
+fits = ["long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "paper-driven local implementation with the MIT code kept reference-only; the card records no paper or official-code problem."
+
+[paper]
+title = "Are Self-Attentions Effective for Time Series Forecasting?"
+url = "https://openreview.net/forum?id=iN43sJoib7"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/dongbeank/CATS"
+revision = "58854fc759d608ce400f378be83f4513960e505d"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "local:last-value-centering"
+decomposition = "none"
+temporal = "local:cross-attention-only-decoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-patch-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count; sizes the per-channel future queries when query_independence = true" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

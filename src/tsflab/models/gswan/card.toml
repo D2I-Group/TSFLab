@@ -1,0 +1,93 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GSWaN"
+tags = ["gnn", "cnn", "spatiotemporal", "traffic", "graph-attention", "node-embedding", "dilated-convolution", "graph-learning", "marks"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Because Every Sensor Is Unique, so Is Every Pair: Handling Dynamicity in Traffic Forecasting"
+url = "https://arxiv.org/abs/2302.09956"
+venue = "IoTDI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/aprbw/G-SWaN"
+revision = "d95c2af5349187373c7e484073bcc0472fe71597"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/aprbw/G-SWaN/blob/d95c2af5349187373c7e484073bcc0472fe71597/GSWaN_models.py", "https://github.com/aprbw/G-SWaN/blob/d95c2af5349187373c7e484073bcc0472fe71597/model.py", "https://github.com/aprbw/G-SWaN/blob/d95c2af5349187373c7e484073bcc0472fe71597/util.py", "https://github.com/aprbw/G-SWaN/blob/d95c2af5349187373c7e484073bcc0472fe71597/GSWaN_loader.py", "https://github.com/aprbw/G-SWaN/blob/d95c2af5349187373c7e484073bcc0472fe71597/run_pems08.txt"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:valid-dilated-gated-conv"
+channel = "local:spatial-graph-transformer+component:adaptive_node_embedding_adjacency+component:graph_utils"
+head = "local:last-step-skip-mish-mlp"
+loss = "loss:masked_mae"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of sensors; runner-injected num_nodes takes precedence" }
+adj_mx = { from = "graph", rule = "road adjacency injected by the runner; without it only the adaptive support is used" }
+time_feature = { from = "period", rule = "time_of_week (default, official) or time_of_day, matching the dominant calendar cycle" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 6 vs `GSWaN_models.py` (`GraphTransformerLayer.forward`)"
+what = "the paper multiplies the adjacency element-wise with `QK^T` (`A * QK^T`), while the code uses `A` only as an edge mask (`QK^T` where `A > 0`, `-9e15` elsewhere), so edge weights never scale the attention."
+resolution = "follows the code (`pair_attention`); recorded under Differences."
+
+[[issues]]
+kind = "paper-error"
+where = "Eqs. 6-8 and the paragraph after Eq. 8"
+what = "Eq. 6 writes `Q(x, e1) K(x, e2)^T` while Eqs. 7-8 define `K(x, e1)` and `Q(x, e2)`, and the text then calls the key `K(x, e2)`."
+resolution = "keys from `x + e1`, queries from `x + e2`, as in Eqs. 7-8 and the code (`l_key_conv` gets `nv1`, `l_query_conv` gets `nv2`)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2.2 / Sec. 3.2.8 vs `GSWaN_loader.py` (`GSWaN_Datahandler.__init__`)"
+what = "the paper embeds a time-of-day feature, but the loader appends `(index mod 2016) / 2015`, a time-of-week phase (named `dow`, `add_day_of_week=True`) that also assumes the series starts at a week boundary."
+resolution = "`time_feature` defaults to `time_of_week` computed from calendar marks; `time_of_day` is available."
+
+[[issues]]
+kind = "leakage"
+where = "`GSWaN_loader.py` (`self.data_max = data.max()` before the train/val/test split) and `run.py` (`eval_` and the test loop clamp predictions to `[0, data_max]`)"
+what = "validation and test forecasts are clipped with the maximum of the whole series, test period included."
+resolution = "not reproduced; this entry outputs unclipped forecasts and the catalog evaluation applies no data-derived clamp."
+
+[[issues]]
+kind = "code-bug"
+where = "`model.py` (`GWNet.__init__`, `lL = [12, 10, 9, 7, 6, 4, 3, 1]`)"
+what = "the key/query kernel widths are hard-coded for 12 input steps with 4 blocks x 2 layers and kernel 2; any other window or depth builds convolutions whose kernels do not match the time axis."
+resolution = "widths are derived from the valid dilated lengths (`wavenet_lengths`)."
+
+[[issues]]
+kind = "code-bug"
+where = "`model.py` (`GWNet.__init__` / `forward_main`)"
+what = "one graph layer is built per WaveNet layer, but the loop breaks before the last one, leaving an unused SGT with parameters."
+resolution = "the last layer has no SGT here."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2.5 vs `GSWaN_models.py` (`nv1.t().reshape(1, D, N, 1)`)"
+what = "adding the node embeddings to the latent input requires the embedding width to equal the hidden width (`--apt_size 40`, `--nhid 40` in `run_pems08.txt`); the paper does not state it."
+resolution = "the node-embedding width is tied to `hidden_channels`."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 4 vs `GSWaN_models.py`"
+what = "the paper writes a sum over hops and heads \"implemented as two FC layers\"; the code concatenates the input and every hop term (`gcn_head_aggregate CAT`) and applies a single 1x1 convolution, then adds the WaveNet output as a residual."
+resolution = "follows the code."
+
+[[issues]]
+kind = "license"
+where = "repository root at `d95c2af`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "softmax_gate"
+role = "Learned feature-importance filter that damps uninformative features after an MLP mixer."
+slot = "support"
+fits = ["any"]
+category = "mixer"
+tags = ["gate", "gated-attention", "softmax", "feature", "mixer", "stateless"]
+input = "[..., dim]"
+output = "same shape as input"
+origin = "Gated attention block of the IBM TSMixer (PatchTSMixer), Ekambaram et al., KDD 2023 (arXiv 2306.09364), Sec. 3.3.5"
+origin_models = ["patchtsmixer"]

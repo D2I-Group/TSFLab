@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TCNForecasterTS"
+tags = ["cnn", "normalization", "channel-mixing", "baseline", "lightweight"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "generic TCN from Bai et al. with no official code inspected; the card records a clean-room causal dilated residual design with no documented problem in the paper."
+
+[paper]
+title = "An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling"
+url = "https://arxiv.org/abs/1803.01271"
+venue = "arXiv preprint"
+year = 2018
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:dilated-causal-residual-conv"
+channel = "local:channel-mixing-first-conv"
+head = "local:last-step-linear-direct-multistep"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+num_layers = { from = "seq_len", rule = "receptive field 1 + 4*(2^num_layers - 1) steps should cover the relevant lookback" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

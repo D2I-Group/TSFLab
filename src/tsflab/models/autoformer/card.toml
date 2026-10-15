@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Autoformer"
+tags = ["transformer", "decomposition", "frequency", "attention-variant", "covariates", "long-horizon"]
+fits = ["strong-seasonality", "strong-trend", "long-horizon", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "clean-room implementation of Eqs. (1)-(6) with the MIT code kept reference-only; the card records no paper or official-code problem."
+
+[paper]
+title = "Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting"
+url = "https://proceedings.neurips.cc/paper_files/paper/2021/hash/bcc0d400288793e8bdcd7c19a8ac0c2b-Abstract.html"
+venue = "NeurIPS 2021"
+year = 2021
+
+[code]
+url = "https://github.com/thuml/Autoformer"
+revision = "51c7d416ae120b805fd5beef2f4ccf7de496a6ff"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "component:series_decomposition"
+temporal = "component:decomposition_encdec+local:auto-correlation"
+channel = "component:forecast_embedding"
+head = "local:seasonal-projection-plus-accumulated-trend"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; dec_in and c_out must equal enc_in" }
+moving_avg = { from = "period", rule = "odd moving-average window of the inner series decomposition" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

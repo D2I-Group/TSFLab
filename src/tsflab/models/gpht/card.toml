@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GPHT"
+tags = ["transformer", "patching", "hierarchical", "multi-scale", "autoregressive", "generative", "pretraining", "normalization", "channel-independent", "revin"]
+fits = ["long-lookback", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Generative Pretrained Hierarchical Transformer for Time Series Forecasting"
+url = "https://arxiv.org/abs/2402.16516"
+venue = "KDD 2024"
+year = 2024
+
+[code]
+url = "https://github.com/icantnamemyself/GPHT"
+revision = "cfdbbd2f8386603476d0b48705b6189cfae0ad90"
+license = "MIT"
+reference_sources = ["https://github.com/icantnamemyself/GPHT/blob/cfdbbd2f8386603476d0b48705b6189cfae0ad90/models/GPHT.py", "https://github.com/icantnamemyself/GPHT/blob/cfdbbd2f8386603476d0b48705b6189cfae0ad90/exp/exp_long_term_forecasting_GPHT.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:iterative-residual-stages"
+temporal = "component:self_attention_family+component:transformer_encdec"
+channel = "local:channel-independent-shared-weights"
+head = "local:next-token-linear-head-rollout"
+loss = "local:next-token-teacher-forced-mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shared channel-independent stack; training needs all channels as targets)" }
+token_len = { from = "seq_len", rule = "seq_len must be a multiple of token_len; training needs pred_len >= token_len; every pooling rate must divide it" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3 (Eqs. 3-6)"
+what = "the paper does not give the per-stage pooling and patch embedding (bias-free value embedding, stride equal to the patch, no padding), the causal encoder with final `LayerNorm`, the token head, how instance normalization is recomputed on rolled windows, the one-token right shift between stages, or the training target."
+resolution = "taken from `models/GPHT.py` and the official training script."

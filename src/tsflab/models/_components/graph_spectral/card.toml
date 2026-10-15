@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "graph_spectral"
+role = "Prepares scaled-Laplacian Chebyshev supports for spectral graph convolutions over a fixed graph."
+slot = "support"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["adjacency", "chebyshev", "degenerate", "graph", "laplacian", "spectral", "scaled-laplacian"]
+input = "scaled_laplacian(adj_mx [nodes, nodes]); chebyshev_polynomials(matrix [nodes, nodes], order); chebyshev_supports(adj_mx [nodes, nodes], order)"
+output = "scaled_laplacian [nodes, nodes] float32 numpy; chebyshev_polynomials [order, nodes, nodes] numpy; chebyshev_supports [order, nodes, nodes] float32 torch"
+origin = "Chebyshev spectral graph convolution (Defferrard et al., NeurIPS 2016) as used by STGCN-style forecasters; implementation is repository-written and its source is not recorded in history"
+origin_models = ["astgcn", "stgcn", "gclstm", "dstagnn"]

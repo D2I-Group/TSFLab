@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Sensorformer"
+tags = ["transformer", "patching", "attention-variant", "channel-mixing", "sparse-attention"]
+fits = ["high-cross-correlation", "many-channels"]
+fidelity = "paper-only"
+
+[paper]
+title = "Sensorformer: Cross-patch attention with global-patch compression is effective for high-dimensional multivariate time series forecasting"
+url = "https://arxiv.org/abs/2501.03284"
+venue = "arXiv preprint"
+year = 2025
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len + stride" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:embed+component:global_patch_compression_attention"
+channel = "component:global_patch_compression_attention"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`https://github.com/BigYellowTiger/Sensorformer` (repository linked by the paper)"
+what = "the repository is empty (zero commits; the GitHub contents API returns \"This repository is empty.\"), so no revision can be pinned."
+resolution = "paper-only implementation from Section 3, Fig. 2, and Algorithms 1-2; reference comparison is not applicable."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3 and Algorithms 1-2"
+what = "patch length, stride, `d_model`, number of heads, feed-forward width, number of layers, and normalization before patching are not given."
+resolution = "ordinary parameters with PatchTST-style defaults."

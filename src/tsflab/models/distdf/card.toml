@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DistDF"
+tags = ["linear", "loss-framework", "distribution-alignment", "normalization", "channel-independent", "lightweight"]
+fits = ["high-forecastability", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card maps Algorithm 1 and Eqs. (5)-(6) to the joint Gaussian Bures-Wasserstein loss; `utils/fft_ot.py` and the released run scripts at the pinned revision were read for the matrix square root and the shipped loss settings."
+
+[paper]
+title = "DistDF: Time-Series Forecasting Needs Joint-Distribution Wasserstein Alignment"
+url = "https://arxiv.org/abs/2510.24574"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Master-PLC/DistDF"
+revision = "21b050fc230d35c7e1c4507c8da3dcd81dc9e1b9"
+license = "MIT"
+reference_sources = ["https://github.com/Master-PLC/DistDF/blob/21b050fc230d35c7e1c4507c8da3dcd81dc9e1b9/utils/fft_ot.py", "https://github.com/Master-PLC/DistDF/blob/21b050fc230d35c7e1c4507c8da3dcd81dc9e1b9/scripts/TimeBridge.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:channel_wise_linear"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-forecast"
+loss = "loss:mse+local:joint-bures-wasserstein-distribution-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) and Algorithm 1 vs `utils/fft_ot.py` (`batch_upper_bound_distance`) and `scripts/TimeBridge.sh`, `scripts/Fredformer.sh` (`distance=wasserstein_empirical_per_dim`, `ot_type=upper_bound`, `reg_sk=0.005`)"
+what = "the released scripts estimate one Gaussian per channel over the batch and use the trace upper bound `tr(Cs) + tr(Ct) - 2 sqrt(tr(Cs Ct))` with a square root on the total, not the exact Bures term over pooled batch-channel samples; the exact path (`ot_type=exact`) uses the float64 SVD square root."
+resolution = "the paper's exact Eq. (5) over batch-channel samples is kept; the square root follows the official exact path."

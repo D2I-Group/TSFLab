@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MixLinear"
+tags = ["linear", "frequency", "lightweight", "channel-independent", "multi-scale"]
+fits = ["efficiency", "long-horizon", "low-data"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; weights are shared across them" }
+downsample = { from = "seq_len", rule = "seq_len must be divisible by downsample (average-pooling factor)" }
+segments = { from = "seq_len", rule = "seq_len / downsample must be divisible by segments; spectral_rank must not exceed seq_len / downsample" }
+
+[paper]
+title = "MixLinear: Extreme Low Resource Multivariate Time Series Forecasting with 0.1K Parameters"
+url = "https://arxiv.org/abs/2410.02081"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/aitianma/MixLinear"
+revision = "42dbb98a5bbe64c13bc75b3cc07a9dc4acf20106"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/aitianma/MixLinear/blob/42dbb98a5bbe64c13bc75b3cc07a9dc4acf20106/models/MixLinear.py"]
+
+[composition]
+normalization = "local:mean-centering"
+decomposition = "none"
+temporal = "local:segment-path-and-low-rank-spectral-path"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-interpolation-to-horizon"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (1)-(5)"
+what = "the adaptive downsampling, segment encoder/decoder and reconstruction to the horizon are not specified precisely enough to reproduce the reported 0.1K parameter count."
+resolution = "fixed average downsampling, a symmetric local encoder/decoder, linear interpolation to `pred_len` and per-series centering."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

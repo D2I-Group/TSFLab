@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "UMixer"
+tags = ["mlp", "patching", "multi-scale", "normalization", "channel-independent"]
+fits = ["non-stationary", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "U-Mixer: An Unet-Mixer Architecture with Stationarity Correction for Time Series Forecasting"
+url = "https://arxiv.org/abs/2401.02236"
+venue = "AAAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/XiangMa-Shaun/U-Mixer"
+revision = "4192e68b85c3f11b2e19c7084f862580d97a0a55"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin+local:spectral-power-stationarity-correction"
+decomposition = "none"
+temporal = "local:unet-patch-feature-mixers"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "patch count ceil((seq_len - patch_len) / stride) + 1 with zero padding; pick patch_len and stride so seq_len - patch_len is a multiple of stride" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

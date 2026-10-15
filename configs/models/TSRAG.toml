@@ -1,0 +1,10 @@
+[model]
+name = "TSRAG"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+top_k = 4
+memory_size = 8
+num_heads = 4

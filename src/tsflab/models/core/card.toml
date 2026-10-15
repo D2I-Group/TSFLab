@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CoRe"
+tags = ["linear", "test-time-adaptation", "channel-mixing", "frequency", "adapter", "lightweight"]
+fits = ["train-val-level-shift", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Correction-space Cross-variate Interaction for Test-time Adaptation in Time Series Forecasting"
+url = "https://arxiv.org/abs/2609.34638"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/yyddou/CoReTTA"
+revision = "7e3861f24e3aaece9fffc048fd585b3d283835d8"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yyddou/CoReTTA/blob/7e3861f24e3aaece9fffc048fd585b3d283835d8/tta/core.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:channel_wise_linear+local:frozen-last-value-base-forecaster"
+channel = "local:shared-anchor-correction-refinement+component:spectral_descriptor"
+head = "local:spectral-gated-correction-residual"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+scr_rank = { from = "channels", rule = "0 means r = C (channel count); the paper uses r = 16 for high-dimensional datasets" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 10-17 vs `tta/core.py` `_compute_spectral_context`"
+what = "the paper defines the spectral descriptor per input window, while the code computes one descriptor per adaptation batch from the batch-averaged power spectrum."
+resolution = "one descriptor per sample (`[batch, 4]`)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 13-15 vs `tta/core.py` `_compute_spectral_context`"
+what = "the paper's band edges are inclusive index ranges, the code uses half-open thirds (`[0,K//3)`, `[K//3,2K//3)`, `[2K//3,K)`), so the bands differ by one bin at each edge."
+resolution = "the paper's inclusive ranges."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper with the repository used as reference only; license recorded as `NOASSERTION`."

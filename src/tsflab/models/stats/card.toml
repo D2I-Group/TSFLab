@@ -1,0 +1,121 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "StaTS"
+tags = ["diffusion", "probabilistic", "quantile", "learned-noise-schedule", "frequency", "film", "two-stage-training", "channel-mixing"]
+fits = ["probabilistic-output"]
+fidelity = "reference-checked"
+
+[paper]
+title = "StaTS: Spectral Trajectory Schedule Learning for Adaptive Time Series Forecasting with Frequency Guided Denoiser"
+url = "https://arxiv.org/abs/2603.00037"
+venue = "arXiv"
+year = 2026
+
+[code]
+url = "https://github.com/zjt-gpu/StaTS"
+revision = "5f0b50ee2aca397c4abf08ad4458d950e33a151d"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf08ad4458d950e33a151d/src/models/StaTS.py", "https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf08ad4458d950e33a151d/src/experiments/StaTS.py", "https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf08ad4458d950e33a151d/src/experiments/prob_forecast.py", "https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf08ad4458d950e33a151d/src/experiments/Setup.py", "https://github.com/zjt-gpu/StaTS/blob/5f0b50ee2aca397c4abf08ad4458d950e33a151d/scripts/StaTS/ETTh1.sh"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:gated-multiband-spectral-anchor+local:film-mlp-denoiser"
+channel = "local:spectral-distortion-channel-gate"
+head = "local:ddim-sampler+component:empirical_quantiles"
+loss = "local:x0-mse-plus-spectral-schedule-objectives"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`src/experiments/prob_forecast.py` `ProbForecastExp._train_schedule`"
+what = "the schedule step reads `self.lambda_energy` and `self.lambda_schedule`, which are defined nowhere in the repository, in `StaTSParameters` or in the scripts, so stage I (STS training) fails at its first epoch and the weights it used for the forecasting term and the regularizers are unknowable."
+resolution = "Eq. 13 with the App. C.6 weights (`lambda_smooth = 5`, `lambda_init = 0.5`, `lambda_end = 0.5`, `lambda_bar = 5e-3`, `lambda_prog = 0.5`, `lambda_obj = 0.01`), all parameters."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 5 and Theorem 3.1 vs `src/models/StaTS.py` `BetaScheduler.forward`"
+what = "the schedule is a raw parameter vector clamped to `[1e-6, 1 - 1e-6]`, with no step embedding, MLP or sigmoid, and no projection onto `[beta_min, beta_max]`."
+resolution = "the code's clamped vector is used."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 22-24 vs `src/models/StaTS.py` `ConditionalGuidedModelLite.forward`"
+what = "the distortion is the signed difference of magnitudes, passed through `tanh` and averaged over frequencies, and a channel-mixing MLP gives one gate per variable instead of an `F x d` gate map."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 2 (Gaussian reverse transitions) vs `src/models/StaTS.py` `StaTS_base.impute`"
+what = "sampling is deterministic DDIM with `eta = 0`; the only randomness is `x_T` and the re-corrupted history."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 12 and App. C.6 vs `src/models/StaTS.py` `StaTS_base.calc_loss`"
+what = "the coded regularizer is `10 * mean (delta beta)^2 + 1 * beta_1^2 + 0.5 L_end + 1e-3 L_bar + 1 * L_prog` (mean instead of sum, weights other than C.6)."
+resolution = "paper forms and App. C.6 weights."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 10-11 and 69 vs `src/models/StaTS.py` `calc_flatness` and `calc_loss`"
+what = "spectral flatness is one scalar pooled over the batch and variables, `SF(x_t)` pools a batch with mixed `t` while the target is per sample, and `gamma_t = t / (T - 1)` on 0-based steps."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 7-8 vs `src/models/StaTS.py` `calc_loss`"
+what = "the DC bin is excluded from the terminal spectral mass (`power[:, 1:]`), while Eq. 69 keeps it."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 3 and Sec. 3.1.2 (\"diffusion in the standardized space\") vs `src/models/StaTS.py` `calc_loss`"
+what = "the x0 loss is taken after de-normalization against the dataset-scaled target, which weights each instance by its variance."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (batch 32, 50 epochs) vs `scripts/StaTS/Electricity.sh`, `Traffic.sh`, `SolarEnergy.sh` and `ILI.sh`"
+what = "batch sizes 8, 4, 4 and 16, and ILI uses 5 epochs (two validated epochs after stage I)."
+resolution = "not applicable; the preset follows the paper's ETTh1 setting."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2 vs `src/experiments/StaTS.py` `CSDIForecast.run` and `src/experiments/Setup.py`"
+what = "`k = 3` is hard-coded, stage I runs no validation, and the separate schedule optimizer applies Adam weight decay `5e-4` to `beta`."
+resolution = "`schedule_epochs = 3` and the coded optimizer settings."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. 18 and 23-25 vs `src/models/StaTS.py` `MultiBandDiagComplexScale`, `ConditionalGuidedModelLite` and `FiLM`"
+what = "hidden width 256, bottleneck `max(8, N // 4)`, the FiLM table form and `U(-0.02, 0.02)` initialization, the single `Linear(256, 256)` refinement and the `0.02 randn` complex gains come only from the code."
+resolution = "the code values are used."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (\"standard protocols\") vs `src/experiments/prob_forecast.py` `_init_data_loader` (`fast_test=True`, `fast_val=True`)"
+what = "validation and test use the `torch_timeseries` fast loaders, which evaluate a reduced set of windows rather than every sliding window."
+resolution = "not applicable; TSFLab evaluates its own test windows."
+
+[[issues]]
+kind = "code-bug"
+where = "`scripts/StaTS/all.sh` line 1"
+what = "the shebang is `!/bin/bash` (missing `#`), and the README runs this script."
+resolution = "not applicable."
+
+[[issues]]
+kind = "license"
+where = "repository root at `5f0b50ee`"
+what = "no LICENSE file (the README says the paper is under review)."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

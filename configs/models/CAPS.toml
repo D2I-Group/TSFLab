@@ -1,0 +1,12 @@
+[model]
+name = "CAPS"
+
+[model.params]
+enc_in = 7
+d_model = 16
+value_dim = 16
+n_heads = 4
+e_layers = 3
+dropout = 0.0
+channel_dropout = true
+learn_rope_freq = true

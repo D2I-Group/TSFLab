@@ -1,0 +1,15 @@
+[model]
+name = "CALF"
+
+[model.params]
+enc_in = 7
+gpt_layers = 6
+n_principal = 500
+lora_rank = 8
+lora_alpha = 32.0
+lora_dropout = 0.1
+dropout = 0.1
+feature_weight = 0.01
+output_weight = 1.0
+feature_decay = 0.8
+alignment_loss = "l1"

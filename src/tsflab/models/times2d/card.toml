@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Times2D"
+tags = ["transformer", "cnn", "periodicity", "2d-variation", "patching", "derivative", "inception", "revin"]
+fits = ["multi-periodic", "long-lookback", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Times2D: Multi-Period Decomposition and Derivative Mapping for General Time Series Forecasting"
+url = "https://arxiv.org/abs/2504.00118"
+venue = "AAAI"
+year = 2025
+
+[code]
+url = "https://github.com/Tims2D/Times2D"
+revision = "ab819a00c8ebe446b7954897470f86508032f7a7"
+license = "AGPL-3.0-only"
+reference_sources = ["https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/models/Times2D.py", "https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/layers/encoders.py", "https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/layers/attention.py", "https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/layers/Conv_Blocks.py", "https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/layers/RevIN.py", "https://github.com/Tims2D/Times2D/blob/ab819a00c8ebe446b7954897470f86508032f7a7/scripts/times2D/longTerm/Times2D_ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:multi-period-2d-grid"
+temporal = "local:period-patch-conv2d+local:residual-attention-encoder+component:positional_encoding+local:derivative-heatmap+component:inception_block"
+channel = "local:channel-independent-periods+local:channel-mixing-heatmap-conv"
+head = "local:concat-period-linear+local:heatmap-linear"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (inception input maps)" }
+periods = { from = "period", rule = "dataset periods in steps (e.g. from the training spectrum); ceil(seq_len / period) grid rows each" }
+patch_lens = { from = "period", rule = "one patch width per period, same length as periods" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 1-3 vs `models/Times2D.py` `forward`"
+what = "the paper selects the top-k FFT periods per batch, but the official `FFT_for_Period` call is commented out and a fixed period list is hard-coded, because the patch convolutions and linear maps are sized per period."
+resolution = "fixed `periods`/`patch_lens` parameters with the official ETTh1 values as defaults."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (16) vs `models/Times2D.py` (`nn.Parameter(torch.randn(self.batch, 2))`)"
+what = "the derivative weights are one learned pair per batch row, so only full batches work."
+resolution = "one shared learned pair as in Eq. (16)."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Times2D.py` `forward` (`data == 'm4'` branch)"
+what = "fresh `torch.randn(B, 2)` derivative weights are drawn at every forward pass, so they are random and never trained."
+resolution = "the shared learned pair is used for every dataset; no M4 presets are provided."

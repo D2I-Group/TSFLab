@@ -1,0 +1,15 @@
+extends = ["../base.toml", "../datasets/etth1.toml"]
+
+[evaluation]
+enable_profile = true
+
+[sweep.extend]
+models = [
+  "../models/DLinear.toml",
+  "../models/Linear.toml",
+  "../models/NLinear.toml",
+  "../models/RLinear.toml",
+]
+
+[sweep.task]
+pred_len = [96, 192, 336, 720]

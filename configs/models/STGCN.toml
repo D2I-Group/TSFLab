@@ -1,0 +1,15 @@
+[model]
+name = "STGCN"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+Kt = 3
+Ks = 3
+hidden_dim = 32
+bottleneck_dim = 8
+out_hidden_dim = 32
+act_func = "glu"
+graph_conv_type = "cheb_graph_conv"
+bias = true
+droprate = 0.1

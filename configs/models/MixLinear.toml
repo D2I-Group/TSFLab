@@ -1,0 +1,9 @@
+[model]
+name = "MixLinear"
+
+[model.params]
+enc_in = 7
+downsample = 4
+segments = 4
+hidden_rank = 2
+spectral_rank = 2

@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "HimNet"
+tags = ["gnn", "rnn", "spatiotemporal", "graph-learning", "meta-learning", "calendar-embedding"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite after reviewing the paper and the pinned BasicTS code, and documents no paper or official-code problem."
+
+[paper]
+title = "Heterogeneity-Informed Meta-Parameter Learning for Spatiotemporal Time Series Forecasting"
+url = "https://doi.org/10.1145/3637528.3671961"
+venue = "KDD 2024"
+year = 2024
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:meta-graph-gru-encoder-decoder"
+channel = "component:adaptive_node_embedding_adjacency+component:node_adaptive_graph_conv"
+head = "local:autoregressive-linear-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes N, one value per node (num_nodes is injected by the runner)" }
+steps_per_day = { from = "frequency", rule = "samples per day of the sampling frequency (288 for 5-minute data, 24 for hourly); sizes the time-of-day embedding" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

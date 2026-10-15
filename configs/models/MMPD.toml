@@ -1,0 +1,13 @@
+[model]
+name = "MMPD"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+patch_len = 8
+num_heads = 4
+adjacent_range = 1
+diffusion_steps = 100
+denoiser_depth = 2
+diffusion_weight = 0.99

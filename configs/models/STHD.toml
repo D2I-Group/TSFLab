@@ -1,0 +1,14 @@
+[model]
+name = "STHD"
+
+[model.params]
+enc_in = 7
+k = 13
+patch_len = 12
+stride = 6
+d_model = 256
+n_heads = 4
+e_layers = 2
+d_ff = 384
+dropout = 0.2
+activation = "gelu"

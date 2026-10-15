@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "segment_mlp"
+role = "Maps fixed-length series segments to LLM tokens and LLM hidden states back to segments for LLM-backbone forecasters."
+slot = "input"
+fits = ["any"]
+category = "embedding"
+tags = ["segment", "token", "mlp", "projection", "embedding", "llm", "linear"]
+input = "[..., f_in] (a segment of token_len values, or an LLM hidden state)"
+output = "[..., f_out]"
+origin = "SegmentEmbedding / SegmentProjection of AutoTimes (Liu et al., 'AutoTimes: Autoregressive Time Series Forecasters via Large Language Models', NeurIPS 2024); reused as the forecast head of TALON (arXiv 2508.07195)"
+origin_models = ["autotimes", "talon"]

@@ -1,0 +1,16 @@
+[model]
+name = "TimeMixer"
+
+[model.params]
+enc_in = 7
+c_out = 7
+e_layers = 2
+d_model = 16
+d_ff = 32
+down_sampling_window = 2
+down_sampling_layers = 3
+moving_avg = 25
+top_k = 5
+dropout = 0.0
+use_norm = true
+decomp_method = "moving_avg"

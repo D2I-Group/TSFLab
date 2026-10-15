@@ -1,0 +1,14 @@
+[model]
+name = "WPMixer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+dropout = 0.1
+tfactor = 5
+dfactor = 5
+wavelet = "db2"
+level = 1
+patch_len = 16
+stride = 8
+no_decomposition = false

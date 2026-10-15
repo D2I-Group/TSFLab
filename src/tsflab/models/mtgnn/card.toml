@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MTGNN"
+tags = ["gnn", "graph-learning", "spatiotemporal", "cnn", "covariates"]
+fits = ["spatial-graph", "high-cross-correlation", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a rewrite of the directed graph constructor, top-k sparsification, mix-hop propagation, dilated gated temporal convolutions and skip/output head from the paper; its listed differences (one kernel size per layer, graph-prior mixing, no official training protocol) are TSFLab scoping choices, and no paper or official-code problem is documented."
+
+[paper]
+title = "Connecting the Dots: Multivariate Time Series Forecasting with Graph Neural Networks"
+url = "https://doi.org/10.1145/3394486.3403118"
+venue = "KDD 2020"
+year = 2020
+
+[code]
+url = "https://github.com/nnzhan/MTGNN"
+revision = "f811746fa7022ebf336f9ecd2434af5f365ecbf6"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:gated_dilated_conv"
+channel = "local:learned-graph-mixhop"
+head = "local:last-step-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the dataset's node count" }
+adj_mx = { from = "graph", rule = "the dataset's N x N adjacency, injected by the runner; identity when absent" }
+subgraph_size = { from = "nodes", rule = "top-k neighbours per node, capped at the node count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,110 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TSRM"
+tags = ["transformer", "cnn", "multi-scale", "sparse-attention", "channel-independent", "normalization"]
+fits = ["weak-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TSRM: A Lightweight Temporal Feature Encoding Architecture for Time Series Forecasting and Imputation"
+url = "https://arxiv.org/abs/2504.18878"
+venue = "arXiv"
+year = 2025
+
+[code]
+url = "https://github.com/RobertLeppich/TSRM"
+revision = "df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/RobertLeppich/TSRM/blob/df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b/architecture/model.py", "https://github.com/RobertLeppich/TSRM/blob/df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b/architecture/multiHeadAttention.py", "https://github.com/RobertLeppich/TSRM/blob/df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b/embedding/data_embedding.py", "https://github.com/RobertLeppich/TSRM/blob/df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b/architecture/RevIN.py", "https://github.com/RobertLeppich/TSRM/blob/df90dabaa7ea3ca2e0e5ebe7a6de504a01708e6b/experiments/setups.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:conv-representation-attention-merge-layers"
+channel = "none"
+head = "component:flatten_forecast_head"
+loss = "loss:mse+loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+conv_layers = { from = "seq_len", rule = "each [kernel, dilation, groups] must fit seq_len; paper sizes the largest kernel to about 50-80% of the input (defaults tuned for seq_len 96)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.1 (embedding) vs `architecture/model.py` `Transformations.transform` and `embedding/data_embedding.py` `DataEmbedding`"
+what = "the paper lifts each value, adds a positional embedding and then applies RevIN; the code applies RevIN to the raw values first and adds no positional embedding (`PositionalEmbedding` is commented out; the time-feature embedding behind `add_embedding` is unset in every forecasting config)."
+resolution = "follow the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`embedding/data_embedding.py` `DataEmbedding`"
+what = "one `Linear(1, d)` is built per feature, but the input is reshaped to `[B * F, T, 1]` first, so only `value_embedding[0]` is ever used, and the optional `[B, T, d]` time embedding cannot broadcast onto the `[B * F, T, d]` rows."
+resolution = "one shared bias-free lift; no time embedding."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.1 (middle encoding blocks, \"layer normalization\") vs `EncodingLayer.__init__`"
+what = "the code uses `nn.GroupNorm(num_groups=1)`, which normalizes each sequence over all positions and features jointly."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.1 (second block, \"a linear layer\") vs `PositionalFeedforward`"
+what = "the code applies two linear layers with a ReLU after the second."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (1)"
+what = "no activation after the RL convolutions is stated; `EncodingLayer.forward` applies ELU."
+resolution = "ELU."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (2)"
+what = "the transposed convolutions cannot restore `T` when `T - delta (s - 1) - 1` is not a multiple of the stride; the code sets `output_padding = T - restored`."
+resolution = "same."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.1 (\"the gradients of the ML can be deactivated\") and Sec. 3.1 (\"activated ML gradients\" in the search)"
+what = "no such switch exists at this revision (`requires_grad` is only changed in `TSRMClassification`)."
+resolution = "ML always trained."
+
+[[issues]]
+kind = "code-bug"
+where = "`EncodingLayer.forward` with `add_pooled_representations` (set in `experiments/configs/forecasting_traffic_ds.yml`)"
+what = "pooled representations join the attention sequence and the global residual, but the merge loop runs only over `representation_layers`, so they never reach the layer output."
+resolution = "option not implemented."
+
+[[issues]]
+kind = "code-bug"
+where = "`experiments/configs/forecasting_*.yml`"
+what = "`conv_dims` holds fractional kernel sizes (`[[0.1, 1, -1], [0.2, 1, -1], [0.6, 1, -1]]`) that `nn.Conv1d` cannot use; runs work only because `experiments/setups.py` overrides them with integer kernels."
+resolution = "integer kernels from `setups.py`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix E (largest kernel covers about 50-80% of the input) vs `experiments/setups.py`"
+what = "the shipped forecasting kernels `(10, dilation 3)` or `(15, dilation 3)` cover 28 or 43 of 96 steps."
+resolution = "defaults follow `setups.py`."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_factory.py` (`flag == 'test'`"
+what = "`drop_last = True`) and `TSRMForecasting._run` / `Transformations` (reshape by `config[\"batch_size\"]`): the last incomplete test batch is dropped, so reported test metrics omit the final windows, and the model cannot run on any other batch size."
+resolution = "shapes taken from the input; evaluation follows the catalog runner."
+
+[[issues]]
+kind = "unreleased"
+where = "`experiments/setups.py`"
+what = "several datasets list search grids (for example ETTm1 `N` in {2, 4, 8, 10, 12}, two conv configurations, `feature_ff` in {True, False}) instead of the selected configuration per dataset and horizon."
+resolution = "defaults from the single-valued ETTh1 setup (`h = 16`, `N = 7`, `d = 64`, `entmax15`, kernels 3/5/10 with dilations 1/2/3, depthwise, dropout 0.25)."

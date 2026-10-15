@@ -1,0 +1,27 @@
+[model]
+name = "D3VAE"
+
+[model.params]
+enc_in = 7
+freq = "h"
+embedding_dim = 64
+hidden_size = 128
+num_layers = 2
+dropout = 0.1
+diff_steps = 100
+beta_start = 0.0
+beta_end = 0.01
+target_scale = 0.1
+num_channels_enc = 32
+num_channels_dec = 32
+num_blocks = 1
+num_preprocess_cells = 3
+num_postprocess_cells = 2
+groups_per_scale = 2
+latent_per_group = 8
+score_channels = 64
+denoise_step = 0.001
+clamp = 1.0
+psi = 0.5
+lambda_dsm = 1.0
+gamma = 0.01

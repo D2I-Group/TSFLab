@@ -1,0 +1,11 @@
+[model]
+name = "ExtraTreesTS"
+
+[model.params]
+enc_in = 7
+num_estimators = 24
+tree_depth = 2
+threshold_range = 1.0
+temperature = 1.0
+random_seed = 1733
+use_revin = true

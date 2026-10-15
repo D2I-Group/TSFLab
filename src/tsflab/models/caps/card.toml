@@ -1,0 +1,134 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CAPS"
+tags = ["transformer", "linear-attention", "gated-attention", "rope", "channel-independent", "decay"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CAPS: Unifying Attention, Recurrence, and Alignment in Transformer-based Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.02729"
+venue = "arXiv"
+year = 2026
+
+[code]
+url = "https://github.com/vireshpati/CAPS-Attention"
+revision = "e6263fd4bb664cab2fa0b235ca47349d73ebbca8"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/vireshpati/CAPS-Attention/blob/e6263fd4bb664cab2fa0b235ca47349d73ebbca8/models/caps.py", "https://github.com/vireshpati/CAPS-Attention/blob/e6263fd4bb664cab2fa0b235ca47349d73ebbca8/caps.sh"]
+
+[composition]
+normalization = "component:last_value_center"
+decomposition = "none"
+temporal = "local:caps-three-path-clock-linear-attention"
+channel = "local:dual-channel-value-tokens-channel-independent"
+head = "local:linear-horizon-fill-value-embedding-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; the channel token W_c x_t reads all channels at each step" }
+d_model = { from = "channels", rule = "official scripts use 4 * nearest_power_of_two(sqrt(enc_in + 4)) for both token widths (16 for ETT); d_model + value_dim must split into n_heads heads of even width" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/caps.py` `SimpleRoPE`"
+what = "`_rot` pairs interleaved dimensions `(2l, 2l+1)` while `_cos_sin` lays the angles out as `cat(freqs, freqs)`, so the two members of a pair are turned by different angles; the map is not a rotation and `q^_t . k^_i` no longer depends only on `t - i`, contrary to Eq. (8) and Proposition 3.3 (iii)."
+resolution = "each pair is rotated by one angle `t w_l`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (8) (\"learned frequencies\") vs `SimpleRoPE.__init__`"
+what = "the frequencies are a fixed base-10000 buffer."
+resolution = "learned frequencies initialized at the base-10000 schedule (`learn_rope_freq = true`); `false` keeps them fixed."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/caps.py` `CAPSAttention._forward_add` (`gj.cumsum(dim=1).clip(-50, 40)`)"
+what = "the cumulative log-gate is clipped, so once the prefix decay passes `e^-50` the ratio `Gamma_t / Gamma_i` saturates to 1 and the decay of Eq. (14) stops for later positions."
+resolution = "the same floor of -50 is kept as a numerical guard for the factorized `Gamma_t`, `1 / Gamma_i` form (without it the product overflows); Eq. (14) holds exactly while the prefix log-decay stays above -50."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) (`p~max` over `j <= t`) vs `CAPSAttention._forward_add` (`p.max(dim=1)` over the whole extended sequence)"
+what = "the shift cancels in the ratio, so there is no leakage, but early prefixes can underflow to zero and the code then divides by `1e-8`."
+resolution = "the same global shift with the denominator clamped to the smallest positive float."
+
+[[issues]]
+kind = "code-bug"
+where = "`CAPSAttention._softmax_attention_additive` (`is_causal=False`)"
+what = "the softmax variant of the Table 2 ablation attends to later positions although every path normalizer is a causal prefix sum."
+resolution = "only the linear variant (the paper's main model) is implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. A.2 (`f_endo = f_exo = 64`, `8` for ETTh) vs `caps.sh` (`d_model=0`) and `Model.__init__`"
+what = "both token widths come from `4 * nearest_power_of_two(sqrt(enc_in + time_emb_dim))`, i.e. 16 + 16 for the ETT datasets."
+resolution = "explicit `d_model` and `value_dim` parameters with the script's ETT widths 16 + 16 as defaults."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table 4 (527K parameters on ETTm1, `L = H = 96`) vs `caps.sh` with `models/caps.py`"
+what = "the scripted ETTm1 configuration (width 32, 3 layers, 4 heads) has about 59K parameters by layer count."
+resolution = "defaults follow the script; widths and depth are parameters."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. A.3 (inputs are the series channels) vs `caps.sh` (`time_emb_dim=4`) and `Model.forward`"
+what = "four calendar features, shifted by their last value and divided by their window standard deviation, are appended as extra input channels of the channel token."
+resolution = "no calendar channels; the marks are ignored."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. A.3 vs `Model.__init__`"
+what = "a learned position table over `L + H` steps (`pos_emb`, zero init) and a per-channel embedding (`channel_emb_2`, zeros) are added to the tokens but not described."
+resolution = "both are included as in the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. A.3"
+what = "the decoder `y_{c,t} = h_{c,t} V_c^T` multiplies a `(d_model + d_emb)`-vector by `V_c` in `R^{1 x d_emb}`; the code decodes only the last `d_emb` entries (the value slice)."
+resolution = "the value slice."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (9)-(13)"
+what = "the shapes of `p_t = W_p h_t` and `g_t = W_g h_t` are not stated (scalar per head or per feature); the code uses `d_model`-wide projections, i.e. one rate per feature."
+resolution = "per feature (a diagonal SPD scaling, Def. 2.2)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. A.3 (survivors rescaled by `(1 - r_b)^-1`) vs `random_ratio_channel_dropout_vectorized`"
+what = "survivors are divided by the realised keep fraction."
+resolution = "the realised keep fraction (bounded, equal in expectation)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. A.2 (GPT-2 scaling of \"output projection layers\")"
+what = "the code scales both the attention and feed-forward `c_proj` weights by `1 / sqrt(2N)`, and creates `out_fill` after the custom initialization, so it keeps PyTorch's default."
+resolution = "the code's initialization."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. A.2 (weight decay `1e-5` for most datasets, `0.1` for ETTh) vs `caps.sh` (`weight_decays`"
+what = "0 for ETTm, 0.1 for ETTh and Weather)."
+resolution = "optimizer settings are run configuration, not part of the model."
+
+[[issues]]
+kind = "leakage"
+where = "`exp/exp_main.py` `Exp_Main.train`"
+what = "besides the validation-selected `best_test_metrics`, the run logs `min_test_metrics`, the per-metric minimum test score over all evaluations, and the paper does not say which is reported."
+resolution = "the catalog selects checkpoints on validation only."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

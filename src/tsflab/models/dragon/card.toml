@@ -1,0 +1,91 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DRAGON"
+tags = ["gnn", "hybrid", "de-bruijn-graph", "symbolic", "discretization", "graph-attention", "graph-diffusion", "fft-period", "plug-in"]
+fits = ["multi-periodic", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Multivariate de Bruijn Graphs: A Symbolic Graph Framework for Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.22768"
+venue = "ICML 2025 Workshop on Foundation Models for Structured Data"
+year = 2025
+
+[code]
+url = "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library"
+revision = "6b9fa5647b442aa941f150618bbc2cf74732cadb"
+license = "MIT"
+reference_sources = ["https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/dBG/MultiDeBruijnGraph.py", "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/dBG/dBGSampler.py", "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/dBG/GraphEncoder.py", "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/data_provider/data_loader.py", "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/models/TimesNet.py", "https://github.com/KurbanIntelligenceLab/MultdBG-Time-Series-Library/blob/6b9fa5647b442aa941f150618bbc2cf74732cadb/runscripts/runscripts/slurm_jobs/dBG_window/TimesNet_ETTh1_96.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:embed+component:dominant_periods+local:times-block+component:inception_block"
+channel = "local:mdbg-graph-encoder"
+head = "local:linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of variables; the training series must be [T, enc_in]" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 2.2 and Fig. 2 (\"encodes a subgraph of MdBG corresponding to the current input sequence\") vs `dBG/GraphEncoder.py` `GraphEncoder_Attn_new.forward`"
+what = "graph attention runs over the whole graph on inputs sampled from training tuples, independent of the window; the window only selects a binary node mask applied after the last attention layer, the masked-out (zero) nodes still take part in the time-query softmax, and the order of the window's tuples is lost (the `S` output rows come from learned queries, not input time steps)."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 2.2 (outputs of several DRAGON modules \"combined using an attention pooling mechanism\") vs `models/TimesNet.py` `Model.forecast`"
+what = "the encoders are combined by the softmax of one learned, input-independent weight each (`dBG_pooler`)."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 lines 23-28 (edge weights count k-tuple frequencies) vs `dBG/GraphEncoder.py` `GraphEncoder_Attn_new` and `data_provider/data_loader.py` `dBG_Dataset`"
+what = "`from_networkx` stores the counts as a `weight` attribute that `T.GDC` (unit weights without `edge_attr`) and `GATConv` (called with `edge_index` only) never read, and the diffusion weights are also discarded after sparsification."
+resolution = "only edge sets are used, as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix A (feature tuples \"randomly sampled (with replacement)\", `f = 16`) vs `data_provider/data_loader.py` `dBG_Dataset.__init__`, `dBG/GraphEncoder.py` `GraphEncoder_Attn_new.forward` and `runscripts/runscripts/slurm_jobs/dBG_window/TimesNet_ETTh1_96.sh`"
+what = "each node's tuple set is cyclically repeated to the largest set size and slots are drawn uniformly from that padded length, which over-weights a node's earliest tuples unless its count divides the maximum; the script samples `--node_feat_size 4`."
+resolution = "the code's sampling distribution (slot `j mod count`) and the script value are used."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 2.1.2 (PPR graph diffusion) vs `dBG/GraphEncoder.py` `GraphEncoder_Attn_new.__init__` and `run.py`"
+what = "the paper gives no diffusion settings; the code uses PyTorch Geometric `GDC` with unit self-loops, symmetric input normalization, exact PPR with `alpha = 0.05`, and top-`k` sparsification per column (`dim = 0`, `--dBG_topk`)."
+resolution = "implemented with these settings."
+
+[[issues]]
+kind = "underspecified"
+where = "Appendix C.2 (\"optimal\" TimesNet hyperparameters; one DRAGON configuration reported) vs `runscripts/ETTh1.py` (and `ETTh2.py`, `ETTm1.py`, `ETTm2.py`)"
+what = "a 108-configuration grid over `d_graph`, encoder layers, `node_feat_size`, heads and GDC top-k is generated per horizon, and the paper does not say how the reported configuration was selected."
+resolution = "the preset follows the committed `TimesNet_ETTh1_96.sh` job."
+
+[[issues]]
+kind = "code-bug"
+where = "`dBG/GraphEncoder.py` `GraphEncoder_Attn_new.__init__`"
+what = "`key_linear` and `feature_query` (the commented \"feature-level attention\") are created but never used; the sampled tuples are flattened through `value_linear` only."
+resolution = "the unused layers are omitted."
+
+[[issues]]
+kind = "code-bug"
+where = "`dBG/MultiDeBruijnGraph.py` `MultivariateDeBruijnGraph.insert`"
+what = "the clean-up meant to drop the node feature lists before `from_networkx` pops a non-existent `'feat'` key (the attribute is `'features'`); it has no effect on results."
+resolution = "not applicable."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 2.1 and Appendix C (ETT experiments, 7 variables) vs `dBG/MultiDeBruijnGraph.py` `__add_hyper_edges` and `dBG/GraphEncoder.py` `GraphEncoder_Attn_new` (`T.GDC(..., exact=True)`, `GATConv(d_data, d_data, heads)`)"
+what = "the paper does not address many variables. The code joins all D variables of every step by a clique (D (D - 1) edges per step), computes the exact PPR diffusion as a dense N x N inverse, and runs graph attention of width `heads x D` over the whole graph for every window. Node counts on the training splits with alphabet 20 / 30: ETTh1 4141 / 8104, weather 11951 / 21025, covid19 75769 / 105124, wike2000 244996 / 362018, traffic 459199 / 782595, pems07 606290 / 1297182; a dense float64 matrix for 245k nodes takes 480 GB."
+resolution = "construction is unchanged where it fits; `DragonEncoder.fit` (in `training_setup`, before the first epoch) raises a ValueError when a graph has more than 32768 nodes or one attention layer would hold more than 2^30 edge x head x width values, so such datasets are recorded as not applicable."

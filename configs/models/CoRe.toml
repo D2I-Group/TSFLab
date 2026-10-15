@@ -1,0 +1,10 @@
+[model]
+name = "CoRe"
+
+[model.params]
+enc_in = 7
+context_len = 5
+var_wise_gating = true
+scr_rank = 0
+gate_init = 0.0
+gate_bias_init = -1.0

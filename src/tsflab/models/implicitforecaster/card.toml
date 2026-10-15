@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ImplicitForecaster"
+tags = ["mlp", "frequency", "decoder", "channel-independent", "normalization"]
+fits = ["long-horizon", "multi-periodic"]
+fidelity = "reference-checked"
+issues_checked = "Eqs. (2), (5), (6) checked against `models/IFT.py` at the pinned revision; the card records only TSFLab scoping choices (compact MLP encoder, single frequency pool)."
+
+[paper]
+title = "Towards Accurate Time Series Forecasting via Implicit Decoding"
+url = "https://proceedings.neurips.cc/paper_files/paper/2025/hash/0e82ef0c89df6a6eff8734ea7e27c42f-Abstract-Conference.html"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/rakuyorain/Implicit-Forecaster"
+revision = "e3e7f77fb0489c2b5e58eac990096668b8b0aff4"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/rakuyorain/Implicit-Forecaster/blob/e3e7f77fb0489c2b5e58eac990096668b8b0aff4/models/IFT.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:mlp-encoder-with-history-spectrum"
+channel = "local:channel-independent-shared-weights"
+head = "local:amplitude-phase-irfft-wave-composition"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shared channel-independent weights)" }
+frequency_pool = { from = "pred_len", rule = "wave-pool length; effective value is max(pred_len, frequency_pool), default 2 * pred_len; the paper searches it per benchmark" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

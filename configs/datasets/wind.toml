@@ -1,0 +1,8 @@
+[dataset]
+name = "custom"
+path = "./dataset/Wind/Wind.csv"
+
+[dataset.params]
+target = "target"
+scale = true
+split_ratio = [0.7, 0.1, 0.2]

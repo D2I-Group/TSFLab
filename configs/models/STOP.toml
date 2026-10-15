@@ -1,0 +1,13 @@
+[model]
+name = "STOP"
+
+[model.params]
+enc_in = 6
+model_dim = 16
+prompt_dim = 16
+num_layer = 2
+hid_dim = 64
+tod_size = 24
+kernel_size = 3
+core = 4
+head = 4

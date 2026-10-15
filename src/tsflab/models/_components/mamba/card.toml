@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "mamba"
+role = "Selective state-space sequence mixer over time or variate tokens, a linear-time recurrent alternative to self-attention."
+slot = "temporal"
+fits = ["any"]
+category = "state-space"
+tags = ["mamba", "mixer", "rmsnorm", "ssm", "state-space", "selective-scan", "causal", "kernel-free"]
+input = "[batch, length, d_model]"
+output = "MambaBlock, MambaResidualBlock and RMSNorm: same shape as input [batch, length, d_model]"
+origin = "Mamba selective state space model, Gu and Dao, 2023 (arXiv 2312.00752); the portable scan follows the MambaSimple port in the Time-Series-Library (thuml)"
+origin_models = ["mambasimple", "s_mamba", "bimamba", "mambats"]

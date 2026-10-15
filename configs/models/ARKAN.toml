@@ -1,0 +1,11 @@
+[model]
+name = "ARKAN"
+
+[model.params]
+enc_in = 7
+lag = 20
+hidden = 50
+grid = 3
+spline_order = 3
+grid_bound = 1.0
+ar_estimator = "least_squares"

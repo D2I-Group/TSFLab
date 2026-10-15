@@ -1,0 +1,22 @@
+[model]
+name = "DropoutTS"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+padding_patch = "end"
+e_layers = 1
+d_model = 256
+n_heads = 1
+d_ff = 1024
+activation = "gelu"
+norm = "BatchNorm"
+attn_dropout = 0.1
+dropout = 0.1
+revin = true
+affine = true
+p_min = 0.05
+p_max = 0.5
+init_alpha = 10.0
+init_sensitivity = 1.0

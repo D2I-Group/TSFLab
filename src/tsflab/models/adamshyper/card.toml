@@ -1,0 +1,74 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AdaMSHyper"
+tags = ["gnn", "hypergraph", "multi-scale", "graph-learning", "attention-variant", "normalization", "revin"]
+fits = ["multi-periodic", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Ada-MSHyper: Adaptive Multi-Scale Hypergraph Transformer for Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.23992"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/shangzongjiang/Ada-MSHyper"
+revision = "8efd34c8737b0e4dafbd247794213d0278e1dc06"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/shangzongjiang/Ada-MSHyper/blob/8efd34c8737b0e4dafbd247794213d0278e1dc06/models/ASHyper.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:strided-conv-multi-scale-pyramid"
+temporal = "component:adaptive_node_embedding_adjacency+local:intra-scale-hypergraph-attention-and-inter-scale-hyperedge-attention"
+channel = "local:channel-mixing-feature-projections"
+head = "local:concat-node-hyperedge-linear-head"
+loss = "loss:mse+local:node-hyperedge-constraint"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; also the hypergraph feature width" }
+window_size = { from = "seq_len", rule = "seq_len // prod(window_size) must be >= 1; each window is the stride of one pyramid level" }
+
+[[issues]]
+kind = "code-bug"
+where = "`models/ASHyper.py` (`adj = torch.where(adj > 0.5, 1, 0)`)"
+what = "the incidence matrix is binarized with `torch.where`, which blocks every gradient to the node and hyperedge embeddings, so the adaptive hypergraph is never learned from the forecast loss."
+resolution = "binary forward value with a straight-through term so the soft scores receive gradients."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 3-16 (single linear head over node and hyperedge tokens) vs `models/ASHyper.py` forward"
+what = "the official head sums a DLinear-style input skip, a node-token linear and a hyperedge-token linear zero-padded to a hard-coded 80, then applies another `pred_len -> pred_len` linear."
+resolution = "the paper's single linear, no input skip."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "incidence equation vs `models/ASHyper.py` (`self.alpha=3`)"
+what = "logits are scaled by a fixed factor 3 and empty hyperedge columns are dropped."
+resolution = "`softmax(relu(E_node E_hyper^T))` without the factor; empty hyperedges are masked."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 10-13 vs `models/ASHyper.py` constraint loss"
+what = "the node loss is `|mean(v_i - e_j)|`, the hyperedge loss sums over all ordered pairs including a hyperedge with itself with a hard-coded margin 4.2, terms use unit weights, and validation scores `0.2 * MSE + 0.8 * |constraint|`."
+resolution = "Eq. 10-13 (mean absolute node gap, average over non-empty distinct pairs, `lambda_balance` mix) as a training-only `aux_loss`."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/ASHyper.py` hard-coded sizes (80, 76, 100, 320)"
+what = "layer widths are fixed numbers rather than derived from `seq_len` and `hyper_num`, so other settings do not fit."
+resolution = "sizes derived from `seq_len` and `hyper_num`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation from the paper, code consulted for structure only; license recorded as `NOASSERTION`."

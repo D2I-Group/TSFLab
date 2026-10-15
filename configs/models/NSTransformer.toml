@@ -1,0 +1,13 @@
+[model]
+name = "NSTransformer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+n_heads = 8
+e_layers = 2
+d_layers = 1
+d_ff = 256
+dropout = 0.1
+p_hidden_dims = [128, 128]
+p_hidden_layers = 2

@@ -1,0 +1,12 @@
+[model]
+name = "GraphLassoMTSF"
+
+[model.params]
+enc_in = 7
+rnn_units = 32
+num_rnn_layers = 1
+max_diffusion_step = 1
+lasso_lambda = 0.02
+cov_eps = 0.001
+use_curriculum_learning = true
+cl_decay_steps = 2000

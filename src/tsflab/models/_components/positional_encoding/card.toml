@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "positional_encoding"
+role = "Gives tokens (typically patches) a fixed-length position signal so order-agnostic attention sees temporal order."
+slot = "input"
+fits = ["any"]
+category = "embedding"
+tags = ["encoding", "patch", "position", "transformer", "sinusoidal", "learnable", "additive", "table", "sincos", "factory"]
+input = "kind: str | None, learnable: bool, length: int >= 1, width: int >= 1 (no tensor input)"
+output = "nn.Parameter [length, width] (kinds sincos, zeros, small_uniform_2d, lin2d, exp2d, None); [length, 1] for kinds zero, small_uniform, normal, gauss, uniform, lin1d, exp1d"
+origin = "Position-table modes of the PatchTST code base (Nie et al., ICLR 2023); implementation is a clean-room rewrite"
+origin_models = ["patchtst"]

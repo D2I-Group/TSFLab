@@ -1,0 +1,12 @@
+[model]
+name = "Sensorformer"
+
+[model.params]
+enc_in = 7
+d_model = 64
+n_heads = 4
+d_ff = 128
+layers = 2
+patch_len = 16
+stride = 8
+dropout = 0.1

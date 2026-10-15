@@ -1,0 +1,122 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DRFormer"
+tags = ["transformer", "patch", "multi-scale", "dynamic-sparse-training", "receptive-field", "rotary-position", "max-pooling", "deconvolution", "channel-independent", "revin"]
+fits = ["long-horizon", "multi-periodic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DRFormer: Multi-Scale Transformer Utilizing Diverse Receptive Fields for Long Time-Series Forecasting"
+url = "https://arxiv.org/abs/2408.02279"
+venue = "CIKM 2024"
+year = 2024
+
+[code]
+url = "https://github.com/ruixindingECNU/DRFormer"
+revision = "30dcae622ce21e9f2224287cc5c07fd7dae28bfa"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/models/DRFormer.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/layers/ROPEAttentionLayer.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/layers/Embed.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/layers/Transformer_EncDec.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/utils/sparse_learning.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/exp/exp_main.py", "https://github.com/ruixindingECNU/DRFormer/blob/30dcae622ce21e9f2224287cc5c07fd7dae28bfa/scripts/ETT_script/DRFormer_ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:transformer_encdec+component:self_attention_family+local:group-aware-rope-multi-scale-tokens"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head+local:deconvolution-scale-fusion"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+patch_len = { from = "seq_len", rule = "at most seq_len and divisible by mask_groups" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (11) vs `layers/ROPEAttentionLayer.py` (`ROPEAttentionGroupSequenceIngroupLayer.forward`)"
+what = "the paper adds the inter-group and intra-group score matrices, the code applies both rotations in sequence to one query/key pair (one score matrix whose angle differences add)."
+resolution = "Eq. (11) implemented; documented under Differences."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) vs `layers/ROPEAttentionLayer.py` (`RoFormerSinusoidalPositionalEmbeddingSequence._init_weight`)"
+what = "the paper rotates pair `k` by `i * theta_k` (group index), the code uses one angle `i / 10000^(m / L_i)` for every feature pair, varying with the in-group index `m` and zero for the base group."
+resolution = "Eq. (9) implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (7) vs `layers/ROPEAttentionLayer.py` (`RoFormerSinusoidalPositionalEmbeddingSequenceInGroup._init_weight`)"
+what = "the paper's intra-group position is `m / ceil(N / K)` in `[0, 1)`, the code multiplies it by the base length `N`."
+resolution = "the code's base-patch units are used, since the unscaled form leaves nearly all rotation frequencies near zero."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (12) vs `layers/Transformer_EncDec.py` (`EncoderLayer`)"
+what = "the paper writes `F + LN(Attn(F))`, the code is post-norm `LN(F + Attn(F))` with a convolutional feed-forward."
+resolution = "post-norm code layout via the shared `transformer_encdec` component."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/DRFormer.py` (`padding_list`, `conv_transpose_list`, `conv_transpose`)"
+what = "with symmetric padding `ceil((K - N mod K) / 2)`, the transposed convolution returns `N - 1` positions whenever `K - N mod K` is odd, so the sum with the base group fails for such `seq_len`/`patch_len`/`stride` combinations."
+resolution = "`output_padding = 1` in that case (`pooling_geometry`)."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_main.py` (`train`, AMP branch)"
+what = "with `--use_amp` the optimizer is stepped through the scaler and `mask.step()` is never called, so the indicator is not applied after the step."
+resolution = "the indicator multiplies the weight inside `forward`, independent of the optimizer path."
+
+[[issues]]
+kind = "code-bug"
+where = "`utils/sparse_learning.py` (`Masking.add_module`, `random_growth_channel`, `truncate_weights_channel`)"
+what = "masks and random tensors are moved with unconditional `.cuda()`, so dynamic sparse training cannot run on CPU."
+resolution = "device-agnostic buffers."
+
+[[issues]]
+kind = "code-bug"
+where = "`utils/sparse_learning.py` (`Masking.add_module`)"
+what = "the indicator is built from `group_num` blocks of `floor(d_model / group_num)` rows and `floor(patch_len / group_num)` window steps, so it mismatches the weight shape when `d_model` is not divisible by `group_num`."
+resolution = "`d_model` and `patch_len` must be divisible by `mask_groups` (validated)."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_main.py` (`prune_every_k_steps = (update_frequency * len(train_loader)) // 1`)"
+what = "fewer than 4 training batches give an update interval of 0 and a modulo by zero."
+resolution = "interval floored at 1."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/DRFormer.py`"
+what = "the `sep` parameter and the `group` argument of `FixMaskLinear` are never used."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2.3 vs `utils/sparse_learning.py` (`--sparsity`, help \"activation ratio\")"
+what = "the paper's sparse ratio `SR` bounds the inactive share, the code's `sparsity` is the active share (equal only at 0.5, the scripts' value)."
+resolution = "exposed as `active_ratio`."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2.5, Algorithm 1, Eq. (3)"
+what = "the update interval `Delta t`, the length of the mask-learning phase, and the floor of the annealed rate are not given (Eq. 3 also calls `alpha` a learning-rate control)."
+resolution = "taken from `exp/exp_main.py` and `utils/sparse_learning.py` (`update_frequency = 0.3` epoch, first `0.5 x train_epochs` epochs, `CosineDecay` floor `0.001`)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.5 vs `exp/exp_main.py` (`train`)"
+what = "the code trains `1.5 x train_epochs` epochs and reloads the best checkpoint when the mask freezes, a protocol the paper does not describe."
+resolution = "not reproduced; the run configuration controls epochs and early stopping."
+
+[[issues]]
+kind = "license"
+where = "repository root at `30dcae62`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

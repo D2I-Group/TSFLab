@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "revin"
+role = "Removes each window's level and scale before the model and restores them on the forecast, countering distribution shift between windows."
+slot = "normalization"
+fits = ["non-stationary", "train-val-level-shift", "train-val-scale-shift"]
+category = "normalization"
+tags = ["denormalization", "instance", "normalization", "reversible", "distribution-shift", "affine", "stateful"]
+input = "[batch, time, channels] (also any rank >= 3 with channels last)"
+output = "same shape as input"
+origin = "RevIN, Kim et al., ICLR 2022 (Reversible Instance Normalization for Accurate Time-Series Forecasting against Distribution Shift)"
+origin_models = ["patchtst"]

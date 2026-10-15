@@ -1,0 +1,93 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Esiformer"
+tags = ["transformer", "inverted-tokens", "interpolation", "sparse-ffn", "channel-mixing", "normalization", "time-series", "long-term"]
+fits = ["long-horizon", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Less is more: Embracing sparsity and interpolation with Esiformer for time series forecasting"
+url = "https://arxiv.org/abs/2410.05726"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/yyg1282142265/Esiformer"
+revision = "02eee55841f59cbf41036255223bce6fe79607dd"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yyg1282142265/Esiformer/blob/02eee55841f59cbf41036255223bce6fe79607dd/models/Esiformer.py", "https://github.com/yyg1282142265/Esiformer/blob/02eee55841f59cbf41036255223bce6fe79607dd/layers/Transformer_EncDec.py", "https://github.com/yyg1282142265/Esiformer/blob/02eee55841f59cbf41036255223bce6fe79607dd/layers/sparselinear.py", "https://github.com/yyg1282142265/Esiformer/blob/02eee55841f59cbf41036255223bce6fe79607dd/exp/exp_long_term_forecasting.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:two-aver-or-four-aver-interpolation+component:embed"
+channel = "component:self_attention_family+component:transformer_encdec+local:sparse-ffn-encoder-layer"
+head = "local:linear-variate-token-head"
+loss = "none"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+interpolation = { from = "seq_len", rule = "four_aver needs an even seq_len >= 4; two_aver needs seq_len >= 2" }
+freq = { from = "frequency", rule = "calendar-feature frequency; only hourly (h) is supported" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_long_term_forecasting.py` `four_aver`"
+what = "the output is allocated with `torch.empty` of length `int(3/2 T - 1)`; for odd `T` the last inserted slot is never written (uninitialised memory) and the final pair assignment writes past the buffer, so only even lookbacks work."
+resolution = "`four_aver` requires an even `seq_len` and never allocates uninitialised memory."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Esiformer.py` `Model.__init__`"
+what = "`--InterMethod four_aver` resizes the embedding to `3L/2 - 1` even when `--Interpolation` is off, so the embedding width no longer matches the input (the comment in `run.py` warns about it)."
+resolution = "a single `interpolation` parameter (`none`/`two_aver`/`four_aver`) sets both the transform and the width."
+
+[[issues]]
+kind = "code-bug"
+where = "`run.py`"
+what = "`--sparselinear` and `--Interpolation` use `type=bool`, so any non-empty value, including `False`, parses as `True`."
+resolution = "strict boolean and literal fields in the parameter schema."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/sparselinear.py` `GrowConnections.backward`"
+what = "references the undefined name `grad_outputs` (NameError), so the dynamic grow/prune path cannot run; Esiformer only uses the static mask (`dynamic=False`)."
+resolution = "only the static random mask is implemented."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Transformer_EncDec.py` `EncoderLayer.forward`"
+what = "in sparse mode the dense convolutional FFN is still built and evaluated on every call and its output discarded (wasted compute and unused trainable parameters)."
+resolution = "only the selected FFN is constructed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "`exp/exp_long_term_forecasting.py` `_select_criterion` vs Section III-A"
+what = "training always uses `nn.L1Loss` and ignores `--loss` (default `MSE`), while the paper states it follows PatchTST's setup."
+resolution = "TSFLab trains with the configured run loss; the L1 choice is recorded."
+
+[[issues]]
+kind = "underspecified"
+where = "Section II-C"
+what = "the paper does not state the sparsity level, how the sparse connectivity is chosen (random, fixed at initialisation), the FFN width, or that the mask stays fixed during training."
+resolution = "taken from `run.py` (`--sparsity 0.3`), `layers/sparselinear.py` (uniform sampling without replacement, static) and `scripts/MultiVariate/ETT/Esiformer.sh` (`d_model = d_ff = 128`)."
+
+[[issues]]
+kind = "underspecified"
+where = "Section II-B"
+what = "the paper does not say whether interpolation happens before or after instance normalization, or how calendar marks are handled."
+resolution = "per the experiment loop, the raw window is interpolated before the model normalizes it, and marks are midpoint-interpolated (FourAver keeps the matching TwoAver positions)."
+
+[[issues]]
+kind = "license"
+where = "repository root at `02eee558`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

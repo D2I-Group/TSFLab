@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "InterPDN"
+tags = ["mlp", "decomposition", "channel-independent", "distribution-output", "normalization"]
+fits = ["strong-trend", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "Eqs. (1)-(7) checked against `models/interPDN.py` at the pinned revision; the card records only TSFLab scoping choices (point output, compact seasonal encoder, no training-only coarse branches or consistency losses)."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (RevIN affine parameters and the input-shape check use it)" }
+
+[paper]
+title = "Time Series Forecasting via Direct Per-Step Probability Distribution Modeling"
+url = "https://arxiv.org/abs/2511.23260"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/leonardokong486/interPDN"
+revision = "7918983539d3d135a395dcccb3d66be29d2b02d2"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/leonardokong486/interPDN/blob/7918983539d3d135a395dcccb3d66be29d2b02d2/models/interPDN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:ema-trend-seasonal-split"
+temporal = "local:conv-and-linear-seasonal-trend-decoders"
+channel = "local:channel-independent-shared-weights"
+head = "local:support-set-probability-expectation"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

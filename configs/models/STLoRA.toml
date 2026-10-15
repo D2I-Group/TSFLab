@@ -1,0 +1,17 @@
+[model]
+name = "STLoRA"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+num_blocks = 1
+num_layers = 4
+rank = 16
+lora_alpha = 16.0
+nsp_hidden = 64
+nsp_dropout = 0.3
+init_dim = 32
+hid_dim = 64
+end_dim = 512
+backbone_layers = 2
+backbone_dropout = 0.3

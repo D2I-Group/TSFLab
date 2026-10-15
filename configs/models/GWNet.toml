@@ -1,0 +1,14 @@
+[model]
+name = "GWNet"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+dropout = 0.3
+residual_channels = 16
+dilation_channels = 16
+skip_channels = 64
+end_channels = 128
+kernel_size = 2
+blocks = 2
+layers = 2

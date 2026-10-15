@@ -1,0 +1,18 @@
+[model]
+name = "FRWKVPlus"
+
+[model.params]
+enc_in = 7
+d_model = 512
+d_ff = 512
+n_heads = 8
+e_layers = 2
+embed_size = 16
+dropout = 0.2
+activation = "gelu"
+period_len = 24
+num_routers = 4
+alpha_init = 0.1
+trust_bias_init = -2.0
+weighted_l1_loss = true
+loss_alpha = 0.5

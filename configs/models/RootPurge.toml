@@ -1,0 +1,10 @@
+[model]
+name = "RootPurge"
+
+[model.params]
+enc_in = 7
+domain = "frequency"
+individual = false
+instance_norm = true
+purge_lambda = 0.25
+purge_order = 1

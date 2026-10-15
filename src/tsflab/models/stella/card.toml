@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STELLA"
+tags = ["mlp", "spatiotemporal", "position-embedding", "lightweight", "weather", "covariates"]
+fits = ["many-channels", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "On the Integration of Spatial-Temporal Knowledge: A Lightweight Approach to Atmospheric Time Series Forecasting"
+url = "https://arxiv.org/abs/2408.09695"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/GestaltCogTeam/STELLA"
+revision = "cdb64e2d4b61cecc69ea2764a4af84624169f72e"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/GestaltCogTeam/STELLA/blob/cdb64e2d4b61cecc69ea2764a4af84624169f72e/stella/stella_arch.py", "https://github.com/GestaltCogTeam/STELLA/blob/cdb64e2d4b61cecc69ea2764a4af84624169f72e/stella/pos_embedding.py", "https://github.com/GestaltCogTeam/STELLA/blob/cdb64e2d4b61cecc69ea2764a4af84624169f72e/stella/mlp.py"]
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the station count" }
+coords_path = { from = "graph", rule = "station coordinates [stations, 3] in channel order; absent means a learnable per-station table" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:history-linear-embedding+local:hour-day-month-embedding"
+channel = "local:coordinate-spatial-embedding"
+head = "local:residual-mlp-encoder-linear-head"
+loss = "loss:mae"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied or imported."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (4) vs `stella/pos_embedding.py` (`hour_size = 24`, `day_size = 32`, `month_size = 13`)"
+what = "the paper's tables have 24/31/12 entries while the code allocates 24/32/13 and reads its calendar features in a dataset-dependent order."
+resolution = "the paper's sizes with zero-based day and month, indexed from the raw hour, day-of-month, and month marks."
+
+[[issues]]
+kind = "paper-error"
+where = "Theorem 3"
+what = "the `(T_h + T_f + 2) d` count of input/output parameters does not match the shape of the output bias (`T_h d + d + d T_f + T_f`)."
+resolution = "the actual layer shapes; the MLP and STPE terms match the theorem exactly."

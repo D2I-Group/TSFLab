@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "inception_block"
+role = "Captures multi-scale intra-period and inter-period variation after a series is folded into a 2-D image (cycles by phase, or time by derivative)."
+slot = "temporal"
+fits = ["strong-seasonality", "multi-periodic"]
+category = "convolution"
+tags = ["conv2d", "convolution", "inception", "multi-scale", "period-2d", "timesnet", "same-padding", "kaiming-init"]
+input = "x [batch, in_channels, height, width]"
+output = "[batch, out_channels, height, width]"
+origin = "Parameter-efficient inception block of TimesNet (Wu et al., ICLR 2023; Inception_Block_V1 in Time-Series-Library), after the multi-branch Inception module of Szegedy et al., CVPR 2015 (Going Deeper with Convolutions); reused by DRAGON (ICML 2025 FMSD workshop), Times2D (AAAI 2025) and WFTNet (ICASSP 2024)"
+origin_models = ["timesnet", "dragon", "times2d", "wftnet"]

@@ -1,0 +1,17 @@
+[model]
+name = "Times2D"
+
+[model.params]
+enc_in = 7
+periods = [720, 360, 110, 96, 48]
+patch_lens = [48, 32, 16, 6, 3]
+d_model = 64
+n_heads = 16
+e_layers = 3
+d_ff = 64
+num_kernels = 6
+dropout = 0.5
+attn_dropout = 0.05
+head_dropout = 0.0
+affine = false
+subtract_last = false

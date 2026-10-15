@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STTN"
+tags = ["transformer", "spatiotemporal", "attention-variant", "covariates", "graph-learning"]
+fits = ["spatial-graph", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Spatial-Temporal Transformer Networks for Traffic Flow Forecasting"
+url = "https://arxiv.org/abs/2001.02908"
+venue = "arXiv preprint"
+year = 2020
+
+[code]
+url = "https://github.com/xumingxingsjtu/STTN"
+revision = "d24f8d331a6d81b819cfe0a9430793ae028d25ad"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-self-attention-transformer"
+channel = "local:spatial-transformer-gated-with-fixed-adjacency"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes; input [B, seq_len, enc_in]" }
+adj_mx = { from = "graph", rule = "dataset adjacency [N, N], injected and row-normalized; all-ones when absent" }
+cov_dim = { from = "covariates", rule = "covariate features from marks (2 = time-of-day, day-of-week); zero-padded if fewer" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."

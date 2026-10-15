@@ -1,0 +1,9 @@
+[model]
+name = "ARMD"
+
+[model.params]
+enc_in = 7
+sampling_steps = 1
+loss_type = "l1"
+beta_schedule = "cosine"
+w_grad = true

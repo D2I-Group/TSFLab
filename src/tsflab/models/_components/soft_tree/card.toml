@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "soft_tree"
+role = "Differentiable decision-tree and tree-ensemble regression head over flattened lag-window features, for the tree baselines."
+slot = "head"
+fits = ["any"]
+category = "routing"
+tags = ["decision", "ensemble", "leaf", "oblivious", "routing", "soft", "tree", "soft-tree", "differentiable-tree", "sigmoid-split", "leaf-interpolation", "gradient-boosting", "catboost", "random-forest"]
+input = "[batch, input_dim] (rank-2 only)"
+output = "[batch, output_dim]; leaf_probabilities gives [batch, 2**depth]; binary_routes gives (nodes [2**depth, depth] long, right [2**depth, depth] bool)"
+origin = "origin not recorded in history; generic sigmoid-routed soft decision tree written for the repository tree baselines (decision tree, forest, extra trees, boosting)"
+origin_models = ["decision_tree_ts", "random_forest_ts", "extra_trees_ts", "gradient_boosting_ts", "catboost_ts", "lightgbm_ts", "xgboost_ts"]

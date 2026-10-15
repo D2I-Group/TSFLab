@@ -1,0 +1,8 @@
+[model]
+name = "TexFilter"
+
+[model.params]
+enc_in = 7
+embed_size = 128
+hidden_size = 256
+dropout = 0.0

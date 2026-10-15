@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "weight_set_router"
+role = "Shares a few learned parameter sets across many channels, between fully shared and fully per-channel weights."
+slot = "channel"
+fits = ["many-channels"]
+category = "routing"
+tags = ["low-rank", "routing", "softmax", "temperature", "weight-sharing", "channel-wise", "stateless", "mixture-of-weights", "convex-combination"]
+input = "WeightSetRouter: temperature float; mix_weight_sets: weights [num_sets, *shape], routing [num_sets, channels]"
+output = "WeightSetRouter: [num_sets, channels] convex columns; mix_weight_sets: [channels, *shape]"
+origin = "Low-rank weight sharing of DiPE-Linear (Zhao et al., arXiv 2411.17257, 2024), inspired by mixture-of-experts and dynamic convolution"
+origin_models = ["dipelinear"]

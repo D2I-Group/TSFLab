@@ -1,0 +1,9 @@
+[model]
+name = "FreTS"
+
+[model.params]
+enc_in = 7
+embed_size = 128
+hidden_size = 256
+channel_independence = false
+sparsity_threshold = 0.01

@@ -1,0 +1,8 @@
+[model]
+name = "GaussianMLP"
+
+[model.params]
+enc_in = 7
+hidden_size = 256
+num_layers = 2
+dropout = 0.1

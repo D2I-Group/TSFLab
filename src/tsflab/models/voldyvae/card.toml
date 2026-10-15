@@ -1,0 +1,104 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "VolDyVAE"
+tags = ["mlp", "rnn", "probabilistic", "generative", "vae", "heteroscedastic", "patch", "quantile-output", "training-objective"]
+fits = ["probabilistic-output", "heteroscedastic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Beyond Static Uncertainty: Modeling Temporal Uncertainty Dynamics for Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2603.24254"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/wangyijunlyy/VolDy-VAE"
+revision = "e2d019b7a6dac0726f6a0f1592b84cb786405e13"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/wangyijunlyy/VolDy-VAE/blob/e2d019b7a6dac0726f6a0f1592b84cb786405e13/VolDy_VAE_nn.py", "https://github.com/wangyijunlyy/VolDy-VAE/blob/e2d019b7a6dac0726f6a0f1592b84cb786405e13/VolDy_VAE_Forecaster.py", "https://github.com/wangyijunlyy/VolDy-VAE/blob/e2d019b7a6dac0726f6a0f1592b84cb786405e13/VolDy_VAE.yaml", "https://github.com/decisionintelligence/K2VAE/blob/19c602a8bcec87d2420ddf294c2ced0e7a82cb9b/probts/model/nn/prob/k2VAE/koopman.py", "https://github.com/decisionintelligence/K2VAE/blob/19c602a8bcec87d2420ddf294c2ced0e7a82cb9b/probts/model/nn/prob/k2VAE/RevIN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-mlp-gaussian-latent-encoder+local:direct-latent-projection"
+channel = "local:channel-mixing-patch-mlp"
+head = "local:mlp-location-gru-volatility-scale-samples+component:empirical_quantiles"
+loss = "local:reconstruction-and-forecast-gaussian-nll-plus-kl"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "ceil(seq_len / P) past and ceil(pred_len / P) future patches with front-fill and cut; prefer a divisor of seq_len and pred_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-error"
+where = "Eqs. (5), (7) and (9), mirrored in `VolDy_VAE_nn.py` `VolDy_VAE.decode` and `VolDy_VAE.gaussian_nll`"
+what = "the mean is RevIN-inverted to the data scale but the scale `sigma` is not, so the NLL divides raw-scale residuals by a scale that cannot see the window's standard deviation (it depends only on the normalized input)."
+resolution = "follow the paper and code (scale not inverted), pinned by a test."
+
+[[issues]]
+kind = "unreleased"
+where = "`VolDy_VAE_nn.py` imports"
+what = "`MLP` and `RevIN` come from `probts.model.nn.prob.k2VAE`, which this repository does not ship, so it does not run on its own."
+resolution = "semantics taken from `probts/model/nn/prob/k2VAE/koopman.py` and `RevIN.py` of `decisionintelligence/K2VAE` at `19c602a8bcec87d2420ddf294c2ced0e7a82cb9b` (MIT); RevIN reuses the equivalent catalog component."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. III-B1 and Eq. (3)"
+what = "the paper says the history is split into `N` non-overlapping patches but not how a length that is not a multiple of `P` is handled; `VolDy_VAE_nn.py` `VolDy_VAE.encode` prepends the last `N*P - L` normalized steps (the series tail) to the front."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (4)"
+what = "\"Projection\" is unspecified; `VolDy_VAE_nn.py` `VolDy_VAE.__init__` uses the K2VAE MLP with two linear layers, hidden width `N*D/2`, ReLU and its default dropout `0.05` (dropout also inside the encoder and location MLPs, never stated in the paper)."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV Implementation Details (location head described as a \"linear projection\") vs Eq. (5) and `VolDy_VAE_nn.py` `VolDy_VAE.__init__`"
+what = "the location head is a three-linear-layer ReLU MLP (`hidden_layers = 3`)."
+resolution = "follow Eq. (5) and the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. IV Implementation Details and Table XVI (GRU hidden size and hidden dimension `D = 256`, batch size 32) vs `VolDy_VAE.yaml`"
+what = "`dynamic_dim = 128`, `hidden_dim = 256`, `vol_hidden_dim = 128`, `batch_size = 64`."
+resolution = "defaults follow the released configuration; batch size is a run setting."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) vs `VolDy_VAE_nn.py` `VolDy_VAE.gaussian_nll`"
+what = "the code clamps `sigma` to `[1e-6, 1e3]` before the likelihood (zero gradient outside), which the paper does not state."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (8)"
+what = "the reduction of the KL term is not given; `VolDy_VAE_nn.py` `VolDy_VAE.kl_divergence` sums over latent dimensions and averages over batch and patches."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. III-B3 (after Eq. 7)"
+what = "the GRU is said to run over the `M` patch latents `{Z_1, ..., Z_M}`, but the reconstruction path runs it over the `N` past patches before the `M` future ones."
+resolution = "follow the code (past then future, state carried over)."
+
+[[issues]]
+kind = "code-bug"
+where = "`VolDy_VAE_Forecaster.py` `VolDy_VAEModel.__init__` and the repository README configuration table"
+what = "`sample_schedule`, `init_koopman`, `init_kalman`, `d_model`, `d_ff`, `e_layers`, `n_heads`, `factor` and `multistep` are accepted and stored but never used, although the README describes `sample_schedule` as used by the forecaster."
+resolution = "strict parameter schema without these keys."
+
+[[issues]]
+kind = "license"
+where = "repository root at `e2d019b7a6dac0726f6a0f1592b84cb786405e13`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

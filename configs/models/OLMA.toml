@@ -1,0 +1,11 @@
+[model]
+name = "OLMA"
+
+[model.params]
+enc_in = 7
+kernel_size = 25
+individual = false
+loss_weight = 1.0
+weight_channel = 0.34
+weight_temporal = 0.33
+weight_wavelet = 0.33

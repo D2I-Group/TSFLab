@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "covid19"
+domain = "healthcare"
+topic = "epidemiology"
+benchmarks = ["tfb"]
+tags = ["covid-19", "pandemic", "epidemiology", "cases", "deaths", "who", "daily", "tfb", "multivariate", "high-dimensional", "short-series"]
+related = ["ili", "nn5", "wike2000"]
+characteristics = ["weak-seasonality", "strong-trend", "non-stationary", "train-val-level-shift", "within-train-drift", "heteroscedastic", "level-dependent-variance", "zero-inflation", "low-dimensional-channels", "weak-cross-correlation", "many-channels", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Country-level COVID-19 case and death counts in the WHO COVID-19 global data schema (inferred from the channel layout); TFB packaging by Qiu et al., who cite Panagopoulos et al. (AAAI 2021)"
+url = "https://data.who.int/dashboards/covid19/data"
+citation = "TFB: Towards Comprehensive and Fair Benchmarking of Time Series Forecasting Methods (Qiu et al., PVLDB 2024); TFB cites Transfer Graph Neural Networks for Pandemic Forecasting (Panagopoulos et al., AAAI 2021) for this dataset"
+citation_url = "https://arxiv.org/abs/2403.20150"
+license = "CC-BY-4.0 with WHO additional terms"
+license_url = "https://data.who.int/dashboards/covid19/more-resources"
+redistribution = "hosted"
+conditions = "Attribute WHO and follow the additional WHO terms of use at license_url."
+
+[shape]
+frequency = "daily (1d)"
+time_span = "2020-01-03 to 2023-10-25"
+length = 1392
+channels = 948
+channel_kind = "series"
+target = "Zimbabwe;Cumulative_deaths (the last channel; the preset names it explicitly)"
+missing_values = "no NaN; 36.5% of all values are exactly 0 (51% of New_cases, 71% of New_deaths) and 20 channels are all zero; 99 negative daily counts (reporting corrections)"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "TFB multivariate: lookback 36 or 104, horizons 24/36/48/60, chronological 7:1:2 (TFB `train_ratio_in_tv` default 0.875 with `tv_ratio` 0.8)"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

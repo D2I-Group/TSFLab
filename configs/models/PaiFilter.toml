@@ -1,0 +1,6 @@
+[model]
+name = "PaiFilter"
+
+[model.params]
+enc_in = 7
+hidden_size = 256

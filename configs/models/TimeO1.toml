@@ -1,0 +1,8 @@
+[model]
+name = "TimeO1"
+
+[model.params]
+enc_in = 7
+d_model = 64
+alpha = 0.8
+rank_ratio = 0.5

@@ -1,0 +1,128 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CCDM"
+tags = ["diffusion", "probabilistic", "quantile", "contrastive", "transformer", "mlp", "channel-mixing", "normalization"]
+fits = ["probabilistic-output", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Channel-aware Contrastive Conditional Diffusion for Multivariate Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.02168"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/LSY-Cython/CCDM"
+revision = "a9a4998d397861b5a3f081ed7f05baeedc88cd2b"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/model.py", "https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/network.py", "https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/diffusion.py", "https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/embed.py", "https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/attention.py", "https://github.com/LSY-Cython/CCDM/blob/a9a4998d397861b5a3f081ed7f05baeedc88cd2b/run_I48_O96.py"]
+
+[composition]
+normalization = "local:history-instance-normalization"
+decomposition = "none"
+temporal = "local:channel-independent-residual-mlp-encoders"
+channel = "local:channel-token-dit-adaln-self-attention"
+head = "local:ddpm-ancestral-sampler+component:empirical_quantiles"
+loss = "local:denoising-mse+local:denoising-infonce-contrast"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (one DiT token per channel)" }
+shuffle_patch_len = { from = "pred_len", rule = "pred_len must be at least 2 * shuffle_patch_len, otherwise patch-shuffle negatives equal the target" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `a9a4998d`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "code-bug"
+where = "`model.py` imports"
+what = "`from utils.visual import *` names a module that does not exist in the repository (`utils/` holds only `metric.py` and `time_features.py`), and `DiffMTS.test` calls `json.dump` without importing `json`, so the training/testing entry points fail at import."
+resolution = "not applicable to the local rewrite; the TSFLab runner handles training and evaluation."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3) vs `model.py` `DiffMTS.train`"
+what = "the training loop calls `cal_train_loss(..., loss_type=\"similarity\")`, scoring candidates by the cosine similarity between predicted and true noise, not by the exponentiated negative squared denoising error of Eq. (3)."
+resolution = "Eq. (3) (mean squared error over the window) is the default; `contrast_form = \"similarity\"` reproduces the code's scoring."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 step 3 and Eqs. (3a)-(3b) vs `model.py` `DiffMTS.cal_train_loss` / `cal_contrastive_loss`"
+what = "the paper scores the positive and all negatives with one fresh noise `eps'`; the code reuses the denoising-loss noise for the positive and draws independent noise for every negative (`noise=None`)."
+resolution = "followed the paper (one shared `eps'`, drawn separately from the denoising noise)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix A.7 (`n_att = n_enc = n_dec = 2`) vs `network.py` `Decoder.__init__`"
+what = "the output decoder stacks `n_emb - 1` CiDMs, i.e. one with the shipped `n_emb = 2`."
+resolution = "`decoder_layers` defaults to 1 (code); the paper's value is one parameter away."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 (\"concatenate the latent encoding of x and y_k along the channel axis\") vs `network.py` `Denoiser.forward`"
+what = "the codes are concatenated along the feature axis, giving one token of width `cont_hidden_dim + pred_hidden_dim` per channel."
+resolution = "followed the code, which is what makes the attention channel-wise over `D` tokens."
+
+[[issues]]
+kind = "code-bug"
+where = "`network.py` `DiTBlock` / `Denoiser.__init__`"
+what = "the block is documented as adaLN-Zero but the `initialize_weights()` call that zeroes the modulation layers is commented out, so they keep PyTorch's default initialization."
+resolution = "default initialization, as the released code trains."
+
+[[issues]]
+kind = "code-bug"
+where = "`network.py` `DiTBlock`"
+what = "with `non_attn=True` the attention is replaced by an `nn.Linear` but `forward` still calls `self.attn(x_mod, x_mod, x_mod)`, so the `--non_attn` ablation crashes."
+resolution = "the ablation switch is not exposed."
+
+[[issues]]
+kind = "code-bug"
+where = "`model.py` `DiffMTS.step_sampling` (`uniform`)"
+what = "it returns `2 * (B // 2)` antithetic steps, one fewer than the batch for odd batch sizes."
+resolution = "draws `B // 2 + 1` steps and truncates to `B`."
+
+[[issues]]
+kind = "code-bug"
+where = "`run_I48_O96.py` (and the three other run scripts)"
+what = "`--beta_start` and `--beta_end` are declared `type=int` with float defaults, so overriding them from the command line fails."
+resolution = "float parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_producer/data_factory.py` `create_mts_loader`"
+what = "the test loader uses `drop_last=True`, so the final partial batch of test windows is excluded from the reported metrics."
+resolution = "evaluation is the runner's and covers every window."
+
+[[issues]]
+kind = "leakage"
+where = "`run_I48_O96.py` / `model.py` `DiffMTS.train`"
+what = "a checkpoint is saved every epoch, no validation loader is ever built and no validation loss is computed, yet testing loads a hard-coded `best_epoch=17`; the selected checkpoint cannot have been chosen on validation data."
+resolution = "the TSFLab runner selects checkpoints on the validation split."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (`S = 100` samples) and Table 6 (`lambda = 0.001`, `64*2` negatives for ETTh1) vs `run_I48_O96.py`"
+what = "testing uses `n_samples=20`, and the defaults train with `--use_contrast non-contrast` and `--contrast_weight 0.0` (the `train` branch also calls `model.train` twice)."
+resolution = "preset follows the paper (100 samples, `lambda = 0.001`, 64 negatives per augmentation)."
+
+[[issues]]
+kind = "underspecified"
+where = "Appendix A.3"
+what = "the patch length of the shuffling augmentation is not given; `model.py` `DiffMTS.negative_sampling` hard-codes 8 and its `view` fails when the horizon is not a multiple of 8."
+resolution = "`shuffle_patch_len = 8`; a trailing remainder shorter than a patch stays in place."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix A.3 (\"for each positive target y0, we uniformly sample a scaling factor a_d\") vs `DiffMTS.negative_sampling(mode=\"scaling\")`"
+what = "one set of factors per negative is shared by the whole batch."
+resolution = "factors drawn per target and channel (paper)."

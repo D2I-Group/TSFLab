@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "iTransformer"
+tags = ["transformer", "channel-mixing", "normalization", "inverted-tokens", "calendar-features"]
+fits = ["high-cross-correlation", "long-lookback", "many-channels"]
+fidelity = "reference-checked"
+issues_checked = "the card maps whole-series variate tokens (Eq. 1), token-feature LayerNorm (Eq. 2) and variate-axis attention to the paper and documents no paper or official-code problem."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (variate tokens); the catalog fixes it per dataset" }
+
+[paper]
+title = "iTransformer: Inverted Transformers Are Effective for Time Series Forecasting"
+url = "https://arxiv.org/abs/2310.06625"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/thuml/iTransformer"
+revision = "c2426e68ca13f74aaec08045c5c724d8ad328124"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:per-variate-linear-token-embedding"
+channel = "local:variate-token-self-attention"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

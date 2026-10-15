@@ -1,0 +1,24 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/DiPELinear.toml"]
+
+[experiment]
+description = "Smoke: DiPELinear"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6

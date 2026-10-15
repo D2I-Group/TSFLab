@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "OLinear"
+tags = ["linear", "mlp", "channel-mixing", "orthogonal-basis", "normalization", "lightweight"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "OLinear: A Linear Model for Time Series Forecasting in Orthogonally Transformed Domain"
+url = "https://arxiv.org/abs/2505.08550"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/jackyue1994/OLinear"
+revision = "f168e01a3e0e316ad98330b5e77afed1f77b0af5"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:orthogonal-basis-linear-encoder"
+channel = "local:normlin-channel-mixing"
+head = "local:linear-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count; sizes the enc_in x enc_in NormLin matrix" }
+input_basis = { from = "train-split", rule = "seq_len x seq_len orthogonal eigenvectors of the training-set temporal Pearson correlation, installed with set_orthogonal_bases(); identity in the preset" }
+output_basis = { from = "train-split", rule = "pred_len x pred_len orthogonal eigenvectors from the training split, installed with set_orthogonal_bases(); identity in the preset" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation from Eqs. (2)-(5); license recorded as `NOASSERTION`."

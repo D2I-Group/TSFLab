@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GWNet"
+tags = ["gnn", "cnn", "spatiotemporal", "graph-learning", "dilated-convolution"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the causal dilated gated convolutions, random-walk and adaptive supports, diffusion convolution, and skip forecasts after reviewing the paper and the pinned BasicTS code, and documents no paper or official-code problem."
+
+[paper]
+title = "Graph WaveNet for Deep Spatial-Temporal Graph Modeling"
+url = "https://www.ijcai.org/proceedings/2019/264"
+venue = "IJCAI 2019"
+year = 2019
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:gated_dilated_conv"
+channel = "component:diffusion_conv+component:adaptive_node_embedding_adjacency+component:graph_utils"
+head = "local:skip-sum-two-layer-conv-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes; runner-injected num_nodes takes precedence" }
+adj_mx = { from = "graph", rule = "predefined adjacency injected by the runner; identity when absent, leaving only the adaptive graph to carry spatial information" }
+layers = { from = "seq_len", rule = "with blocks and kernel_size, the causal receptive field 1 + blocks * (2**layers - 1) * (kernel_size - 1) should cover seq_len; the head reads only the last step" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

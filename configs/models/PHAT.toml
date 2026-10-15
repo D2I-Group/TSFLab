@@ -1,0 +1,12 @@
+[model]
+name = "PHAT"
+
+[model.params]
+enc_in = 6
+d_model = 64
+n_heads = 8
+d_layers = 1
+attn_dropout = 0.1
+ffn_dropout = 0.1
+ffn_expand_ratio = 2.66667
+period_topk = 1

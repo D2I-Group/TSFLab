@@ -1,0 +1,41 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AirPhyNet"
+tags = ["hybrid", "rnn", "gnn", "spatiotemporal", "covariates", "physics-informed", "neural-ode"]
+fits = ["spatial-graph", "exogenous-covariates"]
+fidelity = "reference-checked"
+issues_checked = "clean-room implementation of Eq. (9)-(12) from the paper; the card records no paper or official-code problem."
+
+[paper]
+title = "AirPhyNet: Harnessing Physics-Guided Neural Networks for Air Quality Prediction"
+url = "https://openreview.net/forum?id=JW3jTjaaAB"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/kethmih/AirPhyNet"
+revision = "e77576cfea777e8cd07f2ae198c560a8790f4b91"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:euler-rk4-latent-ode-rollout"
+channel = "local:distance-laplacian-and-directed-flow-operators"
+head = "local:shared-mlp-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of stations (nodes)" }
+cov_dim = { from = "covariates", rule = "meteorology covariates per station (2 for converted calendar marks)" }
+adj_mx = { from = "graph", rule = "[enc_in, enc_in] station-distance graph for the diffusion Laplacian; required, construction fails without it" }
+flow_mx = { from = "graph", rule = "[enc_in, enc_in] directed flow (wind) graph for advection; no TSFLab data path supplies it, so a directed ring placeholder is used with a warning" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SWIFT"
+tags = ["linear", "wavelet", "frequency", "decomposition", "channel-independent", "lightweight", "normalization"]
+fits = ["efficiency", "long-horizon", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SWIFT: Mapping Sub-series with Wavelet Decomposition Improves Time Series Forecasting"
+url = "https://arxiv.org/abs/2501.16178"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/Lancelot-Xie/SWIFT"
+revision = "f1f4be7c4eeae09e75749b22090bc1b21cf33641"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:haar_dwt1d"
+temporal = "local:cross-band-conv-fusion"
+channel = "local:channel-independent-shared-weights"
+head = "local:sub-series-mapper+component:haar_dwt1d"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; sizes RevIN and per-channel mappers" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the README shows an MIT badge, but the tree at the pinned revision contains no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."

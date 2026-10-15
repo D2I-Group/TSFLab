@@ -1,0 +1,12 @@
+[model]
+name = "ETSformer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+n_heads = 8
+e_layers = 2
+d_ff = 256
+top_k = 3
+dropout = 0.1
+activation = "sigmoid"

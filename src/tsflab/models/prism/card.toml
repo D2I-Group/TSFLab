@@ -1,0 +1,123 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PRISM"
+tags = ["mlp", "wavelet", "multi-scale", "hierarchical", "time-frequency", "routing", "channel-independent", "normalization"]
+fits = ["multi-periodic", "long-lookback"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PRISM: A hierarchical multiscale approach for time series forecasting"
+url = "https://arxiv.org/abs/2512.24898"
+venue = "arXiv"
+year = 2025
+
+[code]
+url = "https://github.com/nerdslab/PRISM"
+revision = "a6342da97fb763c901c803c5fc3ebd40e6ae6788"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/nerdslab/PRISM/blob/a6342da97fb763c901c803c5fc3ebd40e6ae6788/src/arch/prism.py", "https://github.com/nerdslab/PRISM/blob/a6342da97fb763c901c803c5fc3ebd40e6ae6788/src/arch/layers/filters.py", "https://github.com/nerdslab/PRISM/blob/a6342da97fb763c901c803c5fc3ebd40e6ae6788/src/arch/layers/SEBlock.py", "https://github.com/nerdslab/PRISM/blob/a6342da97fb763c901c803c5fc3ebd40e6ae6788/src/exp/exp_long_term_forecasting.py", "https://github.com/nerdslab/PRISM/blob/a6342da97fb763c901c803c5fc3ebd40e6ae6788/scripts/ETTh2_quick.sh"]
+
+[composition]
+normalization = "local:series-zscore"
+decomposition = "local:overlapping-time-tree+local:haar-same-length-bands"
+temporal = "local:band-statistic-router"
+channel = "none"
+head = "local:per-band-mlp-heads+local:squeeze-excitation-gate"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+tree_depth = { from = "seq_len", rule = "every split segment needs at least 3 steps; with overlap = 0 every split segment length must be even" }
+num_components = { from = "seq_len", rule = "Haar bands need segments of at least 2 ** (num_components - 1) steps, otherwise an EMA ladder is used" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `a6342da9`"
+what = "no LICENSE file and no license metadata (GitHub reports none)."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 (last paragraph) vs `src/arch/prism.py` `TimeTree.forward` / `forecast_all_levels`"
+what = "the paper stitches the last level's bands back to `T_context` with a linear cross-fade and forecasts from that `T_context x C x K` signal with `M x K` MLPs; the code forecasts from the routed bands of each internal level at their segment lengths (176 and 96 steps), and the cross-faded `_stitch` output is discarded in forecast mode."
+resolution = "the official forecast path is implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 Eq. 1 vs `scripts/*_quick.sh`"
+what = "the paper trains with MSE, every official script passes `--loss mae`."
+resolution = "preset comment and card record MAE as the official run loss; the model is loss-agnostic."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 (\"Haar ... DWT; K=6\") vs `scripts/*_quick.sh` and Table 8"
+what = "the method text uses 6 bands, the scripts use `num_components=5` (Table 8 also favors 5)."
+resolution = "default `num_components = 5`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 4.3 (router MLP \"shared weights within a tree layer but different across layers\") vs `src/arch/prism.py` `TimeTree.__init__`"
+what = "each `TimeTree` node owns its own `BandSelectorMLP` (shared only by its two halves), so the two second-level nodes do not share weights."
+resolution = "one router per node, as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 (\"softmax operation with temperature tau\" over bands) vs `src/arch/prism.py` `BandSelectorMLP.forward` and `TimeTree.forward`"
+what = "the code applies a temperature softmax over the K bands and then a second temperature softmax over the left/right halves of those already-normalized weights."
+resolution = "the double softmax is implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 / Fig. 1 vs `src/arch/prism.py` `TimeTree.forecast_all_levels` and `src/arch/layers/SEBlock.py`"
+what = "a squeeze-and-excitation gate over the band forecasts is applied before the sum but is not described in the paper."
+resolution = "implemented as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2 (\"trained end-to-end\") vs `src/arch/prism.py` `TimeTree._decompose` (`@torch.no_grad`) and `IMFSharpFeatTiny`"
+what = "the decomposition of a child's input runs without gradient, so deeper levels never backpropagate into the parent's router."
+resolution = "kept (decomposition and statistics are computed without gradient)."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3.2 (`T(i+1) = (T(i) + o) / 2`) vs `src/arch/prism.py` `TimeTree._split_with_overlap`"
+what = "the code extends each half by `overlap` past the midpoint, so the paper's `o` equals `2 * overlap` (336 -> 176 with `overlap = 8`)."
+resolution = "code semantics; documented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section A.2 (\"tree depth equal to 2, thus only performing one binary split\") vs `src/arch/prism.py` `TimeTree`"
+what = "`tree_depth = 2` splits twice (root and second level) and both levels feed the forecast unless `--use_last_layer_only` is set, which only `scripts/ETTh1_quick.sh` does."
+resolution = "`tree_depth` and `use_last_layer_only` follow the code; the preset leaves the flag off (7 of 8 scripts)."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/arch/prism.py` `TimeTree.forward` (leaf branch)"
+what = "leaves return their weighted bands under key `level0`, which the root overwrites with its own bands, so leaf routers and decompositions never affect the output (dead parameters); with `use_last_layer_only` every node below the root is likewise computed but unused."
+resolution = "dead nodes are not built; the forecast is unchanged."
+
+[[issues]]
+kind = "code-bug"
+where = "`run_prism.py` / `src/exp/exp_long_term_forecasting.py` `_build_model`"
+what = "`--enc_hidden`, `--dec_hidden` and `--dropout` reach `prism(...)` but are never used by `TimeTree`, whose head width is the hard-coded `forecast_hidden = 128`."
+resolution = "not exposed; head width fixed at 128."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/arch/prism.py` `TimeTree._split_with_overlap` / `calculate_level_sizes`"
+what = "with `overlap = 0` and an odd segment the right half is one step longer than the size the heads were built for, which fails at the first head."
+resolution = "such configurations are rejected at construction."
+
+[[issues]]
+kind = "underspecified"
+where = "`src/arch/prism.py` `TimeTree._decompose`"
+what = "when `K - 1 > floor(log2 L)` the Haar branch silently switches to an EMA ladder (`tau0 = 8`, `grow = 3`), not mentioned in the paper."
+resolution = "same fallback implemented and documented."

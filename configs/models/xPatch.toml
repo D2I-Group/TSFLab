@@ -1,0 +1,13 @@
+[model]
+name = "xPatch"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+padding_patch = "end"
+ma_type = "ema"
+alpha = 0.3
+beta = 0.3
+revin = true
+hidden_dim = 64

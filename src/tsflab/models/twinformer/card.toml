@@ -1,0 +1,128 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TwinFormer"
+tags = ["transformer", "rnn", "patching", "hierarchical", "sparse-attention", "channel-mixing"]
+fits = ["long-horizon", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TwinFormer: A Dual-Level Transformer for Long-Sequence Time-Series Forecasting"
+url = "https://arxiv.org/abs/2512.12301"
+venue = "arXiv"
+year = 2025
+
+[code]
+url = "https://github.com/Mahimakumavat1205/TwinFormer"
+revision = "c034df438d60c876bbac5e8ed4532001d77ef7d7"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Mahimakumavat1205/TwinFormer/blob/c034df438d60c876bbac5e8ed4532001d77ef7d7/Scripts/main.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:local-global-topk-sparse-informer-blocks-with-gru"
+channel = "local:channel-mixing-step-embedding"
+head = "local:gru-final-state-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "floor(seq_len / patch_len) patches, oldest seq_len mod patch_len steps dropped; prefer a divisor of seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`Scripts/main.py`"
+what = "the repository ships one concatenated notebook export of per-dataset scripts for a model named `I3InformerV2` (no `TwinFormer` class, configuration or entry point), and each section reads its CSV from the working directory although the files are in `Data/`."
+resolution = "implementation from the paper's equations; the script only resolves details the paper omits."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (10) (mean pooling over each patch) vs `Scripts/main.py` `I3InformerV2.forward`"
+what = "every section keeps the last token of each patch (`p[:, -1, :]`)."
+resolution = "mean pooling."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2.2-3.2.3 (one Local and one Global Informer block) vs `I3InformerV2.__init__`"
+what = "two local and two global blocks."
+resolution = "one block each by default; `local_layers` and `global_layers` expose the code's depth."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (8) and (12) (attention on the unnormalized input) vs `SparseBlock.forward`"
+what = "a LayerNorm precedes the attention as well as the feed-forward."
+resolution = "the paper's residual order."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (14)-(18) (one GRU, its final hidden state, one linear layer) vs `I3InformerV2.forward`"
+what = "a two-layer GRU whose outputs are averaged over patches, then LayerNorm, a three-layer GELU MLP head and a linear skip."
+resolution = "the paper's GRU and head."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (2) vs `Scripts/main.py`"
+what = "the paper keeps the top `k = 5` logits per row, while every section sets `TOPK = 2`."
+resolution = "`top_k = 5` by default."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) and Sec. 4.3 vs `Scripts/main.py`"
+what = "the paper scales with min-max, while every section applies `StandardScaler` to inputs and targets."
+resolution = "the catalog runner's scaling."
+
+[[issues]]
+kind = "leakage"
+where = "`Scripts/main.py` (`x_scaler.fit_transform(X_raw)` and `y_scaler.fit_transform(y_raw)` in every section)"
+what = "the scalers are fitted on the whole series, including the validation and test periods."
+resolution = "the runner fits scaling on the training split only."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (6) (the embedding sees the raw features) vs `Scripts/main.py`"
+what = "the inputs are augmented with cyclical hour and day-of-week features and lag-24 and lag-48 copies of the targets."
+resolution = "raw channels only."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (6)-(10)"
+what = "no positional information is defined, so the Local Informer followed by mean pooling would be invariant to the order of steps inside a patch; the code adds a sinusoidal table with dropout after the embedding (`SinusoidalPE`)."
+resolution = "the same sinusoidal table."
+
+[[issues]]
+kind = "code-bug"
+where = "`I3InformerV2.forward` (`x[:, :T_trim, :]`)"
+what = "when `L` is not a multiple of `P`, the most recent `L mod P` steps are dropped."
+resolution = "the oldest steps are dropped instead."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3 and Fig. 1"
+what = "the number of heads, feed-forward width, dropout and patch length are not given, and Fig. 1 shows 32-dimensional patch tokens while the code uses `EMBED_DIM = 128`."
+resolution = "the code's 4 heads, `4d` GELU feed-forward, dropout 0.15, `P = 12`, `d = 128`."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (18) (`Y_hat` in `R^{B x H}`, one series) vs the multivariate benchmarks of Sec. 4"
+what = "the ETTh1 and Weather sections of `Scripts/main.py` map the context to `pred_len` times the number of target channels (`output_dim`, `target_dim`)."
+resolution = "`Linear(d -> H * C)` for all channels."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3.2.5"
+what = "the final hidden state is written as `h_{b,p}` in `R^{Np x d}`, while Eq. (18) uses one `d`-vector `h_{Np}`."
+resolution = "the final hidden state, a `d`-vector."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "`README.md` shows an MIT badge, but no license file exists at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,10 @@
+[model]
+name = "Composed"
+
+[model.params]
+enc_in = 7
+normalization = "revin"
+decomposition = "none"
+temporal = "linear"
+channel = "independent"
+head = "flatten_forecast_head"

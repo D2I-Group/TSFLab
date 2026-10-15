@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AWEMixer"
+tags = ["hybrid", "wavelet", "frequency", "multi-scale", "attention-variant", "normalization", "channel-independent"]
+fits = ["multi-periodic", "long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "the card re-derived the Frequency Router, Coherent Gated Fusion and data flow from the pinned official file and records only implementation-equivalent differences (wavelet filter scaling absorbed by the learned embeddings, vectorized band edges, no `return_aux`), no paper or official-code problem."
+
+[paper]
+title = "AWEMixer: Adaptive Wavelet-Enhanced Mixer Network for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2511.04722"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/hit636/AWEMixer"
+revision = "8e660f93c2535e6eb64ba47647babf21f3dbacfa"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/hit636/AWEMixer/blob/8e660f93c2535e6eb64ba47647babf21f3dbacfa/models/AWEMixer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:wavelet"
+temporal = "local:multi-scale-conv-anchors+local:coherent-gated-fusion"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (RevIN statistics; channels share weights)" }
+wavelet_level = { from = "seq_len", rule = "seq_len must be at least (filter_len - 1) * 2 ** (level - 1); db4 at level 3 needs seq_len >= 28" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

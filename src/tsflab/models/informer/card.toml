@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Informer"
+tags = ["transformer", "attention-variant", "sparse-attention", "long-horizon", "channel-mixing"]
+fits = ["long-lookback", "long-horizon", "efficiency", "calendar-effects"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; dec_in and c_out default to it" }
+freq = { from = "frequency", rule = "time-feature frequency code matching the sampling interval (h, t, d, ...) when embed = timeF" }
+
+[paper]
+title = "Informer: Beyond Efficient Transformer for Long Sequence Time-Series Forecasting"
+url = "https://doi.org/10.1609/aaai.v35i12.17325"
+venue = "AAAI 2021"
+year = 2021
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "2fb5b84ecef67c45a759f7cf82023d27afe27882"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:self_attention_family+component:transformer_encdec"
+channel = "component:embed"
+head = "local:generative-one-shot-decoder-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/SelfAttention_Family.py` `ProbAttention.forward` / `AttentionLayer.forward`"
+what = "`ProbAttention` returns its context heads-first (`[B, heads, L, d_head]`) and `AttentionLayer` reshapes it with `out.view(B, L, -1)` without a transpose, scrambling time and head positions (the original Informer returns time-first)."
+resolution = "context is returned time-first as in the original Informer implementation."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/SelfAttention_Family.py` `ProbAttention._prob_QK`"
+what = "the sampled scores use a bare `.squeeze()`, which also drops the batch or head axis when either is 1."
+resolution = "explicit `squeeze(-2)`."

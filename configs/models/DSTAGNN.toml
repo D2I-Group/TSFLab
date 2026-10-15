@@ -1,0 +1,9 @@
+[model]
+name = "DSTAGNN"
+
+[model.params]
+enc_in = 8
+d_model = 64
+d_k = 8
+d_v = 8
+n_heads = 4

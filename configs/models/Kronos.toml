@@ -1,0 +1,10 @@
+[model]
+name = "Kronos"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+code_bits = 8
+num_layers = 2
+num_heads = 4

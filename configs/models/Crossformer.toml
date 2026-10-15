@@ -1,0 +1,13 @@
+[model]
+name = "Crossformer"
+
+[model.params]
+enc_in = 7
+d_model = 64
+n_heads = 4
+e_layers = 2
+d_ff = 128
+seg_len = 12
+win_size = 2
+factor = 10
+dropout = 0.1

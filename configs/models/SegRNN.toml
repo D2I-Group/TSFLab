@@ -1,0 +1,8 @@
+[model]
+name = "SegRNN"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+seg_len = 24

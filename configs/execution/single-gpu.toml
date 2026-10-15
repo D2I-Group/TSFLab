@@ -1,0 +1,18 @@
+# Run profile: one NVIDIA GPU (workstation, e.g. RTX 50-series; install profile
+# `cuda130` or `cuda126`).
+#   uv run tsf run <experiment.toml> --policy configs/execution/single-gpu.toml
+# The run config must use [experiment.runtime] device = "cuda", device_ids = [0];
+# num_workers = 4 is a good default for two concurrent runs.
+
+[budget]
+max_parallel_jobs = 2      # = max_processes_per_gpu x number of GPUs
+
+[resources]
+gpus = ["0"]
+sharing = true             # cooperative packing; reservations, not memory isolation
+max_processes_per_gpu = 2
+memory_per_run_mb = 6000   # declared peak per run; lower to pack small models
+min_free_memory_mb = 2000
+threads_per_run = 4        # caps OpenMP/MKL threads per run process
+wait_timeout_minutes = 60
+min_free_disk_gb = 10

@@ -1,0 +1,172 @@
+{
+  "$id": "https://diaugeia.ai/schema/dataset_spec.schema.json",
+  "additionalProperties": false,
+  "description": "Standardized identity + protocol for a benchmark dataset.\n\nCarries publication facts that do not belong in the short runtime\n``DatasetConfig``: content digest, frequency, horizons, track, and optional\nHugging Face coordinates. Optional facts remain null when unavailable; a\npublished submission should pin every fact it claims.",
+  "properties": {
+    "freq": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Sampling frequency, e.g. '1h', '15min'.",
+      "title": "Freq"
+    },
+    "hf_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Hugging Face repo path, e.g. 'Diaugeia/TSFLab-Datasets:static/ett1'.",
+      "title": "Hf Path"
+    },
+    "hf_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pinned HF commit/tag the version resolves to.",
+      "title": "Hf Revision"
+    },
+    "horizons": {
+      "description": "Official prediction lengths for this dataset (empty = TBD).",
+      "items": {
+        "type": "integer"
+      },
+      "title": "Horizons",
+      "type": "array"
+    },
+    "id": {
+      "description": "Dataset identifier; should map to a TSFLab dataset name key.",
+      "pattern": "^[a-z0-9_\\-]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Forecasting data setting (task.mode).",
+      "enum": [
+        "time_series",
+        "spatiotemporal",
+        "covariate"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "num_channels": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Channel count (time_series).",
+      "title": "Num Channels"
+    },
+    "num_nodes": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Node count (spatiotemporal/covariate).",
+      "title": "Num Nodes"
+    },
+    "schema_version": {
+      "default": "1.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Content-address of the dataset snapshot (manifest self-hash).",
+      "title": "Sha256"
+    },
+    "source_config": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Originating TSFLab dataset TOML path.",
+      "title": "Source Config"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Target variable/feature name, if applicable.",
+      "title": "Target"
+    },
+    "track": {
+      "anyOf": [
+        {
+          "enum": [
+            "time_series",
+            "spatiotemporal",
+            "covariate",
+            "realtime"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Leaderboard track; defaults to `mode` when omitted.",
+      "title": "Track"
+    },
+    "version": {
+      "default": "1.0.0",
+      "description": "Immutable published version (Static: v1/v2; RealTime: as-of tag).",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "mode"
+  ],
+  "title": "DatasetSpec",
+  "type": "object",
+  "x-tsf-schema-version": "1.1.0"
+}

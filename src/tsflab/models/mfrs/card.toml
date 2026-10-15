@@ -1,0 +1,88 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MFRS"
+tags = ["transformer", "inverted-tokens", "frequency", "periodicity", "attention-variant", "channel-independent", "normalization"]
+fits = ["multi-periodic", "strong-seasonality", "calendar-effects", "many-channels"]
+fidelity = "inferred"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of variates; each is an independent query token" }
+max_period = { from = "period", rule = "upper bound of the period search on the training spectrum; must exceed the longest seasonal period in steps (default 1000)" }
+periods = { from = "period", rule = "optional manual base periods in steps (integers >= 2), e.g. the known daily or weekly period at the sampling rate" }
+extract = { from = "train-split", rule = "base patterns are extracted from the training-split spectrum by training_setup before the first epoch" }
+
+[paper]
+title = "MFRS: A Multi-Frequency Reference Series Approach to Scalable and Accurate Time-Series Forecasting"
+url = "https://arxiv.org/abs/2503.08328"
+venue = "arXiv preprint"
+year = 2025
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "none"
+temporal = "local:spectral-base-pattern-reference-series"
+channel = "local:variate-to-reference-cross-attention+component:self_attention_family"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`https://github.com/yuliang555/MFRS` (link in the abstract)"
+what = "the repository returns 404 as of 2026-10-03; the only archived copy (Wayback Machine, 2025-09-19) is the landing page listing `data_provider`, `exp`, `layers`, `models`, `scripts`, `utils` and `run.py` without file contents, and no Software Heritage origin exists."
+resolution = "independent implementation from the paper only; no reference comparison is possible."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3.2.2, Algorithm 1"
+what = "`Psi(T) = Phi(1/T)` for `T = 1` asks for frequency 1, outside the spectrum's domain `f = l/L`, `l <= L/2`."
+resolution = "`Psi(1) = 0` and the search starts at `T = 2`."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2.2"
+what = "`Phi(1/T)` is generally not on the FFT grid `l/L`, and the paper does not say which channel's spectrum enters Algorithm 1 (Fig. 2 shows one channel, Algorithm 2 sums over channels)."
+resolution = "the channel-mean amplitude spectrum; for Algorithm 1 every rFFT bin `l` is assigned to its nearest integer period `round(L / l)` and `Psi(T)` is the largest amplitude assigned to `T` (zero otherwise), so a long period is not repeated across the neighbouring integers that share one coarse bin; Algorithm 2 reads the nearest bin `round(L k / T)`."
+
+[[issues]]
+kind = "paper-error"
+where = "Algorithm 2"
+what = "the patterns are arranged \"in ascending order as f_P^1, ..., f_P^M\", but the stated bound `K f_P^{m+1} < f_P^m / 2` only holds when frequencies decrease (periods ascend); the `insert k f_P^m to Omega_H` step sits inside the channel loop, adding every harmonic once per channel."
+resolution = "periods in ascending order, each harmonic scored over all channels and inserted once."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2.2 and Sec. 4"
+what = "the conversion length `Lp`, the harmonic count `Q`, the extracted patterns per dataset and any manual patterns are not reported."
+resolution = "`max_period = 1000`, `harmonics = 8`, no manual periods."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3"
+what = "the time step \"with respect to the first sampling point\" is not defined for windows whose timestamps are known (which origin, which sampling interval)."
+resolution = "the step counts sampling intervals from the Unix epoch at the window's own interval, which only shifts every pattern by a constant phase; Algorithm 3 is used for windows without dates."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3, Algorithm 3"
+what = "the \"intercepted dataset\" of `T_M + S` steps is not located in the training data, and `xi` is only determined modulo `T_M`, which misplaces patterns whose period does not divide `T_M`."
+resolution = "the last `T_M + S` steps of the training split; the window's step is the stretch start plus `xi`."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3.4 \"Norm & Embedding\""
+what = "the DC blocking is called a LayerNorm, but the inverse given there, `y = y_bar * sqrt(Var x) + Mean x`, is per-window standardization over time without affine parameters."
+resolution = "per-window standardization of variates, restored on the output."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.4 and Sec. 4.1"
+what = "model width, depth, heads, feed-forward width, dropout, optimizer and loss are not reported; whether reference tokens are standardized and whether they are updated between layers is not stated."
+resolution = "inverted-Transformer defaults (`d_model = d_ff = 512`, 8 heads, 2 layers, dropout 0.1, GELU), reference series standardized like the variates and embedded once as fixed keys and values for every layer."

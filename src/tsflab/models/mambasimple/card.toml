@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MambaSimple"
+tags = ["ssm", "channel-mixing", "normalization", "portable"]
+fits = ["long-lookback", "high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the Mamba selective-scan equations through the shared pure-PyTorch block with an independently designed forecast wrapper; the Time-Series-Library link is reference-only and no paper or official-code problem is documented."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; c_out must equal it" }
+
+[paper]
+title = "Mamba: Linear-Time Sequence Modeling with Selective State Spaces"
+url = "https://arxiv.org/abs/2312.00752"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "4e938a1767106324dd753b2a44832bf870a0252e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:mamba"
+channel = "local:channel-mixing-linear-embedding"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PM25_GNN"
+tags = ["gnn", "rnn", "spatiotemporal", "covariates", "autoregressive", "air-quality"]
+fits = ["spatial-graph", "exogenous-covariates"]
+fidelity = "reference-checked"
+issues_checked = "the card records the graph-message GRU encoder and autoregressive future-covariate decoder from the paper; the missing distance/direction and wind-conditioned transport features and the calendar substitute for KnowAir meteorology are TSFLab data-scope limits, and no paper or official-code problem is documented."
+
+[paper]
+title = "PM2.5-GNN: A Domain Knowledge Enhanced Graph Neural Network For PM2.5 Forecasting"
+url = "https://doi.org/10.1145/3397536.3422208"
+venue = "ACM SIGSPATIAL 2020"
+year = 2020
+
+[code]
+url = "https://github.com/shuowang-ai/PM2.5-GNN"
+revision = "471fc60775f80492f4f224203d172868bc6eebac"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:graph-gru-encoder-decoder"
+channel = "local:fixed-adjacency-graph-propagation"
+head = "local:autoregressive-linear-readout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of stations" }
+adj_mx = { from = "graph", rule = "enc_in x enc_in station adjacency; self loops added and rows normalized" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "weather"
+domain = "environment"
+topic = "meteorology"
+benchmarks = ["ltsf", "tfb"]
+tags = ["weather", "meteorology", "jena", "climate", "ltsf", "benchmark", "multivariate", "10min", "max-planck", "autoformer", "temperature", "pressure"]
+related = ["ettm1", "electricity", "gift_eval/jena_weather_10T", "gift_eval/jena_weather_H", "gift_eval/jena_weather_D"]
+characteristics = ["regime-changes", "level-dependent-variance"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Max Planck Institute for Biogeochemistry, Jena (Beutenberg weather station)"
+url = "https://www.bgc-jena.mpg.de/wetter/"
+citation = "Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting (Wu et al., NeurIPS 2021)"
+citation_url = "https://arxiv.org/abs/2106.13008"
+license = "CC-BY-4.0 (Max Planck Institute for Biogeochemistry, Jena weather station)"
+license_url = "https://www.bgc-jena.mpg.de/wetter/weather_data.html"
+redistribution = "hosted"
+
+[shape]
+frequency = "10-minute (10min)"
+time_span = "2020-01-01 00:10 to 2020-12-31 22:40 (calendar year 2020)"
+length = 52696
+channels = 21
+channel_kind = "channels"
+target = "OT"
+missing_values = "no NaN; the file holds -9999 sentinels in OT (50 rows), max. PAR (30) and wv (1), which the preset replaces with NaN and imputes causally (forward fill; a leading gap becomes zero) before scaling"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab: -9999 sentinels imputed causally, chronological 7:1:2 split, scaling fitted on the training split only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "LTSF: lookback 96 (336 and 512 also searched), horizons 96/192/336/720, chronological 7:1:2, MSE/MAE on z-scored data"
+split = "7:1:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

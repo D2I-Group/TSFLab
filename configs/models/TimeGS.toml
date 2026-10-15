@@ -1,0 +1,28 @@
+[model]
+name = "TimeGS"
+
+[model.params]
+enc_in = 7
+periods = [24, 24, 24]
+fold_width = 24
+image_height = 24
+image_width = 24
+hidden_dim = 16
+conv_dim = 8
+components = 2
+ngf = 4
+n_downsampling = 3
+n_blocks = 1
+kernel_size = 3
+dropout = 0.5
+rows = 7
+draft_len = 11
+ratio = 1
+extend_len = 0
+cholesky1 = [0.4, 0.8, 1.2]
+cholesky2 = [0.0, -0.2, 0.2]
+cholesky3 = [0.4, 0.8, 1.2]
+coefficient = [0.5, 1.0]
+temperature = 0.1
+weight_norm = "official"
+mse_weight = 0.5

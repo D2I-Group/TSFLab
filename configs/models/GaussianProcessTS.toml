@@ -1,0 +1,8 @@
+[model]
+name = "GaussianProcessTS"
+
+[model.params]
+enc_in = 7
+num_inducing = 16
+length_scale = 1.0
+noise = 0.001

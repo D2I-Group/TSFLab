@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MultiPatchFormer"
+tags = ["transformer", "patching", "multi-scale", "channel-mixing"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the 8/16/24/32-point patch scales, aligned patch tokens, temporal and channel Transformers and the semi-autoregressive head from the paper; the Time-Series-Library link is provenance only and no paper or official-code problem is documented."
+
+[paper]
+title = "A multiscale model for multivariate time series forecasting"
+url = "https://doi.org/10.1038/s41598-024-82417-4"
+venue = "Scientific Reports 2025"
+year = 2025
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "4e938a1767106324dd753b2a44832bf870a0252e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:multi-scale-patch-transformer-encoder"
+channel = "local:channel-wise-transformer-layer"
+head = "local:semi-autoregressive-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

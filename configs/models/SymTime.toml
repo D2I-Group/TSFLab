@@ -1,0 +1,11 @@
+[model]
+name = "SymTime"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+patch_len = 16
+num_layers = 2
+num_heads = 4
+trend_kernel = 25

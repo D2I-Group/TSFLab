@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "ettm2"
+domain = "energy"
+topic = "electricity transformer"
+benchmarks = ["ltsf", "tfb"]
+tags = ["ett", "ettm2", "transformer", "oil-temperature", "power-load", "energy", "ltsf", "benchmark", "multivariate", "15min", "informer"]
+related = ["etth2", "ettm1", "gift_eval/ett2_H"]
+characteristics = ["multi-periodic", "non-stationary", "train-val-level-shift", "train-val-scale-shift", "within-train-drift", "regime-changes", "heteroscedastic"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Zhou et al. (Beihang University) with Beijing Guowang Fuda Science & Technology Development Co."
+url = "https://github.com/zhouhaoyi/ETDataset"
+citation = "Informer: Beyond Efficient Transformer for Long Sequence Time-Series Forecasting (Zhou et al., AAAI 2021)"
+citation_url = "https://arxiv.org/abs/2012.07436"
+license = "CC-BY-ND-4.0"
+license_url = "https://github.com/zhouhaoyi/ETDataset/blob/main/LICENSE"
+redistribution = "hosted"
+conditions = "Verbatim copies only, with attribution to Zhou et al. (ETDataset); a format shift such as CSV to parquet is allowed, cleaned, cropped, or re-split variants are not."
+
+[shape]
+frequency = "15-minute (15min)"
+time_span = "2016-07-01 to 2018-02-20 (first 57,600 rows used; the CSV runs to 2018-06-26)"
+length = 57600
+channels = 7
+channel_kind = "channels"
+target = "OT"
+missing_values = "none (measured: no empty cells, no duplicate or missing timestamps)"
+stats_basis = "mixed"
+
+[protocol]
+protocol = "TSFLab: chronological 6:2:2 split of the first 57,600 rows only (12/4/4 months; the remaining rows of the 69,680-row CSV are never used), scaling fitted on the training rows 0 to 34,559 only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "LTSF: lookback 96 (336 and 512 also searched), horizons 96/192/336/720, chronological 6:2:2 (12/4/4 months), MSE/MAE on z-scored data"
+split = "6:2:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

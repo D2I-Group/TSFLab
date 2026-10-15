@@ -1,0 +1,15 @@
+[model]
+name = "NHiTS"
+
+[model.params]
+enc_in = 7
+stack_types = ["identity", "identity", "identity"]
+n_blocks = [1, 1, 1]
+mlp_units = [[256, 256]]
+n_pool_kernel_size = [2, 2, 1]
+n_freq_downsample = [4, 2, 1]
+pooling_mode = "MaxPool1d"
+interpolation_mode = "linear"
+dropout = 0.0
+activation = "ReLU"
+use_norm = true

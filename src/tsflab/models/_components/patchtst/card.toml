@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "patchtst"
+role = "Channel-independent patch-Transformer point-forecast backbone, reused under probabilistic heads such as quantile PatchTST."
+slot = "temporal"
+fits = ["weak-cross-correlation"]
+category = "backbone"
+tags = ["backbone", "channel-independent", "patch", "transformer", "forecasting", "composite", "revin", "flatten-head"]
+input = "[batch, context_window, channels]"
+output = "[batch, target_window, channels]"
+origin = "PatchTST, Nie et al., ICLR 2023 (A Time Series is Worth 64 Words: Long-term Forecasting with Transformers)"
+origin_models = ["patchtst"]

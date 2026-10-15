@@ -1,0 +1,148 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GRAMODE"
+tags = ["gnn", "cnn", "spatiotemporal", "neural-ode", "graph-learning", "dtw-graph", "attention", "traffic", "training-objective"]
+fits = ["spatial-graph"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Graph-based Multi-ODE Neural Networks for Spatio-Temporal Traffic Forecasting"
+url = "https://arxiv.org/abs/2305.18687"
+venue = "TMLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/zbliu98/GRAM-ODE"
+revision = "aa4e2dada12d9dd6379a10ce3bef39b62972040c"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/zbliu98/GRAM-ODE/blob/aa4e2dada12d9dd6379a10ce3bef39b62972040c/model.py", "https://github.com/zbliu98/GRAM-ODE/blob/aa4e2dada12d9dd6379a10ce3bef39b62972040c/odegcn.py", "https://github.com/zbliu98/GRAM-ODE/blob/aa4e2dada12d9dd6379a10ce3bef39b62972040c/utils.py", "https://github.com/zbliu98/GRAM-ODE/blob/aa4e2dada12d9dd6379a10ce3bef39b62972040c/run_stode.py", "https://github.com/zbliu98/GRAM-ODE/blob/aa4e2dada12d9dd6379a10ce3bef39b62972040c/args.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:causal-dilated-tcn+local:global-local-edge-graph-ode-euler"
+channel = "local:road-and-dtw-graph-streams"
+head = "local:node-attention-horizon-head"
+loss = "local:huber"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (sensors)" }
+adj_mx = { from = "graph", rule = "road adjacency of the dataset, injected by the runner and normalized by Eq. 3" }
+local_chunks = { from = "seq_len", rule = "seq_len must be a multiple of local_chunks (default 4)" }
+steps_per_day = { from = "frequency", rule = "samples per day for the DTW day profiles (288 for 5-minute data)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`model.py` `TemporalConvNet.forward`"
+what = "`F.relu(self.network(y) + self.downsample(y) if self.downsample else y)` parses as a conditional expression, so whenever input and output widths match (the second TCN of every layer and the first TCN of the second layer) it returns `relu(y)` and the convolution stack is dead."
+resolution = "the intended residual `relu(net(y) + y)` everywhere."
+
+[[issues]]
+kind = "code-bug"
+where = "`utils.py` `read_data`"
+what = "the DTW graph z-scores the distances and keeps `exp(-z^2 / 0.1^2) > 0.6`, which connects pairs whose distance is close to the mean distance, while the most similar pairs and the diagonal (strongly negative `z`) are dropped, contrary to Eq. (2) (`DTW < epsilon`)."
+resolution = "follow the code transform (the published results depend on it), kept as `semantic_sigma` and `semantic_threshold`."
+
+[[issues]]
+kind = "leakage"
+where = "`utils.py` `read_data`"
+what = "the daily profiles behind the DTW graph average the whole series, including the validation and test periods."
+resolution = "the DTW graph is built from the training split only."
+
+[[issues]]
+kind = "leakage"
+where = "`utils.py` `generate_dataset` and `run_stode.py` `eval`"
+what = "validation and test inputs are standardized with mean and standard deviation computed on their own split, and test forecasts are de-normalized with test-split statistics."
+resolution = "the catalog runner's training-split scaling."
+
+[[issues]]
+kind = "code-bug"
+where = "`utils.py` `generate_dataset`"
+what = "`std_mean(data[..., -1])` takes the scaling statistics from the last input feature (speed for the three-feature PEMS04 and PEMS08 files), applies them to every feature, and de-normalizes the flow forecast with them."
+resolution = "the catalog runner's scaling."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 5.4 (DTW threshold `epsilon = 0.1`, three input features for every dataset, learning rate `1e-4` or `1e-5`) vs `args.py` and `data/PEMS03/PEMS03.npz`, `data/PEMS07/PEMS07.npz`"
+what = "`0.1` is the kernel width `sigma1` with threshold `thres1 = 0.6`, PEMS03 and PEMS07 ship one feature, and the default learning rate is `2e-4`."
+resolution = "code graph settings; one input feature by default (`input_dim`); the learning rate is a run setting."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (1) (binary road connectivity) vs `utils.py` `read_data`"
+what = "the spatial graph is a thresholded Gaussian kernel of z-scored road distances (`sigma2 = 10`, `thres2 = 0.5`)."
+resolution = "the dataset's adjacency as supplied, normalized by Eq. (3)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (10), (15) and (17) vs `odegcn.py` `ODEFunc_node.forward` and `ODEFunc_edge.forward`"
+what = "the code scales the graph term by a learnable per-node `sigmoid(alpha) / 2`, adds the detached initial state `H(0)`, and builds the channel weight as `(1 + b) W' - b W' W'^T W'` with `W' = W clamp(d, 0, 1) W^T` and `b = 0.6`."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (11) vs `odegcn.py` `ODEG.forward` (`torch.stack(x_3_4, dim=-2).reshape(...)`)"
+what = "the local segment outputs are interleaved (step `j` of segment `i` lands at position `4j + i`) instead of concatenated as `K(0) || K(1) || ...`."
+resolution = "follow Eq. (11)."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (18) and `odegcn.py` `ODEG.clip`"
+what = "`e` is drawn from a standard normal and never constrained; when `e < 0` the band is empty and the two-step clip sets every local value to `GM - e`."
+resolution = "follow the paper and code (unconstrained `e`); the behavior is pinned by a test only for `e > 0`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (19) (softmax gate) vs `odegcn.py` `ODEG.forward`"
+what = "the code gates with a sigmoid and first projects the local, global and edge messages with `fc_final1`, `fc_final2` and `fc_edge` (a `Linear(N, 64)` over the source-node axis of the edge tensor)."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (20) (`alpha`, `beta` hyperparameters) vs `odegcn.py` `ODEG.weights`"
+what = "both weights are learnable and initialized from a standard normal."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (21) (sigmoid activation, no residual) vs `model.py` `TemporalConvNet`"
+what = "ReLU, dropout `0.2`, a 1x1 residual projection and a final ReLU."
+resolution = "follow the code (with the residual fix above)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.3 (attention between the two graph embeddings followed by a linear output layer) vs `model.py` `ODEGCN.pred`"
+what = "attention runs across nodes on the flattened outputs of all six channels, and the value projection emits the 12-step horizon directly with no output layer."
+resolution = "follow the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (2)"
+what = "the DTW variant is not stated; `utils.py` `read_data` uses `fastdtw` with radius 6 (an approximation) on mean day profiles of 288 steps."
+resolution = "exact DTW with the absolute-difference cost on the same profiles."
+
+[[issues]]
+kind = "code-bug"
+where = "`odegcn.py` `ODEG.__init__` and `joint_time.__init__`"
+what = "`fcn_3_1`, `fcn_12_4`, `fcn_4_1`, `fcn_6_1`, `res_weight` and `edge_weight` are never used. The `time` and `temporal_dim` arguments are ignored, and the temporal weights silently become `1 x 1` unless the window has exactly 12 steps (lengths 12 and widths 64 are hard-coded)."
+resolution = "unused parameters omitted; lengths and widths are parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`eval.py` `mask_np`"
+what = "for a NaN null value it returns `~isnan(null_val)` (a scalar) instead of a mask over the array; unused by `run_stode.py`, which passes `0.0`."
+resolution = "not applicable (catalog metrics)."
+
+[[issues]]
+kind = "license"
+where = "repository root at `aa4e2dada12d9dd6379a10ce3bef39b62972040c`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

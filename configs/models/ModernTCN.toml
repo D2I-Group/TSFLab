@@ -1,0 +1,21 @@
+[model]
+name = "ModernTCN"
+
+[model.params]
+enc_in = 7
+ffn_ratio = 1
+num_blocks = [1]
+large_size = [13]
+small_size = [5]
+dims = [64]
+patch_size = 16
+patch_stride = 16
+downsample_ratio = 2
+dropout = 0.1
+head_dropout = 0.1
+use_multi_scale = true
+revin = true
+affine = true
+subtract_last = false
+decomposition = false
+kernel_size = 25

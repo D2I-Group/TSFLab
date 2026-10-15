@@ -1,0 +1,12 @@
+[model]
+name = "TimeEmb"
+
+[model.params]
+enc_in = 7
+d_model = 512
+use_revin = true
+use_hour_index = true
+use_day_index = false
+scale = 0.02
+hour_length = 24
+day_length = 7

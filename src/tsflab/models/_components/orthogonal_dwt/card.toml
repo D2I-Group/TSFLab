@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "orthogonal_dwt"
+role = "Splits a series into invertible multi-resolution bands (smooth approximation and details) with coefficients matching PyWavelets."
+slot = "decomposition"
+fits = ["any"]
+category = "decomposition"
+tags = ["dwt", "wavelet", "orthogonal", "filter-bank", "daubechies", "symlet", "coiflet", "boundary", "symmetric", "zero-padding", "decimated", "multi-level", "invertible"]
+input = "analyze: x [..., N]; synthesize: a, d [..., n]; decompose: x [..., N]; reconstruct: [d_1 .. d_J, a_J], each [..., n_j]"
+output = "analyze: (a, d) each [..., floor((N + L - 1) / 2)]; synthesize: [..., 2n - L + 2]; decompose: [d_1 .. d_J, a_J]; reconstruct: [..., 2 n_1 - L + 2]"
+origin = "Orthogonal wavelet filter-bank DWT (Mallat, A Theory for Multiresolution Signal Decomposition, IEEE TPAMI 1989; Daubechies, Orthonormal Bases of Compactly Supported Wavelets, CPAM 1988); consolidated from KARMA (arXiv 2506.08939, WASA 2025) and WaveRoRA (arXiv 2410.22649)"
+origin_models = ["karma", "waverora"]

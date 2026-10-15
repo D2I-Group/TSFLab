@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "freq_band_moe"
+role = "Denoises an input window by reweighting frequency bands with input-dependent gates before forecasting."
+slot = "decomposition"
+fits = ["any"]
+category = "decomposition"
+tags = ["band", "decomposition", "experts", "frequency", "gating", "mixture", "rfft", "instance-normalization", "straight-through", "fixed-length"]
+input = "x [batch, channels, seq_len]"
+output = "(combined [batch, channels, seq_len], boundaries [expert_num + 1], gating_scores [batch, expert_num])"
+origin = "Frequency-band decomposition mixture of experts of FreqMoE, Enhancing Time Series Forecasting through Frequency Decomposition Mixture of Experts (arXiv 2501.15125, AISTATS 2025)"
+origin_models = ["freqmoe"]

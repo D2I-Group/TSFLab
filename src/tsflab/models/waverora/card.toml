@@ -1,0 +1,105 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WaveRoRA"
+tags = ["transformer", "wavelet", "attention-variant", "channel-mixing", "routing", "rotary", "linear-complexity", "normalization"]
+fits = ["high-cross-correlation", "many-channels", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "WaveRoRA: Wavelet Rotary Route Attention for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.22649"
+venue = "arXiv"
+year = 2024
+
+[code]
+url = "https://github.com/Leopold2333/WaveRoRA"
+revision = "04b13249724fdbfdec0213e662c1c17a77a252ff"
+license = "MPL-2.0"
+reference_sources = ["https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/models/WaveRoRA.py", "https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/layers/WaveRoRA_layer.py", "https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/layers/Attention.py", "https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/layers/Transformer_EncDec.py", "https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/utils/rotation.py", "https://github.com/Leopold2333/WaveRoRA/blob/04b13249724fdbfdec0213e662c1c17a77a252ff/scripts/LTSF/WaveRoRA/ETTh.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:orthogonal_dwt"
+temporal = "local:wave-embedding+local:wave-norm-block"
+channel = "local:rotary-route-attention"
+head = "local:wave-predictor-mlp+component:orthogonal_dwt"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+router_num = { from = "channels", rule = "0 = official rule int(sqrt(M) + log2(M)) // 2 rounded up to even, at least 2; official scripts use 20 for Electricity/Traffic" }
+wavelet_layers = { from = "seq_len", rule = "DWT levels relative to seq_len and pred_len; official scripts use 2-5, preset 3 for seq_len 96" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Alg. 1 lines 6-7 and 13 vs `layers/Transformer_EncDec.py` `GatedAttentionLayer` and `layers/Attention.py` `RouterAttention`"
+what = "the paper projects the values (`V = Linear(I)`) and the routing tokens per head (`R_h = Linear(R)`) and applies an output projection to the concatenated heads; the code uses the input tokens as values, splits a learned `[r, d_model]` router parameter into heads without projection, and has no output projection."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section IV-D (series-wise token of size `D' = (J + 1) D` fed to RoRA) vs `layers/WaveRoRA_layer.py` `WEncoderLayer`"
+what = "the code projects the concatenated embeddings to `d_model` (`expand_projection`) before the attention and back afterwards (`out_projection`)."
+resolution = "both projections are implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 13 (`GELU(O_j) W_j + b_j`, one linear map) vs `models/WaveRoRA.py` `out_proj_h` / `out_proj_l`"
+what = "the code predictor is `Linear(D, 2D) -> GELU -> Linear(2D, H_j)`."
+resolution = "the code predictor is implemented."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section V-C (`r = min(10, ...)` routing tokens) vs `models/WaveRoRA.py` `Model.__init__`"
+what = "the code computes `int(sqrt(M) + log2(M)) // 2`, rounded up to even, with no cap of 10 (14 tokens for 321 variates), and `scripts/LTSF/WaveRoRA/electricity.sh` / `traffic.sh` pass `--router_num=20`."
+resolution = "the code rule is the default (`router_num = 0`); an explicit value is accepted."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section V-C (\"4-level DWT ... Symlet3\", `N = 2` layers for ETT) vs `scripts/LTSF/WaveRoRA/ETTh.sh`, `ETTm.sh`, `weather.sh`"
+what = "the scripts use 2 to 5 levels, Symlet-3 or Coiflet-3 per dataset and horizon, and `e_layers = 1` for ETTh1 up to horizon 336."
+resolution = "the preset follows the ETTh1 horizon-96 script (Symlet-3, 3 levels, 1 layer)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table III ablations (\"w/o Ro\", \"w/o Gate\", \"w/o skip\") vs `configs/Transformer.py`"
+what = "the rotary, gate and skip switches are `store_true` flags that default to off and are enabled only by the `--rotary --gate --residual` arguments of every main script."
+resolution = "all three default to on and are exposed as `rotary`, `gate`, `residual`."
+
+[[issues]]
+kind = "underspecified"
+where = "Section IV-D Eq. 12 (WaveNorm) vs `layers/WaveRoRA_layer.py` `WaveNormBlock`"
+what = "the paper does not define the block; the code applies post-norm residual adds and a Conv1d feed-forward over the variate axis whose kernel size `ks` is 3 in several scripts (`ETTh.sh` ETTh2 block, `weather.sh`, `electricity.sh`, `traffic.sh`), i.e. it mixes neighboring variates in file order."
+resolution = "implemented as in the code (`kernel_size`)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. 8-11 vs `utils/rotation.py` `RoPE1d(reverse=True)` and `layers/Attention.py` `RouterAttention.forward`"
+what = "the paper does not say which axis carries the positions; the code rotates pairs of the router axis with angles from a reversed table, so variate `i` of `M` gets position `M - 1 - i` (base 10000)."
+resolution = "same convention."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/WaveRoRA.py` `out_proj_h` / `out_proj_l`"
+what = "with `--activation relu` the predictor inserts the class `nn.ReLU` instead of an instance, which fails at construction."
+resolution = "the predictor uses GELU (the default and every script)."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/WaveRoRA.py` `Model.forward`"
+what = "for an odd `pred_len` the inverse DWT returns `pred_len + 1` steps that are never cropped, so the de-normalization `repeat(1, pred_len, 1)` fails."
+resolution = "the reconstruction is cropped to the first `pred_len` steps."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/WaveRoRA.py` `Model.__init__`"
+what = "the router rule yields 0 routing tokens for a single variate (`int(1 + 0) // 2 = 0`), which breaks `RoPE1d`."
+resolution = "at least 2 routing tokens."

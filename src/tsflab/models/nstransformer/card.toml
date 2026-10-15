@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "NSTransformer"
+tags = ["transformer", "normalization", "attention-variant", "non-stationary", "channel-mixing"]
+fits = ["non-stationary", "within-train-drift"]
+fidelity = "reference-checked"
+issues_checked = "the card records detach-and-normalize stationarization, the `tau`/`delta` statistic projectors, de-stationary attention `softmax((tau QK^T + delta)/sqrt(d))` and statistic restoration from the paper, with the MIT source as reference only; no paper or official-code problem is documented."
+
+[paper]
+title = "Non-stationary Transformers: Exploring the Stationarity in Time Series Forecasting"
+url = "https://arxiv.org/abs/2205.14415"
+venue = "NeurIPS 2022"
+year = 2022
+
+[code]
+url = "https://github.com/thuml/Nonstationary_Transformers"
+revision = "c4ec40675d11d50b3d9923657f408d0db6f90f56"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:de-stationary-attention-encoder-decoder"
+channel = "local:channel-mixing-value-embedding"
+head = "local:linear-projection-to-channels"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LightTS"
+tags = ["mlp", "lightweight", "multi-scale", "channel-mixing", "downsampling"]
+fits = ["efficiency", "long-horizon"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count" }
+chunk_size = { from = "seq_len", rule = "must divide seq_len (seq_len % chunk_size == 0)" }
+
+[paper]
+title = "Less Is More: Fast Multivariate Time Series Forecasting with Light Sampling-oriented MLP Structures"
+url = "https://arxiv.org/abs/2207.01186"
+venue = "arXiv preprint"
+year = 2022
+
+[code]
+url = "https://github.com/d-gcc/LightTS"
+revision = "362ca172791559766f6a055be8f2cbed1bad5530"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:continuous-and-interval-sampling-ie-blocks"
+channel = "local:channel-information-exchange-ie-block"
+head = "local:ie-block-forecast-plus-linear-highway"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation of Eqs. 1-2 and the IEBlocks, repository used as reference only; license recorded as `NOASSERTION`."

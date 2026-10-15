@@ -1,0 +1,57 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STHD"
+tags = ["transformer", "patching", "channel-mixing", "normalization"]
+fits = ["many-channels", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Scalable Transformer for High Dimensional Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2408.04245"
+venue = "CIKM 2024"
+year = 2024
+
+[code]
+url = "https://github.com/xinzzzhou/ScalableTransformer4HighDimensionMTSF"
+revision = "97a36a59597ec26a7bd668e1fd240a5de1259cd0"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/xinzzzhou/ScalableTransformer4HighDimensionMTSF/blob/97a36a59597ec26a7bd668e1fd240a5de1259cd0/models/STHD.py", "https://github.com/xinzzzhou/ScalableTransformer4HighDimensionMTSF/blob/97a36a59597ec26a7bd668e1fd240a5de1259cd0/layers/Embed.py", "https://github.com/xinzzzhou/ScalableTransformer4HighDimensionMTSF/blob/97a36a59597ec26a7bd668e1fd240a5de1259cd0/data_provider/data_loader.py", "https://github.com/xinzzzhou/ScalableTransformer4HighDimensionMTSF/blob/97a36a59597ec26a7bd668e1fd240a5de1259cd0/datasets/top-k-train/corr-compute.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+k = { from = "channels", rule = "k <= enc_in - 1" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:transformer_encdec"
+channel = "local:top-k-correlated-series-joint-patch-attention"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied or imported."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/STHD.py` `Model.__init__`"
+what = "the patch embedding uses the constructor defaults `patch_len=12, stride=6` and ignores the configured patch length and stride."
+resolution = "`patch_len` and `stride` are exposed and used, as the paper describes."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_loader.py`"
+what = "the stacked `(time, 1 + K, M)` array is reshaped to `(time, M, 1 + K)` without a transpose, which scrambles target/related membership for `M > 1`."
+resolution = "the paper's grouping, each target first followed by its related series in rank order."

@@ -1,0 +1,17 @@
+[model]
+name = "MFRS"
+
+[model.params]
+enc_in = 7
+d_model = 512
+n_heads = 8
+e_layers = 2
+d_ff = 512
+dropout = 0.1
+activation = "gelu"
+waveform = "sine"
+periods = []
+extract = true
+max_period = 1000
+harmonics = 8
+share_embedding = true

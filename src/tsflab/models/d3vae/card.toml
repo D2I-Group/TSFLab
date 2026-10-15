@@ -1,0 +1,75 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "D3VAE"
+tags = ["diffusion", "vae", "generative", "probabilistic", "score-matching", "disentanglement", "rnn", "loss-framework"]
+fits = ["short-train"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Generative Time Series Forecasting with Diffusion, Denoise, and Disentanglement"
+url = "https://arxiv.org/abs/2301.03028"
+venue = "NeurIPS 2022"
+year = 2022
+
+[code]
+url = "https://github.com/PaddlePaddle/PaddleSpatial"
+revision = "525c2db2bedfea08e493b5caec49cb962e2626c3"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/PaddlePaddle/PaddleSpatial/blob/525c2db2bedfea08e493b5caec49cb962e2626c3/research/D3VAE/model/model.py", "https://github.com/PaddlePaddle/PaddleSpatial/blob/525c2db2bedfea08e493b5caec49cb962e2626c3/research/D3VAE/model/diffusion_process.py", "https://github.com/PaddlePaddle/PaddleSpatial/blob/525c2db2bedfea08e493b5caec49cb962e2626c3/research/D3VAE/model/encoder.py", "https://github.com/PaddlePaddle/PaddleSpatial/blob/525c2db2bedfea08e493b5caec49cb962e2626c3/research/D3VAE/model/resnet.py", "https://github.com/PaddlePaddle/PaddleSpatial/blob/525c2db2bedfea08e493b5caec49cb962e2626c3/research/D3VAE/exp/exp_model.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:gru-plus-bidirectional-vae"
+channel = "local:grid-convolution-over-time-and-features"
+head = "local:energy-gradient-denoising-jump"
+loss = "local:coupled-diffusion-nll-dsm-tc-mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+freq = { from = "frequency", rule = "dataset sampling frequency code; selects the calendar embedding tables ('t' adds quarter-hour)" }
+num_blocks = { from = "pred_len", rule = "pred_len must be divisible by 2 ** num_blocks" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "official diffusion noise"
+what = "the diffusion noise is drawn with `randint_like(x, 0, 1)`, which is all zeros, so neither input nor target is ever noised."
+resolution = "Gaussian noise as in Eq. 2-6 and Algorithm 1."
+
+[[issues]]
+kind = "code-bug"
+where = "official denoising score-matching loss"
+what = "`paddle.grad` is called without building a graph, so the Eq. 10 loss never reaches the energy network's parameters."
+resolution = "the gradient is built with `create_graph=True`, so Eq. 10 trains the energy network."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 13-14 vs official training loss"
+what = "the paper adds `+ gamma * L_TC` (minimise total correlation) while the code subtracts it."
+resolution = "the paper's sign."
+
+[[issues]]
+kind = "code-bug"
+where = "official Gaussian sampler"
+what = "the scale is `exp(0.5 * exp(log_sigma))`, inconsistent with the likelihood used for the NLL."
+resolution = "`mu + exp(log_sigma) * eps`."
+
+[[issues]]
+kind = "code-bug"
+where = "official `SyncBatchNormSwish`, weight norm, and decoder state"
+what = "`SyncBatchNormSwish` applies no Swish, and the weight-norm gains and the decoder's initial state are plain tensors, so they are neither trained nor saved."
+resolution = "Swish after BatchNorm as in NVAE; gains and initial state are parameters."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 2"
+what = "the method assumes `seq_len == pred_len`."
+resolution = "a local `Linear(seq_len -> pred_len)` maps the representation when the lengths differ."

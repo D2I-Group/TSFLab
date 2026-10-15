@@ -1,0 +1,14 @@
+[model]
+name = "S_Mamba"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_state = 16
+d_ff = 128
+e_layers = 2
+d_conv = 2
+expand = 1
+dropout = 0.1
+activation = "gelu"
+use_norm = true

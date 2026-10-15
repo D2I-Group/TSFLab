@@ -1,0 +1,1 @@
+"""MAFS model package."""

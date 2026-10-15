@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "COSA"
+tags = ["linear", "test-time-adaptation", "adapter", "lightweight", "channel-independent"]
+fits = ["non-stationary", "train-val-level-shift", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "COSA: Context-aware Output-Space Adapter for Test-Time Adaptation in Time Series Forecasting"
+url = "https://openreview.net/forum?id=L7Z5wBMPrW"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/bigbases/COSA_ICLR2026"
+revision = "527c0feb9e997dd85af485ee027616b446e4ae77"
+license = "CC-BY-NC-SA-4.0"
+reference_sources = ["https://github.com/bigbases/COSA_ICLR2026/blob/527c0feb9e997dd85af485ee027616b446e4ae77/tta/cosa.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:channel_wise_linear"
+channel = "local:channel-independent-shared-weights"
+head = "local:context-conditioned-gated-linear-residual"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "`LICENSE` vs `README.md`"
+what = "the license file is Creative Commons Attribution-NonCommercial-ShareAlike 4.0, while the README badge and License section say MIT with permission required for commercial use."
+resolution = "independent implementation of the paper equation after inspecting `tta/cosa.py`, nothing copied; the non-commercial terms are treated as binding."

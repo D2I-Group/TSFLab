@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Client"
+tags = ["transformer", "linear", "hybrid", "channel-mixing", "inverted-tokens", "normalization", "revin"]
+fits = ["high-cross-correlation", "strong-trend", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Client: Cross-variable Linear Integrated Enhanced Transformer for Multivariate Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2305.18838"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/daxin007/Client"
+revision = "802c603f5ff3dd7814afd3e096f9082873373f1e"
+license = "MIT"
+reference_sources = ["https://github.com/daxin007/Client/blob/802c603f5ff3dd7814afd3e096f9082873373f1e/models/Client.py", "https://github.com/daxin007/Client/blob/802c603f5ff3dd7814afd3e096f9082873373f1e/layers/RevIN.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:shared-time-linear+local:variate-token-projection"
+channel = "component:self_attention_family+component:transformer_encdec"
+head = "local:learnable-weighted-sum-of-two-forecasts"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (one token and one w_lin entry per variate)" }
+n_heads = { from = "seq_len", rule = "seq_len must be divisible by n_heads because the token width is seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 line 11 vs `models/Client.py`"
+what = "the algorithm feeds the encoder output to the linear module, while Eq. 3 and the code apply it to the RevIN-normalized input."
+resolution = "the normalized input (Eq. 3 and the code)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 1 vs official attention"
+what = "the paper scales scores by `1/sqrt(C)`, the code by `1/sqrt(d_head)`."
+resolution = "`1/sqrt(d_head)` as in the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Client.py` (`configs.d_model = configs.seq_len`)"
+what = "the model overwrites `d_model` with the lookback length, so the `d_model` values passed by the `scripts/` presets have no effect."
+resolution = "the token width is `seq_len` and no `d_model` parameter is exposed."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 4"
+what = "the shape of `w_lin` is not stated, and the paper reports initial values only as a range between 0.5 and 1."
+resolution = "one learnable entry per variate as in the code, initialized to the official default `1.0`."

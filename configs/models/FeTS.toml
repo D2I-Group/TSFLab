@@ -1,0 +1,13 @@
+[model]
+name = "FeTS"
+
+[model.params]
+enc_in = 7
+d_model = 32
+patch_len = 16
+stride = 8
+fourier_order = 2
+polynomial_order = 2
+kernel_size = 3
+dropout = 0.0
+use_revin = true

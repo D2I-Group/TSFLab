@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Koopa"
+tags = ["mlp", "koopman", "decomposition", "frequency", "normalization"]
+fits = ["non-stationary", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the paper's Fourier filter, measurement function, and global/local Koopman operators were mapped against the pinned official code; the card records only TSFLab scoping choices (no dataset-global masks or rolling adaptation)."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (measurement-function input width)" }
+seg_len = { from = "pred_len", rule = "latest latent states used for the local operator; defaults to pred_len, at least 2, clipped to seq_len" }
+
+[paper]
+title = "Koopa: Learning Non-stationary Time Series Dynamics with Koopman Predictors"
+url = "https://arxiv.org/abs/2305.18803"
+venue = "NeurIPS 2023"
+year = 2023
+
+[code]
+url = "https://github.com/thuml/Koopa"
+revision = "a2e0bb77ec7c1a25e8e0579ba517ffb41358b844"
+license = "MIT"
+reference_sources = ["https://github.com/thuml/Koopa/blob/a2e0bb77ec7c1a25e8e0579ba517ffb41358b844/models/Koopa.py"]
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "local:fourier-dominant-mode-split"
+temporal = "local:global-and-local-koopman-operators"
+channel = "local:channel-mixing-measurement-function"
+head = "local:operator-rollout-decoder-summed-over-blocks"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

@@ -1,0 +1,86 @@
+"""Independent regularized residual soft-tree forecasting baseline."""
+
+from __future__ import annotations
+
+import torch
+import torch.nn as nn
+
+from tsflab.models._components.revin import RevIN
+from tsflab.models._components.soft_tree import SoftDecisionTree
+from tsflab.models._inputs import check_window
+
+#: Cap on the dense ``(seq_len*enc_in) x (pred_len*enc_in)`` weights (8 GB of float32 on
+#: the host at construction, about 32 GB on the device with gradients and Adam moments).
+#: A larger cell is refused with ``ValueError`` before any allocation.
+MAX_DENSE_PARAMETERS = 2_000_000_000
+
+
+def dense_parameter_count(seq_len: int, pred_len: int, enc_in: int, num_estimators: int) -> int:
+    """Weights of the base map plus one backcast map per stage but the last."""
+    return (num_estimators) * (seq_len * enc_in) * (pred_len * enc_in)
+
+
+class Model(nn.Module):
+    """Use column-masked additive trees with explicit leaf regularization."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        enc_in: int,
+        num_estimators: int = 16,
+        tree_depth: int = 3,
+        learning_rate: float = 0.1,
+        column_fraction: float = 0.8,
+        l1_penalty: float = 0.0,
+        l2_penalty: float = 1e-4,
+        temperature: float = 1.0,
+        random_seed: int = 1741,
+        use_revin: bool = True,
+        max_dense_parameters: int = MAX_DENSE_PARAMETERS,
+    ) -> None:
+        super().__init__()
+        self.seq_len, self.pred_len, self.enc_in = seq_len, pred_len, enc_in
+        dense = dense_parameter_count(seq_len, pred_len, enc_in, num_estimators)
+        if dense > max_dense_parameters:
+            raise ValueError(
+                f"XGBoostTS needs {dense:,} dense weights at seq_len={seq_len}, "
+                f"pred_len={pred_len}, enc_in={enc_in} (max_dense_parameters="
+                f"{max_dense_parameters:,}); they scale as (seq_len*enc_in)*(pred_len*enc_in)"
+            )
+        self.learning_rate, self.l1_penalty, self.l2_penalty = learning_rate, l1_penalty, l2_penalty
+        input_dim, output_dim = seq_len * enc_in, pred_len * enc_in
+        generator = torch.Generator().manual_seed(random_seed)
+        masks, trees, backcasts = [], [], []
+        for _ in range(num_estimators):
+            mask = (torch.rand(input_dim, generator=generator) < column_fraction).float()
+            if not mask.any():
+                mask[torch.randint(input_dim, (), generator=generator)] = 1.0
+            masks.append(mask)
+            trees.append(SoftDecisionTree(input_dim, output_dim, tree_depth, temperature))
+            if len(trees) < num_estimators:
+                backcasts.append(nn.Linear(output_dim, input_dim, bias=False))
+        self.register_buffer("column_masks", torch.stack(masks))
+        self.base = nn.Linear(input_dim, output_dim)
+        self.trees, self.backcasts = nn.ModuleList(trees), nn.ModuleList(backcasts)
+        self.revin = RevIN(enc_in, affine=use_revin, enabled=use_revin)
+        self.aux_loss: torch.Tensor | None = None
+
+    def forward(
+        self,
+        x_enc,
+        x_mark_enc=None,
+        x_dec=None,
+        x_mark_dec=None,
+    ):
+        check_window(x_enc, self.seq_len, self.enc_in)
+        state = self.revin(x_enc, "norm").flatten(1)
+        forecast = self.base(state)
+        for index, tree in enumerate(self.trees):
+            correction = tree(state * self.column_masks[index])
+            forecast = forecast + self.learning_rate * correction
+            if index < len(self.backcasts):
+                state = state - self.learning_rate * torch.tanh(self.backcasts[index](correction))
+        leaves = torch.cat([tree.leaf_value.flatten() for tree in self.trees])
+        self.aux_loss = self.l1_penalty * leaves.abs().mean() + self.l2_penalty * leaves.square().mean()
+        return self.revin(forecast.view(-1, self.pred_len, self.enc_in), "denorm")

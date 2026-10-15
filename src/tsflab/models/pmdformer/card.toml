@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PMDformer"
+tags = ["transformer", "patching", "decomposition", "channel-mixing", "attention-variant", "normalization"]
+fits = ["high-cross-correlation", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PMDformer: Patch-Mean Decoupling Information Transformer for Long-term Forecasting"
+url = "https://arxiv.org/abs/2606.26549"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/aohu1105/PMDformer"
+revision = "d9296b7b857d8e1075838759ec5d0aa3f3539f7e"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/aohu1105/PMDformer/blob/d9296b7b857d8e1075838759ec5d0aa3f3539f7e/model/PMDformer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:patch-mean-decoupling"
+temporal = "local:trend-restoration-attention"
+channel = "local:proximal-variable-attention"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+patch_len = { from = "seq_len", rule = "non-multiples of patch_len are left-padded by replicating the first value" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from Eqs. (1)-(9); license recorded as `NOASSERTION`."

@@ -1,0 +1,13 @@
+[model]
+name = "Aurora"
+
+[model.params]
+enc_in = 7
+d_model = 64
+patch_len = 16
+num_heads = 4
+num_distill_tokens = 2
+num_prototypes = 8
+flow_steps = 2
+dropout = 0.1
+use_revin = true

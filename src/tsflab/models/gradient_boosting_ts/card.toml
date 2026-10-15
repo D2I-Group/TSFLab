@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GradientBoostingTS"
+tags = ["tree", "ensemble", "boosting", "baseline", "channel-mixing", "normalization"]
+fits = ["short-train"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card uses Friedman (2001) only for the stage-wise additive principle and documents no paper problem."
+
+[paper]
+title = "Greedy function approximation: A gradient boosting machine"
+url = "https://doi.org/10.1214/aos/1013203451"
+venue = "Annals of Statistics 2001"
+year = 2001
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:stagewise-residual-backcast"
+temporal = "component:soft_tree+local:additive-stagewise-corrections"
+channel = "local:flattened-channel-mixing"
+head = "local:linear-base-plus-tree-corrections"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; base, trees and backcasts map seq_len * enc_in inputs to pred_len * enc_in outputs" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

@@ -1,0 +1,6 @@
+[model]
+name = "Linear"
+
+[model.params]
+enc_in = 7
+individual = false

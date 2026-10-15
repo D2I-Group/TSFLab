@@ -1,0 +1,10 @@
+[model]
+name = "MICN"
+
+[model.params]
+enc_in = 7
+d_model = 64
+d_layers = 1
+dropout = 0.05
+conv_kernel = [12, 16]
+mode = "regre"

@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AMD"
+tags = ["mlp", "multi-scale", "mixture-of-experts", "channel-mixing", "normalization", "aux-loss"]
+fits = ["multi-periodic", "long-lookback"]
+fidelity = "reference-checked"
+issues_checked = "the card checked `models/tsAMD.py`, `models/common.py` and `models/tsmoe.py` at the pinned revision against the paper and records only TSFLab interface choices (batched channels, exposed hyperparameters, shape validation), no paper or official-code problem."
+
+[paper]
+title = "Adaptive Multi-Scale Decomposition Framework for Time Series Forecasting"
+url = "https://arxiv.org/abs/2406.03751"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/TROUBADOUR000/AMD"
+revision = "000d377a1ed8946aa817ff357cdf1de64b99abb9"
+license = "MIT"
+reference_sources = ["https://github.com/TROUBADOUR000/AMD/blob/000d377a1ed8946aa817ff357cdf1de64b99abb9/models/tsAMD.py", "https://github.com/TROUBADOUR000/AMD/blob/000d377a1ed8946aa817ff357cdf1de64b99abb9/models/common.py", "https://github.com/TROUBADOUR000/AMD/blob/000d377a1ed8946aa817ff357cdf1de64b99abb9/models/tsmoe.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:multi-scale-decomposable-mixing"
+temporal = "local:patch-sequential-dependency-interaction"
+channel = "local:optional-channel-mlp"
+head = "local:adaptive-multi-predictor-synthesis"
+loss = "loss:mse+local:expert-importance-balance"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; fixed at construction by BatchNorm over channels * length" }
+patch = { from = "seq_len", rule = "seq_len must be divisible by patch" }
+mix_layer_scale = { from = "seq_len", rule = "seq_len must be divisible by mix_layer_scale ** mix_layer_num" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

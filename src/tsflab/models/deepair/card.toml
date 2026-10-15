@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DeepAir"
+tags = ["mlp", "spatiotemporal", "covariates", "fusion", "air-quality"]
+fits = ["spatial-graph", "exogenous-covariates", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Deep Distributed Fusion Network for Air Quality Prediction"
+url = "https://doi.org/10.1145/3219819.3219822"
+venue = "KDD 2018"
+year = 2018
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/PoorOtterBob/CauAir/blob/73dae00ca6ad14abb15174a0a0286d500e868b94/src/models/deepair.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:residual-fusion-nets-per-factor"
+channel = "local:spatial-partition-region-aggregation"
+head = "local:horizon-wise-weighted-sigmoid-merge"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "must equal the number of stations N" }
+adj_mx = { from = "graph", rule = "station projection [N, regions, N] or a 2-D [N, N] adjacency (one region); default regional projection when absent" }
+cov_dim = { from = "covariates", rule = "must equal the covariate features per station, historical and future alike" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "implementation from the paper with `src/models/deepair.py` used as reference only; license recorded as `NOASSERTION`."

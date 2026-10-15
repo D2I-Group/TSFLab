@@ -1,0 +1,118 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Dozerformer"
+tags = ["transformer", "sparse-attention", "patch", "encoder-decoder", "decomposition", "seasonal-trend", "channel-independent", "revin"]
+fits = ["strong-seasonality", "long-lookback"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Sparse Transformer with Local and Seasonal Adaptation for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2312.06874"
+venue = "Scientific Reports"
+year = 2024
+
+[code]
+url = "https://github.com/GRYGY1215/Dozerformer"
+revision = "7598cf9782236f248d5323caa02cbc6508d155d5"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/models/my_method/Attentions/dozer_attention.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/models/my_method/dozerformer_Linear.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/models/my_method/dozerformer_EncDec.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/models/my_method/Attentions/Transformer_EncDec.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/models/my_method/build_model_util.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/utils/tools.py", "https://github.com/GRYGY1215/Dozerformer/blob/7598cf9782236f248d5323caa02cbc6508d155d5/scripts/ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:dozer-sparse-attention-encoder-decoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:conv1x1-seasonal-plus-linear-trend"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+patch_size = { from = "period", rule = "a seasonal period should be a whole number of patches (24 for hourly data with a daily period)" }
+stride = { from = "period", rule = "stride + 1 patches equals one seasonal period; 0 disables Stride attention" }
+label_len = { from = "seq_len", rule = "must not exceed seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2 and Sec. 4.3 vs `models/my_method/Attentions/dozer_attention.py` (`DozerAttention.forward`)"
+what = "the paper presents Dozer attention as sparse (unselected query-key pairs are eliminated, giving `O((w+s)I/p)` cost), but the code fills only selected entries of a zero score matrix and applies softmax over all keys, so every unselected key still receives weight `exp(0)/Z` and the attention is dense in effect."
+resolution = "`score_mode = \"zero\"` reproduces the code (default); `score_mode = \"masked\"` gives the sparse semantics."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (3) vs `models/my_method/Attentions/dozer_attention.py` (`stride = self.stride + 1`)"
+what = "the paper keeps `|i - j| mod s = 0`, the code uses the interval `s + 1`."
+resolution = "the code convention; `stride` is the interval minus one."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (2) and Sec. 3.2.1 (cross-attention Local keeps the last `floor(w/2) + 1` steps) vs `models/my_method/Attentions/dozer_attention.py`"
+what = "the code keeps the last `floor(w/2)` encoder patches (`1` when `w = 1`)."
+resolution = "the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (4)"
+what = "the Vary condition `|i - j| < v + i - t, i > t` mixes query and key positions and does not express \"the first horizon step uses `v` steps, each later step one more\"; the code (`models/my_method/Attentions/dozer_attention.py`, flipped `torch.tril` with diagonal `-(L_Q - pred_segs) + vary_len - 1`) gives decoder patch `i` the last `i - (N_dec - N_pred) + v` encoder patches."
+resolution = "the code semantics."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2.2"
+what = "the alignment of decoder queries with encoder keys for the cross-attention Stride is not given; the code (`models/my_method/Attentions/dozer_attention.py`) anchors query `i` at key offset `N_enc - floor(N_dec/2)`."
+resolution = "the code anchor."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/my_method/Attentions/dozer_attention.py` (`if L_Q == L_K` / `if L_Q != L_K`)"
+what = "self- and cross-attention are told apart by sequence length, so a cross-attention whose decoder and encoder patch counts are equal (for example `seq_len = 96`, `label_len = 48`, `pred_len = 48`, `patch_size = 24`) silently uses the self-attention pattern without Vary."
+resolution = "cross-attention always uses the cross pattern."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/my_method/dozerformer_Linear.py` (`Model.forward`)"
+what = "only `x_enc` passes through RevIN; the decoder input built in `utils/tools.py` (`process_one_batch`) from the last `label_len` steps is decomposed on the dataset scale."
+resolution = "reproduced by default (`normalize_decoder_input = false`); set it to true to feed the normalized history."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 (\"canonical transformer architecture\") vs `models/my_method/Attentions/Transformer_EncDec.py` and `models/my_method/dozerformer_EncDec.py`"
+what = "the code adds a depthwise convolution (kernel 3) inside the feed-forward, LayerNorm before and after each stack, a `torch.randn` position table per variable, and a skip from the patch embedding to the stack output."
+resolution = "reproduced."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Fig. 2 and Supplementary A.2 vs `scripts/Exchange_Rate.sh` and `scripts/ILI.sh`"
+what = "these scripts run `--model dozerformer` (`models/my_method/dozerformer.py`), which has no decomposition and no linear trend branch (its trend encoder/decoder are built but unused); the other seven datasets use `dozerformer_Linear`."
+resolution = "`trend_branch = false` reproduces the Exchange/ILI variant."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1 and Supplementary A.2"
+what = "the training loss, decomposition kernels, decoder label length, feature-map count `c` and FFN width are not given; `run.py` defaults to `--loss L1` and `--d_ff 32` (multiplied by the patch size in `models/my_method/dozerformer_EncDec.py`), and the scripts pass `--moving_avg '13, 17'`, `--embed_dim 8` (32/64 for Exchange/ILI) and `--label_len 96` with the 720-step look-back."
+resolution = "defaults from `scripts/ETTh1.sh` and `run.py`; MAE loss."
+
+[[issues]]
+kind = "code-bug"
+where = "`run.py` (`--rand_rate`) and `models/my_method/build_model_util.py` (`DI_embedding`)"
+what = "the random-attention rate is passed to `DozerAttention` but never used, and the embedding's dropout and LayerNorm are built but never applied."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "code-bug"
+where = "`data/data_provider.py` (`data_provider`, `flag == 'test'`)"
+what = "the test loader uses `drop_last = True`, so the last partial test batch is never scored."
+resolution = "not applicable; TSFLab's evaluator scores every test window."
+
+[[issues]]
+kind = "paper-error"
+where = "Table 1 (ETTh2 rows)"
+what = "the second horizon is labelled `168` instead of `192`."
+resolution = "none needed."

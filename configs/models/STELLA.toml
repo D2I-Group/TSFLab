@@ -1,0 +1,8 @@
+[model]
+name = "STELLA"
+
+[model.params]
+enc_in = 8
+d_model = 32
+num_layers = 2
+dropout = 0.2

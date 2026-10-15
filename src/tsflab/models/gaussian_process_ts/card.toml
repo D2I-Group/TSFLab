@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GaussianProcessTS"
+tags = ["statistical", "kernel-method", "gaussian-process", "baseline", "channel-independent"]
+fits = ["short-train", "weak-cross-correlation"]
+fidelity = "paper-only"
+issues_checked = "independent inducing-basis mean approximation of GP regression; no third-party source was inspected and the card documents no paper problem."
+
+[paper]
+title = "Gaussian Processes for Machine Learning"
+url = "https://gaussianprocess.org/gpml/chapters/"
+venue = "MIT Press 2006"
+year = 2006
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:sparse-rbf-kernel-posterior-mean"
+channel = "local:channel-independent-shared-weights"
+head = "local:learned-inducing-horizon-targets"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; only checked against the input shape, since all channels share one kernel function" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

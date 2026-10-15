@@ -1,0 +1,12 @@
+[model]
+name = "SOFTS"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_core = 64
+d_ff = 256
+e_layers = 2
+dropout = 0.1
+activation = "gelu"
+use_norm = true

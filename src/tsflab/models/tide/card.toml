@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TiDE"
+tags = ["mlp", "covariates", "channel-independent", "normalization", "lightweight"]
+fits = ["calendar-effects", "exogenous-covariates", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Long-term Forecasting with TiDE: Time-series Dense Encoder"
+url = "https://arxiv.org/abs/2304.08424"
+venue = "TMLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "4e938a1767106324dd753b2a44832bf870a0252e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:dense-residual-mlp-encoder-decoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:temporal-decoder+local:global-linear-residual"
+loss = "loss:mse"
+
+[data_params]
+time_feat_dim = { from = "covariates", rule = "mark features per step; must match the runner's marks (6 raw calendar stamps)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/TiDE.py` `temporalDecoder` (`ResBlock(..., 1)` ending in `LayerNorm(1)`)"
+what = "layer normalization over a single output value removes it, so the scalar temporal decoder emits only the LayerNorm bias and its nonlinear branch never reaches the forecast."
+resolution = "the scalar temporal decoder omits LayerNorm."

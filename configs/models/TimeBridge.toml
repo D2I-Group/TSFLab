@@ -1,0 +1,18 @@
+[model]
+name = "TimeBridge"
+
+[model.params]
+enc_in = 7
+period = 24
+num_p = 2
+ia_layers = 2
+pd_layers = 1
+ca_layers = 2
+stable_len = 3
+d_model = 16
+n_heads = 4
+d_ff = 128
+attn_dropout = 0.15
+dropout = 0.0
+activation = "gelu"
+revin = true

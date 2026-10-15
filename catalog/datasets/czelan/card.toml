@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "czelan"
+domain = "environment"
+topic = "ecophysiology"
+benchmarks = ["tfb"]
+tags = ["sap-flow", "transpiration", "sapfluxnet", "ecology", "plant", "meteorology", "half-hourly", "tfb", "multivariate", "czelan", "diurnal"]
+related = ["zafnoo", "weather", "aqshunyi"]
+characteristics = ["strong-seasonality", "high-forecastability", "regime-changes", "level-dependent-variance", "zero-inflation"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "SAPFLUXNET database (Poyatos et al.), site CZE_LAN; TFB packaging by Qiu et al."
+url = "https://doi.org/10.5281/zenodo.3971689"
+citation = "Global transpiration data from sap flow measurements: the SAPFLUXNET database (Poyatos et al., Earth System Science Data, 2021)"
+citation_url = "https://doi.org/10.5194/essd-13-2607-2021"
+license = "CC-BY-4.0 (SAPFLUXNET Zenodo record)"
+license_url = "https://doi.org/10.5281/zenodo.3971689"
+redistribution = "hosted"
+
+[shape]
+frequency = "30 minutes (30min)"
+time_span = "2016-05-06 00:11:03 to 2017-06-25 06:41:03"
+length = 19934
+channels = 11
+channel_kind = "channels"
+target = "CZE_LAN_Cbe_Jt_16 (sap flow of one plant, the first channel; the preset names it explicitly)"
+missing_values = "no NaN in the TFB file (gap handling undocumented); the sap-flow channel is exactly 0 in 18.5% of steps (night)"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "TFB multivariate: lookback 96, 336 or 512, horizons 96/192/336/720, chronological 7:1:2 (TFB `train_ratio_in_tv` default 0.875 with `tv_ratio` 0.8)"
+split = "7:1:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

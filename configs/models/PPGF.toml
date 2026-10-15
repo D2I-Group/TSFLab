@@ -1,0 +1,19 @@
+[model]
+name = "PPGF"
+
+[model.params]
+enc_in = 7
+num_groups = 4
+d_model = 32
+conv_kernel = 2
+n_heads = 8
+d_k = 64
+d_ff = 2048
+e_layers = 1
+grn_hidden = 416
+hidden_dim = 300
+dropout = 0.2
+pos_dropout = 0.3
+lambda_conf = 1.0
+lambda_cls = 1.0
+lambda_reg = 5.0

@@ -1,0 +1,12 @@
+[model]
+name = "STDN"
+
+[model.params]
+enc_in = 8
+time_slice_size = 5   # 5-minute traffic data (official PEMS04/PEMS07 configs)
+K = 4
+d = 8
+L = 1
+order = 2
+reference = 4
+out_channels = 1

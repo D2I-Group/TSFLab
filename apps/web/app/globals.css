@@ -1,0 +1,278 @@
+@import "tailwindcss";
+
+/* Keep Tailwind classes used by the leaderboard submodule (separate git repo,
+   so register it explicitly as a content source). */
+@source "../src";
+@source "../components";
+@source "../app";
+
+/* Dark mode driven by a `.dark` class on <html> (next-themes). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/*  Design tokens — graphite-led neutral palette + a single gold accent */
+/*  Light: warm ivory paper (Anthropic-like).  Dark: deep graphite ink. */
+/* ------------------------------------------------------------------ */
+:root {
+  --paper: #fbfaf7;       /* page background — warm ivory   */
+  --paper-2: #f3f1ea;     /* subtle raised / alt sections   */
+  --surface: #ffffff;     /* cards                          */
+  --border: #e6e3d9;      /* hairlines                      */
+  --border-strong: #d6d2c4;
+  --ink: #1a1a18;         /* primary text — graphite        */
+  --ink-2: #3a3935;       /* secondary heading text         */
+  --muted: #6c6a61;       /* muted text                     */
+  --faint: #97948a;       /* faintest text / captions       */
+  --accent: #8c6f24;      /* dark gold — the light beam      */
+  --accent-hover: #745c1d;
+  --accent-fg: #ffffff;   /* text on accent                 */
+  --accent-soft: #efe9d6; /* accent tint background         */
+}
+
+.dark {
+  --paper: #0e0e0d;
+  --paper-2: #161614;
+  --surface: #1a1a18;
+  --border: #2a2926;
+  --border-strong: #3a3935;
+  --ink: #eceae3;
+  --ink-2: #cbc9c0;
+  --muted: #9c9a90;
+  --faint: #74726a;
+  --accent: #d6b25e;
+  --accent-hover: #e4c47c;
+  --accent-fg: #15130d;
+  --accent-soft: #2b2414;
+}
+
+/* Map tokens to Tailwind theme so utilities like `bg-paper text-ink` work. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+
+  /* All self-hosted by next/font (no runtime Google request). Latin glyphs
+     come from Inter / Newsreader; CJK falls back to the system Chinese fonts. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-serif: var(--font-newsreader), var(--font-noto-serif-sc), ui-serif,
+    Georgia, "Songti SC", serif;
+  --font-mono: var(--font-fira-code), ui-monospace, "SF Mono", Menlo,
+    Consolas, monospace;
+
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Smooth theme transitions on color-bearing properties only. */
+body,
+header,
+section,
+a,
+button,
+.themed {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.2s ease;
+}
+
+::selection {
+  background-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Thin, refined focus ring for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Charts (recharts SVG surfaces, echarts canvas) grab focus on click and would
+   otherwise show the browser's default blue focus box. Suppress it — these are
+   data marks, not interactive controls that need a focus ring. */
+.recharts-wrapper:focus,
+.recharts-wrapper :focus,
+.recharts-surface:focus,
+.echarts-for-react:focus,
+.echarts-for-react :focus {
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Prose — typography for rendered MDX articles                       */
+/* ------------------------------------------------------------------ */
+.prose {
+  color: var(--ink-2);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+}
+.prose > * + * {
+  margin-top: 1.4em;
+}
+.prose h2 {
+  font-family: var(--font-serif);
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 2.4em;
+  margin-bottom: 0.2em;
+  scroll-margin-top: 6rem;
+}
+.prose h3 {
+  font-family: var(--font-serif);
+  color: var(--ink);
+  font-size: 1.28rem;
+  margin-top: 1.8em;
+  margin-bottom: 0.1em;
+  scroll-margin-top: 6rem;
+}
+.prose p {
+  color: var(--ink-2);
+}
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.prose a:hover {
+  text-decoration-color: var(--accent);
+}
+.prose strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li {
+  margin-top: 0.4em;
+}
+.prose li::marker {
+  color: var(--faint);
+}
+.prose blockquote {
+  border-left: 2px solid var(--accent);
+  padding-left: 1.1em;
+  color: var(--muted);
+  font-style: italic;
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background-color: var(--paper-2);
+  border: 1px solid var(--border);
+  padding: 0.12em 0.38em;
+  border-radius: 4px;
+}
+.prose pre {
+  background-color: var(--paper-2) !important;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1em 1.2em;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Shiki dual-theme highlighting (rehype-pretty-code, keepBackground: false). */
+.prose [data-rehype-pretty-code-figure] {
+  margin-top: 1.4em;
+}
+.prose code[data-theme],
+.prose code[data-theme] span {
+  color: var(--shiki-light);
+}
+.dark .prose code[data-theme],
+.dark .prose code[data-theme] span {
+  color: var(--shiki-dark);
+}
+.prose code[data-line-numbers] {
+  counter-reset: line;
+}
+.prose code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 1.4rem;
+  text-align: right;
+  color: var(--faint);
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.6em 0;
+}
+.prose img {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+/* Subtle entrance animation utility. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

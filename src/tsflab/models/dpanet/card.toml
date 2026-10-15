@@ -1,0 +1,86 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DPANet"
+tags = ["transformer", "multi-scale", "frequency", "pyramid", "cross-attention", "channel-independent", "normalization"]
+fits = ["multi-periodic", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DPANet: Dual Pyramid Attention Network for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.14868"
+venue = "arXiv"
+year = 2025
+
+[code]
+url = "https://github.com/hit636/DPANet"
+revision = "f8dbdac23a8134b4d46dc57ed44eb36b312f3e29"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/hit636/DPANet/blob/f8dbdac23a8134b4d46dc57ed44eb36b312f3e29/models/DPANet.py", "https://github.com/hit636/DPANet/blob/f8dbdac23a8134b4d46dc57ed44eb36b312f3e29/run_longExp.py", "https://github.com/hit636/DPANet/blob/f8dbdac23a8134b4d46dc57ed44eb36b312f3e29/scripts/etth1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:temporal-pyramid+local:log-band-frequency-pyramid"
+temporal = "local:cross-pyramid-fusion-block"
+channel = "none"
+head = "local:linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+num_scales = { from = "seq_len", rule = "seq_len // 2^(num_scales - 1) must be at least 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sections 3.3-3.4 (Eqs. 5-6, \"UpSample doubles the sequence length\", \"sequence-pooled representation\") vs `models/DPANet.py` `Model.__init__` / `Model.forward`"
+what = "the code embeds each level of each channel with `Linear(len_s, d_model)` into a single token, so every attention runs over one key (softmax weight 1, the output is the projected value of the other stream), the interpolation branch is never taken and \"upsampling\" repeats a one-token state, and the head squeezes the single token instead of pooling a sequence."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 3-4 (two parallel cross-attentions on the input states) vs `models/DPANet.py` `CrossPyramidFusionBlock.forward`"
+what = "the spectral stream attends to the already updated temporal state."
+resolution = "the code order is implemented."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3.3 (FFN \"for deep fusion\") vs `models/DPANet.py` `CrossPyramidFusionBlock`"
+what = "the paper gives no FFN form; the code applies `LayerNorm(fused + Dropout(Linear(GELU-MLP)(fused)))` over the concatenated `2 * d_model` states with hidden width `d_ff` and residual dropout after both attentions."
+resolution = "implemented as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Fig. 1 (coarse temporal scale drawn beside the low-frequency band) vs `models/DPANet.py` `Model.get_frequency_bands` / `Model.forward`"
+what = "band 0 (lowest frequencies) is fused with temporal level 0 (the finest scale), so the coarsest temporal level meets the highest band; the text (Sections 3.2-3.3) does not fix the order."
+resolution = "the code pairing is implemented."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/DPANet.py` `Model.__init__`"
+what = "the constructor overwrites `configs.revin`, `num_scales`, `d_model` and `n_heads` with 1/3/128/8, silently ignoring the command-line values."
+resolution = "these values are the defaults here and remain configurable."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 4.2 vs `run_longExp.py` and `scripts/*.sh`"
+what = "the paper reports no architecture hyperparameters; the scripts set no `d_ff` or `dropout`, so the parser defaults `d_ff = 2048` and `dropout = 0.2` apply (also as attention-weight dropout inside `nn.MultiheadAttention`)."
+resolution = "those defaults are used."
+
+[[issues]]
+kind = "unreleased"
+where = "Section 4.4 (Table 2 Temporal-Only, Frequency-Only and w/o Cross-Fusion variants) vs `models/DPANet.py`"
+what = "no ablation switches are in the code."
+resolution = "not implemented."
+
+[[issues]]
+kind = "unreleased"
+where = "`README.md` (Prerequisites)"
+what = "installation refers to a `requirements.txt` that is not in the repository."
+resolution = "no external dependency is needed beyond PyTorch."

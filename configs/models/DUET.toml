@@ -1,0 +1,16 @@
+[model]
+name = "DUET"
+
+[model.params]
+enc_in = 7
+d_model = 64
+n_heads = 4
+e_layers = 2
+d_ff = 64
+dropout = 0.1
+fc_dropout = 0.1
+moving_avg = 25
+num_experts = 4
+k = 2
+hidden_size = 64
+noisy_gating = true

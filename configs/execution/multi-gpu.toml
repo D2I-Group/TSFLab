@@ -1,0 +1,21 @@
+# Run profile: multi-GPU server (e.g. 8x RTX 6000 Ada on driver 570, install
+# profile `cuda126`). List every GPU with --gpus and set --jobs to
+# max_processes_per_gpu x GPUs; `tsf env doctor` prints the exact flags:
+#   uv run tsf run <experiment.toml> --policy configs/execution/multi-gpu.toml \
+#       --gpus 0,1,2,3,4,5,6,7 --jobs 16
+# The run config must use [experiment.runtime] device = "cuda", device_ids = [0]
+# (each run sees only its leased GPU); num_workers = 4.
+
+[budget]
+max_parallel_jobs = 4      # overridden by --jobs
+
+[resources]
+gpus = ["0", "1"]          # overridden by --gpus
+gpus_per_run = 1
+sharing = true             # cooperative packing; reservations, not memory isolation
+max_processes_per_gpu = 2
+memory_per_run_mb = 12000  # declared peak per run; lower to pack small models
+min_free_memory_mb = 4000
+threads_per_run = 8        # caps OpenMP/MKL threads per run process
+wait_timeout_minutes = 120
+min_free_disk_gb = 50

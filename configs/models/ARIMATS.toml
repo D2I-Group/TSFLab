@@ -1,0 +1,7 @@
+[model]
+name = "ARIMATS"
+
+[model.params]
+enc_in = 7
+ar_order = 2
+ma_order = 1

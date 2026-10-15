@@ -1,0 +1,11 @@
+[model]
+name = "Koopa"
+
+[model.params]
+enc_in = 7
+dynamic_dim = 128
+hidden_dim = 64
+hidden_layers = 2
+num_blocks = 3
+multistep = false
+alpha = 0.2

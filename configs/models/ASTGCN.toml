@@ -1,0 +1,10 @@
+[model]
+name = "ASTGCN"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+nb_block = 2
+K = 3
+nb_chev_filter = 64
+nb_time_filter = 64

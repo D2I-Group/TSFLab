@@ -1,0 +1,7 @@
+[model]
+name = "PCDCNet"
+
+[model.params]
+enc_in = 8
+d_model = 64
+dropout = 0.1

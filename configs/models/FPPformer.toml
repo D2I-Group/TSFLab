@@ -1,0 +1,9 @@
+[model]
+name = "FPPformer"
+
+[model.params]
+enc_in = 7
+d_model = 32
+patch_size = 6
+num_stages = 3
+dropout = 0.1

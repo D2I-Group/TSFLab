@@ -1,0 +1,19 @@
+[model]
+name = "DRFormer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_ff = 256
+n_heads = 8
+e_layers = 2
+patch_len = 16
+stride = 4
+sequence_num = 3
+dropout = 0.05
+activation = "gelu"
+mask_groups = 8
+active_ratio = 0.5
+death_rate = 0.5
+update_frequency = 0.3
+mask_epochs = 5.0

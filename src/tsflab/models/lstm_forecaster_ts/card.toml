@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LSTMForecasterTS"
+tags = ["rnn", "baseline", "channel-mixing", "normalization"]
+fits = ["non-stationary"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card uses the 1997 LSTM gate equations only and documents no paper problem (the head, channel setup, and RevIN are TSFLab choices)."
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count (LSTM input width and head output width pred_len * enc_in)" }
+
+[paper]
+title = "Long Short-Term Memory"
+url = "https://doi.org/10.1162/neco.1997.9.8.1735"
+venue = "Neural Computation 1997"
+year = 1997
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:lstm-final-state-encoder"
+channel = "local:channel-mixing-recurrent-input"
+head = "local:linear-direct-multi-horizon-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

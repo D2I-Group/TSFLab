@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "gift_eval/bizitobs_l2c_H"
+domain = "cloud-web"
+topic = "IT operations observability"
+benchmarks = ["gift-eval"]
+tags = ["gift-eval", "benchmark", "zero-shot", "foundation-model", "multivariate", "web-cloudops", "hourly", "observability", "aiops", "bizitobs"]
+related = ["gift_eval/bizitobs_l2c_5T"]
+
+[source]
+name = "BizITObs, processed per AutoMixer (Palaskar et al., 2024)"
+url = "https://github.com/BizITObs/BizITObservabilityData"
+citation = "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation (Aksu et al., 2024)"
+citation_url = "https://arxiv.org/abs/2410.10393"
+license = "CDLA-Sharing-1.0"
+redistribution = "upstream"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "varies by series; not recorded in the GIFT-Eval metadata used here"
+length = 2664
+channels = 7
+channel_kind = "channels"
+target = "all variates"
+missing_values = "no missing-value flag recorded by GIFT-Eval; none documented for this id"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "GIFT-Eval short term: horizon 48, last 10% of each series is test (rolling non-overlapping windows, at most 20), context length chosen by the model, zero-shot oriented"
+literature = ""
+split = "per series: last 10% test, one horizon validation, rest train"
+seq_lens = []
+pred_lens = [48]

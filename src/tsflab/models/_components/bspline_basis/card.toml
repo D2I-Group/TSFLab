@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "bspline_basis"
+role = "Supplies the B-spline basis for KAN layers that learn smooth nonlinear per-feature functions inside a forecaster."
+slot = "support"
+fits = ["any"]
+category = "utility"
+tags = ["b-spline", "basis", "cox-de-boor", "kan", "kolmogorov-arnold", "knots", "spline", "stateless", "nonlinearity"]
+input = "x [..., F]; knots [K] or [F, K]; order k >= 0"
+output = "bases [..., F, K - k - 1]"
+origin = "Cox-de Boor recursion (Cox, The Numerical Evaluation of B-Splines, IMA J. Appl. Math. 1972; de Boor, On Calculating with B-Splines, J. Approx. Theory 1972) as the edge basis of KAN (Liu et al., KAN: Kolmogorov-Arnold Networks, arXiv 2404.19756); consolidated from AR-KAN (arXiv 2509.02967) and TFKAN (arXiv 2506.12696)"
+origin_models = ["arkan", "tfkan"]

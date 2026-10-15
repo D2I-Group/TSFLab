@@ -1,0 +1,7 @@
+[model]
+name = "WinNet"
+
+[model.params]
+enc_in = 7
+window = 24
+dropout = 0.5

@@ -1,0 +1,16 @@
+[model]
+name = "HimNet"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+output_dim = 1
+hidden_dim = 16
+num_layers = 1
+cheb_k = 2
+node_embedding_dim = 8
+st_embedding_dim = 8
+tod_embedding_dim = 8
+dow_embedding_dim = 8
+steps_per_day = 24
+use_teacher_forcing = false

@@ -1,0 +1,109 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DynGDiff"
+tags = ["diffusion", "ssm", "probabilistic", "quantile", "guidance", "self-guidance", "two-stage-training", "channel-mixing"]
+fits = ["probabilistic-output", "heteroscedastic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DynG-Diff: A State-Aware Dynamic Guidance Diffusion Framework for Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2609.02068"
+venue = "arXiv"
+year = 2026
+
+[code]
+url = "https://github.com/TT-20011031/DynG-Diff"
+revision = "28ae9001a84dd0c07502157c7e8d34d6c9d3de53"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/arch/backbones.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/arch/s4.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/arch/policy_net.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/model/diffusion/_base.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/model/diffusion/dyng_diff.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/src/dyng_diff/sampler/observation_guidance.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/scripts/train_weight_policy.py", "https://github.com/TT-20011031/DynG-Diff/blob/28ae9001a84dd0c07502157c7e8d34d6c9d3de53/scripts/train_backbone.py"]
+
+[composition]
+normalization = "local:mean-absolute-scaling"
+decomposition = "none"
+temporal = "local:bidirectional-s4-residual-denoiser"
+channel = "local:state-aware-policy-conv-guidance"
+head = "local:guided-ddpm-sampler+component:empirical_quantiles"
+loss = "local:noise-mse-then-proxy-precision-mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`src/dyng_diff/sampler/observation_guidance.py` `Guidance.get_dynamic_weights` with `src/dyng_diff/arch/policy_net.py` `StateAwarePolicyNet.forward`"
+what = "the policy forward already returns the mean-normalized `exp(Z)` of Eq. 7, and the sampler exponentiates and mean-normalizes that output a second time, so guidance uses `exp(A)/mean(exp(A))` instead of `A`."
+resolution = "Eq. 7 is applied once, to the policy score `Z`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 10 vs `scripts/train_weight_policy.py` `main`"
+what = "the MSE is taken between the policy forward output (the non-negative, mean-one `A_t`) and the zero-mean clipped target, not between the score `Z_t` and the target."
+resolution = "the paper is followed (`Z_t` is regressed, then mapped by Eq. 7)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 5 vs `src/dyng_diff/sampler/observation_guidance.py` `DDPMGuidance._reverse_diffusion` and `configs/guidance/*.yaml` (`sampler"
+what = "\"ddpm\"`): the released sampler adds `s * posterior_variance_t * score` to the DDPM mean instead of modifying the predicted noise by `s sqrt(1 - abar_t) grad L` (that form exists only in the unused `DDIMGuidance`)."
+resolution = "the code is followed, since the Table 3 guidance scales are those of the DDPM configs."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 9 (\"mean and standard deviation of the log-precision within the current batch\") vs `scripts/train_weight_policy.py` `main`"
+what = "the statistics are per sample over variables and time (`dim=(1, 2)`, unbiased standard deviation, `1e-6` floors)."
+resolution = "the code is followed."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/dyng_diff/arch/s4.py` `cauchy_naive`"
+what = "the fallback Cauchy kernel (used when neither pykeops nor the CUDA extension is installed) sums over the stored half of each conjugate pair only, while the pykeops `cauchy_conj` path includes the conjugates, so the S4 kernel depends on the installed packages."
+resolution = "the conjugate-symmetric sum (the pykeops path pinned in `pyproject.toml`)."
+
+[[issues]]
+kind = "leakage"
+where = "`scripts/prepare_custom_dataset.py` `convert_to_gluonts_format` with `scripts/guidance_experiment.py` `ManualRollingWindowSplitter`"
+what = "the test set is the whole series (`test_df = df`) and evaluation rolls windows from its first step with stride equal to the horizon, so the reported metrics include windows from the training period the backbone and policy were fit on."
+resolution = "not applicable; TSFLab evaluates on its own held-out test split."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table 1 split sizes (ETTh1 8361/2091/6968) vs `scripts/prepare_custom_dataset.py` `DATASET_CONFIGS` and `configs/train_backbone/*.yaml` (`use_validation_set"
+what = "False`): the released split is train 60% for ETTh1 (70% or 80% elsewhere) with no validation set."
+resolution = "the TSFLab dataset splits apply."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 18-19 vs `scripts/guidance_experiment.py` `evaluate_guidance`"
+what = "CRPS is approximated by twice the mean pinball loss at nine sample quantiles, and the reported \"standardized\" MSE and CRPS divide by the variance and standard deviation of the test ground truth."
+resolution = "not applicable; TSFLab computes its own metrics."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1 (policy \"lightweight 1D-CNN layers\", time embedding `e_t` in `R^{d_t}`) vs `src/dyng_diff/arch/policy_net.py` and `observation_guidance.py`"
+what = "widths (hidden 64, step embedding 32), kernel sizes 3 and 1, BatchNorm after the first convolution and the `1e-8` floor come only from the code."
+resolution = "the code values are used."
+
+[[issues]]
+kind = "underspecified"
+where = "App. B.1 vs `src/dyng_diff/arch/backbones.py`, `src/dyng_diff/arch/s4.py` and `src/dyng_diff/model/diffusion/dyng_diff.py` `_extract_features`"
+what = "the S4 configuration (NPLR HiPPO-LegS, state 128, bidirectional, `dt` in `[1e-3, 1e-1]`, GELU, no output GLU) and the per-variable mean-absolute context scaling with clipping to `[-10, 10]` are only in the code."
+resolution = "the code values are used."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 5.1 (\"300 epochs\") vs `scripts/train_backbone.py` `MemoryCachedDataset`"
+what = "an epoch is 100 batches from a cache of `100 x batch_size` random training windows drawn once and reused for all epochs, trained in 16-bit mixed precision."
+resolution = "`backbone_epochs` epochs of `backbone_batches_per_epoch` batches cycling the full TSFLab training loader, in float32."
+
+[[issues]]
+kind = "license"
+where = "repository root at `28ae9001`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

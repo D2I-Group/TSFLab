@@ -1,0 +1,41 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "BigST"
+tags = ["transformer", "attention-variant", "linear-attention", "spatiotemporal", "covariates", "scalable"]
+fits = ["spatial-graph", "many-channels", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "clean-room rewrite from the paper equations with the BasicTS code kept reference-only; the card records only TSFLab omissions (pretrained long-history extractor, regularization loss, pipeline), no paper or official-code problem."
+
+[paper]
+title = "BigST: Linear Complexity Spatio-Temporal Graph Neural Network for Traffic Forecasting on Large-Scale Road Networks"
+url = "https://www.vldb.org/pvldb/vol17/p1081-han.pdf"
+venue = "PVLDB 2024"
+year = 2024
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:flattened-history-linear-projection"
+channel = "local:random-feature-linear-attention-over-nodes"
+head = "local:linear-horizon-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes" }
+tod_size = { from = "frequency", rule = "time-of-day embedding slots; steps per day (24 hourly, 288 for 5-minute data)" }
+input_dim = { from = "covariates", rule = "1 value + calendar covariates [time-of-day, day-of-week] = 3" }
+adj_mx = { from = "graph", rule = "[enc_in, enc_in] adjacency, used only as a scaled residual prior on the values" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

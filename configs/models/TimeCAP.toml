@@ -1,0 +1,12 @@
+[model]
+name = "TimeCAP"
+
+[model.params]
+enc_in = 7
+d_model = 32
+dropout = 0.1
+patch_len = 16
+group_size = 4
+group_stride = 2
+num_heads = 4
+fusion_alpha = 0.1

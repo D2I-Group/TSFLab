@@ -1,0 +1,13 @@
+[model]
+name = "DPANet"
+
+# Official scripts/etth1.sh, pred_len 96 (seq_len 96, MSE loss, batch size 16,
+# learning rate 5e-5). num_scales, d_model and n_heads are the values hard-coded
+# in models/DPANet.py; d_ff and dropout are the run_longExp.py defaults.
+[model.params]
+enc_in = 7
+num_scales = 3
+d_model = 128
+n_heads = 8
+d_ff = 2048
+dropout = 0.2

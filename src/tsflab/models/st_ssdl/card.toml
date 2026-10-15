@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ST-SSDL"
+tags = ["rnn", "gnn", "spatiotemporal", "retrieval", "graph-learning", "covariates"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records only TSFLab contract limits (no second historical window, so the auxiliary losses and the historical half of the decoding graph are not wired; no curriculum learning; no `use_STE` front-end) after checking the paper against `model_STSSDL/STSSDL.py`, `model_STSSDL/train_STSSDL.py`, and `model_STSSDL/utils.py`."
+
+[paper]
+title = "How Different from the Past? Spatio-Temporal Time Series Forecasting with Self-Supervised Deviation Learning"
+url = "https://arxiv.org/abs/2510.04908"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Jimmy-7664/ST-SSDL"
+revision = "a98331d3a45a081778f3abb608897902a60e301d"
+license = "MIT"
+reference_sources = ["https://github.com/Jimmy-7664/ST-SSDL/blob/a98331d3a45a081778f3abb608897902a60e301d/model_STSSDL/STSSDL.py", "https://github.com/Jimmy-7664/ST-SSDL/blob/a98331d3a45a081778f3abb608897902a60e301d/model_STSSDL/train_STSSDL.py", "https://github.com/Jimmy-7664/ST-SSDL/blob/a98331d3a45a081778f3abb608897902a60e301d/model_STSSDL/utils.py"]
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the graph node count" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:graph_conv_gru+local:chebyshev-graph-gru-encoder+component:deviation_memory"
+channel = "component:graph_utils+local:prototype-conditioned-adaptive-graph"
+head = "local:autoregressive-graph-gru-decoder"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

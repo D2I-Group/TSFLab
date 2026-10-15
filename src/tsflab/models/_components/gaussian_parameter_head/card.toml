@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "gaussian_parameter_head"
+role = "Outputs a Gaussian mean and positive scale per forecast element for likelihood-trained probabilistic forecasts."
+slot = "head"
+fits = ["probabilistic-output"]
+category = "head"
+tags = ["distribution", "gaussian", "location", "probabilistic", "scale", "softplus", "positive-scale", "likelihood", "deepar", "mean-variance"]
+input = "[..., in_features]"
+output = "(loc, scale), each [..., out_features]"
+origin = "Gaussian likelihood parameter layer of DeepAR (Salinas et al., Int. J. Forecasting 2020); consumed by deepar and gaussian_mlp"
+origin_models = ["deepar", "gaussian_mlp"]

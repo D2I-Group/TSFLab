@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeMosaic"
+tags = ["transformer", "patching", "multi-scale", "channel-independent", "normalization", "attention-variant"]
+fits = ["heteroscedastic", "regime-changes", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimeMosaic: Temporal Heterogeneity Guided Time Series Forecasting via Adaptive Granularity Patch and Segment-wise Decoding"
+url = "https://arxiv.org/abs/2509.19406"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/BenchCouncil/TimeMosaic"
+revision = "214423b7f0b4653d04620814380a9301580285cc"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/BenchCouncil/TimeMosaic/blob/214423b7f0b4653d04620814380a9301580285cc/models/TimeMosaic.py", "https://github.com/BenchCouncil/TimeMosaic/blob/214423b7f0b4653d04620814380a9301580285cc/models/Mosaic.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:adaptive-granularity-patch-embedding+local:prompt-attention"
+channel = "local:channel-independent-shared-weights"
+head = "local:segment-wise-linear-heads"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels" }
+patch_sizes = { from = "seq_len", rule = "each size divides the largest; seq_len divisible by the largest" }
+num_segments = { from = "pred_len", rule = "horizon segments, clamped to pred_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."

@@ -1,0 +1,117 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MultiSPANS"
+tags = ["transformer", "gnn", "spatiotemporal", "attention-variant", "graph-hierarchy", "cnn"]
+fits = ["spatial-graph"]
+fidelity = "reference-checked"
+
+[paper]
+title = "MultiSPANS: A Multi-range Spatial-Temporal Transformer Network for Traffic Forecast via Structural Entropy Optimization"
+url = "https://arxiv.org/abs/2311.02880"
+venue = "WSDM 2024"
+year = 2024
+
+[code]
+url = "https://github.com/SELGroup/MultiSPANS"
+revision = "8b7f1898ae1ca8f85452462c676c066fbd361c13"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/model/traffic_flow_prediction/ST_transformer.py", "https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/model/traffic_flow_prediction/layers/STTransformer_layers.py", "https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/model/traffic_flow_prediction/layers/patch_layers.py", "https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/model/traffic_flow_prediction/layers/pe_layers.py", "https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/model/traffic_flow_prediction/layers/mask_layers.py", "https://github.com/SELGroup/MultiSPANS/blob/8b7f1898ae1ca8f85452462c676c066fbd361c13/libcity/config/model/traffic_state_pred/STTransformer.json"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:multi-size-temporal-conv+local:temporal-transformer+component:positional_encoding"
+channel = "local:multi-hop-graph-propagation+local:encoding-tree-masked-spatial-transformer"
+head = "local:transposed-conv-linear-decoder"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the dataset's node count" }
+adj_mx = { from = "graph", rule = "the dataset's dense N x N adjacency, injected by the runner; identity when absent" }
+lape_ratio = { from = "nodes", rule = "Laplacian eigenvector count round(N * lape_ratio), at least 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `8b7f1898`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.3.3 (structural-entropy minimization with deDoc combine/merge operators) vs `libcity/model/traffic_flow_prediction/layers/mask_layers.py` `Infomap_Multi_Mask_Generator`"
+what = "the code builds the hierarchy with Infomap (map equation, `infomap` package, `num_trials=20`); the vendored `layers/silearn` package is never imported by the model."
+resolution = "implemented the paper's greedy structural-entropy tree (Infomap optimises a different objective, the map equation, and is a copyleft-licensed external package)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3.3 \"Road Network Abstraction\""
+what = "the operators' preconditions, tie-breaking, height limit, and the treatment of a directed or weighted adjacency are not given; the cited deDoc operators are defined for two-level trees."
+resolution = "combine on any sibling pair, merge when at least one sibling is a module (a leaf counts as a singleton module), first index on ties, `max_tree_height = 3` by default, entropy on the symmetrised, loop-free, positive finite weights."
+
+[[issues]]
+kind = "unreleased"
+where = "Sec. 3.3.3 \"Hierarchical Correlation Score\" (Eq. 10, `S_hier` in Eq. 7)"
+what = "not implemented in the code (`STBlock` is built with `sbias_flag=False`; `Infomap_Multilevel_Bias_Generator` uses modular centrality, not relative structural entropy, and is unused)."
+resolution = "omitted."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3.3.3, definition of relative structural entropy"
+what = "`H_rel(G; alpha | beta) = H(G; alpha) / H(G; alpha)` is identically 1."
+resolution = "none possible from the text; `S_hier` omitted (see above)."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (6)-(7)"
+what = "`K = W_Q H` reuses the query projection, and the mask `M in {-INF, 1}` is applied by a Hadamard product, which turns allowed negative scores into large negatives and is undefined at `-INF * 0`."
+resolution = "separate key projection and additive masking by fill (`-1e10`), as in `layers/STTransformer_layers.py` `_ST_Attention`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.3.1 vs Sec. 3.3.2 vs `layers/STTransformer_layers.py` `STBlock.forward`"
+what = "Sec. 3.3.1 and the code add the node encoding `D_s` to the temporal Transformer's query and the time encoding `D_t` to the spatial Transformer's query; Sec. 3.3.2 states the opposite."
+resolution = "official routing by default; `position_routing = \"matched\"` gives the Sec. 3.3.2 routing."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `layers/patch_layers.py` `MixhopConv.forward`"
+what = "`einsum('bntc,nm->bmtc', h, D^-1 (A + I))` aggregates with the transpose of the row-normalised kernel, not `sum_i A_hat[n, i] X[i]`."
+resolution = "followed the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (8) vs `layers/STTransformer_layers.py` `_ST_Transfomer.forward`"
+what = "the code is a post-norm Transformer layer whose attention residual adds the position-encoded query, followed by a ReLU FFN with residual and a second BatchNorm, plus the outer residual BatchNorms in `STBlock`; Eq. (8) shows only `Norm(ReLU(W_ffn * heads))`."
+resolution = "followed the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.3.1 (`D_b` day-of-week and hour-of-day encodings) vs `ST_transformer.py` / `layers/pe_layers.py` `External_Encoding`"
+what = "the default configuration (`load_external = false` in `libcity/config/data/TrafficStatePointDataset.json`) uses no `D_b`, and the optional path embeds time of day only, with a fixed width of 64."
+resolution = "no `D_b` (official default); covariates can enter as extra input channels (`mark_features`)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/STTransformer_layers.py` `_ST_Transfomer.forward`"
+what = "with `pre_norm=True` it normalises an undefined `x`."
+resolution = "post-norm only (official default)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/mask_layers.py` `Graph_Mask_Generator.__init__`"
+what = "the dense matrix built from an edge-index input is discarded (`torch.from_numpy(graph_data)` is used regardless)."
+resolution = "dense adjacency input only."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (9) / `Infomap_Multi_Mask_Generator._gen_mask`"
+what = "a vertex not covered by any level-`l` subtree gets an all-masked row (uniform attention after the `-1e10` fill)."
+resolution = "the diagonal is always allowed; leaves shallower than a level are singleton groups."

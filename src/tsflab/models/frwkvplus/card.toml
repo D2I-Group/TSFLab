@@ -1,0 +1,74 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FRWKVPlus"
+tags = ["transformer", "time-series", "frequency-domain", "rwkv", "linear-attention", "fft", "gating", "periodicity", "revin"]
+fits = ["long-horizon", "strong-seasonality", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "FRWKV+: Periodic-Aware Adaptive Gating for Frequency-Space Linear Time Series Forecasting"
+url = "https://arxiv.org/abs/2605.15690"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/yangqingyuan-byte/FRWKV-plus"
+revision = "08516fc04e60065d6c1493bbc9cda45c9d0a440c"
+license = "LicenseRef-AI-Scientist-Source-Code-License-1.0"
+reference_sources = ["https://github.com/yangqingyuan-byte/FRWKV-plus/blob/08516fc04e60065d6c1493bbc9cda45c9d0a440c/src/adaptive_phasegate_kbs/FRWKV/model/FRWKV_CrossBranchPhaseGateAdaptive.py", "https://github.com/yangqingyuan-byte/FRWKV-plus/blob/08516fc04e60065d6c1493bbc9cda45c9d0a440c/src/adaptive_phasegate_kbs/FRWKV/model/FRWKV.py", "https://github.com/yangqingyuan-byte/FRWKV-plus/blob/08516fc04e60065d6c1493bbc9cda45c9d0a440c/src/adaptive_phasegate_kbs/FRWKV/layers/Transformer_EncDec.py", "https://github.com/yangqingyuan-byte/FRWKV-plus/blob/08516fc04e60065d6c1493bbc9cda45c9d0a440c/src/adaptive_phasegate_kbs/FRWKV/layers/RevIN.py", "https://github.com/yangqingyuan-byte/FRWKV-plus/blob/08516fc04e60065d6c1493bbc9cda45c9d0a440c/src/adaptive_phasegate_kbs/configs/kbs_ours_recipes.json"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:rfft-real-imaginary-split"
+temporal = "local:scalar-embedding-lift+local:periodic-position-router-context+local:inverse-rfft-residual"
+channel = "component:frwkv_linear_attention+component:transformer_encdec+local:trust-gated-cross-branch-spectral-gates"
+head = "local:three-layer-mlp-horizon-head"
+loss = "local:horizon-weighted-l1"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; also the number of variable tokens the recurrence runs over, in column order" }
+period_len = { from = "period", rule = "the dominant seasonal period in steps (preset 24 for hourly data); positive integer, may exceed seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (\"P = 24, R = 4 routers, alpha initialized to 0.10 ... trust bias initialized to -2.0\") vs `src/adaptive_phasegate_kbs/configs/kbs_ours_recipes.json` (`paper_current.main_table_all`)"
+what = "the 28 main-table recipes tune `period_position_len` (6-96), `period_position_num_routers` (1-8), `period_context_alpha_init` (0.01-0.10) and `period_context_trust_bias_init` (-2.0 to -4.0) per dataset and horizon; e.g. ETTh1-96 uses 0.05 and -2.5."
+resolution = "the Sec. 4.1 values are the defaults; all four are parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/adaptive_phasegate_kbs/FRWKV/model/FRWKV_CrossBranchPhaseGateAdaptive.py` (`_build_periodic_position_context`)"
+what = "the padding appends `x[:, :, :pad_len]`, which has only `T` steps when `pad_len > T` (period longer than about twice the window), so the following reshape fails."
+resolution = "the leading steps are repeated cyclically, identical whenever `pad_len <= T`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.2 (inherited FRWKV backbone) vs `src/adaptive_phasegate_kbs/FRWKV/model/FRWKV.py` (`FrequencyRWKVBlock`, `LinearFreTransformerOptimized`)"
+what = "the backbone code is FRWKV's, so FRWKV's paper/code differences carry over (additive offsets instead of token shift, MLP projections, gated LayerNorm output, recurrence over variable tokens in column order); its own comments in `layers/Transformer_EncDec.py` (`EncoderStack`) confirm the tokens are variables."
+resolution = "follows the code via the shared `frwkv_linear_attention` component (details on the FRWKV card)."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/adaptive_phasegate_kbs/train.py` (`--use_revin`, `--revin_affine`, passed into the model configs) vs `src/adaptive_phasegate_kbs/FRWKV/model/FRWKV.py` (`RevIN(self.enc_in, affine=True)`)"
+what = "the flags are never read, so the backbone always applies affine RevIN."
+resolution = "affine RevIN always (the released recipes set both flags to 1)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3-3.5 (MLP^0, MLP^Delta, MLP^trust) vs `FRWKV_CrossBranchPhaseGateAdaptive.py` (`gate_hidden`, `delta_hidden`, `trust_hidden`)"
+what = "the gate, correction and trust MLPs are Linear-GELU-Linear with hidden widths `max(32, 8E)`, `max(32, 8E)` and `max(32, 12E)`, and the trust heads' final weights are also zero-initialized; the paper gives neither."
+resolution = "follows the code."
+
+[[issues]]
+kind = "license"
+where = "`LICENSE` (\"The AI Scientist Source Code License\", Licensor \"Sakana AI\"), `pyproject.toml` and `CITATION.cff` (\"See LICENSE\")"
+what = "the repository ships a responsible-AI use-restricted license whose licensor is named as Sakana AI rather than the authors, not an OSI license."
+resolution = "recorded as `LicenseRef-AI-Scientist-Source-Code-License-1.0`; independent rewrite, nothing copied."

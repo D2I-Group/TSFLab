@@ -1,0 +1,13 @@
+[model]
+name = "AirCade"
+
+[model.params]
+enc_in = 6
+d_model = 32
+prompt_dim = 8
+adaptive_dim = 8
+num_heads = 4
+temporal_layers = 2
+spatial_layers = 2
+environments = 3
+cov_dim = 2

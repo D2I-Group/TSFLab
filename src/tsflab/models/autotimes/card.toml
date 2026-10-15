@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AutoTimes"
+tags = ["llm", "transformer", "autoregressive", "pretrained-backbone", "patching", "channel-independent", "normalization", "revin", "gpt2"]
+fits = ["long-lookback", "low-data"]
+fidelity = "reference-checked"
+
+[paper]
+title = "AutoTimes: Autoregressive Time Series Forecasters via Large Language Models"
+url = "https://arxiv.org/abs/2402.02370"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/thuml/AutoTimes"
+revision = "9ff9aac5083e24c233404c35d7b7a3c0643f2c70"
+license = "MIT"
+reference_sources = ["https://github.com/thuml/AutoTimes/blob/9ff9aac5083e24c233404c35d7b7a3c0643f2c70/models/AutoTimes_Gpt2.py", "https://github.com/thuml/AutoTimes/blob/9ff9aac5083e24c233404c35d7b7a3c0643f2c70/layers/mlp.py", "https://github.com/thuml/AutoTimes/blob/9ff9aac5083e24c233404c35d7b7a3c0643f2c70/exp/exp_long_term_forecasting.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:gpt2_backbone+component:segment_mlp"
+channel = "local:channel-independent-shared-weights"
+head = "component:segment_mlp+local:autoregressive-rollout"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (folded into the batch)" }
+token_len = { from = "seq_len", rule = "seq_len must be divisible by token_len; the rollout runs ceil(pred_len / token_len) steps" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/mlp.py` `MLP`"
+what = "`mlp_hidden_layers = 1` builds the same network as 2, so the setting is silently ignored."
+resolution = "`mlp_hidden_layers = 1` is rejected; the default 2-layer MLPs follow `scripts/method_generality/gpt2.sh`."

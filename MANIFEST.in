@@ -1,0 +1,9 @@
+graft .agents
+graft catalog
+graft configs
+graft src/tsflab/models
+include AGENTS.md
+include LICENSE
+include README.md
+include THIRD_PARTY_NOTICES.md
+global-exclude __pycache__ *.py[cod] .DS_Store

@@ -1,0 +1,10 @@
+[model]
+name = "UMixer"
+
+[model.params]
+enc_in = 7
+d_model = 64
+e_layers = 2
+patch_len = 16
+stride = 8
+dropout = 0.1

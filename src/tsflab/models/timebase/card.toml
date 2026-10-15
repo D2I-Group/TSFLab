@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeBase"
+tags = ["linear", "lightweight", "decomposition", "channel-independent", "normalization"]
+fits = ["strong-seasonality", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "Eqs. 1-7 (segment basis extraction, segment-level forecast map, orthogonality penalty) were checked against `models/TimeBase.py`; the card documents no paper or official-code problem."
+
+[paper]
+title = "TimeBase: The Power of Minimalism in Efficient Long-term Time Series Forecasting"
+url = "https://proceedings.mlr.press/v267/huang25az.html"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/hqh0728/TimeBase"
+revision = "369b330f3d77371fcc7e8c75c808d01330c40899"
+license = "MIT"
+reference_sources = ["https://github.com/hqh0728/TimeBase/blob/369b330f3d77371fcc7e8c75c808d01330c40899/models/TimeBase.py"]
+
+[composition]
+normalization = "local:period-mean-subtraction"
+decomposition = "none"
+temporal = "local:segment-level-basis-linear-map"
+channel = "local:channel-independent-shared-weights"
+head = "local:basis-to-segment-linear"
+loss = "loss:mse+local:basis-orthogonality-aux"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; input [B, seq_len, enc_in]" }
+period_len = { from = "period", rule = "dominant period in steps, in [1, seq_len]; seq_len and pred_len ideally multiples" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

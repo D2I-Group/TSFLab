@@ -1,0 +1,10 @@
+[model]
+name = "SWIFT"
+
+[model.params]
+enc_in = 7
+hidden_size = 0
+conv_kernel = 3
+use_convdropout = false
+conv_dropout = 0.1
+not_independent = false

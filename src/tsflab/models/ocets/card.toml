@@ -1,0 +1,55 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "OCETS"
+tags = ["linear", "loss-framework", "ordinal-classification", "probabilistic", "normalization", "decomposition", "time-series"]
+fits = ["probabilistic-output", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Beyond MSE: Ordinal Cross-Entropy for Probabilistic Time Series Forecasting"
+url = "https://arxiv.org/abs/2511.10200"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Shi-hm/OCE-TS"
+revision = "a574b99e2e2673f7647b06ccda09de7d4b69f0e5"
+license = "MIT"
+reference_sources = ["https://github.com/Shi-hm/OCE-TS/blob/a574b99e2e2673f7647b06ccda09de7d4b69f0e5/models/DLinear.py", "https://github.com/Shi-hm/OCE-TS/blob/a574b99e2e2673f7647b06ccda09de7d4b69f0e5/loss/OrdinalCrossEntropyLoss.py", "https://github.com/Shi-hm/OCE-TS/blob/a574b99e2e2673f7647b06ccda09de7d4b69f0e5/loss/hl_gauss.py", "https://github.com/Shi-hm/OCE-TS/blob/a574b99e2e2673f7647b06ccda09de7d4b69f0e5/exp/exp_main.py"]
+
+[composition]
+normalization = "local:per-window-min-max-scaling"
+decomposition = "component:dlinear"
+temporal = "component:dlinear"
+channel = "local:channel-shared-or-individual-projections"
+head = "local:value-bin-softmax-expectation"
+loss = "local:ordinal-cross-entropy"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "leakage"
+where = "`exp/exp_main.py` `Exp_Main.test`"
+what = "predictions are denormalized with the min/max of the ground-truth future window (`batch_y`), not the lookback, so the reported numbers use future information at inference."
+resolution = "lookback min/max as in the paper's Eqs. 74-77; official numbers are not comparable."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 13-14 vs `models/DLinear.py`"
+what = "the paper describes a DLinear point forecast followed by a separate `W_o` softmax layer, with inconsistent dimensions, while the code widens the DLinear seasonal/trend projections to `pred_len * num_bins` outputs per channel."
+resolution = "the code's head layout."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. 2, 8-11 vs `loss/OrdinalCrossEntropyLoss.py`, `loss/hl_gauss.py`, `run_longExp.py`"
+what = "bin edges and representatives, the reduction over cut points, the clamping of cumulative probabilities, and the defaults (`num_bins = 45`, `sigma = 0.015`) are given only in the code."
+resolution = "`linspace` edges with midpoints, sum over cut points, `1e-8` clamps, and the code's defaults."

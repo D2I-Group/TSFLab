@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ASTGCN"
+tags = ["gnn", "cnn", "attention-variant", "spatiotemporal", "covariates", "graph-given"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Attention Based Spatial-Temporal Graph Convolutional Networks for Traffic Flow Forecasting"
+url = "https://doi.org/10.1609/aaai.v33i01.3301922"
+venue = "AAAI 2019"
+year = 2019
+
+[code]
+url = "https://github.com/guoshnBJTU/ASTGCN-2019-pytorch"
+revision = "2e7a4faa2a6f89da8d1cb37acb7e267c9bc87296"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-attention+local:gated-temporal-convolution"
+channel = "component:graph_spectral+local:attention-modulated-chebyshev-conv"
+head = "local:conv-history-to-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (sensors)" }
+cov_dim = { from = "covariates", rule = "covariate features per node; inputs are cropped/padded to 1 + cov_dim (2 for converted calendar stamps)" }
+adj_mx = { from = "graph", rule = "[enc_in, enc_in] road-network adjacency, converted to Chebyshev supports; required, construction fails without it" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from the paper's equations without using the official code; license recorded as `NOASSERTION`."

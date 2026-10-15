@@ -1,0 +1,13 @@
+# Run profile: laptop or CI without a usable NVIDIA GPU (install profile `cpu`).
+#   uv run tsf run <experiment.toml> --policy configs/execution/laptop-cpu.toml
+# The run config must use CPU: [experiment.runtime] device = "cpu", num_workers = 0-2.
+# Device and dataloader workers are scientific-config fields; this policy only
+# controls execution (concurrency, threads, disk).
+
+[budget]
+max_parallel_jobs = 1   # one run at a time; it uses all cores
+
+[resources]
+gpus = []               # never lease a GPU
+threads_per_run = 4     # leave cores for the desktop; raise on a dedicated CPU box
+min_free_disk_gb = 2

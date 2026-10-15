@@ -1,0 +1,6 @@
+[model]
+name = "ExpSmoothingTS"
+
+[model.params]
+enc_in = 7
+initial_alpha = 0.5

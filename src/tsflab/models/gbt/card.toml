@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GBT"
+tags = ["transformer", "two-stage", "non-stationary", "pyramid", "cnn", "attention-prior", "channel-independent", "pretraining"]
+fits = ["non-stationary"]
+fidelity = "reference-checked"
+
+[paper]
+title = "GBT: Two-stage transformer framework for non-stationary time series forecasting"
+url = "https://arxiv.org/abs/2307.08302"
+venue = "Neural Networks"
+year = 2023
+
+[code]
+url = "https://github.com/OrigamiSL/GBT"
+revision = "4146c3865e7f09fe7f70e18b1477f676b509cccf"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/GBT/GBT.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/GBT/Auto_Regression.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/GBT/ConvBlock.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/Self_Regression/attn.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/Self_Regression/decoder.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/Self_Regression/embed.py", "https://github.com/OrigamiSL/GBT/blob/4146c3865e7f09fe7f70e18b1477f676b509cccf/exp/exp_model.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:auto-regression-pyramid+local:esm-masked-self-attention+component:embed+component:masking"
+channel = "local:channel-independent-units"
+head = "local:flatten-linear-first-stage+local:residual-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (each runs as an independent unit by default)" }
+ar_len = { from = "seq_len", rule = "first-stage input length in [1, seq_len], default seq_len; ar_len // 2**(pyramid - 1) must be >= 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-error"
+where = "Algorithm 1 (ESM scale `3 sigma - 1`)"
+what = "the printed scale can be negative."
+resolution = "the official mapping `3 ** (sigmoid(5 x) + 1e-5) - 1` of a point-wise projection per head and query, with the Gaussian evaluated at the key index."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Fig. 5a vs official default extractor (`Attention`)"
+what = "the figure shows Res-P then Res-C after the attention, while the default official extractor fuses them into one stride-2 widening unit."
+resolution = "Fig. 5a by default; the fused form is available as `fused_conv = true`."
+
+[[issues]]
+kind = "code-bug"
+where = "official ProbSparse attention option"
+what = "it cannot accept the ESM prior argument, so the ESM is unusable with that option."
+resolution = "the ProbSparse option is not implemented."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.1-4.2 and Table 3"
+what = "the value embeddings and their initialization, the projections of the first-stage self-attention, the residual-unit layout and shortcut, per-branch embeddings and heads, decoder post-norm and feed-forward width, the detached first-stage forecast, the `mix` context layout, channel independence, and the first-stage input length are not fully stated."
+resolution = "taken from the official code and scripts (`d_layers = 2`, `ar_len` = `label_len`)."

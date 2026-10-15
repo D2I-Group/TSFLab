@@ -1,0 +1,13 @@
+[model]
+name = "STPGNN"
+
+[model.params]
+enc_in = 8
+dropout = 0.1
+topk = 4
+residual_channels = 16
+end_channels = 64
+kernel_size = 2
+blocks = 2
+layers = 2
+dims = 16

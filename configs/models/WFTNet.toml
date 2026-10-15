@@ -1,0 +1,19 @@
+[model]
+name = "WFTNet"
+
+# ETTh2 (pred_len 96) script of the official repository. period_coeff is the
+# Section 3.4 statistic (m = 5 lowest FFT bins incl. DC, all seven numeric
+# columns, raw values) computed on the TSFLab ETTh2 training split only: rows
+# 0-8639 of ETTh2.csv (6:2:2 of the first 14,400 rows). The official procedure
+# reads the whole CSV, test period included, and gives 0.7845.
+[model.params]
+enc_in = 7
+period_coeff = 0.8126
+d_model = 32
+d_ff = 32
+e_layers = 1
+top_k = 5
+num_kernels = 6
+wavelet_scale = 8
+pwc_power = 10
+dropout = 0.1

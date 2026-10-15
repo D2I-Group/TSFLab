@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SegRNN"
+tags = ["rnn", "segmenting", "channel-independent", "normalization", "direct-multistep"]
+fits = ["long-lookback", "long-horizon", "efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records a paper-driven rewrite of segment-wise GRU encoding and parallel multi-step decoding against the pinned official code, with no documented paper or code problem."
+
+[paper]
+title = "SegRNN: Segment Recurrent Neural Network for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2308.11200"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/lss-1138/SegRNN"
+revision = "8e869ecfdf1daab3a0ba14d1d620796c1a5d2c4f"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+seg_len = { from = "seq_len", rule = "ceil(seq_len / seg_len) segments; prefer a divisor of seq_len and pred_len (non-multiples are replicate-padded)" }
+
+[composition]
+normalization = "component:last_value_center"
+decomposition = "none"
+temporal = "local:segment-wise-gru-encoder-decoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:segment-linear-decoder"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

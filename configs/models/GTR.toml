@@ -1,0 +1,10 @@
+[model]
+name = "GTR"
+
+[model.params]
+enc_in = 7
+d_model = 512
+dropout = 0.1
+cycle_length = 168
+local_period = 24
+use_revin = true

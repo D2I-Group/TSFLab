@@ -1,0 +1,12 @@
+[model]
+name = "ReFocus"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_pick = 32
+layers = 2
+dropout = 0.1
+beta = 0.5
+kernel_size = 25
+initial = true

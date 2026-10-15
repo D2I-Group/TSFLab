@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CrossLinear"
+tags = ["linear", "patching", "channel-mixing", "normalization", "lightweight", "covariates"]
+fits = ["exogenous-covariates", "high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card maps paper Eqs. (3)-(11) to local modules after inspecting the MIT-licensed official repository and records only TSFLab's scoping (weight-shared many-to-many path, no published data pipeline or optimization protocol)."
+
+[paper]
+title = "CrossLinear: Plug-and-Play Cross-Correlation Embedding for Time Series Forecasting with Exogenous Variables"
+url = "https://arxiv.org/abs/2505.23116"
+venue = "KDD 2025"
+year = 2025
+
+[code]
+url = "https://github.com/mumiao2000/CrossLinear"
+revision = "d22366e2f59ced560a02b2b1c7cc673e3c02a13f"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-projection-position-blend"
+channel = "local:cross-correlation-conv-embedding"
+head = "local:global-flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (the cross-variate Conv1d spans all channels)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

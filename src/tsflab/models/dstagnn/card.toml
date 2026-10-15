@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DSTAGNN"
+tags = ["gnn", "transformer", "cnn", "attention-variant", "multi-scale", "spatiotemporal"]
+fits = ["spatial-graph"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DSTAGNN: Dynamic Spatial-Temporal Aware Graph Neural Network for Traffic Flow Forecasting"
+url = "https://proceedings.mlr.press/v162/lan22a.html"
+venue = "ICML 2022"
+year = 2022
+
+[code]
+url = "https://github.com/SYLan2019/DSTAGNN"
+revision = "10da0e08ec3cf8845841741b8434fd76fd48ff84"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-multi-head-attention+local:multi-scale-gated-temporal-conv"
+channel = "component:graph_spectral+local:attention-modulated-chebyshev-conv"
+head = "local:conv-history-to-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "equals the number of graph nodes" }
+adj_mx = { from = "graph", rule = "the dataset adjacency of shape [enc_in, enc_in]; identity when missing" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper description; the official code was not used as implementation source; license recorded as `NOASSERTION`."

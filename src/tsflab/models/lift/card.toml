@@ -1,0 +1,49 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LIFT"
+tags = ["linear", "plug-in", "channel-mixing", "lead-lag", "frequency", "lightweight"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count; leaders are capped at min(leader_num, enc_in)" }
+
+[paper]
+title = "Rethinking Channel Dependence for Multivariate Time Series Forecasting: Learning from Leading Indicators"
+url = "https://arxiv.org/abs/2401.17548"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/SJTU-DMTai/LIFT"
+revision = "79cf8f157bb9a616c9733daf1e9c2cfefdc98c94"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/SJTU-DMTai/LIFT/blob/79cf8f157bb9a616c9733daf1e9c2cfefdc98c94/models/LIFT.py", "https://github.com/SJTU-DMTai/LIFT/blob/79cf8f157bb9a616c9733daf1e9c2cfefdc98c94/util/lead_estimate.py"]
+
+[composition]
+normalization = "local:instance-normalization-without-affine"
+decomposition = "none"
+temporal = "component:dlinear"
+channel = "local:lead-lag-shifted-leaders"
+head = "local:adaptive-frequency-mixer"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4 (leader filter weights) vs `models/LIFT.py`"
+what = "the official code adds a constant-one logit that competes with the `|corr|` logits in the temperature softmax, which the paper text does not have; the official README notes the method was revised after submission."
+resolution = "the official form."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation with `models/LIFT.py` and `util/lead_estimate.py` used as reference only; license recorded as `NOASSERTION`."

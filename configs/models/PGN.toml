@@ -1,0 +1,9 @@
+[model]
+name = "PGN"
+
+[model.params]
+enc_in = 7
+period = 24
+d_model = 64
+norm = true
+use_short_branch = true

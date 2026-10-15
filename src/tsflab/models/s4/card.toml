@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "S4"
+tags = ["ssm", "frequency", "long-range", "channel-mixing", "normalization"]
+fits = ["long-lookback"]
+fidelity = "reference-checked"
+issues_checked = "the diagonal ZOH discretization, kernel, and FFT convolution were checked against the paper and the pinned official repository; the card records no paper or code problem."
+
+[paper]
+title = "Efficiently Modeling Long Sequences with Structured State Spaces"
+url = "https://arxiv.org/abs/2111.00396"
+venue = "ICLR 2022"
+year = 2022
+
+[code]
+url = "https://github.com/state-spaces/s4"
+revision = "e757cef57d89e448c413de7325ed5601aceaac13"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:diagonal-s4d-fft-convolution-blocks"
+channel = "local:channel-mixing-linear-embedding"
+head = "local:horizon-projection-over-time"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+c_out = { from = "channels", rule = "number of output channels (defaults to enc_in); must equal enc_in when use_norm is on" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

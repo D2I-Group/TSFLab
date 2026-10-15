@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "BayesianRidgeTS"
+tags = ["statistical", "linear", "probabilistic", "baseline", "channel-independent", "lightweight"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "classical Bayesian linear-regression baseline with no official code; the card records only TSFLab's MAP simplification, no problem in the source."
+
+[paper]
+title = "Bayesian Interpolation"
+url = "https://doi.org/10.1162/neco.1992.4.3.415"
+venue = "Neural Computation 1992"
+year = 1992
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:direct-linear-lag-regression"
+channel = "local:channel-independent-shared-weights"
+head = "local:direct-multi-horizon-linear-projection"
+loss = "loss:mse+local:gaussian-prior-map-penalty"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shape check; the map is shared)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

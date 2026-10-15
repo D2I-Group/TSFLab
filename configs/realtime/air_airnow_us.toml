@@ -1,0 +1,26 @@
+# Hourly PM2.5 from US monitors, from the public AirNow file products (no key).
+# Preliminary, unvalidated values; channels are the best-covered monitors at bootstrap.
+[track]
+id = "air_airnow_us"
+tz = "UTC"
+title = "EPA AirNow US hourly PM2.5"
+mode = "spatiotemporal"
+freq = "h"
+seq_len = 168
+horizon = 24
+submission_hours = 24
+seasonal_period = 24
+min_coverage = 0.7
+history_days = 365
+
+[source]
+kind = "airnow"
+parameter = "PM2.5"         # ug/m3
+aqsid_prefix = "840"        # US monitors only (AirNow also relays Canada, Mexico, embassies)
+max_sites = 200
+min_coverage = 0.9          # bootstrap keeps sites reporting >= 90% of hours
+workers = 8
+
+[bootstrap]
+kind = "source"             # hourly files are ~0.75 MB each: 8 weeks are ~1 GB, fetched once
+days = 56

@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "EvoMSN"
+tags = ["linear", "plug-in", "normalization", "multi-scale", "periodicity", "non-stationary", "time-series"]
+fits = ["non-stationary", "multi-periodic", "heteroscedastic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Evolving Multi-Scale Normalization for Time Series Forecasting under Distribution Shifts"
+url = "https://arxiv.org/abs/2409.19718"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/qindalin/EvoMSN"
+revision = "2278adeb7e5157e69ec6d71a46cb928ee00bf250"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/qindalin/EvoMSN/blob/2278adeb7e5157e69ec6d71a46cb928ee00bf250/models/multiscale_stat_prediction.py", "https://github.com/qindalin/EvoMSN/blob/2278adeb7e5157e69ec6d71a46cb928ee00bf250/exp/exp_MSN.py"]
+
+[composition]
+normalization = "local:multi-scale-slice-normalization"
+decomposition = "component:dlinear"
+temporal = "component:dlinear"
+channel = "local:channel-independent-statistics-predictors"
+head = "local:amplitude-weighted-scale-ensemble"
+loss = "loss:mse+local:slice-statistics-pretraining"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+periods = { from = "train-split", rule = "top_k periods selected by pretrain from the averaged training-split spectrum; set explicitly to fix them" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (3)-(4) vs `models/multiscale_stat_prediction.py`"
+what = "the paper defines the slice standard deviation in population form, while the code uses `torch.std` (the unbiased estimator)."
+resolution = "the population form of Eqs. (3)-(4)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (9) vs official ensemble weighting"
+what = "the paper takes the ensemble amplitudes from the input window (bin `seq_len // p`), while the code reads them from the last scale's normalized backbone output."
+resolution = "the input window, as Eq. (9) states."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.1-3.2"
+what = "the paper does not give the period-search details (per-batch spectra averaged over the training loader, bins below `seq_len // (2 * pred_len) + 1` zeroed), the statistics-MLP widths (512 per input), the centered mean branch with per-channel weights, the normalization constant, or `top_k`, pretraining epochs, and statistics learning rate."
+resolution = "taken from the official code and `run_longExp.py` (`top_k = 4`, 5 epochs, `1e-4`, epsilon `1e-5`)."

@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: bitbrains_fast_storage/5T
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 480 (10x),  long = 720 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/bitbrains_fast_storage_5T"
+path = "./dataset/gift_eval"
+id = "bitbrains_fast_storage/5T"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 48
+features = "M"

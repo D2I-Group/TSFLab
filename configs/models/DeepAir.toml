@@ -1,0 +1,8 @@
+[model]
+name = "DeepAir"
+
+[model.params]
+enc_in = 8
+cov_dim = 2
+hidden_dim = 32
+spatial_regions = 4

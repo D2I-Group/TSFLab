@@ -1,0 +1,49 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DiPELinear"
+tags = ["linear", "frequency", "channel-independent", "lightweight", "normalization", "loss-framework"]
+fits = ["long-horizon", "long-lookback", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Disentangled Parameter-Efficient Linear Model for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2411.17257"
+venue = "DASFAA 2026"
+year = 2026
+
+[code]
+url = "https://github.com/wintertee/DiPE-Linear"
+revision = "b26e25015fba2c6a32e1f4eae8d337ccd9fe4067"
+license = "MIT"
+reference_sources = ["https://github.com/wintertee/DiPE-Linear/blob/b26e25015fba2c6a32e1f4eae8d337ccd9fe4067/timeprophet/models/DiPE.py", "https://github.com/wintertee/DiPE-Linear/blob/b26e25015fba2c6a32e1f4eae8d337ccd9fe4067/timeprophet/utils/callbacks.py"]
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "local:static-frequential-attention"
+temporal = "component:fft_extrapolation_conv"
+channel = "component:weight_set_router"
+head = "local:static-temporal-attention-and-denorm"
+loss = "local:sfa-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (per-channel expert routing)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "SFALoss (Sec. 3.6) vs `timeprophet/models/DiPE.py` `Model.loss`"
+what = "the paper normalizes the frequency weights by their L1 norm, while the code divides by their signed mean; the two agree only for positive weights."
+resolution = "normalization by the mean absolute weight."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2-3.6 vs `timeprophet/models/DiPE.py`"
+what = "the rfft guard band (about 1% of `L + H - 1` zeros on each side), the initialization (SFA/STA 1, IFM DC-bin 1, bias 0, standard-normal routing), dropout 0.1 after SFA, the instance normalization (unbiased std clamped at 1e-7), and the truncation or padding of loss weights to the horizon's bins are not stated."
+resolution = "as in the official code, with `dropout` exposed as a parameter."

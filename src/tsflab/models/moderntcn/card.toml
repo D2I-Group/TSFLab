@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ModernTCN"
+tags = ["cnn", "large-kernel", "patching", "multi-scale", "channel-mixing", "decomposition", "normalization"]
+fits = ["high-cross-correlation", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records an implementation of the patch stem, large-kernel depthwise convolution and two grouped ConvFFNs from the paper; omitted deployment-time kernel fusion and non-forecast heads are TSFLab scoping choices, and no paper or official-code problem is documented."
+
+[paper]
+title = "ModernTCN: A Modern Pure Convolution Structure for General Time Series Analysis"
+url = "https://openreview.net/forum?id=vpJMJerXHU"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/luodhhh/ModernTCN"
+revision = "56a9a2c018385cd5acef015378cae7f084d1b11c"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition"
+temporal = "local:large-kernel-depthwise-conv-blocks"
+channel = "local:variable-grouped-convffn"
+head = "local:multi-scale-flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count (variable-grouped ConvFFN and RevIN are sized by it)" }
+patch_size = { from = "seq_len", rule = "at most seq_len; stage-0 length (seq_len - patch_size)//patch_stride + 1 must stay >= downsample_ratio per later stage" }
+patch_stride = { from = "seq_len", rule = "with patch_size, sets the stage-0 patch count (seq_len - patch_size)//patch_stride + 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

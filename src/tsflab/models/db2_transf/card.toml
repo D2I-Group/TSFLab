@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DB2TransF"
+tags = ["transformer", "wavelet", "learnable-wavelet", "multi-scale", "inverted", "variate-token", "attention-free", "revin", "marks"]
+fits = ["high-cross-correlation", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "DB2-TransF: All You Need Is Learnable Daubechies Wavelets for Time Series Forecasting"
+url = "https://arxiv.org/abs/2512.10051"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/SteadySurfdom/DB2-TransF"
+revision = "955a6384b5783e3199eb9e99ed89054365b489f1"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/SteadySurfdom/DB2-TransF/blob/955a6384b5783e3199eb9e99ed89054365b489f1/model/DB2_TransF.py", "https://github.com/SteadySurfdom/DB2-TransF/blob/955a6384b5783e3199eb9e99ed89054365b489f1/layers/db2vit.py", "https://github.com/SteadySurfdom/DB2-TransF/blob/955a6384b5783e3199eb9e99ed89054365b489f1/layers/GeneralEncoders.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:learnable-db2-multilevel-wavelet"
+temporal = "component:embed"
+channel = "local:token-axis-db2-wavelet-mixing"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (one variate token each)" }
+use_marks = { from = "frequency", rule = "calendar tokens support hourly timeF only (freq = 'h'); set false for other sampling rates" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Algorithm 1 vs `layers/db2vit.py` `MultiHeadDaubechiesBlock`"
+what = "the paper concatenates `A_L, D_1..D_L` and trims the residual input, while the code linearly interpolates each component back to the token count and sums them."
+resolution = "interpolate and sum, as in the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (7) vs `layers/db2vit.py` `LearnableDaubechiesTransform`"
+what = "the code initialises the high-pass taps as the negation of the paper's filter; the paper's sign would change the initial sum of approximation and details."
+resolution = "the code's sign, with exact db2 values instead of the official five-digit roundings."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2-3.3"
+what = "the wavelet axis (token axis of the inverted embedding, including calendar tokens), the right zero padding per level, the head split, and the block layout (pre-LayerNorm, residuals, trailing `BatchNorm1d`) are not stated."
+resolution = "as in the official code."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite with the repository used as reference only; license recorded as `NOASSERTION`."

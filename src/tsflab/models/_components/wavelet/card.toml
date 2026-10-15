@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "wavelet"
+role = "Splits each channel into multi-resolution subbands (coarse approximation and details) so models can treat scales separately."
+slot = "decomposition"
+fits = ["any"]
+category = "decomposition"
+tags = ["dwt", "haar", "multi-resolution", "subband", "undecimated", "wavelet", "a-trous", "daubechies", "decimated", "stateful"]
+input = "x [batch, channels, length]"
+output = "list of subband tensors [approx_L, detail_L, ..., detail_1]; decimated lengths shrink per level, undecimated keep length"
+origin = "Fixed Daubechies filter banks used by clean-room wavelet forecasters: WDformer (arXiv 2509.25231), DPWMixer (arXiv 2512.02070), AWEMixer (arXiv 2511.04722), all 2025 arXiv preprints; the transforms are standard wavelet analysis"
+origin_models = ["wdformer", "dpwmixer", "awemixer"]

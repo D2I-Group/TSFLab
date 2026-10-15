@@ -1,0 +1,12 @@
+[model]
+name = "STNorm"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+channels = 16
+kernel_size = 2
+blocks = 2
+layers = 2
+tnorm_bool = true
+snorm_bool = true

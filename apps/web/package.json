@@ -1,0 +1,34 @@
+{
+  "name": "tsflab-web",
+  "version": "1.3.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "TSFLab Leaderboard — standalone static site (UI + data + submission pipeline). Part of the TSFLab monorepo (apps/web).",
+  "scripts": {
+    "fetch:board": "python3 pipeline/fetch_board.py",
+    "leaderboard": "python3 pipeline/build_leaderboard.py",
+    "dev": "bun run fetch:board && next dev",
+    "build": "bun run fetch:board && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "lucide-react": "^1.17.0",
+    "next": "^15.1.6",
+    "next-themes": "^0.4.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.3"
+  }
+}

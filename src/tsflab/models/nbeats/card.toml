@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "NBeats"
+tags = ["mlp", "decomposition", "basis-expansion", "channel-independent", "interpretable"]
+fits = ["strong-trend", "strong-seasonality", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the block structure, backward/forward residual links and generic, polynomial-trend and Fourier-seasonality bases checked against the paper and the pinned reference implementation; no paper or official-code problem is documented."
+
+[paper]
+title = "N-BEATS: Neural basis expansion analysis for interpretable time series forecasting"
+url = "https://arxiv.org/abs/1905.10437"
+venue = "ICLR 2020"
+year = 2020
+
+[code]
+url = "https://github.com/philipperemy/n-beats"
+revision = "06a4e209ada80bf1f403ced5228261784dfb26ed"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "local:trend-seasonality-basis-stacks"
+temporal = "local:fully-connected-residual-blocks"
+channel = "local:channel-independent-shared-weights"
+head = "local:basis-expansion-forecast"
+loss = "loss:mse"
+
+[data_params]
+thetas_dim = { from = "period", rule = "seasonality entry (or 2 * nb_harmonics) at least 2 * (pred_len / period + 1) Fourier terms" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

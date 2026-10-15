@@ -1,0 +1,33 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "gift_eval/solar_H"
+domain = "energy"
+topic = "solar power"
+benchmarks = ["gift-eval"]
+tags = ["gift-eval", "benchmark", "zero-shot", "foundation-model", "univariate", "energy", "hourly", "solar", "photovoltaic", "nrel"]
+related = ["solar", "gift_eval/solar_10T", "gift_eval/solar_D", "gift_eval/solar_W"]
+
+[source]
+name = "NREL Solar Power Data for Integrated Variable Generation via LSTNet (Lai et al.)"
+url = "https://github.com/laiguokun/multivariate-time-series-data"
+citation = "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation (Aksu et al., 2024)"
+citation_url = "https://arxiv.org/abs/2410.10393"
+license = "unknown"
+redistribution = "upstream"
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "2006-01-01 to 2006-12-31"
+length = 8760
+channels = 1
+channel_kind = "channels"
+target = "the single value series"
+missing_values = "no missing-value flag recorded by GIFT-Eval; none documented for this id"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "GIFT-Eval short term: horizon 48, last 10% of each series is test (rolling non-overlapping windows, at most 20), context length chosen by the model, zero-shot oriented"
+literature = ""
+split = "per series: last 10% test, one horizon validation, rest train"
+seq_lens = []
+pred_lens = [48]

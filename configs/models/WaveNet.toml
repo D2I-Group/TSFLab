@@ -1,0 +1,13 @@
+[model]
+name = "WaveNet"
+
+[model.params]
+enc_in = 7
+residual_channels = 16
+dilation_channels = 16
+skip_channels = 64
+end_channels = 128
+kernel_size = 2
+blocks = 2
+layers = 2
+use_norm = true

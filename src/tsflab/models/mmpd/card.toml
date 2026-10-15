@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MMPD"
+tags = ["diffusion", "probabilistic", "patching", "channel-independent", "attention-variant", "loss-framework"]
+fits = ["probabilistic-output", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "MMPD: Diverse Time Series Forecasting via Multi-Mode Patch Diffusion Loss"
+url = "https://proceedings.iclr.cc/paper_files/paper/2026/hash/be7b70477c8fca697f14b1dbb1c086d1-Abstract-Conference.html"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Thinklab-SJTU/MMPD"
+revision = "8e42bfe0c4156eea920c4dd86eee4f1b8658143e"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Thinklab-SJTU/MMPD/blob/8e42bfe0c4156eea920c4dd86eee4f1b8658143e/models/loss_funcs/mmpd/mmpd_loss.py", "https://github.com/Thinklab-SJTU/MMPD/blob/8e42bfe0c4156eea920c4dd86eee4f1b8658143e/models/loss_funcs/mmpd/gaussian_diffusion.py"]
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "none"
+temporal = "local:future-query-cross-attention-backbone"
+channel = "local:channel-independent-flattened"
+head = "local:patch-consistent-denoiser-anchor"
+loss = "local:patch-diffusion-loss-method"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "pred_len", rule = "clipped to pred_len; ceil(pred_len/patch_len) future patches (last padded), history left-padded to a multiple of patch_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local implementation of Eqs. (3), (7), (8), (12)-(13); `models/loss_funcs/mmpd/mmpd_loss.py` and `gaussian_diffusion.py` used as reference only; license recorded as `NOASSERTION`."

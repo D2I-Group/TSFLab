@@ -1,0 +1,67 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STLoRA"
+tags = ["rnn", "plug-in", "spatiotemporal", "low-rank", "node-heterogeneity", "parameter-efficient", "covariates"]
+fits = ["calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "ST-LoRA: Low-rank Adaptation for Spatio-Temporal Forecasting"
+url = "https://arxiv.org/abs/2404.07919"
+venue = "ECML-PKDD 2025"
+year = 2025
+
+[code]
+url = "https://github.com/RWLinno/ST-LoRA"
+revision = "c89c21d1a9447ced37983fbd29cd09479c248669"
+license = "MIT"
+reference_sources = ["https://github.com/RWLinno/ST-LoRA/blob/c89c21d1a9447ced37983fbd29cd09479c248669/src/model.py", "https://github.com/RWLinno/ST-LoRA/blob/c89c21d1a9447ced37983fbd29cd09479c248669/src/models/lstm.py"]
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:lstm-backbone"
+channel = "local:node-adaptive-low-rank-layers"
+head = "local:gated-backbone-adapter-fusion"
+loss = "loss:mae"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (2)-(4) vs `src/model.py` (`Node_Specific_Predictor`, `STLoRA`)"
+what = "the code uses one shared `A` (no node index), no residual connections (LeakyReLU, dropout, BatchNorm after each layer), and fuses as `Y_base + mean_k(Y_base * sigmoid(NSP_k(Y_base)))` with every block reading the backbone output."
+resolution = "the paper's node-specific `A_i`, residual RMSNorm layers, and chained blocks with the learned gate."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/model.py` `Node_Specific_Predictor.forward`"
+what = "the output is reshaped from a node-major `(B*N, ..., T)` layout to `(B, T, N, ...)` without a transpose, mixing nodes and steps."
+resolution = "nodes and steps keep their axes."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (2)"
+what = "the complexity remark `O(r (d_in + d_out) + N r^2)` contradicts the definition `A_i in R^{r x d_in}`."
+resolution = "the definition (`N r d_in` adapter parameters per layer)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (4)"
+what = "concatenating `X` and `Z` per step along the feature axis requires `seq_len == pred_len` (the 12-to-12 protocol), which the paper does not state."
+resolution = "the model rejects other lengths."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "paper (pre-trained backbone) vs `main.py` defaults"
+what = "without `--frozen`/`--pre_train` the backbone trains jointly from scratch with the adapters."
+resolution = "joint training from scratch, as the official default."

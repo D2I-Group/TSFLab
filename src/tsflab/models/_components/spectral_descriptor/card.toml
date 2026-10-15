@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "spectral_descriptor"
+role = "Summarizes how periodic or noisy a window is (spectral entropy, band energies) as a conditioning signal for gates and routers."
+slot = "support"
+fits = ["any"]
+category = "frequency"
+tags = ["band", "descriptor", "energy", "entropy", "fft", "frequency", "power", "ratio", "spectral", "spectrum", "gate-input"]
+input = "x [batch, length, channels]"
+output = "[batch, 4] = (entropy, low, mid, high), each in [0, 1]"
+origin = "Spectral descriptor of CoRe, Correction-space Cross-variate Interaction for Test-time Adaptation in Time Series Forecasting (arXiv 2609.34638, 2026), Eqs. 10-17"
+origin_models = ["core"]

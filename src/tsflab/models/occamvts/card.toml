@@ -1,0 +1,46 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "OccamVTS"
+tags = ["transformer", "patching", "frequency", "cross-modal", "distillation", "channel-independent", "normalization"]
+fits = ["efficiency", "strong-seasonality", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "OccamVTS: Distilling Vision Models to 1% Parameters for Time Series Forecasting"
+url = "https://arxiv.org/abs/2508.01727"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/sisuolv/OccamVTS"
+revision = "a534df297263f0c0f087b513f6bc4acdf7eb1bf2"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-transformer+local:conv-visual-branch"
+channel = "local:channel-independent-shared-weights"
+head = "local:cross-modal-fused-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+period = { from = "period", rule = "dominant seasonal period in steps (sine/cosine visual channels); default 24 assumes hourly data with a daily cycle" }
+patch_len = { from = "seq_len", rule = "clipped to seq_len; token count 1 + (seq_len - patch_len) // stride, no end padding" }
+stride = { from = "seq_len", rule = "clipped to patch_len; with patch_len sets the token count 1 + (seq_len - patch_len) // stride" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation of the deployment student from Eqs. (1), (2), (8), (9) and (12); license recorded as `NOASSERTION`."

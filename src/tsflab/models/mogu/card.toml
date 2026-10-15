@@ -1,0 +1,73 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MoGU"
+tags = ["transformer", "mixture-of-experts", "probabilistic", "distribution-output", "uncertainty", "ensemble", "inverted", "training-objective", "channel-attention"]
+fits = ["probabilistic-output", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "MoGU: Mixture-of-Gaussians with Uncertainty-based Gating for Time Series Forecasting"
+url = "https://arxiv.org/abs/2510.07459"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/yolish/moe_unc_tsf"
+revision = "d3b2cabf9c7906d2e3ea99ced72aed9d569288a2"
+license = "MIT"
+reference_sources = ["https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/models/MoE.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/models/iTransformer.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/exp/exp_long_term_forecasting.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/Transformer_EncDec.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/SelfAttention_Family.py", "https://github.com/yolish/moe_unc_tsf/blob/d3b2cabf9c7906d2e3ea99ced72aed9d569288a2/layers/Embed.py"]
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:embed"
+channel = "component:self_attention_family+component:transformer_encdec"
+head = "local:precision-gated-gaussian-expert-heads"
+loss = "local:precision-weighted-expert-gaussian-nll"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count (one variate token per channel)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/iTransformer.py` (`Model.forecast`, `UncHead`)"
+what = "the expert mean is de-normalized with the window standard deviation but the variance is predicted from the normalized tokens and never rescaled, so the Gaussian NLL compares an original-scale residual with a normalized-scale variance and the reported uncertainty cannot follow the per-window scale."
+resolution = "the default follows the code (`denorm_variance = false`); `denorm_variance = true` multiplies each expert variance by the squared window standard deviation."
+
+[[issues]]
+kind = "code-bug"
+where = "`exp/exp_long_term_forecasting.py` (`test`, MoE branch)"
+what = "`outputs[:, -pred_len:, :]` and `outputs[:, :, f_dim:]` are applied to the 4-D `[batch, experts, horizon, channels]` expert tensor, so with `features = MS` (`f_dim = -1`) the second slice keeps the last horizon step of every expert rather than the target channel before the weighted aggregation."
+resolution = "not applicable; the catalog aligns horizon and target channel on the expert axis explicitly (`training_objective`)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.2.2 and Table 5 vs `scripts/run_tsf_ett.sh` (`configurations=(2 4)`)"
+what = "the calibration script at the pinned revision trains configuration 2, `--prob_expert` without `--unc_gating` (commented \"MoGE trunk\"), i.e. Gaussian experts with the learned gate, and never configuration 3 (`--unc_gating`, MoGU), while the text attributes the CPVS intervals to MoGU."
+resolution = "the model follows Sec. 3.3 (uncertainty gating); interval calibration is outside the model."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.4 and Sec. 4.1"
+what = "the expert width, depth, heads and feed-forward size are not stated; they come from `run.py` defaults (`d_model 512`, `e_layers 2`, `n_heads 8`, `d_ff 2048`, `dropout 0.1`, `gelu`) used unchanged by `scripts/run_tsf_ett.sh`."
+resolution = "those defaults."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (6) and (10)"
+what = "the stability constant `epsilon` is not given; the code uses `nn.GaussianNLLLoss` (`eps = 1e-6`) in `exp/exp_long_term_forecasting.py` and `1 / (sigma^2 + 1e-8)` in `models/MoE.py`."
+resolution = "`nll_eps = 1e-6` and a gate constant of `1e-8`."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.3 (Table 7, \"input-based gating\") vs `models/MoE.py` (`Gating`)"
+what = "the learned-gate baseline is a full PatchTST forecaster whose per-step forecast is mapped by `Linear(1, k)` and a softmax to expert weights, which the paper does not describe."
+resolution = "not applicable; only the uncertainty gate is implemented."

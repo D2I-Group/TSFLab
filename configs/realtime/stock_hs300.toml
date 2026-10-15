@@ -1,0 +1,22 @@
+# CSI-300 constituents, daily close. Rounds open weekly; the target week is the
+# five trading days after the opening, so forecasts precede their truth.
+[track]
+id = "stock_hs300"
+tz = "Asia/Shanghai"
+title = "CSI-300 constituents, daily log returns"
+mode = "time_series"
+freq = "B"                  # business days; exchange holidays surface as unobserved cells
+seq_len = 20
+horizon = 5
+submission_hours = 12       # target starts at the first business day >= opened_at + 12h
+seasonal_period = 5
+min_coverage = 0.8          # a round is scored once 80% of target cells are observed
+
+[source]
+kind = "akshare_csi300"
+adjust = "qfq"              # forward-adjusted close
+transform = "log_return"    # panel values are log(close_t / close_{t-1})
+
+[bootstrap]
+kind = "source"             # full history from AKShare (current constituents)
+start = "2019-01-02"

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "tst_transformer"
+role = "Shared-weight Transformer encoder over patch tokens, the temporal core of channel-independent patch forecasters."
+slot = "temporal"
+fits = ["any"]
+category = "backbone"
+tags = ["attention", "encoder", "time-series", "transformer", "batch-first", "patch-token"]
+input = "values [batch, tokens, d_model] (batch-first)"
+output = "[batch, tokens, d_model]"
+origin = "PatchTST time-series Transformer encoder (Nie et al., ICLR 2023, 'A Time Series is Worth 64 Words'); this version is a clean-room rewrite on torch nn.TransformerEncoder"
+origin_models = ["patchtst"]

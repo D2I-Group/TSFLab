@@ -1,0 +1,63 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MambaTS"
+tags = ["ssm", "mamba", "patching", "channel-mixing", "normalization", "variable-ordering"]
+fits = ["long-horizon", "long-lookback", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of variables; each contributes its patch tokens to the single variable-major scan" }
+patch_len = { from = "seq_len", rule = "patch_len <= seq_len; tokens per variable = (seq_len - patch_len) // stride + 1, trailing steps are dropped (no padding)" }
+stride = { from = "seq_len", rule = "with patch_len; stride == patch_len (preset 48) gives non-overlapping patches covering seq_len when patch_len divides seq_len" }
+
+[paper]
+title = "MambaTS: Improved Selective State Space Models for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2405.16440"
+venue = "Pattern Recognition 2026"
+year = 2026
+
+[code]
+url = "https://github.com/XiudingCai/MambaTS-pytorch"
+revision = "3b6797d9bf5178a490e1bb3c3e9f4d223f2af51d"
+license = "MIT"
+reference_sources = ["https://github.com/XiudingCai/MambaTS-pytorch/blob/3b6797d9bf5178a490e1bb3c3e9f4d223f2af51d/models/MambaTS.py", "https://github.com/XiudingCai/MambaTS-pytorch/blob/3b6797d9bf5178a490e1bb3c3e9f4d223f2af51d/layers/mamba_ssm/mixer2_seq_simple.py", "https://github.com/XiudingCai/MambaTS-pytorch/blob/3b6797d9bf5178a490e1bb3c3e9f4d223f2af51d/layers/mamba_ssm/mamba_simple.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:mamba"
+channel = "local:variable-aware-scan-order"
+head = "component:flatten_forecast_head"
+loss = "loss:mse+local:scan-cost-update"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/mamba_ssm/mixer2_seq_simple.py` (`scatter_add_` with `cost_tensor.repeat(...)`)"
+what = "flattened `(batch, transition)` indices are paired with the repeated per-sample costs, so sample `i % B`'s loss is credited to other samples' transitions."
+resolution = "each sample's loss goes to its own K transitions."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/mamba_ssm/mixer2_seq_simple.py` (`cost_tensor / sqrt(cost_tensor.var())`, `get_adjacency_matrix`)"
+what = "the batch-deviation scaling gives NaN or infinity for a single sample or zero spread, and unvisited pairs are NaN after dividing by a zero count."
+resolution = "the scaling is skipped in those cases and unvisited pairs take the mean of visited pairs."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 6 vs `layers/mamba_ssm/mixer2_seq_simple.py`"
+what = "the paper updates transition costs by a moving average with rate beta (batch form unspecified), while the code keeps a running sum and visit count (the mean of Proposition 2)."
+resolution = "the code's running mean."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 5 (`ceil(L/s)` patches) vs `models/MambaTS.py` (`unfold` without padding)"
+what = "patch counts differ, and the head width `d_model * seq_len // patch_len` only matches the token count when `stride == patch_len`."
+resolution = "`unfold` without padding and a head sized by the true patch count."

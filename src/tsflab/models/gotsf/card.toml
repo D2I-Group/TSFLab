@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GOTSF"
+tags = ["mlp", "goal-oriented", "channel-independent", "mixture-of-experts"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card checks Eqs. (8)-(14) against the pinned `experiments/exp.py` and `experiments/exp_long_term_forecasting_discrete.py` and documents no paper or official-code problem; the all-bin objective, latent interval embedding, and compact host forecaster are TSFLab choices."
+
+[paper]
+title = "Goal-Oriented Time-Series Forecasting: Foundation Framework Design"
+url = "https://arxiv.org/abs/2504.17493"
+venue = "AAAI 2026"
+year = 2026
+
+[code]
+url = "https://github.com/netop-team/gotsf"
+revision = "31b17e55a0cb6f41bfe25230db3f81567efd58f3"
+license = "MIT"
+reference_sources = ["https://github.com/netop-team/gotsf/blob/31b17e55a0cb6f41bfe25230db3f81567efd58f3/experiments/exp.py", "https://github.com/netop-team/gotsf/blob/31b17e55a0cb6f41bfe25230db3f81567efd58f3/experiments/exp_long_term_forecasting_discrete.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:interval-conditioned-mlp-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:interval-regression-and-confidence-heads"
+loss = "local:interval-soft-boundary-regression-and-membership"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shared channel-independent MLP)" }
+interval_min = { from = "train-split", rule = "lower edge of the binned value range in the scaled data; cover the scaled training range (preset -2)" }
+interval_max = { from = "train-split", rule = "upper edge of the binned value range, larger than interval_min (preset 2)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

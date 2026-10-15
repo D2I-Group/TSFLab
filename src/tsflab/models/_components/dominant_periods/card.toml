@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "dominant_periods"
+role = "Finds the few dominant cycle lengths of a window so a model can fold or group the series by its periods."
+slot = "temporal"
+fits = ["multi-periodic", "strong-seasonality"]
+category = "frequency"
+tags = ["amplitude", "fft", "frequency", "period", "spectrum", "top-k", "numpy-output"]
+input = "x [batch, time, channels]"
+output = "periods int64 ndarray [k] (shared by the batch, not a tensor); amplitudes [batch, k]"
+origin = "Period discovery step of TimesNet, Wu et al., ICLR 2023 (TimesNet: Temporal 2D-Variation Modeling for General Time Series Analysis); the same routine is reused by MSGNet (AAAI 2024)"
+origin_models = ["timesnet", "msgnet"]

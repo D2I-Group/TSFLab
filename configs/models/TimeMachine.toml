@@ -1,0 +1,14 @@
+[model]
+name = "TimeMachine"
+
+[model.params]
+enc_in = 7
+n1 = 256
+n2 = 128
+d_state = 256
+d_conv = 2
+expand = 1
+dropout = 0.05
+revin = true
+ch_ind = true
+residual = true

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "forecast_embedding"
+role = "Embeds values together with raw calendar marks so timestamp signal (hour, weekday, month) reaches the model."
+slot = "input"
+fits = ["calendar-effects"]
+category = "embedding"
+tags = ["calendar", "covariate", "embedding", "forecast", "value", "raw-marks", "linear"]
+input = "values [batch, time, channels]; marks [batch, time, 6]"
+output = "[batch, time, d_model]"
+origin = "Embedding of the Autoformer/FEDformer decomposition models, written clean-room against the repository's six-column raw-timestamp contract (not a verbatim paper layer)"
+origin_models = ["autoformer", "fedformer", "dualformer", "timesnet"]

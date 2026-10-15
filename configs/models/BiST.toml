@@ -1,0 +1,13 @@
+[model]
+name = "BiST"
+
+[model.params]
+enc_in = 6
+model_dim = 32
+prompt_dim = 16
+num_layers = 3
+tod_size = 24
+kernel_size = 3
+residual_steps = 2
+graph_dim = 8
+virtual_clusters = 8

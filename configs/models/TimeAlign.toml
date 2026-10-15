@@ -1,0 +1,21 @@
+[model]
+name = "TimeAlign"
+
+[model.params]
+enc_in = 7
+# patch_num MUST divide both task.seq_len and task.pred_len.
+patch_num = 4
+d_model = 32
+d_ff = 32
+e_layers = 2
+dropout = 0.1
+pos = true
+layer_norm = true
+# Local / global alignment toggles.
+loc = true
+glo = true
+local_margin = 0.0
+global_margin = 0.0
+# Paper-default reconstruction and alignment loss weights.
+w_recon = 1.0
+w_align = 0.1

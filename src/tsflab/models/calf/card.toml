@@ -1,0 +1,55 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CALF"
+tags = ["llm", "transformer", "gpt2", "cross-modal", "lora", "channel-tokens", "pretrained-backbone", "normalization"]
+fits = ["low-data", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CALF: Aligning LLMs for Time Series Forecasting via Cross-modal Fine-Tuning"
+url = "https://arxiv.org/abs/2403.07300"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Hank0626/CALF"
+revision = "50e7270af9a9b256acaf33b2688fef7d95f5a3f0"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/Hank0626/CALF/blob/50e7270af9a9b256acaf33b2688fef7d95f5a3f0/models/CALF.py", "https://github.com/Hank0626/CALF/blob/50e7270af9a9b256acaf33b2688fef7d95f5a3f0/models/GPT2_arch.py", "https://github.com/Hank0626/CALF/blob/50e7270af9a9b256acaf33b2688fef7d95f5a3f0/pca.py", "https://github.com/Hank0626/CALF/blob/50e7270af9a9b256acaf33b2688fef7d95f5a3f0/utils/cmLoss.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:whole-window-linear-token-embedding"
+channel = "component:gpt2_backbone+local:principal-word-cross-attention"
+head = "local:shared-linear-horizon-head-with-input-residual"
+loss = "loss:mae+local:layerwise-feature-regularization+local:output-consistency"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels, one GPT-2 token each; at most 1024 (GPT-2 positions); attention is causal so channel order matters" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 (`lambda_1 = 1` feature loss, `lambda_2 = 0.01` output loss) vs `run.py` (`--feature_w 0.01`, `--output_w 1.0`, never overridden by the scripts)"
+what = "the two loss weights are swapped."
+resolution = "the official weights (`feature_weight = 0.01`, `output_weight = 1.0`), both exposed as parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`scripts/long_term_forecasting/*.sh` vs `models/CALF.py`"
+what = "the scripts pass `--n_heads`, `--d_ff` and `--dropout`, but the model never reads them, so those settings have no effect."
+resolution = "no counterpart parameters; the match module uses the values actually in effect."
+
+[[issues]]
+kind = "underspecified"
+where = "cross-modal match module"
+what = "the paper does not give its heads, feed-forward width or dropout."
+resolution = "the official values in effect (12 heads, 2048-wide ReLU feed-forward, dropout 0.1)."

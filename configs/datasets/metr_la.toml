@@ -1,0 +1,8 @@
+[dataset]
+name = "cauair_st"
+path = "./dataset/metr_la"
+
+[dataset.params]
+input_dim = 3       # value + time_in_day + day_in_week
+npz_name = "his.npz"
+scale = false       # keep calendar covariates raw

@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Fredformer"
+tags = ["transformer", "frequency", "channel-mixing", "attention-variant", "normalization"]
+fits = ["high-cross-correlation", "multi-periodic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Fredformer: Frequency Debiased Transformer for Time Series Forecasting"
+url = "https://arxiv.org/abs/2406.09009"
+venue = "KDD 2024"
+year = 2024
+
+[code]
+url = "https://github.com/chenzRG/Fredformer"
+revision = "fa64775ea1012e313cbe30fe2c9b7e493a798aae"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/chenzRG/Fredformer/blob/fa64775ea1012e313cbe30fe2c9b7e493a798aae/layers/Fredformer_backbone.py", "https://github.com/chenzRG/Fredformer/blob/fa64775ea1012e313cbe30fe2c9b7e493a798aae/layers/cross_Transformer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:full-fft-frequency-patching"
+temporal = "local:per-band-transformer-encoder"
+channel = "local:channel-attention-per-frequency-band"
+head = "local:dual-spectral-residual-heads-and-inverse-fft"
+loss = "loss:mse"
+
+[data_params]
+band_width = { from = "seq_len", rule = "frequency patch length must not exceed seq_len" }
+stride = { from = "seq_len", rule = "positive stride sets the count of unpadded frequency patches" }
+enc_in = { from = "channels", rule = "equals the number of channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from the paper, nothing copied; license recorded as `NOASSERTION`."

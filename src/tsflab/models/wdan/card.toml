@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WDAN"
+tags = ["transformer", "plug-in", "normalization", "wavelet", "non-stationary", "decomposition", "patching", "time-series"]
+fits = ["non-stationary", "strong-trend", "heteroscedastic"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Wavelet-based Disentangled Adaptive Normalization for Non-stationary Times Series Forecasting"
+url = "https://arxiv.org/abs/2506.05857"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/MonBG/WDAN"
+revision = "f01994ada4980729eb6af14c35778f480f9c0c47"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/MonBG/WDAN/blob/f01994ada4980729eb6af14c35778f480f9c0c47/nns/models/WDAN.py", "https://github.com/MonBG/WDAN/blob/f01994ada4980729eb6af14c35778f480f9c0c47/nns/layers/learnable_dwt.py", "https://github.com/MonBG/WDAN/blob/f01994ada4980729eb6af14c35778f480f9c0c47/nns/spv/WDAN_spv.py"]
+
+[composition]
+normalization = "local:wavelet-disentangled-point-normalization"
+decomposition = "local:symmetric-dwt-trend"
+temporal = "component:patchtst"
+channel = "component:patchtst"
+head = "component:patchtst+local:predicted-statistics-denormalization"
+loss = "loss:mse+local:statistics-pretraining"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "PatchTST patching of seq_len with stride and end padding; patch_len <= seq_len" }
+dwt_levels = { from = "seq_len", rule = "more levels give a smoother trend and need a longer seq_len; official default 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `nns/models/WDAN.py` `sliding_std` (`x_window.std(dim=-1)`)"
+what = "the paper's sliding standard deviation is the population form; the code uses the unbiased estimator."
+resolution = "the population form of Eq. (5)."

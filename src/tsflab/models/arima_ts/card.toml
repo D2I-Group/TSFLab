@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ARIMATS"
+tags = ["statistical", "autoregressive", "baseline", "lightweight", "channel-independent"]
+fits = ["non-stationary", "short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "classical Box-Jenkins baseline with no official code; the card records only TSFLab simplifications (d = 1, gradient fitting, shared coefficients), no problem in the source."
+
+[paper]
+title = "Time Series Analysis: Forecasting and Control"
+url = "https://search.worldcat.org/title/Time-series-analysis-forecasting-and-control/oclc/1422106714"
+venue = "Holden-Day 1970"
+year = 1970
+
+[composition]
+normalization = "none"
+decomposition = "local:first-order-differencing"
+temporal = "local:conditional-arima-recurrence"
+channel = "local:channel-independent-shared-weights"
+head = "local:cumulative-sum-of-forecast-differences"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shape check; coefficients are shared)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

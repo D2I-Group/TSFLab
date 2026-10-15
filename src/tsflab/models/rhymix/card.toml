@@ -1,0 +1,49 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RhyMix"
+tags = ["cnn", "multi-period", "adaptive-gating", "cross-channel"]
+fits = ["strong-seasonality", "multi-periodic", "high-cross-correlation", "long-horizon"]
+fidelity = "inferred"
+
+[paper]
+title = "RhyMix: A Lightweight Adaptive Multi-Rhythm Network for Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2607.08234v1"
+venue = "arXiv"
+year = 2026
+
+[composition]
+normalization = "local:population-instance-standardization-with-affine"
+decomposition = "local:reflection-moving-average-25"
+temporal = "local:multi-period-cyclic-tables+local:two-dilated-depthwise-blocks"
+channel = "local:residual-bottleneck-channel-mixer"
+head = "local:shared-four-heads+local:normalized-feature-path-and-hybrid-gates"
+loss = "loss:huber"
+
+[data_params]
+enc_in = { from = "channels", rule = "must match every input channel; fixed periods 12/24/48/168 assume hourly observations" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "arXiv:2607.08234v1, Section 3.1.2, four-head definition"
+what = "CNN layout/kernel and exact sharing of head parameters are not established by released author code in the inspected sources."
+resolution = "Use two channel-by-time input planes, a 3x3 convolution, and one shared four-head module; retain inferred fidelity."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "archived independent RhyMix reproduction implementations"
+what = "Earlier implementations omitted residuals, averaged away channel identity, or bypassed normalization before some gating MLPs."
+resolution = "Keep residuals and channel-resolved future priors inside their heads, normalize all gate inputs, and verify the equation map before training. Historical outputs remain separate."
+
+[[issues]]
+kind = "unreleased"
+where = "paper and arXiv sources inspected 2026-10-11"
+what = "No author implementation was identified in the inspected paper sources."
+resolution = "Independent local implementation; no official-code or reported-score parity claim."

@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeBridge"
+tags = ["transformer", "patching", "normalization", "attention-variant", "channel-mixing", "decomposition"]
+fits = ["non-stationary", "high-cross-correlation", "strong-trend"]
+fidelity = "reference-checked"
+issues_checked = "the card records Eqs. 3-10 (detrended Integrated Attention, attention downsampling, Cointegrated Attention) as followed from the paper and documents no paper or official-code problem."
+
+[paper]
+title = "TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2410.04442"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Hank0626/TimeBridge"
+revision = "0f9a83fbc3e1260c9ddd527c522dff0ce4b9554b"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:moving-average-stationarization-in-integrated-attention"
+temporal = "local:integrated-attention+local:patch-downsample"
+channel = "local:cointegrated-attention-across-variates"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels" }
+period = { from = "period", rule = "patch length = dominant period in steps" }
+num_p = { from = "seq_len", rule = "number of period patches; default ceil(seq_len / period); smaller drops early steps" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

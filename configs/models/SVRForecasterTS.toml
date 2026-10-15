@@ -1,0 +1,9 @@
+[model]
+name = "SVRForecasterTS"
+
+[model.params]
+enc_in = 7
+num_support = 16
+kernel_gamma = 0.1
+epsilon = 0.1
+l2_penalty = 0.0001

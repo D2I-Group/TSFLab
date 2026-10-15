@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PatchTSMixer"
+tags = ["mlp", "mixer", "patching", "gated-attention", "channel-independent", "normalization", "revin"]
+fits = ["long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TSMixer: Lightweight MLP-Mixer Model for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2306.09364"
+venue = "KDD 2023"
+year = 2023
+
+[code]
+url = "https://github.com/huggingface/transformers"
+revision = "3693f8d26311305e914735a6373fb03468d6aaa0"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/huggingface/transformers/blob/3693f8d26311305e914735a6373fb03468d6aaa0/src/transformers/models/patchtsmixer/modeling_patchtsmixer.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-and-feature-mlp-mixer-layers"
+channel = "local:channel-independent-or-inter-channel-mixer"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "seq_len", rule = "below seq_len; patch count (seq_len - patch_len) // stride + 1" }
+stride = { from = "seq_len", rule = "with patch_len, sets the patch count (seq_len - patch_len) // stride + 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.3.5 vs `src/transformers/models/patchtsmixer/modeling_patchtsmixer.py` `PatchTSMixerChannelFeatureMixerBlock`"
+what = "the channel mixer applies gated attention before its MLP, whereas the patch and feature mixers (and the paper's description) apply it after."
+resolution = "the gate follows the MLP on all three axes, so `mix_channel` differs from Hugging Face in this one place."

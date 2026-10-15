@@ -1,0 +1,99 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GAMMANet"
+tags = ["ssm", "gnn", "hybrid", "mamba", "graph-attention", "spatiotemporal", "adaptive-embedding", "traffic", "covariates", "predefined-graph"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "GAMMA-Net: Adaptive Long-Horizon Traffic Spatio-Temporal Forecasting Model based on Interleaved Graph Attention and Multi-Axis Mamba"
+url = "https://arxiv.org/abs/2604.16859"
+venue = "arXiv preprint"
+year = 2026
+
+[code]
+url = "https://github.com/hdy6438/GAMMA-Net"
+revision = "3bfe871d3c1a5409f9ef91cd304948bd91fb0cac"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/hdy6438/GAMMA-Net/blob/3bfe871d3c1a5409f9ef91cd304948bd91fb0cac/model/GAMMANet.py", "https://github.com/hdy6438/GAMMA-Net/blob/3bfe871d3c1a5409f9ef91cd304948bd91fb0cac/model/GAMMANet.yaml"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:spatiotemporal-adaptive-embedding+local:gat-temporal-mamba-pairs+component:mamba"
+channel = "local:gat-spatial-mamba-pairs"
+head = "local:mixed-flatten-linear-projection"
+loss = "none"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of graph nodes (sensors); the runner injects num_nodes and the adaptive embedding is sized by it" }
+adj_mx = { from = "graph", rule = "the dataset adjacency; every non-zero off-diagonal entry becomes a directed GAT edge, weights ignored; without it nodes attend only to themselves" }
+steps_per_day = { from = "frequency", rule = "samples per day (288 for 5-minute data); time-of-day index = round(time_in_day * steps_per_day)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`model/GAMMANet.py` `MambaLayer.forward`"
+what = "after moving the scan axis to position 1 the tensor is reshaped to `[-1, seq_len, model_dim]` without moving the remaining axes behind the batch, so each \"temporal\" sequence is a run of `T` consecutive entries of the step-major `(T, N)` grid (mostly different nodes at one step) and each \"spatial\" sequence a run of `N` consecutive entries of the node-major `(N, T)` grid (mostly time steps of one node); the scans do not follow the axes of Eqs. (6) and (8)."
+resolution = "`scan_layout = \"axis\"` (default) scans along time per node and along nodes per step; `\"official\"` reproduces the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/GAMMANet.py` `GAMMANet.__init__` and `SpatialTemporalAttention.__init__`"
+what = "`dropout`, `feed_forward_dim` and `num_heads` (set in `model/GAMMANet.yaml`) are accepted but never used; no dropout is applied anywhere and the GAT head count is hard-coded to 4."
+resolution = "no dropout, as the code runs; `num_heads` sets the GAT heads (4, the paper's value)."
+
+[[issues]]
+kind = "code-bug"
+where = "`model/GAMMANet.py` `GAMMANet.__init__`"
+what = "`torch.load(edge_index_path).cuda()` hard-codes a CUDA device, so the model cannot be constructed on CPU."
+resolution = "the edge list is a non-persistent buffer that follows the module's device."
+
+[[issues]]
+kind = "unreleased"
+where = "repository at `3bfe871d`"
+what = "only `model/GAMMANet.py` and `model/GAMMANet.yaml` are published (`README.md`: full code pending publication); there is no training, data, or evaluation script, no loss, and the `../extra_data/*_edge_index.pt` graph files referenced by the configs are absent."
+resolution = "the edge list is built from the dataset adjacency; the loss is the run configuration's criterion."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3.2.2"
+what = "edges are \"direct physical connections\", but how the edge index is derived from the adjacency (direction, thresholding, use of weights) is not stated and the files are unreleased; the code's `GATConv` ignores edge weights."
+resolution = "every non-zero off-diagonal `adj[i, j]` is a directed edge `i -> j`, existing self-loops are replaced by one self-loop per node, and weights are ignored."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 4.2"
+what = "the training loss is not stated and no training script is released."
+resolution = "the run configuration's criterion (MAE in the smoke run)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 3.2.3 vs `model/GAMMANet.yaml`"
+what = "the paper presents GAT-Mamba pairs as the model for every dataset, but the PEMSBAY and PEMS08 configs set `gat: False` (Mamba scans only), and their `early_stop: 20` differs from the 30-step patience of Section 4.2."
+resolution = "`gat` parameter, default `true`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table 3 (PEMS03 results) vs `model/GAMMANet.yaml`"
+what = "the PEMS03 entry is marked \"This is abandoned, needs further tuning if you want to run\"."
+resolution = "recorded only."
+
+[[issues]]
+kind = "paper-error"
+where = "title and abstract vs Section 4.3"
+what = "the paper is framed as long-horizon forecasting, but every reported experiment maps 12 input steps to at most 12 output steps (60 minutes)."
+resolution = "recorded only; the local model accepts any `seq_len` and `pred_len`."
+
+[[issues]]
+kind = "license"
+where = "repository root at `3bfe871d`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

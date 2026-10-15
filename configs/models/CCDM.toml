@@ -1,0 +1,27 @@
+[model]
+name = "CCDM"
+
+# Table 5 / Table 6 (ETTh1) and the official run_I48_O96.py: lookback 48, horizon 96.
+[model.params]
+enc_in = 7
+cont_hidden_dim = 128
+pred_hidden_dim = 128
+step_hidden_dim = 128
+encoder_layers = 2
+decoder_layers = 1
+n_depth = 2
+n_heads = 8
+attn_dropout = 0.1
+mlp_ratio = 1.0
+dropout = 0.1
+diffusion_steps = 50
+beta_schedule_kind = "quad"
+beta_start = 0.0001
+beta_end = 0.5
+contrast_weight = 0.001
+n_negatives = 64
+temperature = 0.1
+shuffle_patch_len = 8
+contrast_form = "regression"
+num_samples = 100
+sample_batch_size = 100

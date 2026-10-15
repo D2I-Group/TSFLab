@@ -1,0 +1,13 @@
+# ERCOT hourly load by weather zone frozen as a static dataset (see docs/en/realtime.md).
+# Reads the track's panel store at dataset/realtime/grid_ercot (or set dataset.params.revision to pull a Hub revision).
+[dataset]
+name = "realtime_panel_st"
+alias = "rt_grid_ercot"
+track = "realtime"
+path = "./dataset/realtime/grid_ercot"
+
+[dataset.params]
+track = "grid_ercot"
+# version is not pinned here; pin the release used in a study via dataset.params.version.
+split_ratio = [0.7, 0.1, 0.2]
+scale = true

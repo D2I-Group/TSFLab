@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "periodic_query_bank"
+role = "Learns one vector per phase of a known fixed cycle (daily, weekly), aligned to each sample's calendar position."
+slot = "temporal"
+fits = ["strong-seasonality", "calendar-effects"]
+category = "memory"
+tags = ["cycle", "gather", "period", "phase", "query", "learnable-table"]
+input = "start_phase int tensor [batch]; length (int)"
+output = "[batch, length, channels]"
+origin = "Learnable cycle table of TQNet, Temporal Query Network for Efficient Multivariate Time Series Forecasting (ICML 2025, arXiv 2505.12917); the module docstring also names CycleNet's residual cycle as the same indexing pattern"
+origin_models = ["tqnet"]

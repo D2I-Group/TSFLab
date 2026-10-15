@@ -1,0 +1,68 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MambaProbTSF"
+tags = ["ssm", "mamba", "probabilistic", "distribution-output", "uncertainty", "dual-network", "inverted-tokens", "channel-mixing", "normalization", "revin", "marks"]
+fits = ["probabilistic-output", "high-cross-correlation", "non-stationary"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of variates; one inverted token and one sigma-MLP pass per variate" }
+freq = { from = "frequency", rule = "only hourly (h) calendar tokens are supported; set use_marks = false for other sampling rates" }
+
+[paper]
+title = "Mamba time series forecasting with uncertainty quantification"
+url = "https://arxiv.org/abs/2503.10873"
+venue = "Machine Learning: Science and Technology"
+year = 2025
+
+[code]
+url = "https://github.com/PessoaP/Mamba-ProbTSF"
+revision = "a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/PessoaP/Mamba-ProbTSF/blob/a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67/model/S_Mamba.py", "https://github.com/PessoaP/Mamba-ProbTSF/blob/a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67/layers/Mamba_EncDec.py", "https://github.com/PessoaP/Mamba-ProbTSF/blob/a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67/experiments/exp_probabilistic_forecasting.py", "https://github.com/PessoaP/Mamba-ProbTSF/blob/a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67/run_prob.py", "https://github.com/PessoaP/Mamba-ProbTSF/blob/a69d7c3c305b17ca5fbdb9314328c2e42c1d9f67/ECL_script.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:sigma-mlp-per-variate"
+channel = "component:mamba+local:bidirectional-variate-scan"
+head = "local:gaussian-mean-and-softplus-scale"
+loss = "loss:nll_gaussian"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`experiments/exp_probabilistic_forecasting.py` training loop"
+what = "`loss.backward()` and `model_optim.step()` sit in the `else` branch of the every-100th-batch logging check, so every hundredth batch is skipped."
+resolution = "every batch updates the model."
+
+[[issues]]
+kind = "code-bug"
+where = "`run_prob.py`"
+what = "a leftover `break` after `exp.save_training_set(setting)` stops the script before any training or testing."
+resolution = "not reproduced; the catalog runner trains normally."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Section 2.2 vs `experiments/exp_probabilistic_forecasting.py` (`sigma_method == 'Compound'`)"
+what = "the code offers a cumulative-variance sigma option that the paper does not describe."
+resolution = "only the paper's `General` sigma network is implemented."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 2.2 vs `model/S_Mamba.py`, `layers/Mamba_EncDec.py`, `run_prob.py`"
+what = "the Mamba settings (`d_conv = 2`, `expand = 1`), post-norm layer order, sigma-MLP width 512 with GELU on the raw unnormalized window, and the `1e-8` added after the softplus are not stated in the paper."
+resolution = "the code's choices."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Extralonger"
+tags = ["transformer", "gnn", "spatiotemporal", "attention-variant", "calendar-embedding", "long-horizon"]
+fits = ["spatial-graph", "long-horizon", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Extralonger: Toward a Unified Perspective of Spatial-Temporal Factors for Extra-Long-Term Traffic Forecasting"
+url = "https://arxiv.org/abs/2411.00844"
+venue = "NeurIPS 2024 Workshop"
+year = 2024
+
+[code]
+url = "https://github.com/ZhuoLinLi-shu/Extralonger"
+revision = "4adb3ec1f0d0a844e9726273a225e640802417cd"
+license = "MIT"
+reference_sources = ["https://github.com/ZhuoLinLi-shu/Extralonger/blob/4adb3ec1f0d0a844e9726273a225e640802417cd/model/Extralonger.py", "https://github.com/ZhuoLinLi-shu/Extralonger/blob/4adb3ec1f0d0a844e9726273a225e640802417cd/model/config.yaml", "https://github.com/ZhuoLinLi-shu/Extralonger/blob/4adb3ec1f0d0a844e9726273a225e640802417cd/train.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:temporal-and-mixed-route-self-attention"
+channel = "component:graph_masked_attention"
+head = "local:fixed-weight-route-fusion"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "equals the number of graph nodes (fallback when num_nodes is not injected)" }
+adj_mx = { from = "graph", rule = "runner-injected dense adjacency; mask is (adj_mx != 0) | eye(N)" }
+steps_per_day = { from = "frequency", rule = "steps per day for the time-of-day table (288 at 5-minute sampling)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "`model/Extralonger.py` (`input_noise`)"
+what = "the official model adds a learned `nn.Parameter` to the raw input before the temporal and spatial routes split; the paper does not describe it."
+resolution = "omitted; the three-route architecture and fusion follow the paper and code."

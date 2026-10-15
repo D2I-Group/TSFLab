@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "gated_fusion"
+role = "Blends two branch representations (for example global variate and local patch views) with a learned per-feature gate."
+slot = "channel"
+fits = ["any"]
+category = "fusion"
+tags = ["fusion", "gate", "gated", "mixture", "sigmoid", "convex", "learned-gate", "two-branch", "interpolation"]
+input = "a [..., dim]; b [..., dim] (identical shapes)"
+output = "same shape as a and b"
+origin = "Gated representation fusion of Gateformer (arXiv 2505.00307, 2025), generalized from its two uses; no earlier source recorded"
+origin_models = ["gateformer"]

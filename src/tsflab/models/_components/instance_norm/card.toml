@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "instance_norm"
+role = "Standardizes each window by its own mean and standard deviation over time and restores them on the forecast, without learnable parameters."
+slot = "normalization"
+fits = ["non-stationary", "train-val-level-shift", "train-val-scale-shift"]
+category = "normalization"
+tags = ["instance", "normalization", "non-stationary", "parameter-free", "denormalization", "stateless"]
+input = "x [batch, time, channels] (any rank >= 2 with time on dim 1)"
+output = "normalized x of the same shape, mean and std [batch, 1, ...]"
+origin = "Non-stationary normalization of Non-stationary Transformers, Liu et al., NeurIPS 2022, as written in Time-Series-Library forecasters"
+origin_models = ["timesnet", "itransformer"]

@@ -1,0 +1,11 @@
+[model]
+name = "PULSE"
+
+[model.params]
+enc_in = 7
+d_model = 32
+dropout = 0.1
+phase_period = 24
+phase_resolution = 8
+router_heads = 4
+eps = 1e-5

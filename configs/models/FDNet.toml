@@ -1,0 +1,10 @@
+[model]
+name = "FDNet"
+
+[model.params]
+enc_in = 7
+d_model = 8
+kernel_size = 3
+num_layers = 5
+focal_parts = 5
+dropout = 0.1

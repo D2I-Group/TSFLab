@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Transformer"
+tags = ["transformer", "covariates", "channel-mixing", "baseline"]
+fits = ["calendar-effects", "high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card records the paper's scaled dot-product attention, encoder/decoder residual blocks, causal decoder mask, cross-attention and feed-forward layers; the time-series embedding and one-shot forecast boundary are TSFLab integration choices."
+
+[paper]
+title = "Attention Is All You Need"
+url = "https://proceedings.neurips.cc/paper/7181-attention-is-all-you-need"
+venue = "NeurIPS 2017"
+year = 2017
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "2fb5b84ecef67c45a759f7cf82023d27afe27882"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:transformer_encdec+component:self_attention_family"
+channel = "component:embed"
+head = "local:decoder-linear-projection-last-pred-len"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count; dec_in and c_out default to it" }
+freq = { from = "frequency", rule = "sampling frequency code of the dataset (h, t, d, ...) for the timeF mark embedding" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

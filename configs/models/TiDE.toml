@@ -1,0 +1,13 @@
+[model]
+name = "TiDE"
+
+[model.params]
+d_model = 256
+e_layers = 2
+d_layers = 2
+d_ff = 256
+decoder_output_dim = 7
+time_feat_dim = 6
+dropout = 0.1
+bias = true
+feature_encode_dim = 2

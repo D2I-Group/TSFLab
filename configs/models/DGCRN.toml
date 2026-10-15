@@ -1,0 +1,12 @@
+[model]
+name = "DGCRN"
+
+[model.params]
+enc_in = 8
+gcn_depth = 1
+rnn_size = 16
+node_dim = 8
+hyper_gnn_dim = 8
+middle_dim = 2
+tanhalpha = 3.0
+dropout = 0.3

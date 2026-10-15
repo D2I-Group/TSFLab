@@ -1,0 +1,29 @@
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/SEMixer.toml"]
+
+[experiment]
+description = "Smoke: SEMixer"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 48
+label_len = 0
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "mae"
+patience = 1
+
+[model.params]
+enc_in = 6
+c_out = 6
+patch_len = 4
+stride = 2
+scale_factors = "1x2x4"
+reduce_dim = 8

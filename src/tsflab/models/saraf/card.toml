@@ -1,0 +1,99 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SARAF"
+tags = ["linear", "retrieval", "nearest-neighbor", "non-stationary", "calendar", "channel-mixing", "normalization"]
+fits = ["non-stationary", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Stationarity-Aware Retrieval-Augmented Time Series Forecasting"
+url = "https://arxiv.org/abs/2606.04135"
+venue = "KDD 2026"
+year = 2026
+
+[code]
+url = "https://github.com/ShiqiaoZhou/SARAF"
+revision = "7b49aa8aabb38e8fe63adbc3146b1890958bf3ca"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/ShiqiaoZhou/SARAF/blob/7b49aa8aabb38e8fe63adbc3146b1890958bf3ca/models/SARAF.py", "https://github.com/ShiqiaoZhou/SARAF/blob/7b49aa8aabb38e8fe63adbc3146b1890958bf3ca/layers/Retrieval.py", "https://github.com/ShiqiaoZhou/SARAF/blob/7b49aa8aabb38e8fe63adbc3146b1890958bf3ca/exp/exp_long_term_forecasting.py", "https://github.com/ShiqiaoZhou/SARAF/blob/7b49aa8aabb38e8fe63adbc3146b1890958bf3ca/run.py", "https://github.com/ShiqiaoZhou/SARAF/blob/7b49aa8aabb38e8fe63adbc3146b1890958bf3ca/scripts/ETTh_720.sh"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+freq = { from = "frequency", rule = "dataset sampling frequency; sets steps per day for the calendar bonus" }
+n_sub_windows = { from = "seq_len", rule = "seq_len // n_sub_windows >= 2" }
+
+[composition]
+normalization = "local:last-value-offset"
+decomposition = "none"
+temporal = "local:linear-direct-forecast+local:stationarity-aware-retrieval"
+channel = "local:flattened-all-channel-similarity"
+head = "local:average-fusion-horizon-linear"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `7b49aa8a`"
+what = "no LICENSE file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (1) vs `layers/Retrieval.py` `compute_stationarity_scores`"
+what = "the paper normalises `v_mu`, `v_sigma` by the dataset-wide standard deviation `sigma-bar`; the code divides by each window's own per-channel standard deviation averaged over channels."
+resolution = "followed the code (it produced the reported scores)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (4), (6) vs `layers/Retrieval.py` `decompose_mg` (called from `prepare_dataset` and `retrieve`)"
+what = "windows are offset by their own last value per channel before Pearson centering, and stored futures are offset by their own last value, neither stated in the paper."
+resolution = "followed the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (12)-(15) vs `models/SARAF.py` `encoder` / `weighted_fusion_simple`"
+what = "the code applies an extra `Linear(pred_len, pred_len)` (`retrieval_pred`) to the retrieved forecast before the 0.5/0.5 average, the direct branch uses the last-value-offset window rather than the centred window, and its bias is per horizon step, not the `H x C` bias of Eq. (13)."
+resolution = "followed the code."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.4.1, Eq. (3)"
+what = "the component weights `lambda_r` and kernel widths are not given (\"comparable weights\")."
+resolution = "taken from `layers/Retrieval.py` `compute_time_aware_bonus` (hour 0.6/0.3, weekday 0.2, weekend 0.1, month 0.4/0.2, minute 0.1, switched on `seq_len` vs. steps per day)."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.4.3, Eq. after (9)"
+what = "the softmax sampling temperature of stochastic MMR is not given."
+resolution = "0.1 as fixed in `layers/Retrieval.py` `mmr_select` (its `stationarity` argument is accepted but unused)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.4.1 (minute period 60) vs `data_provider/data_loader.py` `Dataset_ETT_minute` (`minute // 15`)"
+what = "the bonus uses period 60 on 15-minute bin indices 0-3."
+resolution = "raw minutes with period 60 as in the paper."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Retrieval.py` `masked_sim`"
+what = "out-of-range leakage indices are clamped to `0` / `n_train - 1`, so the first or last database window is also masked for queries near the split edges."
+resolution = "masked only the exact overlap span `|j - i| <= seq_len + pred_len - 1`."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/SARAF.py` `encoder`"
+what = "`assert(seq_len == self.seq_len, channels == self.channels)` asserts a non-empty tuple and never fails."
+resolution = "explicit shape check in `forward`."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Retrieval.py` `compute_dataset_stationarity`"
+what = "the per-sample scores are computed twice (harmless, doubles cost)."
+resolution = "computed once."

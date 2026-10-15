@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimePerceiver"
+tags = ["transformer", "patching", "attention-variant", "channel-mixing", "normalization", "covariates"]
+fits = ["high-cross-correlation", "many-channels", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "TimePerceiver: An Encoder-Decoder Framework for Generalized Time-Series Forecasting"
+url = "https://arxiv.org/abs/2512.22550"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/efficient-learning-lab/TimePerceiver"
+revision = "7e30cc07b51c709f408409fd60a34c81ae8990be"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-to-latent-cross-attention"
+channel = "local:joint-channel-patch-tokens-with-channel-embedding"
+head = "local:timestamp-query-cross-attention-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; query_share=False creates pred_len * enc_in queries" }
+patch_len = { from = "seq_len", rule = "ideally divides seq_len (else zero-padded)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "official repository API"
+what = "only past-to-future forecasting is provided; the paper's generalized interpolation/imputation training sampler is not released."
+resolution = "past-to-future forecasting only."

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "gpt2_backbone"
+role = "Reuses a pretrained GPT-2 trunk as the sequence model of an LLM-based forecaster fed with its own embeddings."
+slot = "temporal"
+fits = ["low-data"]
+category = "backbone"
+tags = ["gpt2", "llm", "pretrained", "language-model", "causal", "decoder-only", "backbone", "transformer", "safetensors", "lora"]
+input = "inputs_embeds [batch, time, n_embd] with time <= n_positions; loader: a local, already verified model.safetensors path"
+output = "last hidden states [batch, time, n_embd] (optionally with the n_layer + 1 per-block hidden states)"
+origin = "GPT-2 architecture (Radford et al., 2019, 'Language Models are Unsupervised Multitask Learners'), independently implemented; parameter names follow the released openai-community/gpt2 checkpoint layout"
+origin_models = ["autotimes", "llm4ts", "calf"]

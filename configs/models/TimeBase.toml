@@ -1,0 +1,11 @@
+[model]
+name = "TimeBase"
+
+[model.params]
+enc_in = 7
+period_len = 24
+basis_num = 6
+individual = false
+# Paper Eq. 7; tune per dataset (the paper sweeps 0.00 to 0.20).
+orthogonal_weight = 0.08
+use_period_norm = true

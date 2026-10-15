@@ -1,0 +1,11 @@
+[model]
+name = "EvoMSN"
+
+[model.params]
+enc_in = 7
+top_k = 4
+stat_hidden = 512
+stat_pretrain_epochs = 5
+stat_lr = 0.0001
+kernel_size = 25
+individual = false

@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SEMixer"
+tags = ["mlp", "mixer", "multi-scale", "patching", "random-attention", "channel-independent", "normalization"]
+fits = ["long-horizon", "efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SEMixer: Semantics Enhanced MLP-Mixer for Multiscale Mixing and Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.16220"
+venue = "WWW 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Meteor-Stars/SEMixer"
+revision = "973c619ee4c380791bd70e6f71f6202ec274ce8e"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Meteor-Stars/SEMixer/blob/973c619ee4c380791bd70e6f71f6202ec274ce8e/models/SEMixer.py", "https://github.com/Meteor-Stars/SEMixer/blob/973c619ee4c380791bd70e6f71f6202ec274ce8e/layers/RevIN.py", "https://github.com/Meteor-Stars/SEMixer/blob/973c619ee4c380791bd70e6f71f6202ec274ce8e/layers/PatchTST_layers.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+c_out = { from = "channels", rule = "equal to the dataset channel count (enc_in == c_out)" }
+patch_len = { from = "seq_len", rule = "largest scale s must leave patches: (seq_len - patch_len*s) // (stride*s) + 2 >= 1" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:multiscale-progressive-mixing-chain+component:positional_encoding"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

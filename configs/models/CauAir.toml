@@ -1,0 +1,9 @@
+[model]
+name = "CauAir"
+
+[model.params]
+enc_in = 6
+dim = 64
+cache_count = 8
+heads = 4
+cov_dim = 2

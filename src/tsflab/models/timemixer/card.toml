@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeMixer"
+tags = ["mlp", "decomposition", "multi-scale", "channel-mixing", "normalization"]
+fits = ["multi-periodic", "strong-trend", "long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "the card maps PDM Eqs. (3)-(5) and FMM Eq. (6) to the paper and documents no paper or official-code problem."
+
+[paper]
+title = "TimeMixer: Decomposable Multiscale Mixing for Time Series Forecasting"
+url = "https://arxiv.org/abs/2405.14616"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/kwuking/TimeMixer"
+revision = "e24610583b36fdd8c76cc17a8df4e65759a5f460"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:series_decomposition+local:dft-top-k-seasonal-option"
+temporal = "local:past-decomposable-mixing"
+channel = "local:channel-linear-embedding-and-predictor"
+head = "local:future-multipredictor-mixing"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; must equal c_out" }
+down_sampling_layers = { from = "seq_len", rule = "scale lengths seq_len // window^i must stay non-empty" }
+top_k = { from = "seq_len", rule = "dft_decomp only: at most half the coarsest scale length" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

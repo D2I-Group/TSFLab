@@ -1,0 +1,127 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SDGFNet"
+tags = ["gnn", "graph", "wavelet", "multi-scale", "dynamic-graph", "attention-fusion", "dilated-convolution", "revin"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SDGF: Fusing Static and Multi-Scale Dynamic Correlations for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.18135"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/shaoxun6033/SDGFNet"
+revision = "bf76b56ff123bbb2a08db7f57cd0137a6c688d21"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/models/SDGF.py", "https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/layers/modules.py", "https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/layers/WaveletDecomposition.py", "https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/run_longExp.py", "https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/scripts/ETTh1.sh", "https://github.com/shaoxun6033/SDGFNet/blob/bf76b56ff123bbb2a08db7f57cd0137a6c688d21/data_provider/data_factory.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:db4-wavelet-band-reconstruction"
+temporal = "local:dilated-inception-block"
+channel = "local:static-and-dynamic-mixprop-graph-fusion"
+head = "local:linear-history-to-horizon"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "leakage"
+where = "Eq. (2) and `layers/modules.py` (`GraphBranch.compute_rbf_kernel_similarity`, `torch.mean(x, dim=0)`)"
+what = "the static graph is built from the batch-averaged series; with the unshuffled test loader (`data_provider/data_factory.py`) a window's graph includes later windows of the same batch whose histories overlap its forecast horizon, and every prediction depends on the batch composition."
+resolution = "the graph is computed per sample."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (1)-(2) (Pearson correlation, ReLU, softmax) vs `models/SDGF.py` (`Model.forward`)"
+what = "the code builds the static graph with `compute_rbf_kernel_similarity` (Gaussian kernel, `sigma = 1`) and `static_mixprop` then adds self loops and degree-normalizes."
+resolution = "`static_graph = \"rbf\"` reproduces the code (default); `\"pcc\"` implements Eqs. (1)-(2)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/modules.py` (`GraphBranch.compute_pcc`)"
+what = "the correlation code is commented out and the remaining `F.softmax(adj, dim=1)` reads an undefined `adj`, so the PCC path raises if used."
+resolution = "PCC written from Eqs. (1)-(2)."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/modules.py` (`compute_rbf_kernel_similarity`)"
+what = "with `sigma = 1` on RevIN-normalized length-`L` series the squared distances are about `2L(1 - rho)`, so off-diagonal weights are close to 0 and, after self loops, the static graph is close to the identity."
+resolution = "reproduced by default; `rbf_sigma` and `static_graph = \"pcc\"` are configurable."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (4) vs `layers/modules.py` (`dynamic_mixprop.forward`)"
+what = "the code learns one adjacency per time step and averages the row-wise and column-wise softmax instead of a single softmax per scale."
+resolution = "the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (5)-(6) (scale-specific `Theta^(l)`, `L_d` sub-sequences of length `L_l`) vs `layers/modules.py` (`WaveletBranch`), `layers/WaveletDecomposition.py` and `models/SDGF.py` (`num_dynamic_graphs = decomp_level + 1`)"
+what = "one start conv, dynamic GCN and end conv are shared by all bands, every band is inverse-transformed back to length `L`, and there are `L_d + 1` bands (approximation plus `L_d` details)."
+resolution = "the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/modules.py` (`WaveletBranch.__init__`, `self.k = int(0.6)`)"
+what = "`k` is 0, so the top-k sparsification of the dynamic output never runs, and the following `adaptive_avg_pool2d` to `(N, 1)` is an identity."
+resolution = "both omitted."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (8) (average pooling over nodes) vs `layers/modules.py` (`AttentionGatedFusion`)"
+what = "the code flattens each `L x N` output, projects it with `Linear(L * N, 128)` and LayerNorm before the key projection, with the width fixed at 128."
+resolution = "the code; width exposed as `fusion_dim`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.5 and Eq. (11) vs `layers/modules.py` (`InceptionBlock`)"
+what = "the fused `[B, L, N]` tensor enters `Conv1d` with the `L` history positions as channels, so the \"temporal\" dilated kernels slide over the variable axis (results depend on column order), the lift width is fixed at 512, and the residual comes from the lifted tensor rather than `H_fusion`."
+resolution = "the code; width exposed as `inception_width`."
+
+[[issues]]
+kind = "code-bug"
+where = "`run_longExp.py` and `scripts/*.sh`"
+what = "`--d_model`, `--d_ff`, `--e_layers` and `--dropout` are set in every script and `--gcn_dropout` is defined in `run_longExp.py`, but none is read by `models/SDGF.py` (no dropout is applied anywhere)."
+resolution = "not exposed, except the hard-coded widths above."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/modules.py` (`GraphBranch.forward`)"
+what = "`.squeeze()` without a dimension also drops the batch axis when the batch size is 1 (and the node axis when `N = 1`)."
+resolution = "only the kernel axis is squeezed."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/SDGF.py` (module level)"
+what = "importing the model replaces `torch.Tensor.__repr__` globally."
+resolution = "not reproduced."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 (7:2:1 split for every dataset) vs `data_provider/data_loader.py`"
+what = "ETT datasets use the 12/4/4-month borders and the custom loader a 0.7/0.1/0.2 split."
+resolution = "TSFLab's dataset splits."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.3-3.5"
+what = "the wavelet, decomposition level, convolution channels, propagation depth, `alpha` and fusion width are not reported; the code uses db4 with symmetric extension (`layers/WaveletDecomposition.py`), `--decomp_level 3`, `--gcn_depth 2`, `--propalpha 0.3` (`run_longExp.py`) and `--conv_channel 32` or 16 per script."
+resolution = "defaults from `scripts/ETTh1.sh` and `run_longExp.py`."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_factory.py` (`data_provider`, `flag == 'test'`)"
+what = "the test loader uses `drop_last = True`, so the last partial test batch is never scored."
+resolution = "not applicable; TSFLab's evaluator scores every test window."

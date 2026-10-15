@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MTLinear"
+tags = ["linear", "decomposition", "channel-grouping", "multi-task", "gradient-balancing", "lightweight"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "A Multi-Task Learning Approach to Linear Multivariate Forecasting"
+url = "https://arxiv.org/abs/2502.03571"
+venue = "AISTATS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/azencot-group/MTLinear"
+revision = "7d0d9fb71d0e3652829ed28dda5acc558b27f528"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/azencot-group/MTLinear/blob/7d0d9fb71d0e3652829ed28dda5acc558b27f528/models/MTLinear.py", "https://github.com/azencot-group/MTLinear/blob/7d0d9fb71d0e3652829ed28dda5acc558b27f528/utils/grad_manip.py", "https://github.com/azencot-group/MTLinear/blob/7d0d9fb71d0e3652829ed28dda5acc558b27f528/exp/exp_main.py"]
+
+[composition]
+normalization = "none"
+decomposition = "component:dlinear"
+temporal = "component:channel_wise_linear"
+channel = "local:correlation-grouped-heads"
+head = "component:channel_wise_linear"
+loss = "local:magnitude-penalized-squared-error"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+cluster_dist = { from = "train-split", rule = "1 - corr merge threshold; grouping fitted on the training split" }
+max_clusters = { from = "channels", rule = "group cap; effective count min(max_clusters, enc_in)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Secs. 4.2-4.4 (Eqs. 7-8) vs `models/MTLinear.py` and `utils/grad_manip.py`"
+what = "the paper does not fix the linkage rule or threshold semantics of the variate grouping, nor how `H_i` and `K_j` are estimated; the code uses complete linkage on `1 - corr` merging below the threshold, batch mean absolute errors per group, zero errors replaced by 1 before inversion, detached weights, and a horizon-only penalty scaled by `group size / enc_in`."
+resolution = "the code's choices."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

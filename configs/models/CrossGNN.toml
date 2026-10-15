@@ -1,0 +1,15 @@
+[model]
+name = "CrossGNN"
+
+[model.params]
+enc_in = 7
+e_layers = 2
+anti_ood = true
+tk = 3
+scale_number = 4
+use_tgcn = true
+use_ngcn = true
+dropout = 0.1
+tvechidden = 8
+nvechidden = 8
+hidden = 16

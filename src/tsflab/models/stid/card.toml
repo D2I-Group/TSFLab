@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STID"
+tags = ["mlp", "spatiotemporal", "covariates", "lightweight", "channel-independent"]
+fits = ["calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the node/time-of-day/day-of-week identities, residual MLP encoder, and direct horizon projection against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "Spatial-Temporal Identity: A Simple yet Effective Baseline for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2208.05233"
+venue = "CIKM 2022"
+year = 2022
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+num_time_in_day = { from = "frequency", rule = "steps per day (24 hourly, 288 for 5-minute)" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:history-linear-projection"
+channel = "local:node-identity-embedding"
+head = "local:linear-horizon-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

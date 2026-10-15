@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SAMBA"
+tags = ["ssm", "mamba", "patching", "disentangled", "channel-mixing", "normalization", "revin"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SDE: A Simplified and Disentangled Dependency Encoding Framework for State Space Models in Time Series Forecasting"
+url = "https://arxiv.org/abs/2408.12068"
+venue = "KDD 2025"
+year = 2025
+
+[code]
+url = "https://github.com/YukinoAsuna/SAMBA"
+revision = "490257dac0806e16c00372226870850d39e8be65"
+license = "MIT"
+reference_sources = ["https://github.com/YukinoAsuna/SAMBA/blob/490257dac0806e16c00372226870850d39e8be65/model/SAMBA.py", "https://github.com/YukinoAsuna/SAMBA/blob/490257dac0806e16c00372226870850d39e8be65/layers/Block.py", "https://github.com/YukinoAsuna/SAMBA/blob/490257dac0806e16c00372226870850d39e8be65/layers/samba_simple.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:mamba"
+channel = "component:mamba"
+head = "component:flatten_forecast_head"
+loss = "none"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+patch_len = { from = "seq_len", rule = "must not exceed seq_len plus one stride of replication padding" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 5.1-5.2 vs `model/SAMBA.py` and `layers/Block.py`"
+what = "the paper omits the replication padding before unfolding, the patch projection, the time-branch-only position term, the block layout and residual norms, the two-branch fusion MLP, and the step-size initialization."
+resolution = "the official code's choices (one-stride replication padding, `Linear(patch_len, d_model)`, learnable `[patches, 1]` position term, `Add -> LayerNorm -> mixer -> Add -> LayerNorm -> gated MLP` blocks, `Linear(2d, d) -> GELU -> Dropout -> Linear(d, d)` fusion, reference Mamba `dt_proj` initialization)."

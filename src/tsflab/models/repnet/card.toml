@@ -1,0 +1,123 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "REPNet"
+tags = ["mlp", "patch", "multi-scale", "mixer", "glu", "time-embedding", "modular", "lstm"]
+fits = ["calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Decomposing the Time Series Forecasting Pipeline: A Modular Approach for Time Series Representation, Information Extraction, and Projection"
+url = "https://arxiv.org/abs/2507.05891"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/RobertLeppich/REP-Net"
+revision = "df3b2983a953d5ac1f4c747f5e453d2e6254c792"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/architecture/model.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/architecture/representation.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/architecture/merge.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/architecture/multiHeadAttention.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/embedding/data_embedding.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/architecture/loss_functions.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/experiments/setups.py", "https://github.com/RobertLeppich/REP-Net/blob/df3b2983a953d5ac1f4c747f5e453d2e6254c792/experiments/configs/experiments_setup.yml"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:multi-extractor-time-informed-patches+local:patch-mixer-memory"
+channel = "local:feature-axis-linear-mixing"
+head = "local:per-extractor-lstm-linear-sum"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+patch_extractors = { from = "seq_len", rule = "each [cover, dilation, stride] needs cover <= seq_len" }
+freq = { from = "frequency", rule = "calendar frequency of the marks for timeF/tempEmb (\"h\" hourly, \"t\" adds quarter-hour)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root at `df3b2983`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."
+
+[[issues]]
+kind = "code-bug"
+where = "`architecture/multiHeadAttention.py` (`MultiHeadedAttention.forward`)"
+what = "queries, keys and values shaped `[B, S, F, e]` are reshaped with `.view(nbatches, nfeatures, h, -1, d_k)` and the output with `.view(nbatches, npatches, nfeatures, e)`, which reinterprets memory instead of permuting axes, so patches, variables and heads are mixed up whenever attention is enabled."
+resolution = "attention across the patches of each variable, as Sec. 2.3 describes; disabled by default as in every released setup."
+
+[[issues]]
+kind = "code-bug"
+where = "`architecture/multiHeadAttention.py` (`MultiHeadedAttention.__init__` / `forward`)"
+what = "the selected `attention_func` (`entmax15`, `classic`) is stored but `forward` always calls the softmax `attention`, and `\"no\"` returns before the projections exist."
+resolution = "softmax attention only."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.3 (\"sparse self-attention inspired by Wu et al. [36]\") vs `architecture/multiHeadAttention.py`"
+what = "the code uses dense scaled dot-product softmax attention."
+resolution = "dense softmax."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Fig. 1 (positional linear followed by GeLU) vs `architecture/model.py` (`EncoderLayer.forward`)"
+what = "the code applies ReLU."
+resolution = "ReLU."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 2.3 (\"feature-level linear layer followed by a GLU\") and Appendix C (the joint/independent switch applies to \"the linear layer in the first block\") vs `architecture/model.py` (`EncoderLayer`)"
+what = "the code applies the GLU before the feature linear, the `tsrm_fc` switch changes that last feature linear, and `feature_mixer2` is never used."
+resolution = "the code order; `joint_feature_mixing` switches the last feature linear."
+
+[[issues]]
+kind = "code-bug"
+where = "`embedding/data_embedding.py` (`TimeEmbedding.normalize`, `TimeFeatureEmbedding.forward`, `TemporalEmbedding.forward`)"
+what = "min-max and mean/std statistics are taken over the whole batch tensor, so a sample's time embedding depends on the other samples in the batch and on the batch size (unbiased std)."
+resolution = "per-sample statistics."
+
+[[issues]]
+kind = "code-bug"
+where = "`experiments/configs/experiments_setup.yml` (`embed"
+what = "timeF`, merged into every setup by `experiments/experiment_runner.py`) with `data_provider/data_factory.py` (`timeenc = 1`): marks are always continuous features in `[-0.5, 0.5]`, so `tempEmb` (`TemporalEmbedding` casts them with `.long()`) looks up index 0 for every step and carries no calendar information."
+resolution = "`tempEmb` embeds month/day/weekday/hour (and quarter-hour for `freq = \"t\"`) indices from TSFLab's raw marks."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.2, Eq. (1)"
+what = "the Huber threshold `delta` \"depends on the dataset\" but is not reported; `architecture/loss_functions.py` fixes `HuberLoss(delta=1.35)`."
+resolution = "not reproduced; TSFLab has no Huber training loss, so runs use MSE."
+
+[[issues]]
+kind = "paper-error"
+where = "Eq. (1)"
+what = "the second case uses `|ŷ_i - y_i|` instead of the element-wise `|ŷ_ij - y_ij|` of the first case."
+resolution = "none needed."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 (early stopping with patience 3 and a 1 % relative improvement, ReduceLROnPlateau with patience 1) vs `experiments/experiment_runner.py` and `architecture/model.py` (`configure_optimizers`)"
+what = "early stopping uses patience 4 with an absolute `min_delta = 0.1` (`earlystopping_percentage` is never read), the scheduler patience is 2, and training adds gradient clipping 0.5, 16-bit mixed precision and at most 20 epochs."
+resolution = "training recipe belongs to the run configuration; not reproduced."
+
+[[issues]]
+kind = "unreleased"
+where = "`experiments/setups.py`"
+what = "only three of the 28 dataset-horizon configurations (ECL, ETTm1 and ETTh1 at horizon 96) are released, while Tables 1 and 5 report the best configuration of a random search per task."
+resolution = "defaults follow the released ETTh1-96 setup; other tasks need their own search."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 2.2"
+what = "the time-window embedding is not specified; the code (`architecture/representation.py`, `RepresentationLayer`) embeds the undilated `cover x time_embedding_size` window with one Linear per extractor and gives value and time halves of `encoding_size / 2` each."
+resolution = "the code layout."
+
+[[issues]]
+kind = "code-bug"
+where = "`data_provider/data_factory.py` (`data_provider`, `flag == 'test'`)"
+what = "the test loader uses `drop_last = True`, so the last partial test batch is never scored."
+resolution = "not applicable; TSFLab's evaluator scores every test window."

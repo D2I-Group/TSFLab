@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CycleNet"
+tags = ["linear", "decomposition", "periodicity", "normalization", "channel-independent", "lightweight"]
+fits = ["strong-seasonality", "calendar-effects", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card describes a paper-driven rewrite (learnable recurrent cycle, residual cycle forecasting, Linear/MLP backbone) with the Apache-2.0 official code as reference and records no paper or official-code problem."
+
+[paper]
+title = "CycleNet: Enhancing Time Series Forecasting through Modeling Periodic Patterns"
+url = "https://arxiv.org/abs/2409.18479"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/ACAT-SCUT/CycleNet"
+revision = "d807e51fc2dcd143885ee639d97965a7ab0926f4"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:marks+local:learnable-recurrent-cycle-removal"
+temporal = "component:channel_wise_linear"
+channel = "local:channel-independent-shared-weights"
+head = "local:cycle-restoration"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (one cycle column per channel)" }
+cycle = { from = "period", rule = "dominant period in steps; phase comes from the hour mark (weekday for 7, weekday*24+hour for 168), so 24 and 168 assume hourly sampling and 7 daily sampling" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

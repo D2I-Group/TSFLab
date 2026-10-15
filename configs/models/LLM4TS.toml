@@ -1,0 +1,21 @@
+[model]
+name = "LLM4TS"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+stride = 8
+first_k_layers = 6
+dropout = 0.05
+token_embed_type = "conv"
+temporal_embed_type = "learned"
+freq = "h"
+lora_r = 8
+lora_alpha = 64.0
+lora_dropout = 0.0
+align_epochs = 5
+align_lr = 7.912045141879411e-05
+align_weight_decay = 0.0005542494992024964
+probe_epochs = 7
+probe_lr = 1.8257759510439175e-05
+probe_weight_decay = 0.0014555863788252605

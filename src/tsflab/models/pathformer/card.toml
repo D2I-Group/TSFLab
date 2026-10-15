@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Pathformer"
+tags = ["transformer", "multi-scale", "patching", "mixture-of-experts", "attention-variant", "channel-independent", "normalization"]
+fits = ["multi-periodic", "non-stationary"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Pathformer: Multi-scale Transformers with Adaptive Pathways for Time Series Forecasting"
+url = "https://arxiv.org/abs/2402.05956"
+venue = "ICLR 2024"
+year = 2024
+
+[code]
+url = "https://github.com/decisionintelligence/pathformer"
+revision = "ea85d82932215e171357da47b3bc82d502344758"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:adaptive-multi-scale-pathway"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-over-time-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_size_list = { from = "period", rule = "layer_nums * num_experts sizes matching the data's periods or sub-periods; ideally divisors of seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

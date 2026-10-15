@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeMachine"
+tags = ["ssm", "mamba", "channel-independent", "channel-mixing", "normalization", "multi-scale"]
+fits = ["long-horizon"]
+fidelity = "reference-checked"
+issues_checked = "`TimeMachine_supervised/models/TimeMachine.py`, `RevIN/RevIN.py` and the dataset scripts were read; the card's differences are portable Mamba kernels and preset choices, with the official dataflow followed exactly."
+
+[paper]
+title = "TimeMachine: A Time Series is Worth 4 Mambas for Long-term Forecasting"
+url = "https://arxiv.org/abs/2403.09898"
+venue = "ECAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Atik-Ahamed/TimeMachine"
+revision = "5bf17a728349c674eceafc28a90f22b904e38c2d"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/Atik-Ahamed/TimeMachine/blob/5bf17a728349c674eceafc28a90f22b904e38c2d/TimeMachine_supervised/models/TimeMachine.py", "https://github.com/Atik-Ahamed/TimeMachine/blob/5bf17a728349c674eceafc28a90f22b904e38c2d/TimeMachine_supervised/run_longExp.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:mamba"
+channel = "local:channel-independence-axis-swap"
+head = "local:two-stage-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; with ch_ind=False it fixes the Mamba token width" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CMoS"
+tags = ["linear", "lightweight", "normalization", "chunking", "channel-independent"]
+fits = ["strong-seasonality", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "CMoS: Rethinking Time Series Prediction Through the Lens of Chunk-wise Spatial Correlations"
+url = "https://arxiv.org/abs/2505.19090"
+venue = "ICML 2025"
+year = 2025
+
+[code]
+url = "https://github.com/CSTCloudOps/CMoS"
+revision = "b696a0c33b5ad8f03ad483d43b95fcb5564aa939"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/CSTCloudOps/CMoS/blob/b696a0c33b5ad8f03ad483d43b95fcb5564aa939/model/CMoS/Model.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:shared-chunk-correlation-matrices"
+channel = "local:per-channel-correlation-mixture"
+head = "local:chunk-to-horizon-correlation-map"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count (one Conv1d summary per channel)" }
+seg_size = { from = "seq_len", rule = "must divide both seq_len and pred_len" }
+period = { from = "period", rule = "optional; the dominant seasonal period in steps, a multiple of seg_size; leave unset without a justified periodic prior" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local implementation of Eqs. 3-5 after inspecting `model/CMoS/Model.py`, nothing copied; license recorded as `NOASSERTION`."

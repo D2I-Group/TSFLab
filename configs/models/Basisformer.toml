@@ -1,0 +1,17 @@
+[model]
+name = "Basisformer"
+
+[model.params]
+enc_in = 7
+d_model = 100
+heads = 16
+basis_nums = 10
+block_nums = 2
+bottleneck = 2
+map_bottleneck = 20
+tau = 0.07
+dropout = 0.1
+timestamp_origin_year = 2010
+timestamp_span_years = 10.0
+loss_weight_infonce = 1.0
+loss_weight_smooth = 1.0

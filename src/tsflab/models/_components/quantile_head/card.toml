@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "quantile_head"
+role = "Turns per-step trunk features into non-crossing quantile forecasts for prediction intervals."
+slot = "head"
+fits = ["probabilistic-output"]
+category = "head"
+tags = ["monotone", "non-crossing", "probabilistic", "quantile", "softplus", "cumulative", "pinball", "median-anchor", "quantile-levels", "prediction-interval"]
+input = "[batch, pred_len, channels, in_features]"
+output = "[batch, pred_len, channels, Q] ascending along the last axis, ordered like quantile_levels"
+origin = "TSFLab probabilistic-forecasting rail (commit b9946b39, 'probabilistic forecasting', #20); monotone-gap construction is the repo's own design, no paper recorded"
+origin_models = ["quantile_dlinear", "quantile_patchtst", "mqrnn", "tirex"]

@@ -1,0 +1,8 @@
+[model]
+name = "DistDF"
+
+[model.params]
+enc_in = 7
+gamma = 0.1
+covariance_eps = 0.00001
+use_revin = true

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "frequency_band_sampler"
+role = "Assigns each network depth a fixed frequency band so shallow layers model fast and deep layers slow variation."
+slot = "decomposition"
+fits = ["any"]
+category = "frequency"
+tags = ["band", "depth", "fft", "frequency", "hierarchical", "sampling", "spectral"]
+input = "spectrum complex [batch, freq, ...] (sample); num_bins and layer_idx integers (band)"
+output = "band: (start, end) ints; sample: spectrum[:, start:end] with shape [batch, end - start, ...]"
+origin = "Hierarchical frequency sampling of Dualformer, Time-Frequency Dual Domain Learning for Long-term Time Series Forecasting (arXiv 2601.15669, 2026)"
+origin_models = ["dualformer"]

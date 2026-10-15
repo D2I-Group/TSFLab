@@ -1,0 +1,20 @@
+extends = ["../base.toml"]
+
+[evaluation]
+enable_profile = true
+
+[sweep.extend]
+datasets = [
+  "../datasets/etth1.toml",
+  "../datasets/ettm1.toml",
+]
+models = [
+  "../models/DLinear.toml",
+  "../models/Linear.toml",
+]
+
+[sweep]
+experiment.random_seed = [0, 1]
+
+[sweep.task]
+pred_len = [96, 192,336,720]

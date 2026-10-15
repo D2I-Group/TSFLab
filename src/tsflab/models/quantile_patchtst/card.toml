@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "QuantilePatchTST"
+tags = ["transformer", "probabilistic", "quantile", "patching", "channel-independent", "normalization"]
+fits = ["probabilistic-output", "long-lookback"]
+fidelity = "reference-checked"
+issues_checked = "the PatchTST backbone was checked against the paper and the pinned official repository; the quantile head and pinball protocol are TSFLab additions, and the card records no paper or code problem."
+
+[paper]
+title = "A Time Series is Worth 64 Words: Long-term Forecasting with Transformers (PatchTST backbone)"
+url = "https://arxiv.org/abs/2211.14730"
+venue = "ICLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/yuqinie98/PatchTST"
+revision = "204c21efe0b39603ad6e2ca640ef5896646ab1a9"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:patchtst"
+channel = "local:channel-independent-shared-weights"
+head = "component:flatten_forecast_head+component:quantile_head"
+loss = "loss:quantile"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

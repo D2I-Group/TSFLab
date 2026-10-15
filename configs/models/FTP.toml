@@ -1,0 +1,12 @@
+[model]
+name = "FTP"
+
+[model.params]
+enc_in = 7
+d_model = 64
+num_layers = 2
+patch_unit = 4
+num_scales = 3
+stride = 2
+dropout = 0.1
+use_revin = true

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "empirical_quantiles"
+role = "Converts Monte Carlo forecast samples into a quantile forecast for probabilistic evaluation."
+slot = "head"
+fits = ["probabilistic-output"]
+category = "head"
+tags = ["interpolation", "probabilistic", "quantile", "samples", "sorting", "empirical", "sample-quantiles", "diffusion", "monte-carlo", "quantile-levels", "stateless"]
+input = "samples [..., K at dim, ...] (e.g. [K, batch, horizon, channels] or [batch, K, horizon, channels]); levels [Q]"
+output = "[..., Q]: the non-sample axes in order, then the level axis (e.g. [batch, horizon, channels, Q])"
+origin = "Sample quantile definition 7 of Hyndman and Fan, 'Sample Quantiles in Statistical Packages', The American Statistician 1996; extracted from stats, dyngdiff, ccdm, nsdiff, ppm and voldyvae"
+origin_models = ["stats", "dyngdiff", "ccdm", "nsdiff", "ppm", "voldyvae"]

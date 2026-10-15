@@ -1,0 +1,9 @@
+[model]
+name = "CoRA"
+
+[model.params]
+enc_in = 7
+d_model = 64
+rank = 4
+polynomial_order = 2
+use_revin = true

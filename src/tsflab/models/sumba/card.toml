@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Sumba"
+tags = ["cnn", "gnn", "graph-learning", "multi-scale", "normalization", "channel-mixing"]
+fits = ["high-cross-correlation", "non-stationary"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Structured Matrix Basis for Multivariate Time Series Forecasting with Interpretable Dynamics"
+url = "https://openreview.net/forum?id=co7DsOwcop"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/chenxiaodanhit/Sumba"
+revision = "a1f8f45d2c89e4feb6c8e9399178c95157336f3b"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:multi-kernel-gated-depthwise-conv"
+channel = "local:structured-matrix-basis-dynamic-graph-conv"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; basis matrices are enc_in x enc_in" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository has no license file."
+resolution = "recorded as `NOASSERTION`; reference-only, nothing copied."

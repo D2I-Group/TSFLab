@@ -1,0 +1,17 @@
+[model]
+name = "CRIB"
+
+[model.params]
+enc_in = 7
+# patch_len MUST divide task.seq_len; model_dim MUST be divisible by heads_num.
+patch_len = 8
+model_dim = 32
+heads_num = 4
+enc_num = 2
+dropout = 0.1
+activation = "relu"
+# Consistency (MSE) and IB (KL) regularizer weights, added to the prediction
+# loss via aux_loss. Use training.loss = "mae" for the paper recipe.
+consis_weight = 1.0
+kl_weight = 1e-6
+augmentation_rate = 0.1

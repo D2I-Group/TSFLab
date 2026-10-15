@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "BiMamba"
+tags = ["ssm", "patching", "bidirectional", "channel-independent", "channel-mixing", "normalization"]
+fits = ["long-horizon", "high-cross-correlation", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Bi-Mamba+: Bidirectional Mamba for Time Series Forecasting"
+url = "https://arxiv.org/abs/2404.15772"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/Huangmr0719/BiMamba"
+revision = "78db48cc5251235e47465c63d3701a9e5fd6fcb1"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "component:mamba+local:bidirectional-mamba-plus-encoder"
+channel = "local:series-relation-gated-blend-of-independent-and-mixing-tokenization"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; c_out must equal enc_in; the mixing path concatenates all channels per patch" }
+patch_len = { from = "seq_len", rule = "patch_len must not exceed seq_len; the series is end-padded to whole strides" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation from the paper's equations with the repository kept reference-only; license recorded as `NOASSERTION`."

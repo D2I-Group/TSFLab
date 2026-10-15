@@ -1,0 +1,63 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STDMAE"
+tags = ["hybrid", "spatiotemporal", "graph-learning", "pretraining", "dilated-convolution", "covariates", "marks"]
+fits = ["spatial-graph", "long-lookback", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Spatial-Temporal-Decoupled Masked Pre-training for Spatiotemporal Forecasting"
+url = "https://arxiv.org/abs/2312.00516"
+venue = "IJCAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Jimmy-7664/STD-MAE"
+revision = "29fba76216f7ff9f2b51d097786cb5c91a8dae8b"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Jimmy-7664/STD-MAE/blob/29fba76216f7ff9f2b51d097786cb5c91a8dae8b/stdmae/stdmae_arch/stdmae.py", "https://github.com/Jimmy-7664/STD-MAE/blob/29fba76216f7ff9f2b51d097786cb5c91a8dae8b/stdmae/stdmae_arch/mask/mask.py", "https://github.com/Jimmy-7664/STD-MAE/blob/29fba76216f7ff9f2b51d097786cb5c91a8dae8b/stdmae/stdmae_arch/graphwavenet/model.py"]
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count" }
+patch_size = { from = "seq_len", rule = "seq_len (long history) is a multiple of patch_size" }
+history_len = { from = "seq_len", rule = "history_len <= seq_len" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "component:tst_transformer"
+channel = "component:diffusion_conv"
+head = "local:context-injected-skip-head"
+loss = "loss:masked_mae"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "the official repository carries no license file, so it is reference-only."
+resolution = "recorded as `NOASSERTION`; independent implementation, nothing copied."
+
+[[issues]]
+kind = "code-bug"
+where = "`stdmae/stdmae_arch/graphwavenet/model.py` (`fc_his_t`, `fc_his_s`)"
+what = "the context MLPs hard-code input width 96 and output width 256 and slice the encoder output at `[:96]` / `[96:]`, ignoring the configured embedding and skip widths."
+resolution = "the MLPs map `embed_dim -> 512 -> skip_channels`."
+
+[[issues]]
+kind = "code-bug"
+where = "official forecasting runner"
+what = "the frozen pre-trained encoders are left in training mode when the runner calls `train()`, so their dropout stays active under no-grad."
+resolution = "frozen encoders (`freeze_encoders=True`) are kept in evaluation mode."
+
+[[issues]]
+kind = "code-bug"
+where = "`stdmae/stdmae_data/forecasting_dataset.py`"
+what = "early samples with fewer than `seq_len` earlier steps get an all-zero long history instead of being skipped."
+resolution = "the runner's windows start where a full long-history window exists."

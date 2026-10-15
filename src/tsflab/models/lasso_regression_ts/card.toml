@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LassoRegressionTS"
+tags = ["linear", "statistical", "regularization", "channel-independent", "baseline"]
+fits = ["short-train", "efficiency", "weak-cross-correlation"]
+fidelity = "paper-only"
+issues_checked = "no official code exists; the card uses the Tibshirani (1996) Lasso objective only and documents no paper problem."
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (input-shape check; coefficients are shared)" }
+
+[paper]
+title = "Regression Shrinkage and Selection via the Lasso"
+url = "https://doi.org/10.1111/j.2517-6161.1996.tb02080.x"
+venue = "Journal of the Royal Statistical Society Series B 1996"
+year = 1996
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:direct-linear-lag-regression"
+channel = "local:channel-independent-shared-weights"
+head = "local:direct-multi-horizon-linear-projection"
+loss = "loss:mse+local:l1-weight-penalty-aux-loss"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

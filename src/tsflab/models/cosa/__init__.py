@@ -1,0 +1,1 @@
+"""COSA model package."""

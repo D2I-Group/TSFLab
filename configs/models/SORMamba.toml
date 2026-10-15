@@ -1,0 +1,14 @@
+[model]
+name = "SORMamba"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_state = 16
+d_ff = 128
+e_layers = 2
+expand = 1
+dropout = 0.1
+reg_lambda = 0.01
+mlp_residual = false
+use_norm = true

@@ -1,0 +1,6 @@
+[model]
+name = "BayesianRidgeTS"
+
+[model.params]
+enc_in = 7
+initial_weight_precision = 0.001

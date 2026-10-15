@@ -1,0 +1,12 @@
+[model]
+name = "GOTSF"
+
+[model.params]
+enc_in = 7
+d_model = 64
+dropout = 0.1
+num_intervals = 4
+interval_min = -2.0
+interval_max = 2.0
+decay_rate = 50.0
+classification_weight = 0.1

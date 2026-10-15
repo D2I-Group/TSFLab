@@ -1,0 +1,11 @@
+[dataset]
+name = "solar"
+path = "./dataset/solar/solar.txt"
+
+[dataset.params]
+target = "0"
+scale = true
+# The file has no date column: LSTNet solar covers 2006 at 10-minute resolution.
+start = "2006-01-01 00:00"
+freq = "10min"
+split_ratio = [0.7, 0.1, 0.2]

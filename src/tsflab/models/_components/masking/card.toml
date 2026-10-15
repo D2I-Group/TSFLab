@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "masking"
+role = "Restricts attention to past positions (causal, ProbSparse rows, or a local causal band) for decoder-style or sparse attention."
+slot = "support"
+fits = ["any"]
+category = "attention"
+tags = ["attention", "causal", "mask", "probsparse", "boolean", "stateless", "local-band", "triangular"]
+input = "construction args: batch_size, length (and num_heads, index, scores for ProbMask; series_length for LocalMask), device"
+output = "TriangularCausalMask.mask [batch, 1, length, length] bool; ProbMask.mask same shape as scores [batch, heads, n_selected_queries, key_length] bool; LocalMask.mask [batch, 1, length, series_length] bool"
+origin = "Mask helpers of the Informer/Time-Series-Library lineage (Informer, Zhou et al., AAAI 2021, for ProbMask); original authorship of LocalMask is not recorded in history"
+origin_models = ["informer", "transformer"]

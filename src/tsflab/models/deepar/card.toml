@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "DeepAR"
+tags = ["rnn", "probabilistic", "autoregressive", "covariates", "channel-independent"]
+fits = ["probabilistic-output", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the card maps the autoregressive likelihood, recurrent transition, and Gaussian parameterization to the paper with the Apache-2.0 BasicTS code as reference and records only TSFLab's choice of mean feedback instead of ancestral sampling."
+
+[paper]
+title = "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks"
+url = "https://arxiv.org/abs/1704.04110"
+venue = "International Journal of Forecasting 2020"
+year = 2020
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "79641b1c75246ab2d8c53bb52f2ac72588be0cdc"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:autoregressive-lstm"
+channel = "local:channel-independent-shared-weights"
+head = "component:gaussian_parameter_head"
+loss = "loss:nll_gaussian"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+cov_feat_size = { from = "covariates", rule = "number of time-mark features fed as covariates, at most the mark width of the dataset's frequency encoding (shorter marks are zero-padded); 0 disables covariates" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

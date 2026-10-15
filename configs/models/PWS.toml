@@ -1,0 +1,12 @@
+[model]
+name = "PWS"
+
+[model.params]
+enc_in = 7
+period = 24
+patch_size = 6
+revin = true
+affine = false
+subtract_last = false
+analysis_act = "relu"
+analysis_hidden = [512, 256]

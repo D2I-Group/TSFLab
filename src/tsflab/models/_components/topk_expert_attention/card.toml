@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "topk_expert_attention"
+role = "Sparse data-dependent attention over patch tokens: each query attends only to its top-k most relevant positions plus a global mean token."
+slot = "temporal"
+fits = ["any"]
+category = "attention"
+tags = ["attention", "expert", "mixture-of-experts", "routing", "top-k", "sparse", "sparse-attention", "last-route-weight", "temporal-moe"]
+input = "x [batch, tokens, dim]"
+output = "[batch, tokens, dim]"
+origin = "Temporal Mix of Experts (TMOE) of TimeExpert, arXiv 2509.23145 (2025); local implementation in TSFLab"
+origin_models = ["timeexpert"]

@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "embed"
+role = "Turns raw values, positions, and calendar marks (or patches, or whole variates) into Transformer input tokens."
+slot = "input"
+fits = ["calendar-effects"]
+category = "embedding"
+tags = ["calendar", "embedding", "patch", "position", "token", "inverted", "sinusoidal", "time-features", "time-series-library"]
+input = "values [batch, time, channels]; marks [batch, time, mark_dim] or None; PatchEmbedding takes [batch, n_vars, time]"
+output = "DataEmbedding [batch, time, d_model]; DataEmbedding_inverted [batch, channels (+ mark_dim), d_model]; PatchEmbedding ([batch*n_vars, patches, d_model], n_vars)"
+origin = "layers/Embed.py layout of the Time-Series-Library; history records it only from the initial commit, exact upstream revision and paper not recorded"
+origin_models = ["transformer", "informer"]

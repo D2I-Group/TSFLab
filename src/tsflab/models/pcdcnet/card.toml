@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PCDCNet"
+tags = ["gnn", "rnn", "spatiotemporal", "covariates", "physics-informed", "autoregressive"]
+fits = ["spatial-graph", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PCDCNet: A Surrogate Model for Air Quality Forecasting with Physical-Chemical Dynamics and Constraints"
+url = "https://arxiv.org/abs/2505.19842"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/CauAir"
+revision = "73dae00ca6ad14abb15174a0a0286d500e868b94"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:gru-accumulation-with-local-dynamics"
+channel = "local:laplacian-spatial-transport"
+head = "local:iterative-increment-readout"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the dataset's station (node) count and the adjacency size" }
+adj_mx = { from = "graph", rule = "the dataset's (nodes, nodes) adjacency; identity when omitted (no transport)" }
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent implementation from the paper equations; license recorded as `NOASSERTION`."

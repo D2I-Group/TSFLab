@@ -1,0 +1,9 @@
+[dataset]
+name = "synthetic_st"
+path = ""
+
+[dataset.params]
+num_nodes = 8
+steps_per_day = 24
+length = 600
+split_ratio = [0.6, 0.2, 0.2]

@@ -1,0 +1,10 @@
+[dataset]
+name = "weather"
+path = "./dataset/weather/weather.csv"
+
+[dataset.params]
+target = "OT"
+scale = true
+split_ratio = [0.7, 0.1, 0.2]
+# -9999 marks missing readings (OT, max. PAR, wv); impute causally before scaling.
+missing_sentinels = [-9999]

@@ -1,0 +1,13 @@
+[model]
+name = "Sumba"
+
+[model.params]
+enc_in = 7
+d_model = 32
+basis_count = 4
+basis_rank = 8
+temporal_kernels = [2, 3, 5]
+depth = 2
+diffusion_steps = 2
+mix = 0.1
+dropout = 0.1

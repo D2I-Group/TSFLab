@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RandomForestTS"
+tags = ["tree", "ensemble", "differentiable", "normalization", "baseline"]
+fits = ["short-train"]
+fidelity = "paper-only"
+issues_checked = "Breiman's (2001) ensemble principle is the only cited source and there is no official code; the soft-tree realization is a TSFLab baseline choice."
+
+[paper]
+title = "Random Forests"
+url = "https://doi.org/10.1023/A:1010933404324"
+venue = "Machine Learning 2001"
+year = 2001
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:soft_tree"
+channel = "local:flattened-joint-lag-input"
+head = "local:forest-average"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

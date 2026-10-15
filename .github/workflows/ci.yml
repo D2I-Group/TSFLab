@@ -1,0 +1,118 @@
+name: ci
+
+#   check   every push / PR   static checks and the infrastructure test suite (CPU).
+#                             Model admission (`tsf model verify --changed`) is not run
+#                             in CI for now; the author records [admission] in the PR.
+#   release tag v*            build, smoke-test (incl. the release model audit: every
+#                             card's [admission] passed), GitHub release, and PyPI
+#                             via trusted publishing
+#
+# There is no global model test suite and no evidence refresh: a model is checked
+# once when it is added, and again only when it or something it uses changes.
+on:
+  push:
+    branches: [main, dev]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The documented cpu machine profile: `uv sync --frozen` would install the cu130
+  # build from uv.lock, so CI installs with `uv pip --torch-backend cpu` and keeps
+  # later `uv run` steps from re-syncing.
+  UV_NO_SYNC: "1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Install TSFLab (CPU profile)
+        run: |
+          uv venv --python 3.12
+          uv pip install --torch-backend cpu -e ".[models,data,experiments]" pytest
+      - name: Static checks
+        run: |
+          uv run python -m compileall -q src tests
+          uvx ruff@0.17.0 check src tests scripts
+          uvx ruff@0.17.0 format --check src tests scripts
+          uv run tsf repo check --only schema-export agent-tasks
+          uv run tsf repo check --audit
+      - name: Tests
+        run: uv run pytest -q -m "not e2e"
+
+  release-build:
+    # The release model audit requires a passed [admission] in every model card.
+    # Release candidates report it as a warning; final tags enforce it.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and check that the tag matches the package version
+        run: |
+          python -m pip install --quiet build pydantic
+          python -m build --outdir dist
+          version="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          tag="${GITHUB_REF_NAME#v}"
+          normalized="$(python -c "from packaging.version import Version;print(Version('$tag'))")"
+          test "$normalized" = "$version" || { echo "::error::tag $tag != version $version"; exit 1; }
+      - name: Smoke-test the wheel
+        run: |
+          python -m pip install --quiet --no-deps dist/*.whl
+          cd "$RUNNER_TEMP"
+          tsf --help >/dev/null && tsf agent task validate
+          case "$GITHUB_REF_NAME" in
+            *rc*|*a[0-9]*|*b[0-9]*) tsf model audit --summary --release || echo "::warning::model audit not clean (admission pending)";;
+            *) tsf model audit --summary --release;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: release-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in *rc*|*a[0-9]*|*b[0-9]*) flags="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --title "TSFLab $GITHUB_REF_NAME" \
+            --generate-notes $flags
+
+  pypi:
+    needs: release-build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

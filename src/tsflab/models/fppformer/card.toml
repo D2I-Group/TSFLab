@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "FPPformer"
+tags = ["transformer", "time-series", "patch", "channel-independent", "encoder-decoder", "hierarchical", "outlier-robust"]
+fits = ["outliers", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Take an Irregular Route: Enhance the Decoder of Time-Series Forecasting Transformer"
+url = "https://arxiv.org/abs/2312.05792"
+venue = "IEEE Internet of Things Journal"
+year = 2024
+
+[code]
+url = "https://github.com/OrigamiSL/FPPformer"
+revision = "49a82073282d386b62541b2a51efc92332db3533"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/OrigamiSL/FPPformer/blob/49a82073282d386b62541b2a51efc92332db3533/FPPformer/FPPformer.py", "https://github.com/OrigamiSL/FPPformer/blob/49a82073282d386b62541b2a51efc92332db3533/FPPformer/Modules.py", "https://github.com/OrigamiSL/FPPformer/blob/49a82073282d386b62541b2a51efc92332db3533/FPPformer/embed.py", "https://github.com/OrigamiSL/FPPformer/blob/49a82073282d386b62541b2a51efc92332db3533/utils/RevIN.py", "https://github.com/OrigamiSL/FPPformer/blob/49a82073282d386b62541b2a51efc92332db3533/utils/masking.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "component:embed+local:diagonal-masked-element-and-patch-attention-pyramid"
+channel = "none"
+head = "local:linear-encoder-projection-plus-top-down-decoder"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels" }
+patch_size = { from = "seq_len", rule = "seq_len must be a multiple of patch_size * 2^(num_stages - 1) with at least two top-stage patches" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. IV and Figs. 2-5"
+what = "the paper does not fix the attention head count and key/value sharing, the residual and post-LayerNorm order in each stage, the feed-forward width, the value embedding, the decoder queries when the horizon is not a multiple of the top patch size, or the shape of the linear branch."
+resolution = "taken from the official code (single-head attention with one shared key/value projection, feed-forward width `4 * P * D`, `Linear(D, 1)` then `L -> max(2L, 2H) -> H`, defaults from `scripts/Main.sh`)."

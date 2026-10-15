@@ -1,0 +1,12 @@
+[model]
+name = "GTS"
+
+[model.params]
+enc_in = 8
+input_dim = 3
+rnn_units = 16
+num_rnn_layers = 1
+max_diffusion_step = 2
+embedding_dim = 16
+temp = 0.5
+prior_strength = 0.1

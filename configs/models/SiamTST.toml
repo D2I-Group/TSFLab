@@ -1,0 +1,24 @@
+[model]
+name = "SiamTST"
+
+[model.params]
+enc_in = 7
+patch_size = 16
+stride = 16
+d_model = 64
+n_heads = 4
+e_layers = 4
+d_ff = 256
+attn_dropout = 0.1
+ffn_dropout = 0.1
+head_dropout = 0.1
+pre_norm = true
+qk_norm = true
+bias = false
+min_mask_ratio = 0.15
+max_mask_ratio = 0.55
+alpha = 0.2
+pretrain_epochs = 30
+pretrain_lr = 0.001
+pretrain_weight_decay = 0.1
+freeze_backbone = true

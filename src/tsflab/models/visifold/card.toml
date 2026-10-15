@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "VisiFold"
+tags = ["transformer", "spatiotemporal", "attention-variant", "covariates", "graph-learning"]
+fits = ["spatial-graph", "many-channels", "long-horizon", "efficiency", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "`model/VisiFold.py`, `model/config.yaml` and `README.md` were inspected; the folding graph and training-time node visibility match the official `forward`, and the official `edge_emb` attention path is never used by the model, so dropping it changes no output."
+
+[paper]
+title = "VisiFold: Long-Term Traffic Forecasting via Temporal Folding Graph and Node Visibility"
+url = "https://arxiv.org/abs/2603.11816"
+venue = "ICDE 2026"
+year = 2026
+
+[code]
+url = "https://github.com/PlanckChang/VisiFold"
+revision = "cc035f7e803ca793b132bec3a834e8e2b39a9f99"
+license = "MIT"
+reference_sources = ["https://github.com/PlanckChang/VisiFold/blob/cc035f7e803ca793b132bec3a834e8e2b39a9f99/model/VisiFold.py", "https://github.com/PlanckChang/VisiFold/blob/cc035f7e803ca793b132bec3a834e8e2b39a9f99/model/config.yaml"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:history-folding-mlp-token"
+channel = "component:node_visibility+local:node-token-self-attention"
+head = "local:three-layer-mlp-head"
+loss = "loss:mse+local:visible-node-loss-mask"
+
+[data_params]
+enc_in = { from = "nodes", rule = "equals the dataset node count; num_nodes and adj_mx are runner-injected" }
+steps_per_day = { from = "frequency", rule = "steps per day at the sampling frequency (24 hourly, 288 at 5 minutes)" }
+subgraph_size = { from = "nodes", rule = "attention group size relative to node count; paper presets use 30-50" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

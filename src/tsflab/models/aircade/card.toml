@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "AirCade"
+tags = ["transformer", "spatiotemporal", "covariates", "attention-variant", "causal", "air-quality"]
+fits = ["spatial-graph", "exogenous-covariates", "calendar-effects"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Spatiotemporal Causal Decoupling Model for Air Quality Forecasting"
+url = "https://doi.org/10.1109/ICASSP49660.2025.11099015"
+venue = "ICASSP 2025"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/AirCade"
+revision = "179067f5b9fbc05f894022809e0b1c83e9f61fd8"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/PoorOtterBob/AirCade/blob/179067f5b9fbc05f894022809e0b1c83e9f61fd8/src/models/AirCade.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:dk-msa-temporal-cade-cadi"
+channel = "local:dk-msa-spatial-attention-over-stations"
+head = "local:history-to-future-linear+local:linear-predictor"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of stations (nodes)" }
+cov_dim = { from = "covariates", rule = "covariate (weather) features per station in the marks; raw six-column calendar marks become 2" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "local implementation from the paper's Eq. (1)-(13) after inspecting `src/models/AirCade.py`; license recorded as `NOASSERTION`."

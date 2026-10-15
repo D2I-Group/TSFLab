@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PatchTST"
+tags = ["transformer", "patching", "channel-independent", "revin", "long-horizon", "normalization"]
+fits = ["long-lookback", "long-horizon", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the patching equation, channel-independent shared encoder, and flatten head were checked against the paper and the pinned official repository; the card records no paper or code problem."
+
+[paper]
+title = "A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"
+url = "https://openreview.net/forum?id=Jbdc0vTOcol"
+venue = "ICLR 2023"
+year = 2023
+
+[code]
+url = "https://github.com/yuqinie98/PatchTST"
+revision = "204c21efe0b39603ad6e2ca640ef5896646ab1a9"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:patch-transformer-encoder"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "seq_len", rule = "at most seq_len (+stride with end padding); token count (seq_len - patch_len)/stride + 1" }
+stride = { from = "seq_len", rule = "with patch_len, sets the token count (seq_len - patch_len)/stride + 1 (+1 with end padding)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,16 @@
+[model]
+name = "GSWaN"
+
+[model.params]
+enc_in = 8
+hidden_channels = 40
+skip_channels = 320
+end_channels = 640
+kernel_size = 2
+blocks = 4
+layers = 2
+num_heads = 3
+order = 2
+softmax_temp = 7.0
+dropout = 0.3
+time_feature = "time_of_week"

@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: m4_daily
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 140 (10x),  long = 210 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/m4_daily"
+path = "./dataset/gift_eval"
+id = "m4_daily"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 14
+features = "M"

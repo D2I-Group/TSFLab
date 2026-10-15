@@ -1,0 +1,22 @@
+[model]
+name = "STDMAE"
+
+[model.params]
+enc_in = 8
+history_len = 12
+patch_size = 12
+embed_dim = 96
+num_heads = 4
+mlp_ratio = 4
+encoder_depth = 4
+encoder_dropout = 0.1
+in_dim = 2
+dropout = 0.3
+residual_channels = 32
+dilation_channels = 32
+skip_channels = 256
+end_channels = 512
+kernel_size = 2
+blocks = 4
+layers = 2
+freeze_encoders = false

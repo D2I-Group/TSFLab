@@ -1,0 +1,19 @@
+[model]
+name = "KARMA"
+
+[model.params]
+enc_in = 7
+d_model = 512
+e_layers = 2
+d_state = 32
+d_conv = 4
+expand = 2
+embed_dim = 128
+decomposition = "atcd"
+moving_avg = 25
+use_decomp = true
+dropout = 0.1
+use_norm = true
+use_marks = true
+freq = "h"
+time_loss_weight = 0.2

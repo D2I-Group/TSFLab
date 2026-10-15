@@ -1,0 +1,13 @@
+[model]
+name = "SCAM"
+
+[model.params]
+enc_in = 7
+candidates = 8
+hidden = 128
+snr = false
+instance_norm = true
+rec_layers = 4
+rec_width = 128
+rec_multiplier = 4
+loss_form = "official"

@@ -1,0 +1,13 @@
+[model]
+name = "SDGFNet"
+
+[model.params]
+enc_in = 7
+decomp_level = 3
+conv_channel = 32
+gcn_depth = 2
+propalpha = 0.3
+static_graph = "rbf"
+rbf_sigma = 1.0
+fusion_dim = 128
+inception_width = 512

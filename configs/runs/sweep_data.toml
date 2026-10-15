@@ -1,0 +1,19 @@
+extends = ["../base.toml", "../models/DLinear.toml"]
+
+[evaluation]
+enable_profile = true
+
+[sweep.extend]
+datasets = [
+  "../datasets/electricity.toml",
+  "../datasets/etth1.toml",
+  "../datasets/etth2.toml",
+  "../datasets/ettm1.toml",
+  "../datasets/ettm2.toml",
+  "../datasets/solar.toml",
+  "../datasets/traffic.toml",
+  "../datasets/weather.toml",
+]
+
+[sweep.task]
+pred_len = [96, 192, 336, 720]

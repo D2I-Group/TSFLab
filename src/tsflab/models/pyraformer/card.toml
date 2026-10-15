@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "Pyraformer"
+tags = ["transformer", "multi-scale", "attention-variant", "sparse-attention", "channel-mixing", "covariates"]
+fits = ["long-lookback", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Pyraformer: Low-Complexity Pyramidal Attention for Long-Range Time Series Modeling and Forecasting"
+url = "https://openreview.net/forum?id=0EXmFzUn5I"
+venue = "ICLR 2022"
+year = 2022
+
+[code]
+url = "https://github.com/thuml/Time-Series-Library"
+revision = "3a4819420d14095354aae96750ce8c499ef5f05e"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:pyramidal-attention-encoder"
+channel = "local:channel-mixing-value-embedding"
+head = "local:ancestor-chain-linear-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+window_size = { from = "seq_len", rule = "seq_len must be divisible by every successive branching factor (each >= 2)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Pyraformer_EncDec.py` `Encoder.__init__`"
+what = "`DataEmbedding(configs.enc_in, configs.d_model, configs.dropout)` passes `dropout` positionally into the `embed_type` argument, so the configured dropout is not applied there and the temporal-embedding type silently changes."
+resolution = "clean-room rewrite from Eqs. (2)-(3) and Fig. 2 with an explicit dropout and a learned calendar projection."

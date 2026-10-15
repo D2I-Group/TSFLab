@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "topk_expert_router"
+role = "Produces input-conditioned mixture weights concentrated on a few experts while keeping every expert trainable."
+slot = "support"
+fits = ["any"]
+category = "routing"
+tags = ["expert", "gate", "gating", "mixture", "moe", "routing", "sparse", "top-k", "noisy-gating", "input-conditioned"]
+input = "GatingMLP: [*, in_features]; topk_dense_mix: dense weights [*, experts] (distribution on the last axis), k, floor"
+output = "GatingMLP: [*, experts] softmax weights; topk_dense_mix: same shape, rows sum to 1"
+origin = "gate of DUET (KDD 2025, arXiv 2412.10859) plus the shared top-k concentration step of DUET and Dynamic TMoE (ICML 2026, arXiv 2605.20678); noisy gating follows the sparsely-gated MoE idea"
+origin_models = ["duet", "dynamic_tmoe"]

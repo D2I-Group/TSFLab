@@ -1,0 +1,9 @@
+[model]
+name = "InterPDN"
+
+[model.params]
+enc_in = 7
+support_size = 31
+support_bound = 4.0
+ema_decay = 0.8
+use_revin = true

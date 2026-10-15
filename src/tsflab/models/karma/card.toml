@@ -1,0 +1,75 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "KARMA"
+tags = ["ssm", "mamba", "decomposition", "wavelet", "attention-variant", "inverted-tokens", "frequency", "multi-scale", "channel-mixing", "normalization", "revin", "frequency-loss"]
+fits = ["long-horizon", "strong-trend", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of data channels (variate tokens)" }
+moving_avg = { from = "period", rule = "odd moving-average window, used only with decomposition = moving_avg" }
+freq = { from = "frequency", rule = "only h is supported for calendar tokens; set use_marks = false for other sampling rates" }
+
+[paper]
+title = "KARMA: A Multilevel Decomposition Hybrid Mamba Framework for Multivariate Long-Term Time Series Forecasting"
+url = "https://arxiv.org/abs/2506.08939"
+venue = "WASA 2025"
+year = 2025
+
+[code]
+url = "https://github.com/yedadasd/KARMA"
+revision = "456d28f5405d90ef2b2a9c4dc32af24a3213d944"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/yedadasd/KARMA/blob/456d28f5405d90ef2b2a9c4dc32af24a3213d944/models/Karma.py", "https://github.com/yedadasd/KARMA/blob/456d28f5405d90ef2b2a9c4dc32af24a3213d944/utils/cus_loss.py", "https://github.com/yedadasd/KARMA/blob/456d28f5405d90ef2b2a9c4dc32af24a3213d944/exp/exp_long_term_forecasting.py", "https://github.com/yedadasd/KARMA/blob/456d28f5405d90ef2b2a9c4dc32af24a3213d944/run.py", "https://github.com/yedadasd/KARMA/blob/456d28f5405d90ef2b2a9c4dc32af24a3213d944/scripts/ECL_script/Karma.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:attention-trend-decomposition+component:orthogonal_dwt+local:hybrid-frequency-temporal-split"
+temporal = "component:mamba+local:karma-block"
+channel = "local:bidirectional-variate-scan"
+head = "local:token-linear-projection"
+loss = "loss:mse+local:horizon-rfft-mae"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Karma.py` `Model.__init__`"
+what = "`self.karma_decomp = False` is hard-coded, so the official model always decomposes with an Autoformer moving average and never runs the paper's ATCD (Sec. 3.3)."
+resolution = "ATCD by default (`decomposition = \"atcd\"`); `decomposition = \"moving_avg\"` reproduces the official path."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. (10) and (12) vs `models/Karma.py` `KarmaBlock`"
+what = "the paper feeds `RMSNorm(X_se)` as the first temporal input and writes the reverse branch without its own normalization or flip-back; the code gives the reverse branch its own RMSNorm, flips the token axis and flips the output back, sharing the temporal Mamba when decomposed."
+resolution = "the official forms."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/Karma.py` `KarmaBlock.__init__`"
+what = "a `TaylorKANLayer` (`freq2_g`) is built but never called in the forward pass."
+resolution = "not reproduced; no KAN layer takes part."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3.4 (Eqs. 7-9)"
+what = "the axis and boundary handling of the db4 transform are not stated; the code applies one-level db4 along each token's `d_model` axis in `symmetric` mode and carries the coefficients through the blocks without residuals."
+resolution = "the official choices, with a local db4 filter bank checked against `pywt`."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (2)"
+what = "the weighting and reduction of the hybrid loss are not fixed by the paper; `utils/cus_loss.py` uses `0.2 * MSE + 0.8 * mean |rfft(y_hat) - rfft(y)|` along the horizon."
+resolution = "the official weighting via `time_loss_weight = 0.2`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision, only an MIT badge in the README."
+resolution = "independent rewrite with nothing copied; license recorded as `NOASSERTION`."

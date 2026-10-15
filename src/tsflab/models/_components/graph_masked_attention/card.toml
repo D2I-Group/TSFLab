@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "graph_masked_attention"
+role = "Lets a known graph bias attention among nodes while keeping long-range learned affinities."
+slot = "channel"
+fits = ["spatial-graph"]
+category = "attention"
+tags = ["adjacency", "attention", "global", "graph", "local", "mask", "spatial", "multi-head"]
+input = "query [..., L_q, model_dim]; key, value [..., L_kv, model_dim]; adj_mask (optional bool) broadcastable to [..., num_heads, L_q, L_kv]"
+output = "[..., L_q, model_dim]"
+origin = "Global-local spatial attention (GLSAtt) of Extralonger (NeurIPS 2024 Workshop, 'Toward a Unified Perspective of Spatial-Temporal Factors for Extra-Long-Term Traffic Forecasting')"
+origin_models = ["extralonger"]

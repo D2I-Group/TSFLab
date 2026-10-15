@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "exchange"
+domain = "finance"
+topic = "exchange rates"
+benchmarks = ["ltsf", "tfb"]
+tags = ["exchange-rate", "currency", "finance", "forex", "daily", "ltsf", "benchmark", "multivariate", "lstnet", "non-stationary", "random-walk"]
+related = ["ili", "etth1"]
+characteristics = ["high-forecastability", "non-stationary", "train-val-level-shift", "regime-changes", "level-dependent-variance"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Lai et al. (LSTNet) collection of daily exchange rates"
+url = "https://github.com/laiguokun/multivariate-time-series-data"
+citation = "Modeling Long- and Short-Term Temporal Patterns with Deep Neural Networks (Lai et al., SIGIR 2018)"
+citation_url = "https://arxiv.org/abs/1703.07015"
+license = "No license stated (LSTNet repository; the origin of the rates is not stated)"
+license_url = "https://github.com/laiguokun/multivariate-time-series-data"
+redistribution = "upstream"
+
+[shape]
+frequency = "daily (1d)"
+time_span = "1990 to 2016 per LSTNet; the standard file's date column runs 1990-01-01 to 2010-10-10 (7,588 consecutive days), so its dates are nominal"
+length = 7588
+channels = 8
+channel_kind = "channels"
+target = "OT (last column)"
+missing_values = "not stated by the source; none in the standard file"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 96, horizons 96/192/336/720"
+literature = "LTSF: lookback 96, horizons 96/192/336/720, chronological 7:1:2, MSE/MAE on z-scored data"
+split = "7:1:2"
+seq_lens = [96]
+pred_lens = [96, 192, 336, 720]

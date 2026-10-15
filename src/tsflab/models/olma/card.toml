@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "OLMA"
+tags = ["linear", "loss-framework", "frequency", "wavelet", "decomposition", "channel-independent", "lightweight"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "OLMA: One Loss for More Accurate Time Series Forecasting"
+url = "https://arxiv.org/abs/2505.11567"
+venue = "arXiv preprint"
+year = 2025
+
+[code]
+url = "https://github.com/Yuyun1011/OLMA-One-Loss-for-More-Accurate-Time-Series-Forecasting"
+revision = "4690922868a9b625882cf585376e441bf50c42d5"
+license = "MIT"
+reference_sources = ["https://github.com/Yuyun1011/OLMA-One-Loss-for-More-Accurate-Time-Series-Forecasting/blob/4690922868a9b625882cf585376e441bf50c42d5/OLMA.py"]
+
+[composition]
+normalization = "none"
+decomposition = "component:dlinear"
+temporal = "component:dlinear"
+channel = "local:channel-independent-shared-weights"
+head = "component:dlinear"
+loss = "local:olma-channel-dft-temporal-dft-haar-dwt-l1+component:haar_dwt1d"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count; the channel-DFT term runs over these channels" }
+weight_channel = { from = "channels", rule = "default 0.34 (with 0.33/0.33); the paper uses 0.1 with 0.45/0.45 on ECL and Traffic" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "repository root"
+what = "the pinned revision contains only `OLMA.py` (the loss); none of the training pipelines for the eight backbones in the paper's tables is released."
+resolution = "the loss is attached to one carrier (DLinear) through the training-objective hook."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 11 and 13 vs `OLMA.py`"
+what = "the paper writes summed L1 norms, while the code averages each term over its coefficients (`mean |.|`), changing each term's absolute scale."
+resolution = "the official means."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 12 vs `OLMA.py`"
+what = "the paper lists all `c` channel-DFT bins, while the code uses the real FFT (`c // 2 + 1` non-redundant bins), also for the temporal DFT."
+resolution = "the real FFT, as in the code."

@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ElasticNetTS"
+tags = ["statistical", "linear", "baseline", "channel-independent", "lightweight"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "clean-room gradient-optimized adaptation of the elastic-net regression paper; there is no official code to check and the card documents no paper problem."
+
+[paper]
+title = "Regularization and Variable Selection via the Elastic Net"
+url = "https://doi.org/10.1111/j.1467-9868.2005.00503.x"
+venue = "Journal of the Royal Statistical Society Series B 2005"
+year = 2005
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:direct-linear-lag-regression"
+channel = "local:channel-independent-shared-weights"
+head = "local:direct-multi-horizon-linear-projection"
+loss = "loss:mse+local:elastic-net-weight-penalty"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the number of channels (shape check only)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

@@ -1,0 +1,8 @@
+[model]
+name = "MGSFformer"
+
+[model.params]
+enc_in = 8
+IE_dim = 32
+dropout = 0.3
+num_head = 2

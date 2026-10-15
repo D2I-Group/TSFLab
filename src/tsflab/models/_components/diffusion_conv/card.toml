@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "diffusion_conv"
+role = "Propagates information across graph nodes at every time step over multi-hop diffusion supports."
+slot = "channel"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["diffusion", "graph", "graph-wavenet", "support", "spatiotemporal", "multi-hop", "dcrnn", "random-walk", "graph-convolution"]
+input = "x [batch, c_in, nodes, time]; supports list of support_len matrices [nodes, nodes]"
+output = "[batch, c_out, nodes, time]"
+origin = "Diffusion convolution of DCRNN (Li et al., ICLR 2018) as applied in Graph WaveNet (Wu et al., IJCAI 2019)"
+origin_models = ["gwnet", "sttn"]

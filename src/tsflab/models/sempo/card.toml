@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SEMPO"
+tags = ["transformer", "foundation", "frequency", "mixture-of-experts", "prompt", "patching", "channel-independent", "normalization"]
+fits = ["efficiency", "weak-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "the energy-aware spectral decomposition, mixture-of-prompts routing, and key/value augmentation were checked against `models/SEMPO.py` and `layers/SEMPO_EncDec.py` at the pinned revision; the card records no paper or code problem."
+
+[paper]
+title = "SEMPO: Lightweight Foundation Models for Time Series Forecasting"
+url = "https://arxiv.org/abs/2510.19710"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/mala-lab/SEMPO"
+revision = "59233d113f8e47fc32402ef8f371298a4d71fb21"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/mala-lab/SEMPO/blob/59233d113f8e47fc32402ef8f371298a4d71fb21/models/SEMPO.py", "https://github.com/mala-lab/SEMPO/blob/59233d113f8e47fc32402ef8f371298a4d71fb21/layers/SEMPO_EncDec.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+patch_len = { from = "seq_len", rule = "seq_len divisible by patch_len" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:energy-aware-spectral-decomposition"
+temporal = "local:prompt-routed-patch-attention"
+channel = "local:channel-independent-shared-weights"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

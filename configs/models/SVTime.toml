@@ -1,0 +1,10 @@
+[model]
+name = "SVTime"
+
+[model.params]
+enc_in = 7
+period = 24
+patch_size = 6
+revin = true
+affine = false
+subtract_last = false

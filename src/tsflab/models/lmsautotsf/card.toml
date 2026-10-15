@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "LMSAutoTSF"
+tags = ["mlp", "multi-scale", "frequency", "decomposition", "time-series", "channel-mixing"]
+fits = ["strong-trend", "strong-seasonality"]
+fidelity = "reference-checked"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count" }
+num_scales = { from = "seq_len", rule = "seq_len // 2**(num_scales - 1) must be at least 1 (window-2 average pooling per scale)" }
+
+[paper]
+title = "LMS-AutoTSF: Learnable Multi-Scale Decomposition and Integrated Autocorrelation for Time Series Forecasting"
+url = "https://arxiv.org/abs/2412.06866"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/mribrahim/LMS-TSF"
+revision = "41e4fa1c1d0db6780aa76ccd528c97052f1ddc00"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/mribrahim/LMS-TSF/blob/41e4fa1c1d0db6780aa76ccd528c97052f1ddc00/models/LMSAutoTSF.py", "https://github.com/mribrahim/LMS-TSF/blob/41e4fa1c1d0db6780aa76ccd528c97052f1ddc00/layers/StandardNorm.py"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:learnable-sigmoid-frequency-filters"
+temporal = "local:lag-difference-gated-temporal-mlp"
+channel = "local:channel-mlp"
+head = "local:multi-scale-linear-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (10) vs `models/LMSAutoTSF.py` encoder"
+what = "the printed equation projects `x_temp + x_channel` without the input residual, while the code also adds the encoder input."
+resolution = "the official encoder with the input residual."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (5)-(6)"
+what = "the frequency grid of the learnable masks is not stated; the code applies them on the signed `fftfreq` grid of a full complex FFT and keeps the real part of the inverse, so the effective mask is `(m(f) + m(-f)) / 2`."
+resolution = "the official signed-grid masks."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from Sec. 4 with nothing copied; license recorded as `NOASSERTION`."

@@ -1,0 +1,69 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GCformer"
+tags = ["transformer", "cnn", "global-convolution", "patching", "channel-independent", "cross-attention", "long-context", "normalization"]
+fits = ["long-lookback", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "GCformer: An Efficient Framework for Accurate and Scalable Long-Term Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2306.08325"
+venue = "arXiv preprint"
+year = 2023
+
+[code]
+url = "https://github.com/zyj-111/GCformer"
+revision = "67776069a34700929117618f8541e3880f396b7b"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/zyj-111/GCformer/blob/67776069a34700929117618f8541e3880f396b7b/models/GCformer.py", "https://github.com/zyj-111/GCformer/blob/67776069a34700929117618f8541e3880f396b7b/layers/global_conv.py", "https://github.com/zyj-111/GCformer/blob/67776069a34700929117618f8541e3880f396b7b/layers/PatchTST_backbone.py", "https://github.com/zyj-111/GCformer/blob/67776069a34700929117618f8541e3880f396b7b/layers/SelfAttention_Family.py", "https://github.com/zyj-111/GCformer/blob/67776069a34700929117618f8541e3880f396b7b/scripts/GCformer/illness.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:multiscale-global-conv+local:residual-score-patch-encoder+component:positional_encoding"
+channel = "local:global-local-cross-fusion+component:self_attention_family"
+head = "component:flatten_forecast_head+local:linear-horizon-map"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels; the global convolution keeps kernels per variate" }
+context_len = { from = "seq_len", rule = "local-branch window, patch_len <= context_len <= seq_len (default seq_len)" }
+patch_len = { from = "seq_len", rule = "local patch length, at most context_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (12) vs `models/GCformer.py` (`decoder_cross_att = ProbAttention()`)"
+what = "the paper's decoder uses full softmax attention without a mask, while the code uses Informer ProbSparse attention with a causal mask and cumulative-sum context."
+resolution = "full attention by default (`decoder_attention = \"full\"`); `\"prob\"` gives the ProbSparse form."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/SelfAttention_Family.py` `AttentionLayer` (`out.view(B, L, -1)`)"
+what = "with `ProbAttention` the context is `[B, H, L, D]`, so the view interleaves heads and positions."
+resolution = "the ProbSparse option uses the cataloged core with the head layout corrected."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/global_conv.py` `GConv`"
+what = "the sub-kernel count reaches zero for windows shorter than 32 steps."
+resolution = "the count is clamped to at least one."
+
+[[issues]]
+kind = "underspecified"
+where = "Section 3 (Eqs. 1-3, 8-15)"
+what = "the global-convolution kernel parameterization (32-tap sub-kernels, upsampling, decay, normalization, bidirectional kernels), the local PatchTST settings, the decoder's residual, normalization, and mixing biases, and the shortcut-weight initialization are not given."
+resolution = "taken from the official code (`cat_randn` mode) and `scripts/GCformer/illness.sh`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

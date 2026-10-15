@@ -1,0 +1,8 @@
+[model]
+name = "STWave"
+
+[model.params]
+enc_in = 8
+hidden_size = 6
+layers = 1
+log_samples = 1

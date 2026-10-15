@@ -1,0 +1,13 @@
+[model]
+name = "Reformer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+n_heads = 8
+e_layers = 2
+d_ff = 256
+dropout = 0.1
+bucket_size = 4
+n_hashes = 4
+causal = false

@@ -1,0 +1,14 @@
+name: "Report a problem or ask a question"
+description: Something broken, or a usage question. An agent triages it and replies.
+title: "<short summary>"
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: What is going on?
+      description: |
+        For a problem, include what you expected, the command and config you ran,
+        the full traceback, and your environment (OS, Python, torch, git commit or
+        version). The more reproducible, the faster it is fixed.
+    validations:
+      required: true

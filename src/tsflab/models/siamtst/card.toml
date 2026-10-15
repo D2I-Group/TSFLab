@@ -1,0 +1,111 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SiamTST"
+tags = ["transformer", "patching", "channel-independent", "self-supervised", "pretraining", "siamese", "masked-modeling", "linear-probing", "normalization", "revin", "time-series"]
+fits = ["weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "SiamTST: A Novel Representation Learning Framework for Enhanced Multivariate Time Series Forecasting applied to Telco Networks"
+url = "https://arxiv.org/abs/2407.02258"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/simenkristoff/SiamTST"
+revision = "f8069d507c22a46bf3546c89a75a9da5ba055a17"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/model.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/loss.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/attention.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/transformer.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/ffn.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/embedding.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/patch.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/heads.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/layers/norm.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/core/data/datasets.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/pretrain.py", "https://github.com/simenkristoff/SiamTST/blob/f8069d507c22a46bf3546c89a75a9da5ba055a17/finetune.py"]
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset channel count" }
+patch_size = { from = "seq_len", rule = "seq_len >= patch_size" }
+stride = { from = "pred_len", rule = "pre-training needs pred_len >= stride" }
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:qk-rmsnorm-pre-norm-patch-transformer"
+channel = "none"
+head = "local:flatten-linear-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`core/layers/transformer.py` (`TransformerEncoder.__init__`)"
+what = "`TransformerEncoderLayer(d_model, attn=attn(), ...)` is called although `TransformerEncoderLayer.__init__(self, attn, ffn, ...)` has no `d_model` parameter, so `d_model` binds to `attn` and the keyword `attn=` raises `TypeError`; the backbone cannot be constructed at this revision."
+resolution = "the layer is rebuilt from its evident intent (attention, feed-forward, two norms, pre- or post-norm residuals)."
+
+[[issues]]
+kind = "code-bug"
+where = "`core/utils.py` (`get_model`)"
+what = "`use_bias=args.use_bias` is passed to `SiamTST.__init__` in `core/model.py`, which has no such parameter (`TypeError`), and `TransformerEncoder` hard-codes `bias=False` anyway."
+resolution = "a `bias` parameter, default `false` (paper)."
+
+[[issues]]
+kind = "code-bug"
+where = "`core/loss.py` (`PatchLoss.forward`)"
+what = "the call to the module-level `__patch_loss` inside a class body is name-mangled to `_PatchLoss__patch_loss` and raises `NameError`, so the pre-training loss cannot be evaluated."
+resolution = "the masked patch MSE is computed directly."
+
+[[issues]]
+kind = "code-bug"
+where = "`core/model.py` (`SiamTST.forward`, pre-training branch)"
+what = "the first view is RevIN-normalized and imputed but the Siamese view `x2` is only patched, so the similarity term compares a normalized with an unnormalized series."
+resolution = "each view is instance-normalized with its own statistics."
+
+[[issues]]
+kind = "code-bug"
+where = "`core/layers/attention.py` (`Attention.forward`)"
+what = "`F.scaled_dot_product_attention(..., dropout_p=self.attn_dropout)` applies attention dropout regardless of `self.training`, so validation and test forecasts are stochastic."
+resolution = "attention dropout only in training mode."
+
+[[issues]]
+kind = "code-bug"
+where = "`core/model.py` (`SiamTST.__init__`, default `norm_layer=\"rmsprop\"`)"
+what = "`get_norm_layer` in `core/utils.py` only knows `rmsnorm` and `layernorm` and returns `None` for the default."
+resolution = "RMSNorm."
+
+[[issues]]
+kind = "code-bug"
+where = "`train.py` (main block)"
+what = "`finetune_weights` is only assigned in the branch that loads given weights, so the default pre-train-then-fine-tune path raises `NameError`, and the `--test_only` path calls `finetune.get_model(args, device)` without the required `head_type`."
+resolution = "not applicable; the catalog runner drives both stages."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 (\"Architectural Overview\", Fig. 1) vs `train.py` (`--pre_norm`/`--no_pre_norm`, `--qk_norm`/`--no_qk_norm`, both defaulting to off) and `core/model.py` (`pre_norm=False`)"
+what = "pre-normalization and QK-Norm, two of the paper's stated modifications, are disabled unless flags are passed, and no script at this revision passes them."
+resolution = "`pre_norm` and `qk_norm` default to `true` (paper) and can be switched off."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 Eq. (1) (positional table \"initialized with values sampled from a uniform distribution U(0, 0.2)\") vs `core/layers/embedding.py` (`PatchEmbedding`"
+what = "`uniform_(W_pos, -0.02, 0.02)`)."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.3 (hyperparameters \"the same values as for PatchTST\" except the learning rate and mask ratio) vs `train.py` defaults (`d_model 64`, 4 heads, patch 16 with stride 16) and `core/model.py` (4 layers, `d_ff = 4 d_model`)"
+what = "these defaults differ from PatchTST's published settings."
+resolution = "the code defaults."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 3 (\"Siamese architecture consisting of two identical models with shared parameters\")"
+what = "the pre-training objective is not stated; only `core/loss.py` (`PretrainLoss`, `alpha = 0.2` from `train.py`), `core/model.py` (second branch detached, masked at the same patch indices) and `core/data/datasets.py` (`TelenorDataset.__getitem__`: the second window starts `seq_len // 2` steps later) define the masked-patch MSE plus `1 - cosine` similarity over the shared half of the patches."
+resolution = "follows the code."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. 3, Eq. (4)"
+what = "every head's value map is given as `W_h^V in R^{D x D}` while the concatenated attention is `A in R^{D x D}`, which only holds for per-head values of width `D / H` (as in `core/layers/attention.py`)."
+resolution = "per-head width `d_model / n_heads`."

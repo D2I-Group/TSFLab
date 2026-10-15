@@ -1,0 +1,39 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PHAT"
+tags = ["transformer", "periodicity", "frequency", "attention-variant", "channel-independent", "normalization"]
+fits = ["multi-periodic", "strong-seasonality"]
+fidelity = "reference-checked"
+issues_checked = "the card records an implementation of paper Eqs. (4)-(13) (FFT period buckets, positive-negative attention, gated feed-forward blocks and the averaged bucket and linear paths); the zero bucket follows Sec. 3.2 and App. B; dataset-specific periods are a TSFLab scoping choice, and no paper or official-code problem is documented."
+
+[paper]
+title = "PHAT: Modeling Period Heterogeneity for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2602.00654"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/PoorOtterBob/PHAT"
+revision = "313987b52b5fc8184efba7fb9c8b5707c6f03448"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:period-bucket-positive-negative-attention"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-bucket-forecast-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+period_list = { from = "period", rule = "optional fixed cycle lengths in steps (capped at seq_len); otherwise top-k FFT periods per window" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

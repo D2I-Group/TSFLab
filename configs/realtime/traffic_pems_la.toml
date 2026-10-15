@@ -1,0 +1,26 @@
+# Caltrans PeMS District 7 (Los Angeles), hourly total flow per
+# station. History comes from the UltraTraffic_CL static panels (2003-2023);
+# weekly increments come from the PeMS clearinghouse station_5min files.
+[track]
+id = "traffic_pems_la"
+tz = "America/Los_Angeles"
+title = "PeMS District 7 hourly traffic flow"
+mode = "spatiotemporal"
+freq = "h"
+seq_len = 168
+horizon = 24
+submission_hours = 24
+seasonal_period = 168
+min_coverage = 0.8
+history_days = 365          # rolling training window exported to catalog models
+
+[source]
+kind = "pems"
+district = 7
+value = "total_flow"
+credentials = ["PEMS_USER", "PEMS_PASSWORD"]
+
+[bootstrap]
+kind = "ultratraffic"
+region = "PEMS_LA"
+first_year = 2019               # store: dataset/ultratraffic (override with ULTRATRAFFIC_ROOT)

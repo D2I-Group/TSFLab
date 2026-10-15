@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "StemGNN"
+tags = ["gnn", "frequency", "spatiotemporal", "graph-learning", "channel-mixing"]
+fits = ["high-cross-correlation", "spatial-graph"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the latent correlation graph, Chebyshev graph terms, and Fourier spectral-temporal blocks against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "Spectral Temporal Graph Neural Network for Multivariate Time-series Forecasting"
+url = "https://arxiv.org/abs/2103.07719"
+venue = "NeurIPS 2020"
+year = 2020
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node/channel count" }
+
+[composition]
+normalization = "none"
+decomposition = "local:backcast-residual-removal"
+temporal = "local:spectral-temporal-block-dft-filter"
+channel = "local:latent-correlation-graph+local:chebyshev-graph-terms"
+head = "local:two-layer-linear-horizon"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,8 @@
+[dataset]
+name = "custom"
+path = "./dataset/AQWan/AQWan.csv"
+
+[dataset.params]
+target = "WSPM"
+scale = true
+split_ratio = [0.7, 0.1, 0.2]

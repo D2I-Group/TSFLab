@@ -1,0 +1,32 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PolynomialRegressionTS"
+tags = ["linear", "polynomial", "regression", "channel-independent", "baseline", "lightweight"]
+fits = ["short-train", "efficiency"]
+fidelity = "paper-only"
+issues_checked = "classical polynomial regression from a textbook reference with no official code; the card records no problem in the cited description."
+
+[paper]
+title = "Applied Regression Analysis"
+url = "https://doi.org/10.1002/9781118625590"
+venue = "Wiley 1998"
+year = 1998
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:polynomial-lag-features"
+channel = "local:channel-independent-shared-weights"
+head = "local:linear-horizon-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""

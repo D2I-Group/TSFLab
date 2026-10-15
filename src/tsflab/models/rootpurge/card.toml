@@ -1,0 +1,55 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "RootPurge"
+tags = ["linear", "frequency", "regularization", "training-objective", "channel-independent", "lightweight", "time-series"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Characteristic Root Analysis and Regularization for Linear Time Series Forecasting"
+url = "https://arxiv.org/abs/2509.23597"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Wangzzzzzzzz/RootPurge"
+revision = "63973fc52d0e09448357b289a1f6bdfc82c77b8c"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Wangzzzzzzzz/RootPurge/blob/63973fc52d0e09448357b289a1f6bdfc82c77b8c/RootPurge/linear_model/run_forecasting.py", "https://github.com/Wangzzzzzzzz/RootPurge/blob/63973fc52d0e09448357b289a1f6bdfc82c77b8c/RootPurge/run_scripts/run_rootpurge_speclin_logC.sh"]
+
+[composition]
+normalization = "local:mean-centering"
+decomposition = "none"
+temporal = "local:bias-free-linear-or-spectral-map"
+channel = "local:shared-or-individual-weights"
+head = "none"
+loss = "loss:mse+local:root-purging"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. 4.2 and Eq. (3) vs `RootPurge/linear_model/run_forecasting.py`"
+what = "the paper does not specify that the maps are bias-free, that normalization subtracts only the window mean, the `(L+H)/L` inverse-transform scale, where a residual shorter than the lookback is placed by `P`, or the `max(L/H, 1) ** order` scaling of `lambda`."
+resolution = "the official code's choices (bias-free maps, mean-only normalization, uniformly random offset per sample and channel)."
+
+[[issues]]
+kind = "code-bug"
+where = "`RootPurge/linear_model/run_forecasting.py` `SpecLinear.forward`"
+what = "`torch.fft.irfft` is called without an explicit length, so the output has `2 * ((L+H)//2)` samples, one short of `L+H` when `L+H` is odd."
+resolution = "the inverse rFFT is evaluated at length `L+H`."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

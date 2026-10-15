@@ -1,0 +1,9 @@
+[model]
+name = "CMoS"
+
+[model.params]
+enc_in = 7
+seg_size = 4
+num_map = 3
+kernel_size = 4
+# Add period = 24 only for datasets with a justified periodic prior.

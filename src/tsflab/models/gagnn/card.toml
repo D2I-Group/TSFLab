@@ -1,0 +1,40 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GAGNN"
+tags = ["gnn", "rnn", "spatiotemporal", "graph-learning", "covariates", "air-quality"]
+fits = ["spatial-graph", "high-cross-correlation", "calendar-effects"]
+fidelity = "reference-checked"
+issues_checked = "the card records a clean-room rewrite of the GRU city encoder, soft group assignment, group-correlation propagation, and fusion from the paper, with the pinned official code as reference only, and documents no paper or official-code problem (the missing location attributes and air-quality features are a dataset limitation)."
+
+[paper]
+title = "Group-Aware Graph Neural Network for Nationwide City Air Quality Forecasting"
+url = "https://doi.org/10.1145/3631713"
+venue = "ACM TKDD 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Friger/GAGNN"
+revision = "509ac7d6eb55914979fc45f6d23e967021cfd270"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:gru-node-encoder"
+channel = "local:group-aware-city-group-message-passing"
+head = "local:linear-multi-horizon-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of cities/nodes; must match the adjacency size" }
+adj_mx = { from = "graph", rule = "the dataset's [nodes, nodes] adjacency; self-loops are added and it is normalized; identity when absent" }
+cov_dim = { from = "covariates", rule = "number of calendar mark features used per step (first cov_dim of the marks; missing ones are zero-filled)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

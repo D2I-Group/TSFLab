@@ -1,0 +1,16 @@
+[model]
+name = "MTSUNMixers"
+
+[model.params]
+enc_in = 7
+d_model = 128
+d_state = 16
+d_conv = 4
+expand = 2
+e_layers = 1
+patch_len = 16
+time_bases = 16
+channel_bases = 16
+dropout = 0.1
+recon_weight = 1.0
+use_norm = true

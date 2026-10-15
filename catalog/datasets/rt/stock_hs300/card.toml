@@ -1,0 +1,36 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "rt/stock_hs300"
+domain = "finance"
+topic = "equities"
+benchmarks = ["realtime"]
+tags = ["stock", "csi-300", "hs300", "china", "equities", "log-return", "daily", "real-time", "multivariate", "business-days"]
+related = ["exchange", "rt/stock_nasdaq100"]
+realtime_track = "stock_hs300"
+characteristics = ["weak-seasonality", "low-forecastability", "many-channels", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "Daily forward-adjusted closes fetched with AKShare (third-party Chinese market-data sites), converted to log returns"
+url = "https://github.com/akfamily/akshare"
+citation = "n/a (no dataset paper; TSFLab real-time track)"
+citation_url = "n/a"
+license = "Eastmoney/Sina vendor terms forbid redistribution; the CSI 300 constituent list is open"
+redistribution = "script"
+
+[shape]
+frequency = "business-daily (1b)"
+time_span = "2019-01-02 onward (grows with each weekly release)"
+length = "grows weekly; bootstrap history starts 2019-01-02"
+channels = "about 300 (CSI-300 constituents at bootstrap; the list is in the store manifest)"
+channel_kind = "series"
+target = "all constituents' log returns"
+missing_values = "exchange holidays and suspended stocks are unobserved cells; the loader forward-fills them"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab static protocol on a frozen release: chronological 7:1:2 split, one z-score from the training rows, seq_len 20 and horizon 5 as in the real-time track; the live rolling rounds are the separate real-time evaluation"
+literature = ""
+split = "7:1:2"
+seq_lens = [20]
+pred_lens = [5]

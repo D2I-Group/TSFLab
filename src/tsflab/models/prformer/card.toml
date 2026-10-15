@@ -1,0 +1,62 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "PRformer"
+tags = ["transformer", "rnn", "cnn", "pyramid", "multi-scale", "variate-token", "periodicity", "normalization"]
+fits = ["multi-periodic", "long-lookback", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "PRformer: Pyramidal Recurrent Transformer for Multivariate Time Series Forecasting"
+url = "https://arxiv.org/abs/2408.10483"
+venue = "arXiv preprint"
+year = 2024
+
+[code]
+url = "https://github.com/usualheart/PRformer"
+revision = "df718ad837db1db5fe6ab3d085119eb116b7d241"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/usualheart/PRformer/blob/df718ad837db1db5fe6ab3d085119eb116b7d241/model/PRformer.py", "https://github.com/usualheart/PRformer/blob/df718ad837db1db5fe6ab3d085119eb116b7d241/layers/Embed.py", "https://github.com/usualheart/PRformer/blob/df718ad837db1db5fe6ab3d085119eb116b7d241/layers/WindowListSplit.py", "https://github.com/usualheart/PRformer/blob/df718ad837db1db5fe6ab3d085119eb116b7d241/scripts/multivariate_forecast/PRformer-ETTh1.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:period-pyramid-conv"
+temporal = "local:multi-scale-gru-embedding"
+channel = "component:transformer_encdec+component:self_attention_family"
+head = "local:variate-linear-projection"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+conv_windows = { from = "period", rule = "strictly increasing period lengths in steps; consecutive ratios set the convolution strides; periods longer than seq_len are dropped, at least one must fit" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Embed.py` `PyramidalRNNEmbedding` (`rateParameter` of shape `[l, 1]`, `softmax(..., -1)`)"
+what = "the softmax runs over the singleton axis, so every scale weight is exactly 1 and `alpha` never trains, unlike Eq. (4)."
+resolution = "`softmax(alpha / T)` across the `l` scales as in the paper."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `model/PRformer.py` (`FullAttention(True, ...)`)"
+what = "the official encoder applies a triangular causal mask over the variate order, which the paper does not describe."
+resolution = "unmasked attention per Eq. (5); `causal_variate_mask = true` reproduces the code."
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/Embed.py` `PyramidalRNNEmbedding` top-down path"
+what = "an upsampled map shorter than the target scale is padded by exactly one repeated step, so any larger mismatch fails."
+resolution = "padding to the target length."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (2)-(4) vs `layers/WindowListSplit.py`, `layers/Embed.py`, `run.py`"
+what = "the chain construction rule, the first kernel/stride, the 128 convolution channels without activation, nearest-neighbour recursive upsampling, one-layer GRUs, the post-concatenation linear layer and the temperature `0.002` are given only in the code."
+resolution = "the code's choices."

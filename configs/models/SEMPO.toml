@@ -1,0 +1,11 @@
+[model]
+name = "SEMPO"
+
+[model.params]
+enc_in = 7
+d_model = 64
+patch_len = 16
+num_prompts = 4
+num_heads = 4
+dropout = 0.1
+use_revin = true

@@ -1,0 +1,7 @@
+[model]
+name = "FITS"
+
+[model.params]
+enc_in = 7
+individual = false
+cut_freq = 24

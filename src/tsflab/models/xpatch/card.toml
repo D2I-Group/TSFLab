@@ -1,0 +1,50 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "xPatch"
+tags = ["mlp", "cnn", "decomposition", "patching", "channel-independent", "normalization"]
+fits = ["strong-trend", "strong-seasonality", "weak-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "xPatch: Dual-Stream Time Series Forecasting with Exponential Seasonal-Trend Decomposition"
+url = "https://arxiv.org/abs/2412.17323"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/stitsyuk/xPatch"
+revision = "d12eecaa11409109582f5e2ffdebcc2cffd47b3e"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "local:exponential-moving-average-decomposition"
+temporal = "local:linear-trend-stream+local:patch-cnn-seasonal-stream"
+channel = "local:channel-independent-shared-weights"
+head = "local:fusion-mlp"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+patch_len = { from = "seq_len", rule = "patch count 1 + (seq_len + stride - patch_len) // stride with end padding; patch_len <= seq_len without padding" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`layers/ema.py` (`.to('cuda')`)"
+what = "the EMA weights are moved to CUDA unconditionally, so the official decomposition fails without a GPU and blocked the reference comparison."
+resolution = "a device-neutral EMA per Eq. (2)."
+
+[[issues]]
+kind = "underspecified"
+where = "paper architecture"
+what = "not every hidden width of the trend and seasonal branches is specified."
+resolution = "explicit local defaults."

@@ -1,0 +1,93 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ReCycle"
+tags = ["transformer", "periodicity", "residual-learning", "encoder-decoder", "covariates", "channel-independent", "lightweight", "long-input", "time-series"]
+fits = ["strong-seasonality", "calendar-effects", "long-lookback", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "ReCycle: Fast and Efficient Long Time Series Forecasting with Residual Cyclic Transformers"
+url = "https://arxiv.org/abs/2405.03429"
+venue = "IEEE CAI 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Helmholtz-AI-Energy/ReCycle"
+revision = "654d0600c98977e345d5ba90dfa3a12957049627"
+license = "MIT"
+reference_sources = ["https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/models/torch_modules/oneshot_transformer.py", "https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/models/torch_modules/model.py", "https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/data/rhp_datasets.py", "https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/data/dataset.py", "https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/specs/model_specs.py", "https://github.com/Helmholtz-AI-Energy/ReCycle/blob/654d0600c98977e345d5ba90dfa3a12957049627/ReCycle/specs/spec_factory.py"]
+
+[composition]
+normalization = "none"
+decomposition = "local:recent-historic-profile-residual"
+temporal = "local:primary-cycle-compression+local:cycle-token-encoder-decoder-transformer"
+channel = "none"
+head = "local:linear-cycle-head-plus-profile"
+loss = "loss:mae"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the number of input channels" }
+cycle_len = { from = "period", rule = "steps per primary cycle; seq_len and pred_len must be whole multiples of cycle_len" }
+rhp_cycles = { from = "seq_len", rule = "seq_len must contain rhp_cycles cycles of each day type (21 days for 3)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. VI-A-b (\"averaging the last k = 3 samples prior to the sample date\") vs `ReCycle/specs/spec_factory.py` (`configure_run`, `rhp_dataset=LooseTypeLastRHPDataset`) and `ReCycle/data/rhp_datasets.py` (`LooseTypeLastRHPDataset.get_rhp`)"
+what = "the default profile variant gives every historic and forecast day the profiles available after the last historic day; the class comment itself notes that earlier historic days then form residuals with later information."
+resolution = "`rhp_mode = \"last\"` (default) follows the code; `rhp_mode = \"causal\"` follows the text for historic cycles."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. VI-A-b vs `ReCycle/data/rhp_datasets.py` (`LooseTypeRHPDataset.__init__`)"
+what = "the per-day variant appends the day itself to its type's reference list before averaging, so a day's profile includes that day rather than only prior days."
+resolution = "`rhp_mode = \"causal\"` excludes the current cycle."
+
+[[issues]]
+kind = "code-bug"
+where = "`ReCycle/data/rhp_datasets.py` (`LooseTypeRHPDataset.__init__`)"
+what = "`last_rhp = torch.zeros(3, group_len)` is created once outside the loop over target columns, so for every series after the first a day type that has not occurred yet inherits the previous series' last profile instead of zeros."
+resolution = "profiles are computed per series and are zero until a type occurs."
+
+[[issues]]
+kind = "code-bug"
+where = "`ReCycle/data/rhp_datasets.py` (`update_ref_day`)"
+what = "`if ref_len := len(type_ref) == self.rhp_window` binds the boolean comparison, so the `range(2, ...)` and `== 1` branches are dead; before the reference list is full a day containing NaN is skipped, afterwards it is appended."
+resolution = "not applicable (catalog windows have no missing values); the last `rhp_cycles` cycles of each type are averaged."
+
+[[issues]]
+kind = "code-bug"
+where = "`ReCycle/models/torch_modules/oneshot_transformer.py` (`OneshotTransformer.__init__`, `malformer` branch)"
+what = "`d_feedforward=` is passed to `nn.TransformerEncoderLayer` and `nn.TransformerDecoderLayer`, whose argument is `dim_feedforward`, so `malformer=True` raises a `TypeError`."
+resolution = "only the default `nn.Transformer` path is implemented."
+
+[[issues]]
+kind = "code-bug"
+where = "`ReCycle/data/dataset.py` (`__getitem__`, `meta_columns` branch)"
+what = "`forecast_metadata` is sliced with `historic_slice` instead of `forecast_slice`, so extra metadata columns fed to the decoder describe the historic window."
+resolution = "not applicable; no extra metadata columns are used."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. VI-A-a"
+what = "the vanilla-Transformer hyperparameters from the Propulate search are not reported."
+resolution = "the CLI and spec defaults of `ReCycle/__main__.py` and `ReCycle/specs/model_specs.py` (`d_model` 32 per head, 1 head, feed-forward 32, one encoder and one decoder layer, dropout 0 from `configure_run`)."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. VI-B"
+what = "the Traffic dataset is described as \"measurements of water consumption in a water supply network, taken between January 2016 and March 2021\", a copy of the Water description."
+resolution = "not applicable to the model."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. V-A"
+what = "road traffic and electricity demand are said to \"exhibit a clear 1 h cycle\" while the primary cycle discussed and used (Sec. VI-A-b) is the 24 h day."
+resolution = "`cycle_len` defaults to 24 hourly steps."

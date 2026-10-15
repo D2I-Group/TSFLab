@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "STGCN"
+tags = ["gnn", "cnn", "spatiotemporal", "covariates"]
+fits = ["spatial-graph", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records a local rewrite of the temporal GLU, Chebyshev graph convolution, temporal GLU block order against the paper and the pinned BasicTS code, with no documented paper or code problem."
+
+[paper]
+title = "Spatio-Temporal Graph Convolutional Networks: A Deep Learning Framework for Traffic Forecasting"
+url = "https://arxiv.org/abs/1709.04875"
+venue = "IJCAI 2018"
+year = 2018
+
+[code]
+url = "https://github.com/GestaltCogTeam/BasicTS"
+revision = "c218c07b6ce5e4cf908b147fd180c486346fed9c"
+license = "Apache-2.0"
+reference_sources = []
+
+[data_params]
+enc_in = { from = "nodes", rule = "equal to the node count; adj_mx from the dataset graph" }
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:gated-causal-temporal-conv"
+channel = "component:graph_spectral+local:chebyshev-graph-convolution"
+head = "local:flatten-mlp-head"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

@@ -1,0 +1,11 @@
+[model]
+name = "AWEMixer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+dropout = 0.2
+num_scales = 3
+wavelet_level = 3
+wavelet = "db4"
+num_fusion_layers = 1

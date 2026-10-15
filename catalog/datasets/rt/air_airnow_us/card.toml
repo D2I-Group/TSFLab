@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "rt/air_airnow_us"
+domain = "environment"
+topic = "air quality"
+benchmarks = ["realtime"]
+tags = ["air-quality", "pm25", "airnow", "epa", "united-states", "hourly", "real-time", "stations", "spatiotemporal", "covariate"]
+related = ["aqshunyi", "aqwan", "rt/weather_openmeteo_temp"]
+realtime_track = "air_airnow_us"
+characteristics = ["non-stationary", "train-val-scale-shift", "within-train-drift", "level-dependent-variance", "weak-cross-correlation", "short-train", "spatial-graph"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "EPA AirNow HourlyData file products, PM2.5 (preliminary, unvalidated)"
+url = "https://www.airnow.gov"
+citation = "n/a (no dataset paper; TSFLab real-time track)"
+citation_url = "n/a"
+license = "AirNow data use guidelines (US EPA AirNow)"
+license_url = "https://docs.airnowapi.org/docs/DataUseGuidelines.pdf"
+redistribution = "hosted"
+conditions = "Attribute AirNow and state that the data are preliminary and unvalidated (not for regulatory use)."
+
+[shape]
+frequency = "hourly (1h)"
+time_span = "the 56 days before the bootstrap; grows with each weekly release"
+length = "grows weekly; the bootstrap covers 56 days of AirNow archive files"
+channels = "up to 200 (config max_sites; sites reporting at least 90% of hours at bootstrap; the exact set is in the store manifest)"
+channel_kind = "stations"
+target = "hourly PM2.5 (micrograms per cubic metre) per station"
+missing_values = "stations report irregularly; unobserved hours are NaN in the store and the loader forward-fills them"
+stats_basis = "source-reported"
+
+[protocol]
+protocol = "TSFLab static protocol on a frozen release: chronological 7:1:2 split, one z-score from the training rows, seq_len 168 and horizon 24 as in the real-time track; the live rolling rounds are the separate real-time evaluation"
+literature = ""
+split = "7:1:2"
+seq_lens = [168]
+pred_lens = [24]

@@ -1,0 +1,6 @@
+[model]
+name = "LassoRegressionTS"
+
+[model.params]
+enc_in = 7
+l1_penalty = 1e-05

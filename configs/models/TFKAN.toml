@@ -1,0 +1,12 @@
+[model]
+name = "TFKAN"
+
+[model.params]
+enc_in = 7
+embed_size = 128
+hidden_size = 256
+grid_size = 2
+spline_order = 1
+scale_noise = 0.1
+sparsity_threshold = 0.001
+use_bias = true

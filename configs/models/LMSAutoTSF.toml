@@ -1,0 +1,12 @@
+[model]
+name = "LMSAutoTSF"
+
+[model.params]
+enc_in = 7
+d_model = 512
+dropout = 0.1
+num_scales = 4
+channel_independence = false
+use_norm = true
+initial_cutoff = 0.2
+initial_steepness = 10.0

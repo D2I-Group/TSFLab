@@ -1,0 +1,51 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "WFTNet"
+tags = ["cnn", "fourier", "wavelet", "periodicity", "multi-period", "2d-variation", "time-frequency", "normalization"]
+fits = ["multi-periodic", "strong-seasonality", "long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "WFTNet: Exploiting Global and Local Periodicity in Long-term Time Series Forecasting"
+url = "https://arxiv.org/abs/2309.11319"
+venue = "ICASSP 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Hank0626/WFTNet"
+revision = "7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4"
+license = "Apache-2.0"
+reference_sources = ["https://github.com/Hank0626/WFTNet/blob/7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4/models/Wavelet.py", "https://github.com/Hank0626/WFTNet/blob/7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4/layers/Conv_Blocks.py", "https://github.com/Hank0626/WFTNet/blob/7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4/layers/Embed.py", "https://github.com/Hank0626/WFTNet/blob/7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4/data_provider/data_factory.py", "https://github.com/Hank0626/WFTNet/blob/7fc60ceb3068ea40652e59975a5c6e6d5a36b0b4/scripts/ETTh2.sh"]
+
+[composition]
+normalization = "component:revin"
+decomposition = "component:dominant_periods+local:morlet-cwt"
+temporal = "component:inception_block+local:strip-scale-conv"
+channel = "component:embed+component:marks"
+head = "local:aligned-linear-projection"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "equals the dataset channel count" }
+period_coeff = { from = "train-split", rule = "Section 3.4 statistic (m = 5 lowest FFT bins incl. DC, raw values, all numeric columns) computed on the training split only; 0.8126 is ETTh2" }
+top_k = { from = "period", rule = "number of dominant FFT periods folded per block; >= 1" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "leakage"
+where = "`data_provider/data_factory.py` `period_coeff`"
+what = "the PWC coefficient `alpha` is computed from the whole dataset CSV, test period included."
+resolution = "`alpha` is the model parameter `period_coeff`; the ETTh2 preset value 0.8126 is recomputed with the official statistic on the TSFLab training split only (raw rows 0-8,639 of `ETTh2.csv`, all seven numeric columns, `m = 5`), instead of the whole-CSV value 0.7845."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "WFTBlock (Secs. 2-3) vs `scripts/ETTh1.sh` (`--top_k 0`; also ETTm2, Weather and some ETTm1 horizons)"
+what = "`top_k = 0` switches to a wavelet-only block that also projects time from `T_s + T_p` to `T_p`, which is not the paper's WFTBlock."
+resolution = "not implemented; `top_k >= 1` is required and `period_coeff = 0` gives the paper's Wavelet-Only ablation."

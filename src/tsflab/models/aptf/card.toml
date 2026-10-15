@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "APTF"
+tags = ["transformer", "plug-in", "training-objective", "sample-weighting", "curriculum", "patch", "channel-independent", "time-series"]
+fits = ["outliers"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Amortized Predictability-aware Training Framework for Time Series Forecasting and Classification"
+url = "https://arxiv.org/abs/2602.16224"
+venue = "WWW 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Meteor-Stars/APTF"
+revision = "049bc9b3525c62d34d09e01d113a431bf62dbb71"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Meteor-Stars/APTF/blob/049bc9b3525c62d34d09e01d113a431bf62dbb71/Amortized_Hierarchical_Predictability_Aware_Loss.py", "https://github.com/Meteor-Stars/APTF/blob/049bc9b3525c62d34d09e01d113a431bf62dbb71/exp/exp_main_public.py"]
+
+[composition]
+normalization = "component:patchtst"
+decomposition = "none"
+temporal = "component:patchtst"
+channel = "component:patchtst"
+head = "component:patchtst"
+loss = "loss:mse+local:amortized-hierarchical-predictability-aware-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels" }
+patch_len = { from = "seq_len", rule = "patch length of the PatchTST backbone; must not exceed seq_len (stride sets the patch count)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3 (first stage with `K` buckets, `G = K` stages) vs `Amortized_Hierarchical_Predictability_Aware_Loss.py`"
+what = "the official code builds only `K - 1` buckets (8 for the paper's `K = 9`)."
+resolution = "the paper's `K` buckets and `G = K` stages."
+
+[[issues]]
+kind = "underspecified"
+where = "Algorithms 1-2 and Sec. 3.1.4"
+what = "the paper does not fix the per-sample ranking error, how a remainder and empty buckets are handled, or the hierarchical normalizer."
+resolution = "the official choices (per-sample MSE over horizon and channels, `floor(N/K)` per bucket with the remainder in the last and empty buckets skipped, division by the fixed number of groups `G` rather than the current stage)."
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite; license recorded as `NOASSERTION`."

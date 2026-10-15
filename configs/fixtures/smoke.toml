@@ -1,0 +1,8 @@
+[dataset]
+name = "weather"
+path = "./dataset/smoke/smoke.csv"
+
+[dataset.params]
+target = "OT"
+scale = true
+split_ratio = [0.6, 0.2, 0.2]

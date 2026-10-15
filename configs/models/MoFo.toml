@@ -1,0 +1,11 @@
+[model]
+name = "MoFo"
+
+[model.params]
+enc_in = 6
+d_model = 64
+periodic = 24
+head = 4
+d_layers = 1
+bias = 1
+cias = 1

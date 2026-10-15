@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "adaptive_node_embedding_adjacency"
+role = "Learns a dense node graph from node embeddings when no predefined graph exists or the given one is incomplete."
+slot = "channel"
+fits = ["spatial-graph"]
+category = "graph"
+tags = ["adaptive", "adjacency", "embedding", "graph", "node", "softmax", "relu", "row-stochastic", "self-adaptive", "graph-wavenet", "agcrn"]
+input = "source [nodes, dim] or [..., nodes, dim]; target (optional) [dim, nodes] or [..., dim, nodes]"
+output = "adjacency [nodes, nodes] (or [..., nodes, nodes]), each row sums to 1"
+origin = "Self-adaptive adjacency of Graph WaveNet (Wu et al., IJCAI 2019) with the single-embedding self-similarity form of AGCRN (Bai et al., NeurIPS 2020); the exact origin of each call site is the consumer model, not recorded per-formula in history"
+origin_models = ["gwnet", "dfdgcn", "d2stgnn", "agcrn", "himnet"]

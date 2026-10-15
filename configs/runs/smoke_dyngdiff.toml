@@ -1,0 +1,39 @@
+# Smoke run for DynGDiff on the tiny built-in smoke dataset (CPU, 1 epoch).
+extends = ["../base.toml", "../fixtures/smoke.toml", "../models/DynGDiff.toml"]
+
+[experiment]
+description = "Smoke: DynGDiff"
+
+[experiment.runtime]
+device = "cpu"
+num_workers = 0
+
+[task]
+mode = "time_series"
+seq_len = 96
+label_len = 48
+pred_len = 12
+features = "M"
+
+[training]
+epochs = 1
+batch_size = 8
+loss = "quantile"
+patience = 1
+
+[evaluation]
+metrics = ["crps", "wql", "coverage_80", "width_80", "mae", "mse"]
+
+[model.params]
+enc_in = 6
+hidden_dim = 16
+num_blocks = 1
+step_embedding_dim = 16
+state_size = 8
+diffusion_steps = 5
+policy_hidden = 8
+policy_step_dim = 8
+num_samples = 4
+sample_batch_size = 4
+backbone_epochs = 1
+backbone_batches_per_epoch = 2

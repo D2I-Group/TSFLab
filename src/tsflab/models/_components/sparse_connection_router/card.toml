@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "sparse_connection_router"
+role = "Learns one sparse, input-independent interaction pattern among time patches as a lightweight alternative to attention."
+slot = "temporal"
+fits = ["efficiency"]
+category = "routing"
+tags = ["adjacency", "bernoulli", "gumbel-softmax", "interaction", "shared", "sparse", "top-k", "straight-through"]
+input = "none (forward takes no tensor); constructor num_positions N, dim, heads"
+output = "(connections [heads, N, N], probabilities [heads, N, N])"
+origin = "Shared sparse connection matrix of LSINet (AAAI 2025, 'A Lightweight Sparse Interaction Network for Time Series Forecasting'): Multihead Sparse Interaction Mechanism / Shared Interaction Learning"
+origin_models = ["lsinet"]

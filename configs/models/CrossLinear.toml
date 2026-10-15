@@ -1,0 +1,10 @@
+[model]
+name = "CrossLinear"
+
+[model.params]
+enc_in = 7
+patch_len = 16
+d_model = 32
+d_ff = 128
+alpha = 0.5
+beta = 0.5

@@ -1,0 +1,86 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MTSUNMixers"
+tags = ["ssm", "mamba", "patching", "decomposition", "channel-mixing", "reconstruction", "normalization"]
+fits = ["low-dimensional-channels"]
+fidelity = "inferred"
+
+[paper]
+title = "MTS-UNMixers: Multivariate Time Series Forecasting via Channel-Time Dual Unmixing"
+url = "https://arxiv.org/abs/2411.17770"
+venue = "arXiv preprint"
+year = 2024
+
+[composition]
+normalization = "local:instance-standardization"
+decomposition = "local:channel-time-dual-unmixing"
+temporal = "component:mamba+local:patch-coefficient-encoder"
+channel = "local:bidirectional-mamba-channel-bases"
+head = "local:concat-projection-of-unmixed-paths"
+loss = "loss:mae+local:history-reconstruction-l1"
+
+[data_params]
+enc_in = { from = "channels", rule = "equal to the dataset's channel count" }
+patch_len = { from = "seq_len", rule = "non-overlapping patches; ceil(seq_len / patch_len) tokens, last padded with the last value" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "none"
+note = ""
+
+[[issues]]
+kind = "unreleased"
+where = "`https://github.com/ZHU-0108/MTS-UNMixers` (link in the abstract)"
+what = "the repository returns 404 as of 2026-10-03; the only archived copies (Wayback Machine, 2024-12-03 landing page, 2025-02-26 `method.png`) contain no code, and no Software Heritage origin exists."
+resolution = "independent implementation from the paper only; no reference comparison is possible."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. III-B, Eqs. (1)-(2)"
+what = "`X` is defined in `R^{T x N}` but `X = A_t S_t` with `A_t in R^{N x k1}` and `S_t in R^{k1 x T}` is `N x T`."
+resolution = "the time-path product is formed per channel as `[N, T]` and transposed."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. IV-B/C vs Sec. III-B"
+what = "the coefficient matrix `S_c` of the channel mixing model (Eq. 6) is produced by the \"Time Encoder\" and the temporal basis `A_t` (Eq. 2) by the \"Channel Encoder\", so the names of encoders, paths and matrices cross over between sections and Fig. 2."
+resolution = "Fig. 2's wiring (patch Mamba -> `S_c` with learnable `A_c`, `A_p`; Bi-Mamba -> `A_t` with learnable `S_t`, `S_p`)."
+
+[[issues]]
+kind = "paper-error"
+where = "Sec. IV-C-b"
+what = "`S_t` and `S_p` are said to be softmax-normalized \"across different time steps\", while Eq. (3) requires each time step's coefficients to sum to one over the `k1` bases."
+resolution = "softmax over the bases (Eq. 3)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (15)"
+what = "how the `[Tp, d]` patch tokens of a channel become `k2` coefficients is not stated, nor how the window is padded into patches."
+resolution = "flatten the patch tokens and apply one linear layer; non-overlapping patches with the last value repeated to fill the final patch."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. (16) and Sec. IV-B-b"
+what = "the token layout of the \"tick-wise\" encoder is ambiguous (\"across channels at each time step\") while `A_t` has one row per channel."
+resolution = "one token per channel (a linear embedding of its window), scanned over channels."
+
+[[issues]]
+kind = "underspecified"
+where = "Figs. 3-4 and Eqs. (14), (16)"
+what = "the normalization type, residual connections, the activation after the convolution and whether the Bi-Mamba directions share the input projection are not specified."
+resolution = "LayerNorm before each block, no residual (as drawn), SiLU after the convolution as in Mamba, a shared input and output projection with separate convolution and SSM per direction (Fig. 4), `ReLU` gate in the Bi-Mamba only (Sec. IV-B-b)."
+
+[[issues]]
+kind = "underspecified"
+where = "Eqs. (19)-(20)"
+what = "the concatenation axis of the two paths is not given."
+resolution = "concatenation along time and `Linear(2H -> H)` (`Linear(2T -> T)` for the reconstruction) shared across channels."
+
+[[issues]]
+kind = "underspecified"
+where = "Sec. V"
+what = "`k1`, `k2`, patch length, model width, state size, number of layers, `lambda1`, `lambda2`, normalization, initialization and optimizer are not reported."
+resolution = "`k1 = k2 = 16`, `P = 16`, `d = 128`, `d_state = 16`, `d_conv = 4`, `expand = 2`, one layer per encoder, `lambda1 / lambda2 = 1`, per-window standardization, Xavier-uniform bases and zero coefficient logits."

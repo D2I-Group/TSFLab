@@ -1,0 +1,6 @@
+[model]
+name = "RidgeRegressionTS"
+
+[model.params]
+enc_in = 7
+l2_penalty = 0.0001

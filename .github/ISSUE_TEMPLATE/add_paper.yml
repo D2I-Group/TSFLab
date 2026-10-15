@@ -1,0 +1,20 @@
+name: "Add a paper"
+description: Ask for a forecasting method to be added. An agent reviews it and chooses the model name.
+title: "[Paper] <title>"
+labels: ["paper-request"]
+body:
+  - type: input
+    id: paper
+    attributes:
+      label: Paper link
+      description: arXiv or conference URL.
+      placeholder: https://arxiv.org/abs/...
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional)
+      description: Official code link, where it is already benchmarked, or why it belongs in the catalog.
+    validations:
+      required: false

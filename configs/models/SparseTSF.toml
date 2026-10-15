@@ -1,0 +1,8 @@
+[model]
+name = "SparseTSF"
+
+[model.params]
+enc_in = 7
+period = 24
+d_model = 64
+model_type = "linear"

@@ -1,0 +1,10 @@
+[model]
+name = "DPWMixer"
+
+[model.params]
+enc_in = 7
+d_model = 128
+dropout = 0.1
+patch_len = 16
+stride = 8
+down_sampling_layers = 2

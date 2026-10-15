@@ -1,0 +1,14 @@
+[model]
+name = "AdaMSHyper"
+
+[model.params]
+enc_in = 7
+window_size = [4, 4]
+hyper_num = [50, 20, 10]
+d_embed = 16
+eta = 3
+beta = 0.5
+gamma = 4.2
+lambda_balance = 0.5
+const_weight = 1.0
+dropout = 0.1

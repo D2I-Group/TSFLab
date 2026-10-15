@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "MAFS"
+tags = ["transformer", "multi-agent", "channel-mixing", "graph-learning", "ensemble"]
+fits = ["non-stationary", "high-cross-correlation"]
+fidelity = "reference-checked"
+issues_checked = "Eqs. (4)-(7) checked against `mafs_hetegenous_sub_task/models/Agent_iTrans_Cooperation.py` at the pinned revision; the card records only TSFLab scoping choices (joint single-stage training instead of staged specialization and freezing)."
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the channel count (one variate token per channel per agent)" }
+
+[paper]
+title = "Many Minds, One Goal: Time Series Forecasting via Sub-task Specialization and Inter-agent Cooperation"
+url = "https://papers.nips.cc/paper_files/paper/2025/hash/f34f0630c33be15b8c89426bb8056798-Abstract-Conference.html"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/h505023992/MAFS"
+revision = "4fb26b02824a144d149964b372da98071fc79687"
+license = "MIT"
+reference_sources = ["https://github.com/h505023992/MAFS/blob/4fb26b02824a144d149964b372da98071fc79687/mafs_hetegenous_sub_task/models/Agent_iTrans_Cooperation.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:per-agent-variate-token-embedding"
+channel = "local:variate-token-attention-agents+local:agent-topology-graph-communication"
+head = "local:voting-aggregation-of-agent-heads"
+loss = "loss:mse+local:multi-scale-prefix-specialization"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

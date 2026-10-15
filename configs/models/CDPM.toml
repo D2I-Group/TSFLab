@@ -1,0 +1,16 @@
+[model]
+name = "CDPM"
+
+# Official args.py defaults (ETTh1, input_len = pred_len = 96).
+[model.params]
+enc_in = 7
+diffusion_steps = 50
+schedule = "cosine"
+mlp_hidden = 256
+emb_dim = 256
+patch_len = 8
+n_layers = 14
+dropout = 0.1
+moving_avg = 5
+clip_denoised = true
+eval_seed = 0

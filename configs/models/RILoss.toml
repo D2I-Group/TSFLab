@@ -1,0 +1,12 @@
+[model]
+name = "RILoss"
+
+[model.params]
+enc_in = 7
+kernel_size = 25
+individual = false
+ri_weight = 10.0
+temperature = 1.0
+bandwidth = 1.0
+noise_low = 0.0
+noise_high = 1.0

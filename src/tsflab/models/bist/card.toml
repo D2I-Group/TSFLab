@@ -1,0 +1,45 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "BiST"
+tags = ["mlp", "decomposition", "spatiotemporal", "graph-learning", "covariates", "lightweight"]
+fits = ["spatial-graph", "calendar-effects", "efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "BiST: A Lightweight and Efficient Bi-Directional Model for Spatiotemporal Prediction"
+url = "https://www.vldb.org/pvldb/vol18/p1663-wang.pdf"
+venue = "PVLDB 2025"
+year = 2025
+
+[code]
+url = "https://github.com/PoorOtterBob/BiST"
+revision = "dd94adf7721fcbb9e3feb5d1b44040305199a4cc"
+license = "NOASSERTION"
+reference_sources = []
+
+[composition]
+normalization = "none"
+decomposition = "component:series_decomposition"
+temporal = "local:residual-mlp-forward-and-backward-representations"
+channel = "local:virtual-cluster-context-graph+local:adaptive-diffusion-kernel"
+head = "local:linear-base-and-correction-heads"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "nodes", rule = "number of nodes (series); sizes node prompts and the learned graph" }
+tod_size = { from = "frequency", rule = "time-of-day prompt slots; steps per day (24 hourly, 288 for 5-minute data)" }
+kernel_size = { from = "period", rule = "moving-average window of the stable/trend decomposition" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "clean-room implementation of Eqs. 5-24 with the repository used for paper discovery only; license recorded as `NOASSERTION`."

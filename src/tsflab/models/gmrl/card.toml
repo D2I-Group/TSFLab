@@ -1,0 +1,129 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "GMRL"
+tags = ["cnn", "spatiotemporal", "tensor-time-series", "multi-source", "gaussian-mixture", "clustering", "memory-network", "dilated-convolution", "aux-loss", "training-objective"]
+fits = ["high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Learning Gaussian Mixture Representations for Tensor Time Series Forecasting"
+url = "https://arxiv.org/abs/2306.00390"
+venue = "IJCAI 2023"
+year = 2023
+
+[code]
+url = "https://github.com/beginner-sketch/GMRL"
+revision = "ef37b8a4d3c282c8f1134c2033696fb0ffbe0130"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/beginner-sketch/GMRL/blob/ef37b8a4d3c282c8f1134c2033696fb0ffbe0130/models/GMRL.py", "https://github.com/beginner-sketch/GMRL/blob/ef37b8a4d3c282c8f1134c2033696fb0ffbe0130/main.py", "https://github.com/beginner-sketch/GMRL/blob/ef37b8a4d3c282c8f1134c2033696fb0ffbe0130/utils/data_utils_mutilsource.py"]
+
+[composition]
+normalization = "local:gaussian-mixture-cluster-norm"
+decomposition = "none"
+temporal = "local:tensor-time-series-embedding+local:source-spanning-gated-dilated-conv"
+channel = "local:source-spanning-conv+local:memory-bank-augmenter"
+head = "local:two-layer-relu-conv-predictor"
+loss = "loss:mse+local:gaussian-mixture-cluster-objective"
+
+[data_params]
+enc_in = { from = "channels", rule = "num_sources * num_locations, flattened source-major (channel s * L + l is source s at location l)" }
+num_sources = { from = "channels", rule = "number of co-located sources; must divide enc_in (1 for ordinary node datasets)" }
+layers = { from = "seq_len", rule = "seq_len must equal 1 + (kernel_size - 1)(2^layers - 1), e.g. 16 for kernel 2 and 4 layers" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`models/GMRL.py` `GMRE.cluster_norm`"
+what = "`new_mu = labels` and `new_sigma = labels` alias one tensor, so the masked write of `sigma_k` overwrites the write of `mu_k` and the result is `(h - sigma_k) / (sigma_k + 1e-5)`; the cluster means never enter Cluster Norm."
+resolution = "the paper's `(h - mu_k) / (sigma_k + eps)` with gathered per-cluster parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`models/GMRL.py` `GMRL.__init__` and `HRA.__init__`"
+what = "the TTSE embeddings, memory `M`, `W_q` and `W_fc` are created as `nn.Parameter(...).to(device)`, which on a CUDA device returns a plain non-leaf tensor; they are then not module parameters, so the optimizer never updates them and they are missing from the saved `state_dict`."
+resolution = "registered, trained parameters."
+
+[[issues]]
+kind = "code-bug"
+where = "`main.py` `train`"
+what = "the objective uses an undefined name `lam` (the option is `--lamb`), so training with the default `-mix_loss True` stops with a `NameError` at the first batch."
+resolution = "`cluster_weight` with the `--lamb` default 1."
+
+[[issues]]
+kind = "code-bug"
+where = "`main.py` argument parser"
+what = "`--lr` and `--lamb` are declared `type=int` (fractional values are rejected) and `-hra_bool` / `-mix_loss` `type=bool` (any non-empty string, including `False`, is true)."
+resolution = "recorded; typed parameters here."
+
+[[issues]]
+kind = "code-bug"
+where = "`utils/data_utils_mutilsource.py` `data_gen`, `mix_scaler` branch"
+what = "indexes source 4 (`seq_train[:,:,:,4,:]`) of the 4-source NYC tensor, an `IndexError`."
+resolution = "recorded; scaling belongs to the run's data pipeline."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 4.1 vs `models/GMRL.py` `GMRL.__init__`"
+what = "the paper states dilation rates {2, 4, 8, 16}, the code uses 1, 2, 4, 8; with kernel 2 the paper's rates would need 31 input steps, not the stated 16."
+resolution = "follow the code; `seq_len` must equal `1 + (k - 1)(2^layers - 1)`."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 7 vs `models/GMRL.py` `GMRE.calculate_loss`"
+what = "the code's `F.kl_div(q_z, alphas)` with `q_z` the mean of log posteriors is `KL(P(z) || Q)` with a geometric-mean `Q`, the reverse of the paper's `KL(Q(z) || P(z))` with `Q` the averaged posterior, and the expected log-likelihood is also averaged over `K`."
+resolution = "follow Eq. 7."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eqs. 3-4 vs `models/GMRL.py` `GMRE.__init__`"
+what = "the paper indexes the weights `W_{k,i}` by channel `i`, the code uses one kernel-1 `Conv1d` over the flattened slice shared by all channels."
+resolution = "follow the code (shared projections)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 4 vs `models/GMRL.py` `GMRE.getlogPdf` and `cluster_norm`"
+what = "the paper's `exp(.)` is the variance `sigma^2`, the code uses it as the standard deviation."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. 3.1 vs `models/GMRL.py` `GMRL.forward`"
+what = "the paper feeds `H = [f(X), E]`, the code adds `proj3` (1x1 conv and ReLU) after the concatenation."
+resolution = "follow the code."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 9 vs `models/GMRL.py` `HRA.__init__`"
+what = "the paper has biases `b_Q` and `b_V`, the code's `W_q` and `W_fc` have none."
+resolution = "follow the paper (with biases)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Table 2 vs `data/NYC.h5` and `main.py`"
+what = "the paper's NYC data spans 2015/10/24-2016/1/31 in 1-hour slots (4392 steps, 3912/240/240), while the shipped file holds 4368 half-hour slots dated 2016-04-01 to 2016-06-30 (the MoSSL dataset), split 81/5/5 days with `n_slots = 48`."
+resolution = "recorded; the preset keeps the 98 x 4 layout, 16 steps in and 3 out."
+
+[[issues]]
+kind = "underspecified"
+where = "Eq. 12 vs `GMRL.forward`"
+what = "the paper defines `L_cluster` per GMRE but not how the layers combine; the code returns only the last layer's loss (the loop overwrites it)."
+resolution = "mean over layers."
+
+[[issues]]
+kind = "unreleased"
+where = "repository at `ef37b8a4`"
+what = "the BJ Air Quality data and its configuration are not shipped."
+resolution = "recorded."
+
+[[issues]]
+kind = "license"
+where = "repository root at `ef37b8a4`"
+what = "no license file."
+resolution = "recorded as `NOASSERTION`; independent rewrite, nothing copied."

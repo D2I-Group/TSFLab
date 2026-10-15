@@ -1,0 +1,35 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "SOFTS"
+tags = ["mlp", "inverted-tokens", "channel-mixing", "normalization", "lightweight"]
+fits = ["high-cross-correlation", "many-channels", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the STAR series-core aggregation and redistribution were checked against the paper and the pinned official repository; the card records no paper or code problem."
+
+[paper]
+title = "SOFTS: Efficient Multivariate Time Series Forecasting with Series-Core Fusion"
+url = "https://proceedings.neurips.cc/paper_files/paper/2024/hash/754612bde73a8b65ad8743f1f6d8ddf6-Abstract-Conference.html"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/Secilia-Cxy/SOFTS"
+revision = "f5d35fd7c3e716b6383ce6d3cc42c131e32c3c44"
+license = "MIT"
+reference_sources = []
+
+[composition]
+normalization = "component:instance_norm"
+decomposition = "none"
+temporal = "local:inverted-series-embedding"
+channel = "local:star-aggregate-redistribute"
+head = "local:linear-variate-token-projection"
+loss = "loss:mse"
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

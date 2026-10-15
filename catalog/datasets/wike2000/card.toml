@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "wike2000"
+domain = "cloud-web"
+topic = "web traffic"
+benchmarks = ["tfb"]
+tags = ["wikipedia", "page-views", "web-traffic", "gluonts", "gp-copula", "daily", "tfb", "multivariate", "high-dimensional", "short-series", "counts"]
+related = ["covid19", "nn5", "traffic"]
+characteristics = ["weak-seasonality", "low-forecastability", "regime-changes", "heteroscedastic", "level-dependent-variance", "heavy-tails", "weak-cross-correlation", "many-channels", "short-train"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "TFB forecasting archive (Qiu et al., PVLDB 2024), member forecasting/Wike2000.csv; Wikipedia page-view counts equal to the train split of GluonTS wiki2000_nips (GP-Copula datasets of Salinas et al., 2019); TFB cites Gasthaus et al. (AISTATS 2019)"
+url = "https://drive.google.com/file/d/1vgpOmAygokoUt235piWKUjfwao6KwLv7/view"
+citation = "High-dimensional multivariate forecasting with low-rank Gaussian Copula Processes (Salinas et al., NeurIPS 2019); TFB cites Probabilistic Forecasting with Spline Quantile Function RNNs (Gasthaus et al., AISTATS 2019)"
+citation_url = "https://arxiv.org/abs/1910.03002"
+license = "No data license: TFB repackages GluonTS wiki2000_nips (Salinas et al., GP-Copula, NeurIPS 2019; 2,000 Wikipedia pages, daily 2012-01-01 to 2014-03-02), released without a data license; the underlying Wikimedia page counts are CC0-1.0"
+license_url = "https://github.com/awslabs/gluonts/blob/dev/src/gluonts/dataset/repository/_gp_copula_2019.py"
+redistribution = "script"
+conditions = "Never re-host this file; users rebuild it from the TFB archive with `tsf data prepare --from tfb --datasets wike2000`. Only a copy rebuilt from the CC0 Wikimedia pageview dumps could be hosted."
+
+[shape]
+frequency = "daily (1d)"
+time_span = "2012-01-01 to 2014-03-02"
+length = 792
+channels = 2000
+channel_kind = "series"
+target = "OT (last series; TFB's long-format file names it 1999, renamed OT when pivoted to wide)"
+missing_values = "no NaN; on 2014-01-05 every series is exactly 0 (the only zeros in the file), an apparent collection outage"
+stats_basis = "measured"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 36/104, horizons 24/36/48/60"
+literature = "TFB multivariate: lookback 36 or 104, horizons 24/36/48/60, chronological 7:1:2 (TFB `train_ratio_in_tv` default 0.875 with `tv_ratio` 0.8); GluonTS/GP-Copula evaluates 30-day horizons on 5 rolling windows beyond day 792"
+split = "7:1:2"
+seq_lens = [36, 104]
+pred_lens = [24, 36, 48, 60]

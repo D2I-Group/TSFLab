@@ -1,0 +1,43 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TimeO1"
+tags = ["mlp", "linear", "channel-independent", "lightweight", "label-alignment"]
+fits = ["long-horizon"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Time-o1: Time-Series Forecasting Needs Transformed Label Alignment"
+url = "https://arxiv.org/abs/2505.17847"
+venue = "NeurIPS 2025"
+year = 2025
+
+[code]
+url = "https://github.com/Master-PLC/Time-o1"
+revision = "c93d4c545ee0fe4929d0b8ba37268d0da161bb9d"
+license = "MIT"
+reference_sources = ["https://github.com/Master-PLC/Time-o1/blob/c93d4c545ee0fe4929d0b8ba37268d0da161bb9d/utils/polynomial.py", "https://github.com/Master-PLC/Time-o1/blob/c93d4c545ee0fe4929d0b8ba37268d0da161bb9d/README.md"]
+
+[composition]
+normalization = "none"
+decomposition = "local:per-variate-svd-label-basis"
+temporal = "local:mlp-plus-linear-skip"
+channel = "local:channel-independent-shared-weights"
+head = "local:mlp-plus-linear-skip"
+loss = "loss:mse+local:svd-transformed-label-alignment"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels; one pred_len x pred_len label basis per channel, fitted on the training split" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. (5) vs `exp/exp_long_term_forecasting.py`"
+what = "the paper's transformed-domain alignment loss is a sum, while the official trainer uses mean reductions (and the configured criterion for the temporal term)."
+resolution = "the runner follows the trainer's mean reductions; `transformed_alignment_loss` keeps the summed Eq. (5) as its default."

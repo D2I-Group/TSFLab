@@ -1,0 +1,37 @@
+schema = "tsflab.card/1"
+kind = "dataset"
+name = "solar"
+domain = "energy"
+topic = "solar power"
+benchmarks = ["tfb"]
+tags = ["solar", "photovoltaic", "pv", "alabama", "nrel", "energy", "ltsf", "benchmark", "multivariate", "10min", "lstnet", "zero-inflated"]
+related = ["electricity", "gift_eval/solar_10T"]
+characteristics = ["strong-seasonality", "high-forecastability", "level-dependent-variance", "zero-inflation", "high-cross-correlation", "low-dimensional-channels"]
+characteristics_basis = "measured by tsf data analyze (tsflab.dataset-profile/1, decision-safe train/val metrics, thresholds in profile_rules.toml) on 2026-10-03"
+
+[source]
+name = "NREL (now NLR) Solar Power Data for Integration Studies; packaged by Lai et al. (LSTNet)"
+url = "https://www.nlr.gov/grid/solar-power-data"
+citation = "Modeling Long- and Short-Term Temporal Patterns with Deep Neural Networks (Lai et al., SIGIR 2018)"
+citation_url = "https://arxiv.org/abs/1703.07015"
+license = "NREL Data Use Disclaimer"
+license_url = "https://www.nlr.gov/disclaimer.html"
+redistribution = "hosted"
+conditions = "Credit DOE/NREL as the source, include the NREL data disclaimer, and imply no DOE/NREL endorsement."
+
+[shape]
+frequency = "10-minute (10min)"
+time_span = "2006-01-01 to 2006-12-31 (source-reported; the file has no date column)"
+length = 52560
+channels = 137
+channel_kind = "channels"
+target = "column \"0\" (first plant) in S mode; all 137 plants in M mode"
+missing_values = "none (measured: no NaN); night values are exact zeros, not missing"
+stats_basis = "mixed"
+
+[protocol]
+protocol = "TSFLab: chronological 7:1:2 split, scaling fitted on the training split only; lookback 96/336/512, horizons 96/192/336/720"
+literature = "LTSF: lookback 96 (336 and 512 also searched), horizons 96/192/336/720; TFB uses chronological 6:2:2 while this preset uses 7:1:2; LSTNet used 6:2:2 with horizons 3/6/12/24 steps"
+split = "7:1:2"
+seq_lens = [96, 336, 512]
+pred_lens = [96, 192, 336, 720]

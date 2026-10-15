@@ -1,0 +1,19 @@
+[model]
+name = "SEMixer"
+
+[model.params]
+enc_in = 7
+c_out = 7
+d_model = 128
+patch_len = 16
+stride = 8
+scale_factors = "1x2x4x8"
+reduce_dim = 64
+eib_num = 1
+eib_num_1scale = 1
+connection_probability = 0.85
+dropout = 0.1
+mixing_dropout = 0.1
+head_dropout = 0.0
+affine = false
+subtract_last = false

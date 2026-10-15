@@ -1,0 +1,44 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "CRIB"
+tags = ["transformer", "patching", "channel-mixing", "missing-values", "information-bottleneck", "probabilistic", "normalization"]
+fits = ["missing-values", "high-cross-correlation"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Revisiting Multivariate Time Series Forecasting with Missing Values"
+url = "https://arxiv.org/abs/2509.23494"
+venue = "ICLR 2026"
+year = 2026
+
+[code]
+url = "https://github.com/Muyiiiii/CRIB"
+revision = "a457672c7b0152f74c929858dba2a9c886405519"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/Muyiiiii/CRIB/blob/a457672c7b0152f74c929858dba2a9c886405519/TSL_models/CRIB.py", "https://github.com/Muyiiiii/CRIB/blob/a457672c7b0152f74c929858dba2a9c886405519/TSL_models/CRIB_module.py"]
+
+[composition]
+normalization = "local:observed-only-instance-standardization"
+decomposition = "none"
+temporal = "local:value-and-mask-conv-patch-embedding"
+channel = "local:unified-variate-self-attention"
+head = "local:gaussian-bottleneck-mlp-predictor"
+loss = "loss:mse+local:consistency-and-kl-aux-loss"
+
+[data_params]
+enc_in = { from = "channels", rule = "must equal the dataset channel count" }
+patch_len = { from = "seq_len", rule = "must divide seq_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "license"
+where = "repository root"
+what = "no license file at the pinned revision."
+resolution = "independent rewrite from the paper with the repository used as reference only; license recorded as `NOASSERTION`."

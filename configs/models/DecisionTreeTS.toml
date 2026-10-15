@@ -1,0 +1,8 @@
+[model]
+name = "DecisionTreeTS"
+
+[model.params]
+enc_in = 7
+tree_depth = 4
+temperature = 1.0
+use_revin = true

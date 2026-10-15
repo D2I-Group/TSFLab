@@ -1,0 +1,16 @@
+# GIFT-EVAL dataset: m4_quarterly
+# pred_len follows GIFT-EVAL "short" term (1x).
+# Other terms:  medium = 80 (10x),  long = 120 (15x)
+
+[dataset]
+name = "gift_eval"
+alias = "gift_eval/m4_quarterly"
+path = "./dataset/gift_eval"
+id = "m4_quarterly"
+
+[dataset.params]
+scale = true
+
+[task]
+pred_len = 8
+features = "M"

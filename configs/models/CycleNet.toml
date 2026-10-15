@@ -1,0 +1,9 @@
+[model]
+name = "CycleNet"
+
+[model.params]
+enc_in = 7
+cycle = 24
+model_type = "linear"
+d_model = 512
+use_revin = true

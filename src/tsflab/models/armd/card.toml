@@ -1,0 +1,56 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "ARMD"
+tags = ["diffusion", "channel-independent", "lightweight", "loss-framework"]
+fits = ["efficiency"]
+fidelity = "reference-checked"
+
+[paper]
+title = "Auto-Regressive Moving Diffusion Models for Time Series Forecasting"
+url = "https://arxiv.org/abs/2412.09328"
+venue = "AAAI 2025"
+year = 2025
+
+[code]
+url = "https://github.com/daxin007/ARMD"
+revision = "07a3dc4674f2f5cdf401e1a7f8895939bb2b07e2"
+license = "MIT"
+reference_sources = ["https://github.com/daxin007/ARMD/blob/07a3dc4674f2f5cdf401e1a7f8895939bb2b07e2/Models/autoregressive_diffusion/armd.py", "https://github.com/daxin007/ARMD/blob/07a3dc4674f2f5cdf401e1a7f8895939bb2b07e2/Models/autoregressive_diffusion/linear.py"]
+
+[composition]
+normalization = "none"
+decomposition = "none"
+temporal = "local:linear-devolution-network"
+channel = "none"
+head = "local:ddim-window-sampler"
+loss = "local:evolution-trend-l1"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of input channels (shape check; the devolution net is shared by channels)" }
+sampling_steps = { from = "pred_len", rule = "DDIM steps; at most pred_len (the diffusion length); seq_len must be >= pred_len" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""
+
+[[issues]]
+kind = "code-bug"
+where = "`Models/autoregressive_diffusion/armd.py` and `linear.py`"
+what = "a module-level `pred_len = 96` and `timesteps = 96` hard-code the horizon and every schedule length, so other horizons are ignored."
+resolution = "the number of diffusion steps and all schedules equal `pred_len`, as the paper states."
+
+[[issues]]
+kind = "code-bug"
+where = "`Models/autoregressive_diffusion/linear.py` `forward` (`input_ += w_dev[t] * noise`)"
+what = "the training deviation is added in place to a view of the training window, so the noise also leaks into the loss target and the intermediate state."
+resolution = "the deviation perturbs the network input only; the trend losses use the clean state and future (Eq. 3, 6)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Eq. 7 vs `armd.py` (`loss_weight = sqrt(alpha) sqrt(1 - abar) / beta / 100`)"
+what = "the official loss carries a per-step weight that Eq. 7 omits."
+resolution = "the official weight is reproduced."

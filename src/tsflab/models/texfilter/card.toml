@@ -1,0 +1,38 @@
+schema = "tsflab.card/1"
+kind = "model"
+name = "TexFilter"
+tags = ["mlp", "frequency", "channel-independent", "normalization", "lightweight"]
+fits = ["outliers", "long-horizon", "efficiency"]
+fidelity = "reference-checked"
+issues_checked = "the card records the contextual kernel of Eq. (9) (complex spectrum embedding, ReLU-gated complex context, filtering, inverse FFT) as followed from the paper and documents no paper or official-code problem."
+
+[paper]
+title = "FilterNet: Harnessing Frequency Filters for Time Series Forecasting"
+url = "https://arxiv.org/abs/2411.01623"
+venue = "NeurIPS 2024"
+year = 2024
+
+[code]
+url = "https://github.com/aikunyi/FilterNet"
+revision = "cdb321c4e338e0c07b45cee92f54b3c5bd5a809e"
+license = "Apache-2.0"
+reference_sources = []
+
+[composition]
+normalization = "component:revin"
+decomposition = "none"
+temporal = "local:contextual-shaping-fourier-filter"
+channel = "local:channel-independent-shared-weights"
+head = "local:two-layer-mlp-head"
+loss = "loss:mse"
+
+[data_params]
+enc_in = { from = "channels", rule = "number of channels (sizes RevIN)" }
+
+[admission]
+status = "passed"
+date = "2026-10-14"
+commit = "6c102af9"
+device = "cpu"
+reference = "official"
+note = ""

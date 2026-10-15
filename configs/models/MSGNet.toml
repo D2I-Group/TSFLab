@@ -1,0 +1,13 @@
+[model]
+name = "MSGNet"
+
+[model.params]
+enc_in = 7
+d_model = 128
+e_layers = 2
+n_heads = 8
+top_k = 5
+dropout = 0.1
+gcn_depth = 2
+propalpha = 0.3
+node_dim = 10

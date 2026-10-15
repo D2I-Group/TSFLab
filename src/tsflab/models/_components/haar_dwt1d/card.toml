@@ -1,0 +1,12 @@
+schema = "tsflab.card/1"
+kind = "component"
+name = "haar_dwt1d"
+role = "Splits a series losslessly into coarse and detail half-length parts for multi-resolution or downsampled modelling."
+slot = "decomposition"
+fits = ["any"]
+category = "decomposition"
+tags = ["dwt", "haar", "sub-series", "wavelet", "lossless", "orthonormal", "odd-length-padding", "stateless", "decimated"]
+input = "x [..., T] (T >= 2); inverse: approx [..., M], detail [..., M] (same shape), optional length"
+output = "forward: (approx, detail) each [..., ceil(T/2)]; inverse: [..., 2M] or [..., length]"
+origin = "Haar wavelet sub-series mapping of SWIFT, Mapping Sub-series with Wavelet Decomposition Improves Time Series Forecasting (arXiv 2501.16178, 2025)"
+origin_models = ["swift"]
