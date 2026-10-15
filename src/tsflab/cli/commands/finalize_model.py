@@ -38,13 +38,7 @@ def _workspace(name: str) -> tuple[Path, dict[str, object]]:
     return spec_path.parent, declared_model_fields(spec_path)
 
 
-def _preflight(name: str) -> tuple[Path, str]:
-    package, fields = _workspace(name)
-    expected_module = f"tsflab.models.{package.name}"
-    # ``module`` is normally left to its derived default; an explicit one must agree.
-    module = str(fields.get("module", expected_module))
-    if module != expected_module:
-        raise ValueError(f"spec module must be {expected_module!r}, got {module!r}")
+def _check_files(name: str, package: Path, fields: dict[str, object]) -> None:
     required = [
         package / "__init__.py",
         package / "model.py",
@@ -68,6 +62,8 @@ def _preflight(name: str) -> tuple[Path, str]:
     if card_problems:
         raise ValueError("model card is incomplete: " + "; ".join(card_problems))
 
+
+def _check_components(package: Path, fields: dict[str, object]) -> None:
     declared_components = set(fields.get("components", ()))
     unknown = declared_components - set(COMPONENT_CATALOG.names())
     if unknown:
@@ -78,6 +74,17 @@ def _preflight(name: str) -> tuple[Path, str]:
             "component declaration/import mismatch: "
             f"declared={sorted(declared_components)}, imported={sorted(imported_components)}"
         )
+
+
+def _preflight(name: str) -> tuple[Path, str]:
+    package, fields = _workspace(name)
+    expected_module = f"tsflab.models.{package.name}"
+    # ``module`` is normally left to its derived default; an explicit one must agree.
+    module = str(fields.get("module", expected_module))
+    if module != expected_module:
+        raise ValueError(f"spec module must be {expected_module!r}, got {module!r}")
+    _check_files(name, package, fields)
+    _check_components(package, fields)
 
     imported = importlib.import_module(f"{module}.spec")
     spec = getattr(imported, "SPEC", None)

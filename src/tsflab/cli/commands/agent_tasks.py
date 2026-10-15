@@ -74,6 +74,81 @@ def _modules_command(tail: list[str]) -> int:
     return 0
 
 
+def _task_list(tail: list[str]) -> int:
+    if tail not in ([], ["--json"]):
+        raise AgentTaskError("usage: tsf agent task list [--json]")
+    records = list_tasks()
+    if tail == ["--json"]:
+        _json(records)
+    else:
+        for record in records:
+            print(f"{record['name']}: {record['summary']}")
+    return 0
+
+
+def _task_show(tail: list[str]) -> int:
+    tail = [arg for arg in tail if arg != "--json"]  # always JSON
+    if len(tail) != 1:
+        raise AgentTaskError("usage: tsf agent task show <name> [--json]")
+    _json(load_task(tail[0]))
+    return 0
+
+
+def _task_validate(tail: list[str]) -> int:
+    if tail:
+        for name in tail:
+            load_task(name)
+        print(f"Agent tasks OK: {len(tail)} selected")
+        return 0
+    errors = audit_tasks()
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}")
+        return 1
+    print(f"Agent tasks OK: {len(list_tasks())} templates")
+    return 0
+
+
+def _task_render(action: str, tail: list[str]) -> int:
+    parsed = _render_parser(action).parse_args(tail)
+    payload = render_task(parsed.name, _supplied(parsed.set))
+    if action == "start":
+        from tsflab.experiments.infra.research import prepare_task
+
+        payload = prepare_task(parsed.name, _supplied(parsed.set), persist=True)
+        round_state = payload["round"]
+        prompt_path = payload["prompt_path"]
+        if not parsed.json:
+            print(
+                f"Prepared research round: {round_state['id']}\nPrompt: {prompt_path}\n\n",
+                end="",
+            )
+            print(render_text(payload["task"]), end="")
+            return 0
+    _json(payload) if parsed.json else print(render_text(payload), end="")
+    return 0
+
+
+_TASK_ACTIONS = {"list": _task_list, "show": _task_show, "validate": _task_validate}
+
+
+def _task_command(rest: list[str]) -> int:
+    if not rest or rest[0] in {"-h", "--help", "help"}:
+        print(_usage())
+        return 0
+    action, tail = rest[0], rest[1:]
+    try:
+        if action in _TASK_ACTIONS:
+            return _TASK_ACTIONS[action](tail)
+        if action in {"render", "start"}:
+            return _task_render(action, tail)
+    except (AgentTaskError, ResearchRoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"unknown Agent task action: {action}", file=sys.stderr)
+    return 2
+
+
 def agent_command(args: list[str]) -> int:
     """Route task inspection, rendering, interface discovery, and project asset sync."""
     if not args or args[0] in {"-h", "--help", "help"}:
@@ -92,61 +167,4 @@ def agent_command(args: list[str]) -> int:
     if args[0] != "task":
         print(_usage(), file=sys.stderr)
         return 2
-    rest = args[1:]
-    if not rest or rest[0] in {"-h", "--help", "help"}:
-        print(_usage())
-        return 0
-    action, tail = rest[0], rest[1:]
-    try:
-        if action == "list":
-            if tail not in ([], ["--json"]):
-                raise AgentTaskError("usage: tsf agent task list [--json]")
-            records = list_tasks()
-            if tail == ["--json"]:
-                _json(records)
-            else:
-                for record in records:
-                    print(f"{record['name']}: {record['summary']}")
-            return 0
-        if action == "show":
-            tail = [arg for arg in tail if arg != "--json"]  # always JSON
-            if len(tail) != 1:
-                raise AgentTaskError("usage: tsf agent task show <name> [--json]")
-            _json(load_task(tail[0]))
-            return 0
-        if action == "validate":
-            if tail:
-                for name in tail:
-                    load_task(name)
-                print(f"Agent tasks OK: {len(tail)} selected")
-                return 0
-            errors = audit_tasks()
-            if errors:
-                for error in errors:
-                    print(f"ERROR: {error}")
-                return 1
-            print(f"Agent tasks OK: {len(list_tasks())} templates")
-            return 0
-        if action in {"render", "start"}:
-            parsed = _render_parser(action).parse_args(tail)
-            payload = render_task(parsed.name, _supplied(parsed.set))
-            if action == "start":
-                from tsflab.experiments.infra.research import prepare_task
-
-                payload = prepare_task(parsed.name, _supplied(parsed.set), persist=True)
-                round_state = payload["round"]
-                prompt_path = payload["prompt_path"]
-                if not parsed.json:
-                    print(
-                        f"Prepared research round: {round_state['id']}\nPrompt: {prompt_path}\n\n",
-                        end="",
-                    )
-                    print(render_text(payload["task"]), end="")
-                    return 0
-            _json(payload) if parsed.json else print(render_text(payload), end="")
-            return 0
-    except (AgentTaskError, ResearchRoundError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    print(f"unknown Agent task action: {action}", file=sys.stderr)
-    return 2
+    return _task_command(args[1:])

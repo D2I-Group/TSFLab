@@ -228,6 +228,35 @@ def _per_series(x: np.ndarray, period: int, scope: str) -> Characteristics:
     )
 
 
+def _dataset_row(series: np.ndarray, period: int, per_ch: list[Characteristics]) -> Characteristics:
+    """Aggregate dataset row: average per-channel univariate stats."""
+    n, c = series.shape
+    return Characteristics(
+        scope="dataset",
+        length=n,
+        channels=c,
+        period=period,
+        trend_strength=float(np.mean([r.trend_strength for r in per_ch])),
+        seasonality_strength=float(np.mean([r.seasonality_strength for r in per_ch])),
+        stationarity=float(np.mean([r.stationarity for r in per_ch])),
+        stationarity_method=per_ch[0].stationarity_method if per_ch else "n/a",
+        shifting=float(np.mean([r.shifting for r in per_ch])),
+        transition=float(np.mean([r.transition for r in per_ch])),
+        correlation=_channel_correlation(series),
+    )
+
+
+def _channel_rows(series: np.ndarray, period: int | None, per_ch: list[Characteristics]) -> list[Characteristics]:
+    """Per-channel rows, recomputed with each channel's own period unless ``period`` is fixed."""
+    rows: list[Characteristics] = []
+    for r in per_ch:
+        ch_period = period if period is not None else _dominant_period(series[:, int(r.scope[2:])])
+        if ch_period != r.period:
+            r = _per_series(series[:, int(r.scope[2:])], ch_period, r.scope)
+        rows.append(r)
+    return rows
+
+
 def compute_characteristics(series: np.ndarray, period: int | None, per_channel: bool) -> list[Characteristics]:
     """Compute dataset-level (and optionally per-channel) characteristics."""
     series = np.asarray(series, dtype=np.float64)
@@ -242,29 +271,11 @@ def compute_characteristics(series: np.ndarray, period: int | None, per_channel:
 
     rows: list[Characteristics] = []
 
-    # Aggregate dataset row: average per-channel univariate stats.
     per_ch = [_per_series(series[:, j], ds_period, f"ch{j}") for j in range(c)]
-    agg = Characteristics(
-        scope="dataset",
-        length=n,
-        channels=c,
-        period=ds_period,
-        trend_strength=float(np.mean([r.trend_strength for r in per_ch])),
-        seasonality_strength=float(np.mean([r.seasonality_strength for r in per_ch])),
-        stationarity=float(np.mean([r.stationarity for r in per_ch])),
-        stationarity_method=per_ch[0].stationarity_method if per_ch else "n/a",
-        shifting=float(np.mean([r.shifting for r in per_ch])),
-        transition=float(np.mean([r.transition for r in per_ch])),
-        correlation=_channel_correlation(series),
-    )
-    rows.append(agg)
+    rows.append(_dataset_row(series, ds_period, per_ch))
 
     if per_channel:
-        for r in per_ch:
-            ch_period = period if period is not None else _dominant_period(series[:, int(r.scope[2:])])
-            if ch_period != r.period:
-                r = _per_series(series[:, int(r.scope[2:])], ch_period, r.scope)
-            rows.append(r)
+        rows.extend(_channel_rows(series, period, per_ch))
 
     return rows
 

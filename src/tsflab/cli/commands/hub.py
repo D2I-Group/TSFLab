@@ -40,9 +40,7 @@ def _pack(run: str, out: Path) -> dict:
     return hub.pack(record, checkpoint, out)
 
 
-def _results_command(argv: list[str], default_repo: str) -> int:
-    from tsflab.release.hub import results
-
+def _results_parser(default_repo: str, default_batch: int) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tsf result hub results")
     sub = parser.add_subparsers(dest="action", required=True)
     push = sub.add_parser("push", help="upload validated submission bundles to results/ and rebuild the board")
@@ -57,7 +55,7 @@ def _results_command(argv: list[str], default_repo: str) -> int:
     push.add_argument("--dry-run", action="store_true", help="plan from local files; no network")
     push.add_argument("--force", action="store_true", help="re-upload bundles already present")
     push.add_argument("--skip-invalid", action="store_true", help="upload the valid bundles, report the rest")
-    push.add_argument("--batch", type=int, default=results.DEFAULT_BATCH, help="bundles per commit")
+    push.add_argument("--batch", type=int, default=default_batch, help="bundles per commit")
     push.add_argument("--no-board", action="store_true", help="do not regenerate board/ afterwards")
     push.add_argument("--create", action="store_true", help="create the repo if missing")
     push.add_argument("--private", action="store_true", help="create the repo as private")
@@ -78,39 +76,51 @@ def _results_command(argv: list[str], default_repo: str) -> int:
     )
     board.add_argument("--out", type=Path, default=None, help="also write the board files here")
     board.add_argument("--no-upload", action="store_true", help="build only; do not commit board/")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def _results_push(args: argparse.Namespace) -> int:
+    from tsflab.release.hub import results
+
+    summary = results.push_results(
+        args.sources,
+        args.repo,
+        dry_run=args.dry_run,
+        force=args.force,
+        skip_invalid=args.skip_invalid,
+        batch=args.batch,
+        create=args.create,
+        private=args.private,
+    )
+    verb = "would upload" if args.dry_run else "uploaded"
+    count = summary["found"] if args.dry_run else summary["uploaded"]
+    print(
+        f"{summary['found']} valid bundle(s), {summary['rejected']} rejected, "
+        f"{summary['skipped']} already present; {verb} {count} to {args.repo}"
+    )
+    for path in summary["paths"][:10]:
+        print(f"  {path}")
+    if len(summary["paths"]) > 10:
+        print(f"  ... {len(summary['paths']) - 10} more")
+    for oid in summary["commits"]:
+        print(f"  commit {oid}")
+    if args.dry_run or args.no_board:
+        return 0
+    if summary["uploaded"] == 0:
+        print("board unchanged (nothing uploaded)")
+        return 0
+    board_summary = results.publish_board(args.repo)
+    print(f"board: {board_summary['n_submissions']} submission(s), commit {board_summary['commit']}")
+    return 0
+
+
+def _results_command(argv: list[str], default_repo: str) -> int:
+    from tsflab.release.hub import results
+
+    args = _results_parser(default_repo, results.DEFAULT_BATCH).parse_args(argv)
 
     if args.action == "push":
-        summary = results.push_results(
-            args.sources,
-            args.repo,
-            dry_run=args.dry_run,
-            force=args.force,
-            skip_invalid=args.skip_invalid,
-            batch=args.batch,
-            create=args.create,
-            private=args.private,
-        )
-        verb = "would upload" if args.dry_run else "uploaded"
-        count = summary["found"] if args.dry_run else summary["uploaded"]
-        print(
-            f"{summary['found']} valid bundle(s), {summary['rejected']} rejected, "
-            f"{summary['skipped']} already present; {verb} {count} to {args.repo}"
-        )
-        for path in summary["paths"][:10]:
-            print(f"  {path}")
-        if len(summary["paths"]) > 10:
-            print(f"  ... {len(summary['paths']) - 10} more")
-        for oid in summary["commits"]:
-            print(f"  commit {oid}")
-        if args.dry_run or args.no_board:
-            return 0
-        if summary["uploaded"] == 0:
-            print("board unchanged (nothing uploaded)")
-            return 0
-        board_summary = results.publish_board(args.repo)
-        print(f"board: {board_summary['n_submissions']} submission(s), commit {board_summary['commit']}")
-        return 0
+        return _results_push(args)
     if args.action == "pull":
         out = results.pull_results(
             args.repo, args.out, revision=args.revision, track=args.track, dataset=args.dataset, model=args.model
@@ -163,15 +173,8 @@ def _push_top(args) -> int:
     return 0
 
 
-def hub_command(argv: list[str]) -> int:
-    from tsflab.release import hub
-
-    if argv[:1] == ["results"]:
-        try:
-            return _results_command(argv[1:], hub.DEFAULT_CHECKPOINTS_REPO)
-        except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
+def _hub_parser(default_repo: str) -> tuple[argparse.ArgumentParser, argparse.ArgumentParser]:
+    """The ``tsf result hub`` parser and its ``push-top`` subparser."""
     parser = argparse.ArgumentParser(
         prog="tsf result hub", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -181,7 +184,7 @@ def hub_command(argv: list[str]) -> int:
     pack.add_argument("--out", type=Path, default=None)
     push = sub.add_parser("push", help="pack one run and upload it to checkpoints/")
     push.add_argument("run")
-    push.add_argument("--repo", default=hub.DEFAULT_CHECKPOINTS_REPO)
+    push.add_argument("--repo", default=default_repo)
     push.add_argument("--public", action="store_true", help="create the repo as public")
     push.add_argument("--create", action="store_true", help="create the repo if missing")
     top = sub.add_parser("push-top", help="upload the checkpoints of the top-K ranked local runs")
@@ -195,13 +198,13 @@ def hub_command(argv: list[str]) -> int:
         default=None,
         help="work_dir to scan for records (repeatable; default ./work_dirs)",
     )
-    top.add_argument("--repo", default=hub.DEFAULT_CHECKPOINTS_REPO)
+    top.add_argument("--repo", default=default_repo)
     top.add_argument("--dry-run", action="store_true", help="show the selection; upload nothing")
     top.add_argument("--force", action="store_true", help="re-upload bundles already present")
     top.add_argument("--public", action="store_true", help="create the repo as public")
     top.add_argument("--create", action="store_true", help="create the repo if missing")
     listing = sub.add_parser("list", help="list checkpoint bundles in the repo")
-    listing.add_argument("--repo", default=hub.DEFAULT_CHECKPOINTS_REPO)
+    listing.add_argument("--repo", default=default_repo)
     listing.add_argument("--revision", default="main")
     listing.add_argument("--dataset")
     listing.add_argument("--model")
@@ -216,42 +219,80 @@ def hub_command(argv: list[str]) -> int:
         "--migrate-legacy", action="store_true", help="rename existing TSEval repositories instead of creating new ones"
     )
     init.add_argument("--dry-run", action="store_true")
+    return parser, top
+
+
+def _hub_pack(args: argparse.Namespace) -> int:
+    out = args.out or Path("work_dirs/_bundles") / args.run
+    manifest = _pack(args.run, out)
+    print(f"Bundle written: {out}  ({manifest['path']})")
+    return 0
+
+
+def _hub_push(args: argparse.Namespace) -> int:
+    from tsflab.release import hub
+
+    with tempfile.TemporaryDirectory(prefix="tsflab-bundle-") as tmp:
+        manifest = _pack(args.run, Path(tmp))
+        uri = hub.push(Path(tmp), manifest["path"], args.repo, private=not args.public, create=args.create)
+    print(f"Published: {uri}")
+    return 0
+
+
+def _hub_init(args: argparse.Namespace) -> int:
+    from tsflab.release import hub
+
+    for name in hub.init_repositories(
+        args.owner, private=args.private, migrate=args.migrate_legacy, dry_run=args.dry_run
+    ):
+        print(("would " if args.dry_run else "ready ") + name)
+    return 0
+
+
+def _hub_list(args: argparse.Namespace) -> int:
+    from tsflab.release import hub
+
+    for path in hub.list_bundles(args.repo, args.revision, args.dataset, args.model):
+        print(path)
+    return 0
+
+
+def _hub_pull(args: argparse.Namespace) -> int:
+    from tsflab.release import hub
+
+    state_dict, manifest = hub.load_state_dict(args.uri)
+    if args.json:
+        print(json.dumps(manifest, indent=2, sort_keys=True))
+    else:
+        print(
+            f"{manifest['model']} / {manifest['dataset_id']} / pred_len "
+            f"{manifest['pred_len']}: {len(state_dict)} tensors verified"
+        )
+    return 0
+
+
+_HUB_ACTIONS = {"pack": _hub_pack, "push": _hub_push, "init": _hub_init, "list": _hub_list}
+
+
+def hub_command(argv: list[str]) -> int:
+    from tsflab.release import hub
+
+    if argv[:1] == ["results"]:
+        try:
+            return _results_command(argv[1:], hub.DEFAULT_CHECKPOINTS_REPO)
+        except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    parser, top = _hub_parser(hub.DEFAULT_CHECKPOINTS_REPO)
     args = parser.parse_args(argv)
 
     try:
-        if args.action == "pack":
-            out = args.out or Path("work_dirs/_bundles") / args.run
-            manifest = _pack(args.run, out)
-            print(f"Bundle written: {out}  ({manifest['path']})")
-            return 0
-        if args.action == "push":
-            with tempfile.TemporaryDirectory(prefix="tsflab-bundle-") as tmp:
-                manifest = _pack(args.run, Path(tmp))
-                uri = hub.push(Path(tmp), manifest["path"], args.repo, private=not args.public, create=args.create)
-            print(f"Published: {uri}")
-            return 0
+        if args.action in _HUB_ACTIONS:
+            return _HUB_ACTIONS[args.action](args)
         if args.action == "push-top":
             resolve_name(top, args, "dataset")
             return _push_top(args)
-        if args.action == "init":
-            for name in hub.init_repositories(
-                args.owner, private=args.private, migrate=args.migrate_legacy, dry_run=args.dry_run
-            ):
-                print(("would " if args.dry_run else "ready ") + name)
-            return 0
-        if args.action == "list":
-            for path in hub.list_bundles(args.repo, args.revision, args.dataset, args.model):
-                print(path)
-            return 0
-        state_dict, manifest = hub.load_state_dict(args.uri)
-        if args.json:
-            print(json.dumps(manifest, indent=2, sort_keys=True))
-        else:
-            print(
-                f"{manifest['model']} / {manifest['dataset_id']} / pred_len "
-                f"{manifest['pred_len']}: {len(state_dict)} tensors verified"
-            )
-        return 0
+        return _hub_pull(args)
     except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
