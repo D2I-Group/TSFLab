@@ -109,7 +109,6 @@ class Model(nn.Module):
         top_k=5,
         dropout=0.1,
         conv_channel=32,
-        skip_channel=32,
         gcn_depth=2,
         propalpha=0.3,
         node_dim=10,
