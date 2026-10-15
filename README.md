@@ -176,9 +176,8 @@ codex          # or any other coding agent
 
 ```text
 > Set up the environment for my GPU.
-> Benchmark DLinear, PatchTST and iTransformer on ETTh1 and give me a leaderboard.
+> Benchmark DLinear, PatchTST and iTransformer on ETTh1 and rank them.
 > Implement the paper at <arXiv URL> as a catalog model and admit it.
-> Forecast this week's traffic round with PatchTST and submit it.
 ```
 
 **Or install the framework and scaffold your own project:**
@@ -224,46 +223,12 @@ See [docs/en/workflows.md](docs/en/workflows.md#reading-the-catalog).
 
 ---
 
-## 📈 Rolling real-time evaluation
-
-Each week the `weekly` workflow releases new observations (versioned on
-the Hugging Face Hub), scores the rounds whose target window is now observed, and
-opens a new round. Forecasts must be submitted **before** their targets exist, so
-no model, including ours, can have seen its evaluation data.
-
-| Track | Data | Setting | Horizon |
-| --- | --- | --- | --- |
-| `stock_hs300` | CSI-300 constituents, daily log returns (AKShare) | time series | 5 trading days |
-| `stock_nasdaq100` | NASDAQ-100 constituents, daily log returns (Nasdaq API, Yahoo fallback) | time series | 5 trading days |
-| `stock_sp500` | S&P 500 constituents, daily log returns (Nasdaq API, Yahoo fallback) | time series | 5 trading days |
-| `traffic_pems_{ba,la,sac,sb}` | Caltrans PeMS Districts 4, 7, 3, 8: hourly flow at 2,472 / 1,926 / 801 / 1,105 stations | spatiotemporal | 24 h |
-| `air_airnow_us` | EPA AirNow hourly PM2.5, US monitors (no key) | spatiotemporal | 24 h |
-| `weather_openmeteo_temp`, `solar_openmeteo_ghi` | Open-Meteo hourly temperature at 82 US/EU cities, irradiance at 55 PV sites | spatiotemporal | 24 h |
-| `grid_ercot` | ERCOT hourly load in 8 weather zones | spatiotemporal | 24 h |
-
-```bash
-uv run tsf realtime forecast --track traffic_pems_sb --model DLinear   # produce a forecast
-uv run tsf realtime replay --track traffic_pems_sb --end 2023-12-25 --weeks 12   # backtest the protocol
-```
-
-Each track is also a frozen static dataset (`rt_<track>`, `tsf catalog list --kind dataset`). See [docs/en/realtime.md](docs/en/realtime.md).
-
----
-
 ## 🤝 Contributing
 
-There are three ways to take part:
-
-1. **Propose a method or report a problem** — open an *Add a paper* or *Report a
-   problem or ask a question* issue. An agent triages it; accepted papers and
-   reproducible fixes are checked with `tsf repo check`, reviewed by a second agent
-   pass, and merged by the `agent` workflow.
-2. **Submit results** — add a `submission.json` under `apps/web/submissions/`
-   (see [SUBMITTING.md](apps/web/SUBMITTING.md)); CI validates it against the
-   contract, and a maintainer moves it to the results repository on the Hugging
-   Face Hub (`Diaugeia/TSFLab-Checkpoints`) that the leaderboard is built from.
-3. **Forecast a real-time round** — add `forecasts/<YourModel>.json` to an open
-   round before its deadline.
+To propose a method or report a problem, open an *Add a paper* or *Report a
+problem or ask a question* issue. An agent triages it; accepted papers and
+reproducible fixes are checked with `tsf repo check`, reviewed by a second agent
+pass, and merged by the `agent` workflow.
 
 The literature is also scanned weekly by the `agent` workflow. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for code contributions.
@@ -287,7 +252,6 @@ Exact command options stay in `tsf <command> --help`.
 | `src/tsflab/` | One package per module, mirrored by the CLI: `catalog` (cards, registries, admission), `data`, `models` (flat catalog, `_components`, `_slots`), `experiments` (config, runner, evaluation, execution), `release` (Hub, submissions), `realtime`, `research` (rounds, recombination), `agent` (assets, tasks, `tsf init`), `core` (contracts), `cli` |
 | `configs/`, `catalog/` | Run, model, and dataset presets, real-time track configs, `configs/fixtures/` (smoke and synthetic test inputs, not datasets), dataset cards, declined papers |
 | `dataset/` | Local dataset bytes fetched with `tsf data download` (not packaged) |
-| `apps/web/` | TSFLab Leaderboard: static site, submission pipeline, `submissions/`, real-time rounds |
 | `experiments/` | Local research workspace (not tracked) |
 
 ---
