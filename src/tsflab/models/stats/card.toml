@@ -30,8 +30,8 @@ loss = "local:x0-mse-plus-spectral-schedule-objectives"
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

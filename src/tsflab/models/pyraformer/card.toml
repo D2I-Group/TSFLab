@@ -31,8 +31,8 @@ window_size = { from = "seq_len", rule = "seq_len must be divisible by every suc
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

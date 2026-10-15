@@ -26,8 +26,8 @@ num_layers = { from = "seq_len", rule = "receptive field 1 + 4*(2^num_layers - 1
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "none"
 note = ""

@@ -32,8 +32,8 @@ max_clusters = { from = "channels", rule = "group cap; effective count min(max_c
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

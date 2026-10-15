@@ -31,8 +31,8 @@ top_k = { from = "seq_len", rule = "at most seq_len // 2 non-DC FFT bins" }
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

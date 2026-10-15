@@ -31,8 +31,8 @@ phase_period = { from = "period", rule = "cycle length in steps indexing the pha
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

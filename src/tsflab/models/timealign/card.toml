@@ -31,8 +31,8 @@ patch_num = { from = "seq_len", rule = "must divide both seq_len and pred_len so
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

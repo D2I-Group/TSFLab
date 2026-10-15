@@ -32,8 +32,8 @@ moving_average = { from = "period", rule = "positive odd moving-average window t
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

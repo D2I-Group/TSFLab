@@ -34,8 +34,8 @@ num_layers = { from = "seq_len", rule = "each layer shortens the sequence by 3, 
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "none"
 note = ""

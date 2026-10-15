@@ -25,8 +25,8 @@ enc_in = { from = "channels", rule = "equal to the dataset's channel count (RevI
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "none"
 note = ""

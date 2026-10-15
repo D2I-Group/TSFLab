@@ -31,8 +31,8 @@ patch_len = { from = "seq_len", rule = "four lengths in [2, seq_len]; d_model //
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

@@ -25,8 +25,8 @@ patch_len = { from = "seq_len", rule = "non-overlapping patches; ceil(seq_len / 
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "none"
 note = ""

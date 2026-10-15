@@ -32,8 +32,8 @@ period_len = { from = "period", rule = "dominant period in steps, in [1, seq_len
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""

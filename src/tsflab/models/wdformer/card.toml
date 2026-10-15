@@ -31,8 +31,8 @@ wave_size = { from = "seq_len", rule = "Haar levels; seq_len and pred_len not mu
 
 [admission]
 status = "passed"
-date = "2026-10-13"
-commit = "f00bb976"
+date = "2026-10-14"
+commit = "6c102af9"
 device = "cpu"
 reference = "official"
 note = ""
