@@ -20,6 +20,24 @@ SRC = ROOT / "src"
 MODELS = SRC / "tsflab" / "models"
 
 
+def _imported_modules(node: ast.AST) -> list[str]:
+    """Module names imported by one AST node (empty for other nodes)."""
+    if isinstance(node, ast.ImportFrom) and node.module:
+        return [node.module]
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    return []
+
+
+def _is_peer_model(module: str, own_name: str) -> bool:
+    parts = module.split(".")
+    return (
+        len(parts) >= 3
+        and parts[:2] == ["tsflab", "models"]
+        and parts[2] not in {own_name, "_components", "_slots", "_inputs"}
+    )
+
+
 def _cross_model_imports(package: Path) -> list[tuple[Path, int, str]]:
     """Find imports from one named model package into another named model package."""
     found: list[tuple[Path, int, str]] = []
@@ -30,20 +48,31 @@ def _cross_model_imports(package: Path) -> list[tuple[Path, int, str]]:
         except SyntaxError:
             continue
         for node in ast.walk(tree):
-            modules: list[str] = []
-            if isinstance(node, ast.ImportFrom) and node.module:
-                modules.append(node.module)
-            elif isinstance(node, ast.Import):
-                modules.extend(alias.name for alias in node.names)
-            for module in modules:
-                parts = module.split(".")
-                if (
-                    len(parts) >= 3
-                    and parts[:2] == ["tsflab", "models"]
-                    and parts[2] not in {own_name, "_components", "_slots", "_inputs"}
-                ):
+            for module in _imported_modules(node):
+                if _is_peer_model(module, own_name):
                     found.append((path, node.lineno, module))
     return found
+
+
+def _named(body: list[ast.stmt], kind: type, name: str) -> ast.AST | None:
+    """The first ``kind`` definition called ``name`` in ``body``."""
+    return next((node for node in body if isinstance(node, kind) and node.name == name), None)
+
+
+def _has_runner_signature(arguments: ast.arguments) -> bool:
+    names = [argument.arg for argument in arguments.posonlyargs + arguments.args]
+    expected = ["self", "x_enc", "x_mark_enc", "x_dec", "x_mark_dec"]
+    defaults_are_none = len(arguments.defaults) == 3 and all(
+        isinstance(default, ast.Constant) and default.value is None for default in arguments.defaults
+    )
+    return not (
+        names != expected
+        or arguments.posonlyargs
+        or arguments.vararg is not None
+        or arguments.kwarg is not None
+        or arguments.kwonlyargs
+        or not defaults_are_none
+    )
 
 
 def _audit_model_forward(path: Path) -> str | None:
@@ -52,34 +81,11 @@ def _audit_model_forward(path: Path) -> str | None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as exc:
         return f"cannot parse {path.relative_to(ROOT)}: {exc}"
-    model = next(
-        (node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Model"),
-        None,
-    )
-    forward = (
-        next(
-            (node for node in model.body if isinstance(node, ast.FunctionDef) and node.name == "forward"),
-            None,
-        )
-        if model is not None
-        else None
-    )
+    model = _named(tree.body, ast.ClassDef, "Model")
+    forward = _named(model.body, ast.FunctionDef, "forward") if model is not None else None
     if forward is None:
         return f"{path.relative_to(ROOT)} must define Model.forward"
-    arguments = forward.args
-    names = [argument.arg for argument in arguments.posonlyargs + arguments.args]
-    expected = ["self", "x_enc", "x_mark_enc", "x_dec", "x_mark_dec"]
-    defaults_are_none = len(arguments.defaults) == 3 and all(
-        isinstance(default, ast.Constant) and default.value is None for default in arguments.defaults
-    )
-    if (
-        names != expected
-        or arguments.posonlyargs
-        or arguments.vararg is not None
-        or arguments.kwarg is not None
-        or arguments.kwonlyargs
-        or not defaults_are_none
-    ):
+    if not _has_runner_signature(forward.args):
         return (
             f"{path.relative_to(ROOT)} Model.forward must be exactly "
             "(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None)"
@@ -87,8 +93,8 @@ def _audit_model_forward(path: Path) -> str | None:
     return None
 
 
-def _package_problems(name: str, package: Path, fields: dict[str, object]) -> list[str]:
-    """Files, conventions, imports, and declared components of one discovered package."""
+def _file_problems(name: str, package: Path, fields: dict[str, object]) -> list[str]:
+    """Descriptive duplicates, obsolete or missing files, scaffold markers, and the forward signature."""
     problems: list[str] = []
     descriptive_fields = sorted({"paper", "source", "evidence", "deviations", "implementation"} & fields.keys())
     if descriptive_fields:
@@ -108,6 +114,12 @@ def _package_problems(name: str, package: Path, fields: dict[str, object]) -> li
         forward_problem = _audit_model_forward(model_file)
         if forward_problem:
             problems.append(forward_problem)
+    return problems
+
+
+def _convention_problems(name: str, package: Path, fields: dict[str, object]) -> list[str]:
+    """Derived paths, the preset's model name, peer imports, and declared components."""
+    problems: list[str] = []
     expected = {
         "module": f"tsflab.models.{package.name}",
         "config_path": f"configs/models/{name}.toml",
@@ -134,6 +146,36 @@ def _package_problems(name: str, package: Path, fields: dict[str, object]) -> li
     return problems
 
 
+def _package_problems(name: str, package: Path, fields: dict[str, object]) -> list[str]:
+    """Files, conventions, imports, and declared components of one discovered package."""
+    return _file_problems(name, package, fields) + _convention_problems(name, package, fields)
+
+
+def _root_problems(refs: dict[str, str], config_names: set[str]) -> list[str]:
+    """Shared code at the model root and models without presets (or presets without models)."""
+    problems: list[str] = []
+    for path in sorted(MODELS.glob("*.py")):
+        if path.name != "__init__.py":
+            problems.append(f"shared code must not live at the model root: {path.relative_to(ROOT)}")
+    for name in sorted(set(refs) - config_names):
+        problems.append(f"model {name!r} has no configs/models/{name}.toml")
+    for name in sorted(config_names - set(refs)):
+        problems.append(f"configs/models/{name}.toml names no discovered model package")
+    return problems
+
+
+def _smoke_problems(name: str, smoke_config: object, declared_smoke: dict[str, str]) -> list[str]:
+    """Check one declared smoke config and record it in ``declared_smoke``."""
+    problems: list[str] = []
+    if not (ROOT / str(smoke_config)).is_file():
+        problems.append(f"{name!r} declares missing smoke config {smoke_config!r}")
+    prior_smoke = declared_smoke.get(str(smoke_config))
+    if prior_smoke is not None:
+        problems.append(f"{name!r} and {prior_smoke!r} both declare {smoke_config!r}")
+    declared_smoke[str(smoke_config)] = name
+    return problems
+
+
 def check() -> list[str]:
     """Problems in the discovered model catalog (empty when consistent).
 
@@ -144,14 +186,7 @@ def check() -> list[str]:
     problems: list[str] = list(MODEL_CATALOG.problems())
     refs = MODEL_CATALOG.refs()
     config_names = {path.stem for path in MODEL_CONFIG_DIR.glob("*.toml")}
-
-    for path in sorted(MODELS.glob("*.py")):
-        if path.name != "__init__.py":
-            problems.append(f"shared code must not live at the model root: {path.relative_to(ROOT)}")
-    for name in sorted(set(refs) - config_names):
-        problems.append(f"model {name!r} has no configs/models/{name}.toml")
-    for name in sorted(config_names - set(refs)):
-        problems.append(f"configs/models/{name}.toml names no discovered model package")
+    problems += _root_problems(refs, config_names)
 
     declared_smoke: dict[str, str] = {}
     for name, module_path in sorted(refs.items()):
@@ -160,12 +195,7 @@ def check() -> list[str]:
         problems += _package_problems(name, spec_file.parent, fields)
         smoke_config = fields.get("smoke_config")
         if smoke_config is not None:
-            if not (ROOT / str(smoke_config)).is_file():
-                problems.append(f"{name!r} declares missing smoke config {smoke_config!r}")
-            prior_smoke = declared_smoke.get(str(smoke_config))
-            if prior_smoke is not None:
-                problems.append(f"{name!r} and {prior_smoke!r} both declare {smoke_config!r}")
-            declared_smoke[str(smoke_config)] = name
+            problems += _smoke_problems(name, smoke_config, declared_smoke)
 
     smoke_files = {str(path.relative_to(ROOT)) for path in (ROOT / "configs" / "runs").glob("smoke_*.toml")}
     for path in sorted(smoke_files - set(declared_smoke)):

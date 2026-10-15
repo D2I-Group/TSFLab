@@ -11,10 +11,8 @@ from tsflab.experiments.infra.results import OperationResult, error_info
 _LOCK = threading.RLock()
 
 
-def envelope(args):
-    from tsflab.cli.main import main
-
-    output, diagnostics = io.StringIO(), io.StringIO()
+def _run_captured(main, args, output, diagnostics):
+    """Run ``main(args)`` with captured output; return its exit code, error, and structured data."""
     error = None
     # CLI output capture is serialized; concurrent integrations use invoke(API).
     with _LOCK:
@@ -33,18 +31,34 @@ def envelope(args):
         finally:
             STRUCTURED_OUTPUT.reset(structured)
             CAPTURE_CHILD_OUTPUT.reset(capture)
+    return code, error, data
+
+
+def _textual_data(output):
+    # Compatibility for older commands whose domain output is still textual.
+    try:
+        return json.loads(output.getvalue())
+    except ValueError:
+        return {"text": output.getvalue().strip()}
+
+
+def _command_error(code, error, data, output, diagnostics):
+    error = error or (data.get("error") if isinstance(data, dict) else None)
+    return error or {
+        "type": "CommandError",
+        "message": diagnostics.getvalue().strip() or output.getvalue().strip() or f"exit {code}",
+    }
+
+
+def envelope(args):
+    from tsflab.cli.main import main
+
+    output, diagnostics = io.StringIO(), io.StringIO()
+    code, error, data = _run_captured(main, args, output, diagnostics)
     if data is None:
-        # Compatibility for older commands whose domain output is still textual.
-        try:
-            data = json.loads(output.getvalue())
-        except ValueError:
-            data = {"text": output.getvalue().strip()}
+        data = _textual_data(output)
     if code:
-        error = error or (data.get("error") if isinstance(data, dict) else None)
-        error = error or {
-            "type": "CommandError",
-            "message": diagnostics.getvalue().strip() or output.getvalue().strip() or f"exit {code}",
-        }
+        error = _command_error(code, error, data, output, diagnostics)
     result = OperationResult(
         ok=code == 0,
         data=data,

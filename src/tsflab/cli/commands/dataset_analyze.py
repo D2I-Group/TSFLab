@@ -156,36 +156,56 @@ def load_preset(
     return splits, meta
 
 
+def _read_store(p: Path) -> tuple[Any, np.ndarray]:
+    import pandas as pd
+
+    panels = sorted((p / "panel").glob("*.parquet")) or sorted(p.glob("*.parquet"))
+    if not panels:
+        raise SystemExit(f"{p} has no panel/*.parquet files")
+    frame = pd.concat([pd.read_parquet(f) for f in panels]).sort_index()
+    return frame.index, frame.to_numpy(np.float64)
+
+
+def _read_text_table(p: Path) -> tuple[Any, np.ndarray]:
+    import pandas as pd
+
+    stamps = None
+    frame = pd.read_csv(p, header=None if p.suffix == ".txt" else "infer")
+    first = frame.iloc[:, 0]
+    if not pd.api.types.is_numeric_dtype(first):
+        stamps = pd.to_datetime(first, errors="coerce")
+        frame = frame.iloc[:, 1:]
+    return stamps, frame.apply(pd.to_numeric, errors="coerce").to_numpy(np.float64)
+
+
+def _read_array(p: Path) -> np.ndarray:
+    loaded = np.load(p, allow_pickle=False)
+    values = np.asarray(loaded if p.suffix == ".npy" else loaded[loaded.files[0]], np.float64)
+    return values[..., 0] if values.ndim == 3 else values
+
+
+def _read_values(p: Path) -> tuple[Any, np.ndarray]:
+    """Timestamps (or None) and values of one raw file or realtime store directory."""
+    import pandas as pd
+
+    if p.is_dir():
+        return _read_store(p)
+    if p.suffix in {".csv", ".txt"}:
+        return _read_text_table(p)
+    if p.suffix == ".parquet":
+        frame = pd.read_parquet(p)
+        return frame.index, frame.select_dtypes("number").to_numpy(np.float64)
+    if p.suffix in {".npy", ".npz"}:
+        return None, _read_array(p)
+    raise SystemExit(f"unsupported file type {p.suffix!r}; use csv, txt, parquet, npy, npz, or a store directory")
+
+
 def load_path(
     file: str, ratio: tuple[float, float, float], freq: str | None
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Load a csv/txt/parquet/npy/npz file or a realtime store directory and split it."""
-    import pandas as pd
-
     p = Path(file)
-    stamps = None
-    if p.is_dir():
-        panels = sorted((p / "panel").glob("*.parquet")) or sorted(p.glob("*.parquet"))
-        if not panels:
-            raise SystemExit(f"{p} has no panel/*.parquet files")
-        frame = pd.concat([pd.read_parquet(f) for f in panels]).sort_index()
-        stamps, values = frame.index, frame.to_numpy(np.float64)
-    elif p.suffix in {".csv", ".txt"}:
-        frame = pd.read_csv(p, header=None if p.suffix == ".txt" else "infer")
-        first = frame.iloc[:, 0]
-        if not pd.api.types.is_numeric_dtype(first):
-            stamps = pd.to_datetime(first, errors="coerce")
-            frame = frame.iloc[:, 1:]
-        values = frame.apply(pd.to_numeric, errors="coerce").to_numpy(np.float64)
-    elif p.suffix == ".parquet":
-        frame = pd.read_parquet(p)
-        stamps, values = frame.index, frame.select_dtypes("number").to_numpy(np.float64)
-    elif p.suffix in {".npy", ".npz"}:
-        loaded = np.load(p, allow_pickle=False)
-        values = np.asarray(loaded if p.suffix == ".npy" else loaded[loaded.files[0]], np.float64)
-        values = values[..., 0] if values.ndim == 3 else values
-    else:
-        raise SystemExit(f"unsupported file type {p.suffix!r}; use csv, txt, parquet, npy, npz, or a store directory")
+    stamps, values = _read_values(p)
     if values.ndim == 1:
         values = values[:, None]
     from tsflab.data.protocol import split_borders
@@ -308,19 +328,27 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _plot_requested(args: argparse.Namespace) -> bool:
+    return bool(args.plot or args.plot_file or args.show)
+
+
 def _validate(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     args.preset = args.config or args.preset or args.dataset_alias
     if bool(args.preset) == bool(args.path):
         parser.error("give exactly one of <preset> (or --config TOML) or --path FILE")
     if args.data_path and not args.preset:
         parser.error("--data-path needs a preset; use --path for a raw file")
+    _validate_options(parser, args)
+
+
+def _validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.split == "test" and not args.include_test:
         parser.error("--split test needs --include-test (test diagnostics only after decisions are frozen)")
     if args.max_channels < 2:
         parser.error("--max-channels must be at least 2")
     if args.write_card and not args.preset:
         parser.error("--write-card needs a preset")
-    if (args.plot or args.plot_file or args.show) and not args.preset:
+    if _plot_requested(args) and not args.preset:
         parser.error("--plot needs a preset or --config (sample windows come from its loader)")
 
 
@@ -347,15 +375,39 @@ def _rendered(report: dict[str, Any], markdown: str, out: Path, args: argparse.N
     return json.dumps(report, indent=2)
 
 
+def _load(args: argparse.Namespace) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    if args.preset:
+        return load_preset(args.preset, args.freq, args.data_path, args.include_test)
+    return load_path(args.path, tuple(args.split_ratio), args.freq)
+
+
+def _plot(args: argparse.Namespace, config: Any, out: Path) -> Path:
+    from tsflab.cli.commands.visual_data import plot_samples
+
+    image = Path(args.plot_file or out / f"samples_{args.split}.png")
+    plot_samples(
+        config,
+        args.split,
+        image,
+        num_samples=args.num_samples,
+        index=args.index,
+        channels=args.channels,
+        seed=args.seed,
+        show=args.show,
+    )
+    return image
+
+
+def _record_card(meta: dict[str, Any], report: dict[str, Any], note: Any) -> None:
+    card, fired = _write_card(Path(meta["preset_path"]), report)
+    print(f"Characteristics written to {card}: {', '.join(fired) or 'none fired'}", file=note)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
     _validate(parser, args)
-    splits, meta = (
-        load_preset(args.preset, args.freq, args.data_path, args.include_test)
-        if args.preset
-        else load_path(args.path, tuple(args.split_ratio), args.freq)
-    )
+    splits, meta = _load(args)
     config = meta.pop("config", None)
     if not args.include_test:
         splits.pop("test", None)
@@ -376,25 +428,11 @@ def main(argv: list[str] | None = None) -> int:
     note = sys.stderr if args.json else sys.stdout
     print(_rendered(report, markdown, out, args))
     outputs = [out / "profile.json", out / "profile.md", csv_path]
-    if args.plot or args.plot_file or args.show:
-        from tsflab.cli.commands.visual_data import plot_samples
-
-        image = Path(args.plot_file or out / f"samples_{args.split}.png")
-        plot_samples(
-            config,
-            args.split,
-            image,
-            num_samples=args.num_samples,
-            index=args.index,
-            channels=args.channels,
-            seed=args.seed,
-            show=args.show,
-        )
-        outputs.append(image)
+    if _plot_requested(args):
+        outputs.append(_plot(args, config, out))
     print("Output: " + ", ".join(str(path) for path in outputs), file=note)
     if args.write_card:
-        card, fired = _write_card(Path(meta["preset_path"]), report)
-        print(f"Characteristics written to {card}: {', '.join(fired) or 'none fired'}", file=note)
+        _record_card(meta, report, note)
     return 0
 
 

@@ -32,8 +32,7 @@ def _save_output(path: Path, result: dict) -> bool:
     return True
 
 
-def smoke_command(rest: list[str]) -> int:
-    """Run selected end-to-end smoke configurations concurrently."""
+def _smoke_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tsf run --smoke",
         description="Run smoke config(s) concurrently and report PASS/FAIL.",
@@ -48,42 +47,44 @@ def smoke_command(rest: list[str]) -> int:
         default=min(8, os.cpu_count() or 2),
         help="Concurrent workers (default: min(8, cpu))",
     )
-    args = parser.parse_args(rest)
+    return parser
 
+
+def _model_smoke_configs(model: str) -> list[str]:
+    """Smoke configs of one model, excluding those of other models whose module shares its prefix."""
+    prefix = module_for_model(model)
+    try:
+        from tsflab.catalog.registry.models import MODEL_CATALOG
+
+        other_modules = {
+            path.split(".")[2] for name, path in MODEL_CATALOG.refs().items() if module_for_model(name) != prefix
+        }
+    except Exception:
+        other_modules = set()
+    configs = sorted(
+        str(path.relative_to(ROOT))
+        for path in RUN_CONFIG_DIR.glob(f"smoke_{prefix}*.toml")
+        if path.stem[len("smoke_") :] not in other_modules
+    )
+    if not configs:
+        configs = [f"configs/runs/smoke_{prefix}.toml"]
+    return configs
+
+
+def _smoke_configs(parser: argparse.ArgumentParser, args: argparse.Namespace) -> list[str]:
     if args.all:
-        configs = sorted(str(path.relative_to(ROOT)) for path in RUN_CONFIG_DIR.glob("smoke_*.toml"))
-    elif args.model:
-        prefix = module_for_model(args.model)
-        try:
-            from tsflab.catalog.registry.models import MODEL_CATALOG
+        return sorted(str(path.relative_to(ROOT)) for path in RUN_CONFIG_DIR.glob("smoke_*.toml"))
+    if args.model:
+        return _model_smoke_configs(args.model)
+    if args.config:
+        return args.config
+    parser.error("one of --all / --model / --config is required")
 
-            other_modules = {
-                path.split(".")[2] for name, path in MODEL_CATALOG.refs().items() if module_for_model(name) != prefix
-            }
-        except Exception:
-            other_modules = set()
-        configs = sorted(
-            str(path.relative_to(ROOT))
-            for path in RUN_CONFIG_DIR.glob(f"smoke_{prefix}*.toml")
-            if path.stem[len("smoke_") :] not in other_modules
-        )
-        if not configs:
-            configs = [f"configs/runs/smoke_{prefix}.toml"]
-    elif args.config:
-        configs = args.config
-    else:
-        parser.error("one of --all / --model / --config is required")
 
-    missing = [config for config in configs if not (ROOT / config).exists()]
-    if missing:
-        print("Missing smoke config(s):", file=sys.stderr)
-        for config in missing:
-            print(f"  {config}", file=sys.stderr)
-        return 1
-
-    print(f"Running {len(configs)} smoke config(s) with {args.jobs} worker(s)...\n")
+def _run_smokes(configs: list[str], jobs: int) -> list[tuple[str, int, str, float]]:
+    """Run the smoke configs on ``jobs`` workers, printing one line per finished config."""
     results: list[tuple[str, int, str, float]] = []
-    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+    with ThreadPoolExecutor(max_workers=jobs) as executor:
         futures = {}
         starts = {}
         for config in configs:
@@ -96,6 +97,24 @@ def smoke_command(rest: list[str]) -> int:
             extra = "" if code == 0 else f"  (exit {code}) {tail[:80]}"
             print(f"  {status}  {Path(config).stem:<28} {duration:5.1f}s{extra}")
             results.append((config, code, tail, duration))
+    return results
+
+
+def smoke_command(rest: list[str]) -> int:
+    """Run selected end-to-end smoke configurations concurrently."""
+    parser = _smoke_parser()
+    args = parser.parse_args(rest)
+    configs = _smoke_configs(parser, args)
+
+    missing = [config for config in configs if not (ROOT / config).exists()]
+    if missing:
+        print("Missing smoke config(s):", file=sys.stderr)
+        for config in missing:
+            print(f"  {config}", file=sys.stderr)
+        return 1
+
+    print(f"Running {len(configs)} smoke config(s) with {args.jobs} worker(s)...\n")
+    results = _run_smokes(configs, args.jobs)
 
     passed = sum(1 for _, code, _, _ in results if code == 0)
     print(f"\n{passed}/{len(results)} passed")
@@ -265,6 +284,20 @@ def _apply_overrides(policy, args) -> None:
         )
 
 
+def _check_saved_split(directory: str, eval_split: str) -> None:
+    """A resumed sweep keeps its saved evaluation split."""
+    from tsflab.experiments.infra.execution import status
+
+    saved = status(directory)
+    if any(
+        cell.get("config", {}).get("evaluation", {}).get("split") != eval_split for cell in saved.get("runs", [saved])
+    ):
+        raise ValueError(
+            "saved evaluation split differs from --eval-split or TSFLAB_EVAL_SPLIT; "
+            "create a new sweep instead of changing a saved run"
+        )
+
+
 def _manage(policy, args) -> dict:
     """`tsf run status|wait|cancel|resume <directory>`."""
     from tsflab.experiments.infra.execution import cancel, execute, status, wait
@@ -279,15 +312,7 @@ def _manage(policy, args) -> dict:
     if action == "cancel":
         return cancel(directory)
     if args.eval_split:
-        saved = status(directory)
-        if any(
-            cell.get("config", {}).get("evaluation", {}).get("split") != args.eval_split
-            for cell in saved.get("runs", [saved])
-        ):
-            raise ValueError(
-                "saved evaluation split differs from --eval-split or TSFLAB_EVAL_SPLIT; "
-                "create a new sweep instead of changing a saved run"
-            )
+        _check_saved_split(directory, args.eval_split)
     overridden = args.policy or args.jobs is not None or args.gpus is not None
     return execute(directory, policy if overridden else None, round_id=args.round_id)
 
@@ -313,9 +338,25 @@ def _load_matrix(args) -> list:
     return loaded
 
 
+def _prepare_and_execute(loaded: list, policy, args) -> dict:
+    """Persist a validated matrix, then execute it (unless ``--prepare-only``)."""
+    from tsflab.experiments.infra.execution import execute, prepare_sweep, wait
+
+    request_key = str(Path(args.output).expanduser().resolve()) if args.output else None
+    directory = prepare_sweep(loaded, policy, args.round_id, request_key=request_key)
+    if not args.json:
+        print(f"Experiment records: {directory}", flush=True)
+    if args.prepare_only:
+        return {"ok": True, "directory": str(directory), "prepared": True}
+    try:
+        return execute(directory, policy, round_id=args.round_id)
+    except BlockingIOError:  # an identical keyed launch already owns this sweep
+        return wait(directory, args.timeout)
+
+
 def _launch(policy, args) -> dict:
     """Validate the requested matrix, then prepare and (unless previewing) execute it."""
-    from tsflab.experiments.infra.execution import execute, preflight, prepare_sweep, wait
+    from tsflab.experiments.infra.execution import preflight
 
     loaded = _load_matrix(args)
     if not loaded:
@@ -330,16 +371,7 @@ def _launch(policy, args) -> dict:
         raise ValueError("research round is not running")
     if not result["ok"] or args.dry_run:
         return result
-    request_key = str(Path(args.output).expanduser().resolve()) if args.output else None
-    directory = prepare_sweep(loaded, policy, args.round_id, request_key=request_key)
-    if not args.json:
-        print(f"Experiment records: {directory}", flush=True)
-    if args.prepare_only:
-        return {"ok": True, "directory": str(directory), "prepared": True}
-    try:
-        return execute(directory, policy, round_id=args.round_id)
-    except BlockingIOError:  # an identical keyed launch already owns this sweep
-        return wait(directory, args.timeout)
+    return _prepare_and_execute(loaded, policy, args)
 
 
 def _compact(result: dict) -> dict:
@@ -366,6 +398,34 @@ def _save_failure(args, failure: dict, exc: Exception) -> None:
         pass  # keep the original error if storing the output itself failed
 
 
+def _check_request(args) -> None:
+    if args.model and args.configs:
+        raise ValueError("use --model or positional configs, not both")
+    if (args.set or args.sweep) and not args.model:
+        raise ValueError("--set and --sweep require --model")
+
+
+def _request_policy(args, load_policy):
+    """The ``--policy`` file's policy, or a resumed sweep's saved policy when none is given."""
+    policy = load_policy(args.policy)
+    if not args.policy and len(args.configs) == 2 and args.configs[0] == "resume":
+        from tsflab.experiments.infra.execution import saved_policy
+
+        policy = saved_policy(args.configs[1])
+    return policy
+
+
+def _request_result(policy, args) -> dict:
+    """Manage or launch the request; compact and save its result as requested."""
+    managing = args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}
+    result = _manage(policy, args) if managing else _launch(policy, args)
+    if args.compact:
+        result = _compact(result)
+    if args.output and not _save_output(Path(args.output), result):
+        result["output_preserved"] = str(Path(args.output).expanduser().resolve())
+    return result
+
+
 def run_command(rest: list[str]) -> int:
     """Run, preview, smoke-test, cancel, or resume experiments through one public surface."""
     import json
@@ -381,22 +441,10 @@ def run_command(rest: list[str]) -> int:
 
     args = _run_parser().parse_args(rest)
     try:
-        if args.model and args.configs:
-            raise ValueError("use --model or positional configs, not both")
-        if (args.set or args.sweep) and not args.model:
-            raise ValueError("--set and --sweep require --model")
-        policy = load_policy(args.policy)
-        if not args.policy and len(args.configs) == 2 and args.configs[0] == "resume":
-            from tsflab.experiments.infra.execution import saved_policy
-
-            policy = saved_policy(args.configs[1])
+        _check_request(args)
+        policy = _request_policy(args, load_policy)
         _apply_overrides(policy, args)
-        managing = args.configs and args.configs[0] in {"status", "cancel", "resume", "wait"}
-        result = _manage(policy, args) if managing else _launch(policy, args)
-        if args.compact:
-            result = _compact(result)
-        if args.output and not _save_output(Path(args.output), result):
-            result["output_preserved"] = str(Path(args.output).expanduser().resolve())
+        result = _request_result(policy, args)
         publish(result)
         _print_result(result, args)
         return 0 if result.get("ok", True) else 1
