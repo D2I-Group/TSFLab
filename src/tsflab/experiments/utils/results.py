@@ -97,6 +97,17 @@ def _append_sweep_values(row: dict, raw: dict, sweep_keys: list[str]) -> None:
             row[f"sweep.{key}"] = flattened[key]
 
 
+def _metric_columns(row: dict, metrics: dict[str, float]) -> None:
+    """Append metrics to ``row``: the canonical point metrics first, then the rest in order."""
+    metric_order = ["mae", "mse", "rmse", "mape", "mspe"]
+    for name in metric_order:
+        if name in metrics:
+            row[name] = metrics[name]
+    for name, value in metrics.items():
+        if name not in row:
+            row[name] = value
+
+
 def default_summary_row(
     base: dict,
     metrics: dict[str, float],
@@ -130,13 +141,7 @@ def default_summary_row(
         "run_id": base.get("run_id"),
     }
 
-    metric_order = ["mae", "mse", "rmse", "mape", "mspe"]
-    for name in metric_order:
-        if name in metrics:
-            row[name] = metrics[name]
-    for name, value in metrics.items():
-        if name not in row:
-            row[name] = value
+    _metric_columns(row, metrics)
 
     # Timing columns. ``fit_time`` is the total training wall-clock; the
     # ``inference_time`` is the test-set evaluation wall-clock. Only emitted when

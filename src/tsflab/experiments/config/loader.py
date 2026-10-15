@@ -169,6 +169,44 @@ def _resolve_extends(cfg: dict, base_dir: str) -> dict:
     return deep_merge(merged, cfg)
 
 
+def _axis_values(extend_axes: dict, axis_names: list[str]) -> list[list[Any]]:
+    axis_values: list[list[Any]] = []
+    for axis in axis_names:
+        values = extend_axes[axis]
+        if isinstance(values, list):
+            axis_values.append(list(values))
+        else:
+            axis_values.append([values])
+    return axis_values
+
+
+def _without_extend(run_cfg: dict, sweep: dict) -> dict:
+    """A copy of the run config whose sweep table no longer has the ``extend`` axes."""
+    run_cfg_no_extend = deepcopy(run_cfg)
+    sweep_no_extend = deepcopy(sweep)
+    sweep_no_extend.pop("extend", None)
+    if sweep_no_extend:
+        run_cfg_no_extend["sweep"] = sweep_no_extend
+    else:
+        run_cfg_no_extend.pop("sweep", None)
+    return run_cfg_no_extend
+
+
+def _combo_config(axis_names: list[str], combo, base_dir: str) -> tuple[dict, dict]:
+    """Merge the axis files of one extend combination; return (config, axis -> file stem)."""
+    combo_cfg: dict[str, Any] = {}
+    extend_meta: dict[str, Any] = {}
+    for axis, rel_path in zip(axis_names, combo):
+        file_path = rel_path
+        if not os.path.isabs(rel_path):
+            file_path = os.path.join(base_dir, rel_path)
+        axis_cfg = _read_toml(file_path)
+        axis_cfg = _resolve_extends(axis_cfg, os.path.dirname(file_path))
+        combo_cfg = deep_merge(combo_cfg, axis_cfg)
+        extend_meta[axis] = os.path.splitext(os.path.basename(file_path))[0]
+    return combo_cfg, extend_meta
+
+
 def _expand_sweep_extends(
     extends_cfg: dict,
     run_cfg: dict,
@@ -200,13 +238,7 @@ def _expand_sweep_extends(
         raise ValueError("sweep.extend must be a table of axis names to paths")
 
     axis_names = list(extend_axes.keys())
-    axis_values: list[list[Any]] = []
-    for axis in axis_names:
-        values = extend_axes[axis]
-        if isinstance(values, list):
-            axis_values.append(list(values))
-        else:
-            axis_values.append([values])
+    axis_values = _axis_values(extend_axes, axis_names)
 
     def _product(items: list[list[Any]], prefix: list[Any] | None = None):
         prefix = prefix or []
@@ -216,27 +248,12 @@ def _expand_sweep_extends(
         for item in items[0]:
             yield from _product(items[1:], prefix + [item])
 
-    run_cfg_no_extend = deepcopy(run_cfg)
-    sweep_no_extend = deepcopy(sweep)
-    sweep_no_extend.pop("extend", None)
-    if sweep_no_extend:
-        run_cfg_no_extend["sweep"] = sweep_no_extend
-    else:
-        run_cfg_no_extend.pop("sweep", None)
+    run_cfg_no_extend = _without_extend(run_cfg, sweep)
 
     base_configs: list[dict] = []
     extend_keys = [f"extend.{axis}" for axis in axis_names]
     for combo in _product(axis_values):
-        combo_cfg: dict[str, Any] = {}
-        extend_meta: dict[str, Any] = {}
-        for axis, rel_path in zip(axis_names, combo):
-            file_path = rel_path
-            if not os.path.isabs(rel_path):
-                file_path = os.path.join(base_dir, rel_path)
-            axis_cfg = _read_toml(file_path)
-            axis_cfg = _resolve_extends(axis_cfg, os.path.dirname(file_path))
-            combo_cfg = deep_merge(combo_cfg, axis_cfg)
-            extend_meta[axis] = os.path.splitext(os.path.basename(file_path))[0]
+        combo_cfg, extend_meta = _combo_config(axis_names, combo, base_dir)
 
         merged = deep_merge(extends_cfg, combo_cfg)
         merged = deep_merge(merged, run_cfg_no_extend)
@@ -352,6 +369,39 @@ def load_config(path: str) -> list[LoadedConfig]:
                         config_name=os.path.splitext(os.path.basename(path))[0])
 
 
+def _sweep_labels(base_cfg: dict, extend_keys: list[str]) -> list[str]:
+    """Sweep key labels of one base config: its extend axes, then its sweep keys."""
+    sweep_keys: list[str] = []
+    sweep = base_cfg.get("sweep")
+    if sweep:
+        sweep_keys = list(_flatten_sweep(sweep).keys())
+    if extend_keys:
+        sweep_keys = extend_keys + sweep_keys
+    return sweep_keys
+
+
+def _validated_config(expanded: dict) -> RootConfig:
+    """Validate one expanded config, including its dataset and model parameter schemas."""
+    # "extend" is metadata `_expand_sweep_extends` injects to label
+    # which axis file produced this combo (consumed via `raw` below,
+    # e.g. by `tsf run --dry-run`) — not a RootConfig section, so
+    # it's excluded from validation rather than left for pydantic to
+    # silently ignore.
+    config = RootConfig.model_validate(
+        {k: v for k, v in expanded.items() if k != "extend"}
+    )
+    register_dataset_by_name(config.dataset.name)
+    dataset_spec = DATASET_REGISTRY.get(config.dataset.name)
+    if dataset_spec.params_schema is not None:
+        config.dataset.params = dataset_spec.params_schema.model_validate(
+            config.dataset.params
+        )
+    model_spec = MODEL_CATALOG.get(config.model.name)
+    validate_task_compatibility(config.task.mode, dataset_spec, model_spec)
+    config.model.params = model_spec.validate_params(config.model.params)
+    return config
+
+
 def load_mapping(raw_cfg: dict, *, base_dir: str = ".", config_name: str = "request") -> list[LoadedConfig]:
     """Validate and expand a declarative request through the same TOML loader."""
     raw_cfg = deepcopy(raw_cfg)
@@ -364,31 +414,10 @@ def load_mapping(raw_cfg: dict, *, base_dir: str = ".", config_name: str = "requ
 
     configs: list[LoadedConfig] = []
     for base_cfg in base_configs:
-        sweep_keys: list[str] = []
-        sweep = base_cfg.get("sweep")
-        if sweep:
-            sweep_keys = list(_flatten_sweep(sweep).keys())
-        if extend_keys:
-            sweep_keys = extend_keys + sweep_keys
+        sweep_keys = _sweep_labels(base_cfg, extend_keys)
 
         for expanded in _expand_sweep(base_cfg):
-            # "extend" is metadata `_expand_sweep_extends` injects to label
-            # which axis file produced this combo (consumed via `raw` below,
-            # e.g. by `tsf run --dry-run`) — not a RootConfig section, so
-            # it's excluded from validation rather than left for pydantic to
-            # silently ignore.
-            config = RootConfig.model_validate(
-                {k: v for k, v in expanded.items() if k != "extend"}
-            )
-            register_dataset_by_name(config.dataset.name)
-            dataset_spec = DATASET_REGISTRY.get(config.dataset.name)
-            if dataset_spec.params_schema is not None:
-                config.dataset.params = dataset_spec.params_schema.model_validate(
-                    config.dataset.params
-                )
-            model_spec = MODEL_CATALOG.get(config.model.name)
-            validate_task_compatibility(config.task.mode, dataset_spec, model_spec)
-            config.model.params = model_spec.validate_params(config.model.params)
+            config = _validated_config(expanded)
             configs.append(
                 LoadedConfig(
                     raw=expanded,
@@ -400,32 +429,44 @@ def load_mapping(raw_cfg: dict, *, base_dir: str = ".", config_name: str = "requ
     return configs
 
 
+def _request_key(entry: str) -> tuple[str, str]:
+    """Split one ``KEY=VALUE`` request entry; the key must be dotted."""
+    key, separator, text = entry.partition("=")
+    key = key.strip()
+    if not separator or len(key.split(".")) < 2 or any(not part for part in key.split(".")):
+        raise ValueError("expected dotted KEY=VALUE, e.g. task.seq_len=96")
+    return key, text
+
+
+def _request_value(key: str, text: str, sweep: bool) -> Any:
+    """Parse a request value as JSON (else keep the string); a sweep axis needs a nonempty list."""
+    import json
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        value = text
+    if sweep and (not isinstance(value, list) or not value):
+        raise ValueError(f"sweep {key} requires a nonempty JSON list")
+    if key.split(".")[0] not in RootConfig.model_fields:
+        raise ValueError(f"unknown request section: {key.split('.')[0]}")
+    return value
+
+
 def load_model_request(name: str, settings=(), axes=()) -> list[LoadedConfig]:
     """Resolve a named preset plus dotted KEY=JSON overrides without writing TOML.
 
     Scalar strings may be unquoted. Every value is validated before dispatch;
     expanded snapshots retain all supplied scientific settings and sweep axes.
     """
-    import json
     spec = MODEL_CATALOG.get(name)
     raw = {"extends": ["tsflab://configs/base.toml", f"tsflab://{spec.config_path}"]}
     for entries, sweep in ((settings, False), (axes, True)):
         seen = set()
         for entry in entries:
-            key, separator, text = entry.partition("=")
-            key = key.strip()
-            if not separator or len(key.split(".")) < 2 or any(not part for part in key.split(".")):
-                raise ValueError("expected dotted KEY=VALUE, e.g. task.seq_len=96")
+            key, text = _request_key(entry)
             if key in seen:
                 raise ValueError(f"duplicate request key: {key}")
             seen.add(key)
-            try:
-                value = json.loads(text)
-            except json.JSONDecodeError:
-                value = text
-            if sweep and (not isinstance(value, list) or not value):
-                raise ValueError(f"sweep {key} requires a nonempty JSON list")
-            if key.split(".")[0] not in RootConfig.model_fields:
-                raise ValueError(f"unknown request section: {key.split('.')[0]}")
+            value = _request_value(key, text, sweep)
             _set_by_path(raw, "sweep." + key if sweep else key, value)
     return load_mapping(raw, config_name=f"request-{name}")

@@ -2,6 +2,8 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
+from dataclasses import dataclass, field
+from functools import partial
 import json
 import math
 import os
@@ -41,6 +43,53 @@ def validated_config(snapshot):
     return config
 
 
+def _visible_devices(inventory):
+    """GPU identifiers visible to this process: ``CUDA_VISIBLE_DEVICES`` entries, else every inventoried UUID."""
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES")
+    return [item.strip() for item in visible.split(",") if item.strip()] if visible is not None else [gpu["uuid"] for gpu in inventory]
+
+
+def _auto_selected_gpus(inventory, devices, min_free_memory_mb):
+    """Visible GPUs whose memory meets ``min_free_memory_mb``."""
+    return [
+        gpu["uuid"] for gpu in inventory
+        if any(item.strip() in (gpu["index"], gpu["uuid"]) for item in devices)
+        and float(gpu.get("total_mb", gpu["free_mb"])) >= min_free_memory_mb
+    ]
+
+
+def _assign_gpus(policy, cuda_configs) -> None:
+    """Resolve the policy's GPU set and per-run GPU count for a matrix with CUDA runs."""
+    from tsflab.experiments.infra.environment import gpu_inventory
+
+    inventory = gpu_inventory()
+    devices = _visible_devices(inventory)
+    indices = sorted(
+        {i for c in cuda_configs for i in c.experiment.runtime.device_ids}
+    )
+    if policy.resources.auto_select:
+        policy.resources.gpus = _auto_selected_gpus(inventory, devices, policy.resources.min_free_memory_mb)
+    elif not policy.resources.gpus:
+        policy.resources.gpus = [devices[i] for i in indices if 0 <= i < len(devices)]
+    from tsflab.experiments.infra.hardware import validate_gpu_visibility
+    validate_gpu_visibility(policy.resources.gpus, inventory)
+    if any(c.experiment.runtime.use_multi_gpu for c in cuda_configs):
+        policy.resources.gpus_per_run = max(
+            len(c.experiment.runtime.device_ids) for c in cuda_configs
+        )
+
+
+def _resolve_parallel(policy, configs, cuda_configs) -> None:
+    """Replace ``--jobs auto`` with the number of runs the GPU set can hold at once."""
+    if configs and len(cuda_configs) != len(configs):
+        raise ValueError("--jobs auto requires a CUDA-only matrix; set an explicit CPU worker limit")
+    policy.budget.max_parallel_jobs = max(1, min(
+        len(configs), len(policy.resources.gpus) // policy.resources.gpus_per_run
+    ))
+    # Persist the resolved limit; later preflights must not undo round caps.
+    policy.budget.auto_parallel = False
+
+
 def resolve_policy(configs, policy):
     """Return a resolved copy; never mutate caller-owned policy objects."""
     policy = policy.model_copy(deep=True)
@@ -48,39 +97,39 @@ def resolve_policy(configs, policy):
     if policy.resources.auto_select and policy.resources.sharing:
         raise ValueError("automatic GPU selection requires exclusive allocation")
     if cuda_configs:
-        from tsflab.experiments.infra.environment import gpu_inventory
-
-        inventory = gpu_inventory()
-        visible = os.environ.get("CUDA_VISIBLE_DEVICES")
-        devices = [item.strip() for item in visible.split(",") if item.strip()] if visible is not None else [gpu["uuid"] for gpu in inventory]
-        indices = sorted(
-            {i for c in cuda_configs for i in c.experiment.runtime.device_ids}
-        )
-        if policy.resources.auto_select:
-            policy.resources.gpus = [
-                gpu["uuid"] for gpu in inventory
-                if any(item.strip() in (gpu["index"], gpu["uuid"]) for item in devices)
-                and float(gpu.get("total_mb", gpu["free_mb"])) >= policy.resources.min_free_memory_mb
-            ]
-        elif not policy.resources.gpus:
-            policy.resources.gpus = [devices[i] for i in indices if 0 <= i < len(devices)]
-        from tsflab.experiments.infra.hardware import validate_gpu_visibility
-        validate_gpu_visibility(policy.resources.gpus, inventory)
-        if any(c.experiment.runtime.use_multi_gpu for c in cuda_configs):
-            policy.resources.gpus_per_run = max(
-                len(c.experiment.runtime.device_ids) for c in cuda_configs
-            )
+        _assign_gpus(policy, cuda_configs)
 
     if policy.budget.auto_parallel:
-        if configs and len(cuda_configs) != len(configs):
-            raise ValueError("--jobs auto requires a CUDA-only matrix; set an explicit CPU worker limit")
-        policy.budget.max_parallel_jobs = max(1, min(
-            len(configs), len(policy.resources.gpus) // policy.resources.gpus_per_run
-        ))
-        # Persist the resolved limit; later preflights must not undo round caps.
-        policy.budget.auto_parallel = False
+        _resolve_parallel(policy, configs, cuda_configs)
 
     return policy
+
+
+def _check_cuda_run(config, policy) -> None:
+    """Raise when the policy cannot schedule a CUDA run."""
+    if not policy.resources.gpus:
+        raise ValueError("no schedulable NVIDIA GPUs visible")
+    if len(policy.resources.gpus) < policy.resources.gpus_per_run:
+        raise ValueError("fewer eligible GPUs than gpus_per_run")
+    if (
+        policy.resources.gpus_per_run > 1
+        and not config.experiment.runtime.use_multi_gpu
+    ):
+        raise ValueError("multiple GPUs per run require use_multi_gpu=true")
+
+
+def _check_run(config, policy) -> None:
+    """Raise on the first problem that keeps one run from executing under the policy."""
+    validate_experiment(config)
+    if (
+        policy.recovery.checkpoint_every_batches
+        and config.experiment.runtime.num_workers
+    ):
+        raise ValueError("batch recovery requires runtime.num_workers=0")
+    if policy.resources.sharing and policy.resources.memory_per_run_mb <= 0:
+        raise ValueError("shared GPUs require memory_per_run_mb > 0")
+    if config.experiment.runtime.device == "cuda":
+        _check_cuda_run(config, policy)
 
 
 def preflight(configs, policy):
@@ -96,24 +145,7 @@ def preflight(configs, policy):
             )
         errors = []
         try:
-            validate_experiment(config)
-            if (
-                policy.recovery.checkpoint_every_batches
-                and config.experiment.runtime.num_workers
-            ):
-                raise ValueError("batch recovery requires runtime.num_workers=0")
-            if policy.resources.sharing and policy.resources.memory_per_run_mb <= 0:
-                raise ValueError("shared GPUs require memory_per_run_mb > 0")
-            if config.experiment.runtime.device == "cuda" and not policy.resources.gpus:
-                raise ValueError("no schedulable NVIDIA GPUs visible")
-            if config.experiment.runtime.device == "cuda" and len(policy.resources.gpus) < policy.resources.gpus_per_run:
-                raise ValueError("fewer eligible GPUs than gpus_per_run")
-            if (
-                config.experiment.runtime.device == "cuda"
-                and policy.resources.gpus_per_run > 1
-                and not config.experiment.runtime.use_multi_gpu
-            ):
-                raise ValueError("multiple GPUs per run require use_multi_gpu=true")
+            _check_run(config, policy)
         except Exception as exc:
             errors.append(str(exc))
         errors.extend(
@@ -142,6 +174,23 @@ def preflight(configs, policy):
     }
 
 
+def _require_running_round(round_id) -> None:
+    from tsflab.research.rounds import load_round
+    if load_round(round_id)["status"] != "running":
+        raise ValueError("research round is not running")
+
+
+def _saved_request(receipt: Path, matrix: str) -> Path:
+    """The sweep directory a request receipt already points to, if it still matches ``matrix``."""
+    saved = json.loads(receipt.read_text())
+    if saved["matrix_sha256"] != matrix:
+        raise RequestConflictError("request key already belongs to a different matrix; use a new output path/request key")
+    directory = Path(saved["directory"])
+    if not (directory / "sweep.json").is_file():
+        raise RequestConflictError("saved request sweep is missing; preserve its receipt and use a new request key")
+    return directory
+
+
 def prepare_sweep(loaded, policy, round_id=None, *, request_key=None):
     """Persist one matrix per keyed request or identical matrix in a research round.
 
@@ -152,9 +201,7 @@ def prepare_sweep(loaded, policy, round_id=None, *, request_key=None):
     if not loaded:
         raise ValueError("experiment matrix is empty")
     if round_id:
-        from tsflab.research.rounds import load_round
-        if load_round(round_id)["status"] != "running":
-            raise ValueError("research round is not running")
+        _require_running_round(round_id)
     if request_key is None and round_id is None:
         return _prepare_sweep(loaded, policy, round_id)
     matrix = canonical_hash(sorted(canonical_hash(item.config.model_dump(mode="json")) for item in loaded))
@@ -163,13 +210,7 @@ def prepare_sweep(loaded, policy, round_id=None, *, request_key=None):
     receipt = root / "_requests" / (identity + ".json")
     with file_lock(receipt.with_suffix(".lock")):
         if receipt.exists():
-            saved = json.loads(receipt.read_text())
-            if saved["matrix_sha256"] != matrix:
-                raise RequestConflictError("request key already belongs to a different matrix; use a new output path/request key")
-            directory = Path(saved["directory"])
-            if not (directory / "sweep.json").is_file():
-                raise RequestConflictError("saved request sweep is missing; preserve its receipt and use a new request key")
-            return directory
+            return _saved_request(receipt, matrix)
         directory = _prepare_sweep(loaded, policy, round_id)
         write_json(receipt, {"schema_version": 1, "matrix_sha256": matrix,
                              "directory": str(directory), "round": round_id})
@@ -237,10 +278,8 @@ def status(directory):
     return {"directory": str(directory), **state, "runtime": runtime}
 
 
-def completion_report(state):
-    """Return scientific results and diagnostics without dumping full manifests."""
-    config = state.get("config", {})
-    row = {key: state[key] for key in ("directory", "run_id", "status", "error") if key in state}
+def _config_fields(row: dict, config: dict) -> None:
+    """Copy the run's identifying config values (model, dataset, horizon, seed, ...) into ``row``."""
     for section, key, label in (("model", "name", "model"), ("dataset", "name", "dataset"),
                                 ("task", "pred_len", "pred_len"), ("evaluation", "split", "split"),
                                 ("experiment", "random_seed", "seed"), ("training", "batch_size", "batch_size"),
@@ -250,8 +289,12 @@ def completion_report(state):
     optimizer = config.get("training", {}).get("optimizer", {})
     if "lr" in optimizer:
         row["learning_rate"] = optimizer["lr"]
+
+
+def _sweep_parameters(config: dict, sweep_keys) -> dict:
+    """Values of the dot-delimited sweep keys present in ``config``."""
     parameters = {}
-    for key in state.get("sweep_keys", []):
+    for key in sweep_keys:
         value = config
         for part in key.split("."):
             if not isinstance(value, dict) or part not in value:
@@ -259,6 +302,27 @@ def completion_report(state):
             value = value[part]
         else:
             parameters[key] = value
+    return parameters
+
+
+def _result_fields(row: dict, path: Path) -> None:
+    """Copy the scientific results of a succeeded run's ``result.json`` into ``row``."""
+    result = json.loads(path.read_text())
+    for key in ("metrics", "train_time_sec", "test_time_sec", "n_windows", "checkpoint_path", "cost"):
+        if key in result:
+            row[key] = result[key]
+    row["result_file"] = str(path)
+    pretraining = path.parent / "checkpoints" / "pretraining.pth"
+    if pretraining.is_file():
+        row["pretraining_checkpoint"] = str(pretraining)
+
+
+def completion_report(state):
+    """Return scientific results and diagnostics without dumping full manifests."""
+    config = state.get("config", {})
+    row = {key: state[key] for key in ("directory", "run_id", "status", "error") if key in state}
+    _config_fields(row, config)
+    parameters = _sweep_parameters(config, state.get("sweep_keys", []))
     if parameters:
         row["parameters"] = parameters
     evaluation = config.get("evaluation", {})
@@ -267,14 +331,7 @@ def completion_report(state):
         row["source_checkpoint_sha256"] = evaluation.get("checkpoint_sha256")
     path = Path(state.get("directory", "")) / "result.json"
     if state.get("status") == "succeeded" and path.is_file():
-        result = json.loads(path.read_text())
-        for key in ("metrics", "train_time_sec", "test_time_sec", "n_windows", "checkpoint_path", "cost"):
-            if key in result:
-                row[key] = result[key]
-        row["result_file"] = str(path)
-        pretraining = path.parent / "checkpoints" / "pretraining.pth"
-        if pretraining.is_file():
-            row["pretraining_checkpoint"] = str(pretraining)
+        _result_fields(row, path)
     elif state.get("status") == "succeeded" and state.get("directory"):
         row["error"] = "completed run has no result artifact"
     return row
@@ -294,6 +351,10 @@ def controller_active(directory):
     return False
 
 
+def _section(config: dict, name: str) -> dict:
+    return config.get(name) or {}
+
+
 def _result_row(run: dict) -> dict | None:
     """One line of a finished run: model, horizon, seed, scored split, metrics, and cost."""
     path = Path(run.get("directory") or "") / "result.json"
@@ -303,34 +364,30 @@ def _result_row(run: dict) -> dict | None:
     config = run.get("config") or {}
     metrics = result.get("metrics") or {}
     return {
-        "model": (config.get("model") or {}).get("name"),
-        "pred_len": (config.get("task") or {}).get("pred_len"),
-        "seed": (config.get("experiment") or {}).get("random_seed"),
-        "split": (config.get("evaluation") or {}).get("split", "test"),
+        "model": _section(config, "model").get("name"),
+        "pred_len": _section(config, "task").get("pred_len"),
+        "seed": _section(config, "experiment").get("random_seed"),
+        "split": _section(config, "evaluation").get("split", "test"),
         **{k: metrics[k] for k in ("mse", "mae") if k in metrics},
         "train_s": round(result.get("train_time_sec") or 0.0, 1),
         **(result.get("cost") or {}),
     }
 
 
-def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=time.monotonic, sleep=time.sleep):
-    """Block until every run under ``directory`` has ended or ``timeout`` seconds pass.
-
-    Returns one compact result (counts by status and the runs that did not succeed), so an agent that
-    started a sweep in the background waits with one call instead of polling logs. A timeout does not
-    cancel training: call it again.
-    """
-    if not math.isfinite(timeout) or not math.isfinite(interval) or timeout < 0 or interval <= 0:
-        raise ValueError("timeout must be nonnegative and interval positive")
-    deadline = clock() + timeout
+def _poll_until_done(directory, deadline: float, interval: float, clock, sleep):
+    """Poll ``directory`` until no run is busy or ``deadline`` passes; return (runs, busy)."""
     while True:
         result = status(directory)
         runs = result.get("runs") or [result]
         # A failed cell may still be awaiting an automatic retry while the controller holds its lock.
         busy = any(run.get("status") not in TERMINAL for run in runs) or controller_active(directory)
         if not busy or clock() >= deadline:
-            break
+            return runs, busy
         sleep(min(interval, max(0.0, deadline - clock())))
+
+
+def _summarize_runs(runs):
+    """Counts by status, result rows of succeeded runs, and the runs that did not succeed."""
     counts: dict[str, int] = {}
     results, unfinished = [], []
     for run in runs:
@@ -344,6 +401,21 @@ def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=ti
                 continue
             error = error or "completed run has no result artifact"
         unfinished.append({"status": state, "directory": run.get("directory"), "error": error})
+    return counts, results, unfinished
+
+
+def wait(directory, timeout: float = 1800.0, interval: float = 15.0, *, clock=time.monotonic, sleep=time.sleep):
+    """Block until every run under ``directory`` has ended or ``timeout`` seconds pass.
+
+    Returns one compact result (counts by status and the runs that did not succeed), so an agent that
+    started a sweep in the background waits with one call instead of polling logs. A timeout does not
+    cancel training: call it again.
+    """
+    if not math.isfinite(timeout) or not math.isfinite(interval) or timeout < 0 or interval <= 0:
+        raise ValueError("timeout must be nonnegative and interval positive")
+    deadline = clock() + timeout
+    runs, busy = _poll_until_done(directory, deadline, interval, clock, sleep)
+    counts, results, unfinished = _summarize_runs(runs)
     return {
         "directory": str(Path(directory).resolve()),
         "ok": not busy and not unfinished,
@@ -363,6 +435,314 @@ def cancel(directory):
         raise ValueError("expected a run or sweep directory")
     (directory / "cancel.request").touch()
     return {"directory": str(directory), "cancel_requested": True}
+
+
+def _saved_matrix(directory: Path, sweep: bool, policy):
+    """The saved sweep state, a private copy of the policy to run with, and the matrix's run directories."""
+    saved = json.loads((directory / "sweep.json").read_text()) if sweep else {}
+    if not sweep:
+        attempts = read_run(directory).get("attempts", [])
+        if attempts:
+            saved["policy"] = attempts[-1].get("policy", {})
+    policy = (
+        policy or ExecutionPolicy.model_validate(saved.get("policy", {}))
+    ).model_copy(deep=True)
+    run_dirs = [Path(p) for p in saved["runs"]] if sweep else [directory]
+    if policy.resources.auto_select or policy.budget.auto_parallel:
+        policy = resolve_policy([validated_config(read_run(p)["config"]) for p in run_dirs], policy)
+    return saved, policy, run_dirs
+
+
+def _apply_round_budget(policy, round_id) -> None:
+    """Cap the policy's parallelism, run timeout, and retries at the research round's budget."""
+    from tsflab.research.rounds import load_round
+
+    round_budget = load_round(round_id).get("budget", {})
+    for field in ("max_parallel_jobs", "run_timeout_minutes", "max_retries"):
+        bound = round_budget.get(field)
+        if bound is not None:
+            current = getattr(policy.budget, field)
+            setattr(
+                policy.budget,
+                field,
+                bound if current is None else min(current, bound),
+            )
+
+
+def _pending_runs(directory: Path, run_dirs, selected_run, policy):
+    """Validate every selected cell and preflight the unfinished ones; return (pending, resolved policy)."""
+    # Validate every cell before any compute, even when restoring a matrix.
+    pending = []
+    for path in run_dirs:
+        if selected_run is not None and path != selected_run:
+            continue
+        config = validated_config(read_run(path)["config"])
+        with file_lock(path / ".run.lock", blocking=False):
+            state = verify_resume(path, config)
+        if state["status"] == "succeeded":
+            if not (path / "result.json").is_file():
+                raise ValueError(f"completed run has no result artifact: {path}")
+            continue
+        pending.append(path)
+    report = preflight(
+        [validated_config(read_run(p)["config"]) for p in pending], policy
+    )
+    if not report["ok"]:
+        raise ValueError(json.dumps(report))
+    policy = ExecutionPolicy.model_validate(report["resolved_policy"])
+    (directory / "cancel.request").unlink(missing_ok=True)
+    for path in pending:
+        (path / "cancel.request").unlink(missing_ok=True)
+    return pending, policy
+
+
+@dataclass
+class _Attempt:
+    """Mutable facts of one attempt, read by its cleanup even when launching it raised."""
+
+    number: int
+    reservation: int | None = None
+    process: object = None
+    outcome: str = "failed"
+    launch: float | None = None
+    gpus: list = field(default_factory=list)
+
+
+class _Controller:
+    """Runs the pending cells of one matrix in parallel and accounts their wall time and GPU hours."""
+
+    def __init__(self, directory: Path, policy, saved: dict, round_id, cancelled: Cancellation):
+        self.directory = directory
+        self.policy = policy
+        self.saved = saved
+        self.round_id = round_id
+        self.cancelled = cancelled
+        self.stop = threading.Event()
+        self.started = time.monotonic()
+        self.usage_path = directory / "usage.json"
+        usage = json.loads(self.usage_path.read_text()) if self.usage_path.exists() else saved
+        self.prior_elapsed = usage.get("elapsed_sec", 0)
+        self.hours = usage.get("gpu_hours", 0.0)
+        self.active = {}
+        self.mutex = threading.Lock()
+
+    def exhausted(self):
+        if self.cancelled():
+            return "cancelled"
+        if self.stop.is_set() or (self.directory / "cancel.request").exists():
+            return "cancelled"
+        if (
+            self.policy.budget.max_wall_minutes
+            and self.prior_elapsed + time.monotonic() - self.started
+            >= self.policy.budget.max_wall_minutes * 60
+        ):
+            return "timed_out"
+        with self.mutex:
+            used = self.hours + sum(
+                (time.monotonic() - value[0]) * value[1] / 3600
+                for value in self.active.values()
+            )
+            write_json(
+                self.usage_path,
+                {
+                    "elapsed_sec": self.prior_elapsed + time.monotonic() - self.started,
+                    "gpu_hours": used,
+                },
+            )
+        if self.policy.budget.max_gpu_hours and used >= self.policy.budget.max_gpu_hours:
+            return "timed_out"
+        return None
+
+    def reason(self, path: Path):
+        """Why the run at ``path`` must stop now, or None."""
+        if self.policy.storage.max_run_gb is not None:
+            from tsflab.experiments.infra.retention import storage_status
+
+            if not storage_status(path, self.policy)["ok"]:
+                return "storage_exhausted"
+        return self.exhausted() or (
+            "cancelled" if (path / "cancel.request").exists() else None
+        )
+
+    def worker(self, path: Path):
+        with file_lock(path / ".dispatch.lock", blocking=False):
+            reason = partial(self.reason, path)
+            for retry in range(self.policy.budget.max_retries + 1):
+                outcome = self._attempt(path, reason)
+                if outcome != "failed":
+                    break
+            return {"directory": str(path), "status": outcome}
+
+    def _attempt(self, path: Path, reason) -> str:
+        """Run one attempt of the cell at ``path`` and record it; return its outcome."""
+        state = read_run(path)
+        attempt = _Attempt(number=len(state["attempts"]) + 1)
+        state["attempts"].append(
+            {
+                "number": attempt.number,
+                "started_at": time.time(),
+                "status": "queued",
+                "stage": "resources",
+                "policy": self.policy.model_dump(mode="json"),
+            }
+        )
+        state["status"], state["stage"] = "queued", "resources"
+        for key in ("error", "diagnosis"):
+            state.pop(key, None)
+        write_json(path / "manifest.json", state)
+        try:
+            self._launch(path, attempt, reason)
+        except Exception as exc:
+            attempt.outcome = reason() or (
+                "timed_out" if isinstance(exc, TimeoutError) else "failed"
+            )
+            state = read_run(path)
+            state["error"] = f"{type(exc).__name__}: {exc}"
+            write_json(path / "manifest.json", state)
+        finally:
+            self._settle(path, attempt)
+        return attempt.outcome
+
+    def _launch(self, path: Path, attempt: _Attempt, reason) -> None:
+        """Lease GPUs, reserve round capacity, and run the cell's subprocess to its outcome."""
+        resources = self.policy.resources
+        if (
+            read_run(path)["config"]["experiment"]["runtime"]["device"]
+            != "cuda"
+        ):
+            resources = resources.model_copy(update={"gpus": []})
+        round_id = self.round_id
+        with ExitStack() as owned:
+            attempt.gpus = owned.enter_context(
+                lease_gpus(resources, cancelled=lambda: bool(reason()))
+            )
+            owned.callback(
+                lambda: (
+                    _terminate(attempt.process) if attempt.process is not None else None
+                )
+            )
+            if reason():
+                raise InterruptedError(reason())
+            if round_id:
+                attempt.reservation = round_execution.reserve(
+                    round_id,
+                    read_run(path)["run_id"],
+                    path,
+                    len(attempt.gpus),
+                    self.policy.resources.wait_timeout_minutes,
+                    reason,
+                )
+            attempt.launch = time.monotonic()
+            with self.mutex:
+                self.active[str(path)] = (attempt.launch, len(attempt.gpus))
+            with (path / f"attempt-{attempt.number}.log").open("a") as log:
+                attempt.process = launch_run(path, self.policy, attempt.gpus, attempt.number, log)
+                attempt.outcome = monitor(
+                    attempt.process,
+                    path,
+                    attempt.gpus,
+                    attempt.launch,
+                    self.policy.budget.run_timeout_minutes,
+                    lambda: (
+                        reason()
+                        or (
+                            round_execution.stop_reason(round_id)
+                            if round_id
+                            else None
+                        )
+                    ),
+                )
+            if attempt.outcome == "failed":
+                _diagnose_failure(path, attempt.number)
+            if (
+                attempt.outcome == "succeeded"
+                and read_run(path)["status"] != "succeeded"
+            ):
+                attempt.outcome = "failed"
+
+    def _settle(self, path: Path, attempt: _Attempt) -> None:
+        """Stop the attempt's process, account its GPU hours, and persist its final status."""
+        if attempt.process and attempt.process.poll() is None:
+            _terminate(attempt.process)
+        with self.mutex:
+            self.active.pop(str(path), None)
+            if attempt.launch:
+                self.hours += (time.monotonic() - attempt.launch) * len(attempt.gpus) / 3600
+        if self.round_id and attempt.reservation is not None:
+            round_execution.settle(
+                self.round_id, attempt.reservation, read_run(path)["run_id"], attempt.outcome
+            )
+        state = read_run(path)
+        state["status"] = attempt.outcome
+        state["attempts"][-1].update(
+            status=attempt.outcome,
+            finished_at=time.time(),
+            stage=state["stage"],
+        )
+        if state.get("error"):
+            state["attempts"][-1]["error"] = state["error"]
+        write_json(
+            path / "attempts" / f"{attempt.number}.json", state["attempts"][-1]
+        )
+        write_json(path / "manifest.json", state)
+
+    def run(self, pending, sweep: bool) -> list:
+        """Run every pending cell, then persist the matrix's elapsed time and GPU hours."""
+        results = []
+        try:
+            with ThreadPoolExecutor(
+                max_workers=self.policy.budget.max_parallel_jobs
+            ) as executor:
+                futures = [executor.submit(self.worker, path) for path in pending]
+                try:
+                    for future in as_completed(futures):
+                        results.append(future.result())
+                except BaseException:
+                    self.stop.set()
+                    raise
+        finally:
+            write_json(
+                self.usage_path,
+                {
+                    "elapsed_sec": self.prior_elapsed + time.monotonic() - self.started,
+                    "gpu_hours": self.hours,
+                },
+            )
+            if sweep:
+                self.saved.update(
+                    elapsed_sec=self.prior_elapsed + time.monotonic() - self.started,
+                    gpu_hours=self.hours,
+                )
+                write_json(self.directory / "sweep.json", self.saved)
+        return results
+
+
+def _diagnose_failure(path: Path, attempt: int) -> None:
+    """Record whether a failed attempt ran out of memory, and where its log is."""
+    tail = (path / f"attempt-{attempt}.log").read_text()[
+        -8000:
+    ]
+    state = read_run(path)
+    state["diagnosis"] = (
+        "out-of-memory"
+        if "out of memory" in tail.lower()
+        else "execution-failure"
+    )
+    state["log"] = str(path / f"attempt-{attempt}.log")
+    write_json(path / "manifest.json", state)
+
+
+def _matrix_report(directory: Path, results, run_dirs, pending, selected_run) -> dict:
+    return {
+        "schema_version": 1,
+        "directory": str(directory),
+        "ok": all(r["status"] == "succeeded" for r in results),
+        "skipped": len(run_dirs) - len(pending),
+        # Include already completed cells too: resume should return the
+        # complete matrix without another result-discovery model turn.
+        "runs": [completion_report({"directory": str(path), **read_run(path)})
+                 for path in run_dirs if selected_run is None or path == selected_run],
+    }
 
 
 def execute(
@@ -386,263 +766,17 @@ def execute(
                 selected_run=directory,
                 cancelled=cancelled,
             )
-    saved = json.loads((directory / "sweep.json").read_text()) if sweep else {}
-    if not sweep:
-        attempts = read_run(directory).get("attempts", [])
-        if attempts:
-            saved["policy"] = attempts[-1].get("policy", {})
-    policy = (
-        policy or ExecutionPolicy.model_validate(saved.get("policy", {}))
-    ).model_copy(deep=True)
-    run_dirs = [Path(p) for p in saved["runs"]] if sweep else [directory]
-    if policy.resources.auto_select or policy.budget.auto_parallel:
-        policy = resolve_policy([validated_config(read_run(p)["config"]) for p in run_dirs], policy)
+    saved, policy, run_dirs = _saved_matrix(directory, sweep, policy)
     if round_id and saved.get("round") and round_id != saved["round"]:
         raise ValueError("cannot change the research round of an existing sweep")
     round_id = round_id or saved.get("round")
     if round_id:
-        from tsflab.research.rounds import load_round
-
-        round_budget = load_round(round_id).get("budget", {})
-        for field in ("max_parallel_jobs", "run_timeout_minutes", "max_retries"):
-            bound = round_budget.get(field)
-            if bound is not None:
-                current = getattr(policy.budget, field)
-                setattr(
-                    policy.budget,
-                    field,
-                    bound if current is None else min(current, bound),
-                )
+        _apply_round_budget(policy, round_id)
     with file_lock(directory / ".controller.lock", blocking=False):
-        # Validate every cell before any compute, even when restoring a matrix.
-        pending = []
-        for path in run_dirs:
-            if selected_run is not None and path != selected_run:
-                continue
-            config = validated_config(read_run(path)["config"])
-            with file_lock(path / ".run.lock", blocking=False):
-                state = verify_resume(path, config)
-            if state["status"] == "succeeded":
-                if not (path / "result.json").is_file():
-                    raise ValueError(f"completed run has no result artifact: {path}")
-                continue
-            pending.append(path)
-        report = preflight(
-            [validated_config(read_run(p)["config"]) for p in pending], policy
-        )
-        if not report["ok"]:
-            raise ValueError(json.dumps(report))
-        policy = ExecutionPolicy.model_validate(report["resolved_policy"])
-        (directory / "cancel.request").unlink(missing_ok=True)
-        for path in pending:
-            (path / "cancel.request").unlink(missing_ok=True)
+        pending, policy = _pending_runs(directory, run_dirs, selected_run, policy)
         saved["policy"] = policy.model_dump(mode="json")
-        stop = threading.Event()
-        started = time.monotonic()
-        usage_path = directory / "usage.json"
-        usage = json.loads(usage_path.read_text()) if usage_path.exists() else saved
-        prior_elapsed = usage.get("elapsed_sec", 0)
-        hours = usage.get("gpu_hours", 0.0)
-        active = {}
-        mutex = threading.Lock()
-
-        def exhausted():
-            if cancelled():
-                return "cancelled"
-            if stop.is_set() or (directory / "cancel.request").exists():
-                return "cancelled"
-            if (
-                policy.budget.max_wall_minutes
-                and prior_elapsed + time.monotonic() - started
-                >= policy.budget.max_wall_minutes * 60
-            ):
-                return "timed_out"
-            with mutex:
-                used = hours + sum(
-                    (time.monotonic() - value[0]) * value[1] / 3600
-                    for value in active.values()
-                )
-                write_json(
-                    usage_path,
-                    {
-                        "elapsed_sec": prior_elapsed + time.monotonic() - started,
-                        "gpu_hours": used,
-                    },
-                )
-            if policy.budget.max_gpu_hours and used >= policy.budget.max_gpu_hours:
-                return "timed_out"
-            return None
-
-        def worker(path):
-            nonlocal hours
-            with file_lock(path / ".dispatch.lock", blocking=False):
-
-                def reason():
-                    if policy.storage.max_run_gb is not None:
-                        from tsflab.experiments.infra.retention import storage_status
-
-                        if not storage_status(path, policy)["ok"]:
-                            return "storage_exhausted"
-                    return exhausted() or (
-                        "cancelled" if (path / "cancel.request").exists() else None
-                    )
-
-                for retry in range(policy.budget.max_retries + 1):
-                    number = None
-                    process = None
-                    outcome = "failed"
-                    launch = None
-                    gpus = []
-                    state = read_run(path)
-                    attempt = len(state["attempts"]) + 1
-                    state["attempts"].append(
-                        {
-                            "number": attempt,
-                            "started_at": time.time(),
-                            "status": "queued",
-                            "stage": "resources",
-                            "policy": policy.model_dump(mode="json"),
-                        }
-                    )
-                    state["status"], state["stage"] = "queued", "resources"
-                    for key in ("error", "diagnosis"):
-                        state.pop(key, None)
-                    write_json(path / "manifest.json", state)
-                    try:
-                        resources = policy.resources
-                        if (
-                            read_run(path)["config"]["experiment"]["runtime"]["device"]
-                            != "cuda"
-                        ):
-                            resources = resources.model_copy(update={"gpus": []})
-                        with ExitStack() as owned:
-                            gpus = owned.enter_context(
-                                lease_gpus(resources, cancelled=lambda: bool(reason()))
-                            )
-                            owned.callback(
-                                lambda: (
-                                    _terminate(process) if process is not None else None
-                                )
-                            )
-                            if reason():
-                                raise InterruptedError(reason())
-                            if round_id:
-                                number = round_execution.reserve(
-                                    round_id,
-                                    read_run(path)["run_id"],
-                                    path,
-                                    len(gpus),
-                                    policy.resources.wait_timeout_minutes,
-                                    reason,
-                                )
-                            launch = time.monotonic()
-                            with mutex:
-                                active[str(path)] = (launch, len(gpus))
-                            with (path / f"attempt-{attempt}.log").open("a") as log:
-                                process = launch_run(path, policy, gpus, attempt, log)
-                                outcome = monitor(
-                                    process,
-                                    path,
-                                    gpus,
-                                    launch,
-                                    policy.budget.run_timeout_minutes,
-                                    lambda: (
-                                        reason()
-                                        or (
-                                            round_execution.stop_reason(round_id)
-                                            if round_id
-                                            else None
-                                        )
-                                    ),
-                                )
-                            if outcome == "failed":
-                                tail = (path / f"attempt-{attempt}.log").read_text()[
-                                    -8000:
-                                ]
-                                state = read_run(path)
-                                state["diagnosis"] = (
-                                    "out-of-memory"
-                                    if "out of memory" in tail.lower()
-                                    else "execution-failure"
-                                )
-                                state["log"] = str(path / f"attempt-{attempt}.log")
-                                write_json(path / "manifest.json", state)
-                            if (
-                                outcome == "succeeded"
-                                and read_run(path)["status"] != "succeeded"
-                            ):
-                                outcome = "failed"
-                    except Exception as exc:
-                        outcome = reason() or (
-                            "timed_out" if isinstance(exc, TimeoutError) else "failed"
-                        )
-                        state = read_run(path)
-                        state["error"] = f"{type(exc).__name__}: {exc}"
-                        write_json(path / "manifest.json", state)
-                    finally:
-                        if process and process.poll() is None:
-                            _terminate(process)
-                        with mutex:
-                            active.pop(str(path), None)
-                            if launch:
-                                hours += (time.monotonic() - launch) * len(gpus) / 3600
-                        if round_id and number is not None:
-                            round_execution.settle(
-                                round_id, number, read_run(path)["run_id"], outcome
-                            )
-                        state = read_run(path)
-                        state["status"] = outcome
-                        state["attempts"][-1].update(
-                            status=outcome,
-                            finished_at=time.time(),
-                            stage=state["stage"],
-                        )
-                        if state.get("error"):
-                            state["attempts"][-1]["error"] = state["error"]
-                        write_json(
-                            path / "attempts" / f"{attempt}.json", state["attempts"][-1]
-                        )
-                        write_json(path / "manifest.json", state)
-                    if outcome != "failed":
-                        break
-                return {"directory": str(path), "status": outcome}
-
-        results = []
-        try:
-            with ThreadPoolExecutor(
-                max_workers=policy.budget.max_parallel_jobs
-            ) as executor:
-                futures = [executor.submit(worker, path) for path in pending]
-                try:
-                    for future in as_completed(futures):
-                        results.append(future.result())
-                except BaseException:
-                    stop.set()
-                    raise
-        finally:
-            write_json(
-                usage_path,
-                {
-                    "elapsed_sec": prior_elapsed + time.monotonic() - started,
-                    "gpu_hours": hours,
-                },
-            )
-            if sweep:
-                saved.update(
-                    elapsed_sec=prior_elapsed + time.monotonic() - started,
-                    gpu_hours=hours,
-                )
-                write_json(directory / "sweep.json", saved)
-        return {
-            "schema_version": 1,
-            "directory": str(directory),
-            "ok": all(r["status"] == "succeeded" for r in results),
-            "skipped": len(run_dirs) - len(pending),
-            # Include already completed cells too: resume should return the
-            # complete matrix without another result-discovery model turn.
-            "runs": [completion_report({"directory": str(path), **read_run(path)})
-                     for path in run_dirs if selected_run is None or path == selected_run],
-        }
+        results = _Controller(directory, policy, saved, round_id, cancelled).run(pending, sweep)
+        return _matrix_report(directory, results, run_dirs, pending, selected_run)
 
 
 def saved_policy(directory):

@@ -86,6 +86,10 @@ class Tracker:
                 )
                 + "\n"
             )
+        self._log_tensorboard(scalars, step)
+        self._log_wandb(scalars, step)
+
+    def _log_tensorboard(self, scalars, step):
         if self.writer and not self.writer_failed:
             try:
                 for key, value in scalars.items():
@@ -94,6 +98,8 @@ class Tracker:
             except Exception as exc:
                 self._warning("TensorBoard", exc)
                 self.writer_failed = True
+
+    def _log_wandb(self, scalars, step):
         if self.wandb_run and not self.wandb_failed:
             try:
                 self.wandb_run.log({**scalars, "epoch": step})

@@ -154,6 +154,32 @@ def _torch() -> dict:
     return facts
 
 
+def _machine_warnings(uv, nvidia, install, system) -> list[str]:
+    warnings = []
+    if not uv:
+        warnings.append("uv not found: install it from https://docs.astral.sh/uv/")
+    if nvidia["driver"] and install == "cpu" and system == "Linux":
+        warnings.append(
+            f"NVIDIA driver {nvidia['driver']} reports CUDA {nvidia['cuda']}; torch "
+            "2.14.1 CUDA wheels need driver >= 560 (CUDA 12.6); upgrade the driver"
+        )
+    return warnings
+
+
+def _torch_warnings(torch, install, system, expected) -> list[str]:
+    warnings = []
+    if torch.get("installed") and system == "Linux" and torch["build"] != expected:
+        warnings.append(
+            f"installed torch build {torch['build']} does not match profile "
+            f"{install} ({expected}); reinstall with the commands below"
+        )
+    if torch.get("installed") and install != "cpu" and not torch["cuda_available"]:
+        warnings.append("torch cannot use the GPU; check the build and driver")
+    if not torch.get("installed"):
+        warnings.append("torch is not importable; run the install commands below")
+    return warnings
+
+
 def doctor() -> dict:
     """Read-only machine report with the matching install and run profiles."""
     from tsflab.experiments.infra.hardware import gpu_inventory
@@ -167,23 +193,7 @@ def doctor() -> dict:
     usable = len(gpus) if install != "cpu" else 0
     run = run_profile(usable)
     expected = INSTALL_PROFILES[install]["backend"]
-    warnings = []
-    if not uv:
-        warnings.append("uv not found: install it from https://docs.astral.sh/uv/")
-    if nvidia["driver"] and install == "cpu" and system == "Linux":
-        warnings.append(
-            f"NVIDIA driver {nvidia['driver']} reports CUDA {nvidia['cuda']}; torch "
-            "2.14.1 CUDA wheels need driver >= 560 (CUDA 12.6); upgrade the driver"
-        )
-    if torch.get("installed") and system == "Linux" and torch["build"] != expected:
-        warnings.append(
-            f"installed torch build {torch['build']} does not match profile "
-            f"{install} ({expected}); reinstall with the commands below"
-        )
-    if torch.get("installed") and install != "cpu" and not torch["cuda_available"]:
-        warnings.append("torch cannot use the GPU; check the build and driver")
-    if not torch.get("installed"):
-        warnings.append("torch is not importable; run the install commands below")
+    warnings = _machine_warnings(uv, nvidia, install, system) + _torch_warnings(torch, install, system, expected)
     return {
         "schema_version": 1,
         "ok": not warnings,
@@ -213,6 +223,32 @@ def doctor() -> dict:
     }
 
 
+def _first_failure(commands, run, root):
+    """Run the install commands in order; return the first that fails, or None."""
+    for command in commands:
+        if run(command, shell=True, cwd=root).returncode != 0:
+            return command
+    return None
+
+
+def _probe_torch(root, run):
+    """Version and CUDA facts of the torch installed in ``root``'s venv, or None when it does not import."""
+    python = os.path.join(root, ".venv", "bin", "python")
+    probe = ("import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda, "
+             "'cuda_available': torch.cuda.is_available()}))")
+    result = run([python, "-c", probe], cwd=root, capture_output=True, text=True)
+    torch = None
+    if result.returncode == 0 and result.stdout.strip():
+        import json
+
+        torch = json.loads(result.stdout.strip().splitlines()[-1])
+    return torch
+
+
+def _needs_no_sync(profile, system) -> bool:
+    return profile == "cuda126" or (profile == "cpu" and system == "Linux")
+
+
 def setup(root: str = ".", extras=EXTRAS, dry_run: bool = False, run=subprocess.run) -> dict:
     """Install the torch build that this machine's driver supports, then verify it.
 
@@ -227,21 +263,13 @@ def setup(root: str = ".", extras=EXTRAS, dry_run: bool = False, run=subprocess.
               "commands": commands, "ok": True, "torch": None}
     if dry_run:
         return report
-    for command in commands:
-        if run(command, shell=True, cwd=root).returncode != 0:
-            return {**report, "ok": False, "failed": command}
-    python = os.path.join(root, ".venv", "bin", "python")
-    probe = ("import json, torch; print(json.dumps({'version': torch.__version__, 'cuda': torch.version.cuda, "
-             "'cuda_available': torch.cuda.is_available()}))")
-    result = run([python, "-c", probe], cwd=root, capture_output=True, text=True)
-    torch = None
-    if result.returncode == 0 and result.stdout.strip():
-        import json
-
-        torch = json.loads(result.stdout.strip().splitlines()[-1])
+    failed = _first_failure(commands, run, root)
+    if failed is not None:
+        return {**report, "ok": False, "failed": failed}
+    torch = _probe_torch(root, run)
     ok = torch is not None and (profile == "cpu" or torch["cuda_available"])
     return {**report, "torch": torch, "ok": ok,
-            "no_sync": profile == "cuda126" or (profile == "cpu" and system == "Linux")}
+            "no_sync": _needs_no_sync(profile, system)}
 
 
 def format_setup(report: dict) -> str:

@@ -60,11 +60,7 @@ def save_checkpoint(
         Path(temporary).unlink(missing_ok=True)
 
 
-def restore_checkpoint(
-    path, *, model, optimizer, scaler, early_stopping, manager, callbacks, loaders=()
-):
-    """Restore trusted local state, including RNG after all constructors have run."""
-    state = torch.load(path, map_location="cpu", weights_only=False)
+def _check_resume_contract(state, callbacks) -> None:
     if (
         not isinstance(state, dict)
         or state.get("schema_version") != 1
@@ -73,6 +69,22 @@ def restore_checkpoint(
         raise ValueError("checkpoint is not a complete TSFLab resume checkpoint")
     if len(state["callbacks"]) != len(callbacks):
         raise ValueError("checkpoint callback contract changed")
+
+
+def _restore_loader_rng(loaders, saved_states) -> None:
+    for loader, saved in zip(loaders, saved_states):
+        if saved is not None:
+            if getattr(loader, "generator", None) is None:
+                raise ValueError("checkpoint requires a DataLoader generator")
+            loader.generator.set_state(saved)
+
+
+def restore_checkpoint(
+    path, *, model, optimizer, scaler, early_stopping, manager, callbacks, loaders=()
+):
+    """Restore trusted local state, including RNG after all constructors have run."""
+    state = torch.load(path, map_location="cpu", weights_only=False)
+    _check_resume_contract(state, callbacks)
     model.load_state_dict(state["model"], strict=True)
     restore_runtime_state(model, state.get("runtime_state"))
     optimizer.load_state_dict(state["optimizer"])
@@ -82,18 +94,8 @@ def restore_checkpoint(
     manager.top_checkpoints = state["top_checkpoints"]
     for cb, saved in zip(callbacks, state["callbacks"]):
         cb.load_state_dict(saved)
-    for loader, saved in zip(loaders, state.get("loader_rng", [])):
-        if saved is not None:
-            if getattr(loader, "generator", None) is None:
-                raise ValueError("checkpoint requires a DataLoader generator")
-            loader.generator.set_state(saved)
-    random.setstate(state["rng"]["python"])
-    np.random.set_state(state["rng"]["numpy"])
-    torch.set_rng_state(state["rng"]["torch"])
-    if "cuda" in state["rng"] and torch.cuda.is_available():
-        torch.cuda.set_rng_state_all(state["rng"]["cuda"])
-    if "mps" in state["rng"] and torch.backends.mps.is_available():
-        torch.mps.set_rng_state(state["rng"]["mps"])
+    _restore_loader_rng(loaders, state.get("loader_rng", []))
+    set_rng(state["rng"])
     return state
 
 

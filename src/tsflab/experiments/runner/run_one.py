@@ -161,6 +161,30 @@ def _build_loaders(config):
 CHANNEL_WIDTHS = frozenset({"enc_in", "c_out", "dec_in"})
 
 
+def _declared_data_params(spec) -> dict | None:
+    """The ``[data_params]`` declarations of the spec's model card, or None without a readable card."""
+    try:
+        from pathlib import Path
+
+        from tsflab.catalog.cards.metadata import read_model_card
+
+        return read_model_card(Path(spec.model_card)).get("data_params") or {}
+    except Exception:  # no card (e.g. a test spec): nothing to fill
+        return None
+
+
+def _followed_widths(declared: dict, params: dict) -> set:
+    """Channel-width parameters that follow the data's channel count."""
+    follow = {name for name, rule in declared.items()
+              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"
+              and name in CHANNEL_WIDTHS}
+    # In multivariate mode the output and decoder widths equal the input width; presets that set them to
+    # the same value as enc_in follow it even when the card lists only enc_in.
+    if "enc_in" in follow:
+        follow |= {n for n in ("c_out", "dec_in") if params.get(n) == params.get("enc_in")}
+    return follow
+
+
 def _channel_params(spec, config, train_set) -> dict:
     """Model parameters with the data-dependent channel counts filled in from the data.
 
@@ -175,23 +199,11 @@ def _channel_params(spec, config, train_set) -> dict:
     data = getattr(train_set, "data", None)
     if getattr(config.task, "features", "M") != "M" or getattr(data, "ndim", 0) != 2:
         return params
-    try:
-        from pathlib import Path
-
-        from tsflab.catalog.cards.metadata import read_model_card
-
-        declared = read_model_card(Path(spec.model_card)).get("data_params") or {}
-    except Exception:  # no card (e.g. a test spec): nothing to fill
+    declared = _declared_data_params(spec)
+    if declared is None:
         return params
     channels = int(data.shape[-1])
-    follow = {name for name, rule in declared.items()
-              if (rule.get("from") if isinstance(rule, dict) else getattr(rule, "from_", None)) == "channels"
-              and name in CHANNEL_WIDTHS}
-    # In multivariate mode the output and decoder widths equal the input width; presets that set them to
-    # the same value as enc_in follow it even when the card lists only enc_in.
-    if "enc_in" in follow:
-        follow |= {n for n in ("c_out", "dec_in") if params.get(n) == params.get("enc_in")}
-    for name in sorted(follow):
+    for name in sorted(_followed_widths(declared, params)):
         value = params.get(name)
         if isinstance(value, int) and not isinstance(value, bool) and value != channels:
             print(f"Setting {name} = {channels} from the data (preset: {params[name]})")
@@ -199,37 +211,13 @@ def _channel_params(spec, config, train_set) -> dict:
     return params
 
 
-def _build_model(config, train_set, adj_norm, device: torch.device):
-    """Construct the model for one run and validate its output_type/loss pairing.
+def _inject_graph(spec, config, train_set, adj_norm, params: dict) -> None:
+    """Inject data-derived graph structure (``adj_mx``/``num_nodes``) into ``params``.
 
-    Wraps: model-parameter schema validation, data-derived graph structure
-    injection (``adj_mx``/``num_nodes``), explicit probabilistic configuration
-    resolution by model factories, and the output_type/loss fail-fast
-    check (a quantile or distribution model trained with a mismatched loss
-    silently produces nonsense, so this must run before training starts).
-
-    Returns
-    -------
-    tuple[torch.nn.Module, str]
-        The constructed model (already moved to ``device``) and its
-        ``output_type`` (``"point"`` when the model doesn't declare one).
+    Datasets that expose an adjacency matrix (e.g. cauair_st, traffic) make it
+    available here so graph model factories can read params["adj_mx"] /
+    params["num_nodes"]. Non-graph datasets/models simply ignore these.
     """
-    spec = MODEL_CATALOG.get(config.model.name)
-    params = spec.validate_params(_channel_params(spec, config, train_set))
-
-    # Pretrained weights/tokenizers are never downloaded implicitly. Required
-    # artifacts must already be present and checksum-verified before a factory
-    # is allowed to construct the model.
-    artifact_paths = {}
-    if spec.artifacts:
-        from tsflab.catalog.model_artifacts import require_artifacts
-
-        artifact_paths = require_artifacts(spec)
-
-    # Inject data-derived graph structure for spatiotemporal / graph models.
-    # Datasets that expose an adjacency matrix (e.g. cauair_st, traffic) make it
-    # available here so graph model factories can read params["adj_mx"] /
-    # params["num_nodes"]. Non-graph datasets/models simply ignore these.
     adj_mx = getattr(train_set, "adj_mx", None)
     if adj_mx is not None:
         if adj_norm is not None:
@@ -244,6 +232,9 @@ def _build_model(config, train_set, adj_norm, device: torch.device):
     if num_nodes is not None:
         params.setdefault("num_nodes", num_nodes)
 
+
+def _construct(spec, config, params: dict, artifact_paths: dict, device: torch.device):
+    """Call the spec's (artifact-aware) factory and check its pretraining capability."""
     if artifact_paths:
         if spec.artifact_factory is None:
             raise ValueError(
@@ -258,7 +249,11 @@ def _build_model(config, train_set, adj_norm, device: torch.device):
         raise ValueError(
             f"model {spec.name!r} pretraining-stage capability and pretrain() method disagree"
         )
+    return model
 
+
+def _check_output_loss(spec, config, model) -> str:
+    """Fail fast on an output_type/loss mismatch and return the output_type."""
     # Probabilistic output/loss compatibility check. A quantile or
     # distribution model trained with a mismatched loss silently produces
     # nonsense (e.g. an MSE loss backprop'd through raw quantile channels),
@@ -302,6 +297,39 @@ def _build_model(config, train_set, adj_norm, device: torch.device):
             f"output_type={loss_by_required_output_type[configured_loss]!r}, but "
             f"model {config.model.name!r} declares output_type={output_type!r}"
         )
+    return output_type
+
+
+def _build_model(config, train_set, adj_norm, device: torch.device):
+    """Construct the model for one run and validate its output_type/loss pairing.
+
+    Wraps: model-parameter schema validation, data-derived graph structure
+    injection (``adj_mx``/``num_nodes``), explicit probabilistic configuration
+    resolution by model factories, and the output_type/loss fail-fast
+    check (a quantile or distribution model trained with a mismatched loss
+    silently produces nonsense, so this must run before training starts).
+
+    Returns
+    -------
+    tuple[torch.nn.Module, str]
+        The constructed model (already moved to ``device``) and its
+        ``output_type`` (``"point"`` when the model doesn't declare one).
+    """
+    spec = MODEL_CATALOG.get(config.model.name)
+    params = spec.validate_params(_channel_params(spec, config, train_set))
+
+    # Pretrained weights/tokenizers are never downloaded implicitly. Required
+    # artifacts must already be present and checksum-verified before a factory
+    # is allowed to construct the model.
+    artifact_paths = {}
+    if spec.artifacts:
+        from tsflab.catalog.model_artifacts import require_artifacts
+
+        artifact_paths = require_artifacts(spec)
+
+    _inject_graph(spec, config, train_set, adj_norm, params)
+    model = _construct(spec, config, params, artifact_paths, device)
+    output_type = _check_output_loss(spec, config, model)
 
     return model, output_type
 
@@ -488,6 +516,191 @@ def _write_run_outputs(
         write_csv_summary(profile_csv_path, profile_row, header=profile_header)
 
 
+def _print_run_config(config, dataset_name: str, raw: dict, sweep_keys: list[str] | None) -> None:
+    """Print the one-line summary of the run's identity and sweep values."""
+    if raw and sweep_keys:
+        flattened = _flatten_params(raw)
+        sweep_parts = [
+            f"{key}={flattened[key]}" for key in sweep_keys if key in flattened
+        ]
+    else:
+        sweep_parts = []
+
+    summary_parts = [
+        f"model={config.model.name}",
+        f"dataset={dataset_name}",
+        f"mode={config.task.mode}",
+        f"seq_len={config.task.seq_len}",
+        f"pred_len={config.task.pred_len}",
+        f"seed={config.experiment.random_seed}",
+    ]
+    if sweep_parts:
+        summary_parts.append(f"sweep: {', '.join(sweep_parts)}")
+    print(f"Run config | {' | '.join(summary_parts)}")
+
+
+def _pretrain(config, model, spec, session, train_loader, vali_loader, device, frozen_checkpoint) -> float:
+    """Run the optional model-side pretraining stage and return its wall time.
+
+    Used by two-stage models such as LatentTSF to pretrain + freeze an autoencoder before the
+    forecaster is trained. Run on the raw module before any DataParallel wrap; the wall time is
+    added to fit_time/train_time_sec for fair benchmark accounting.
+    """
+    if "pretraining-stage" not in spec.capabilities or frozen_checkpoint:
+        return 0.0
+    session.stage("pretraining")
+    _pretrain_start = time.perf_counter()
+    import inspect
+    options = {}
+    if "val_loader" in inspect.signature(model.pretrain).parameters:
+        options["val_loader"] = vali_loader
+    if "stage_runner" in inspect.signature(model.pretrain).parameters:
+        from functools import partial
+        from tsflab.experiments.infra.stages import reconstruction_stage
+        options["stage_runner"] = partial(reconstruction_stage,
+            checkpoint=session.directory / "checkpoints" / "pretraining.pth",
+            every_batches=session.policy.recovery.checkpoint_every_batches)
+    model.pretrain(train_loader, device, **options)
+    return time.perf_counter() - _pretrain_start
+
+
+def _parallelize(config, model, device, inference_only: bool):
+    """Wrap the model in DataParallel when multi-GPU is configured on CUDA."""
+    if inference_only and config.experiment.runtime.use_multi_gpu:
+        raise ValueError(
+            "inference-only models use the official runtime's device placement; "
+            "disable TSFLab use_multi_gpu"
+        )
+    if config.experiment.runtime.use_multi_gpu and device.type == "cuda":
+        model = torch.nn.DataParallel(
+            model, device_ids=(list(range(int(os.environ["TSFLAB_ASSIGNED_GPUS"]))) if os.environ.get("TSFLAB_ASSIGNED_GPUS") else config.experiment.runtime.device_ids)
+        )
+    return model
+
+
+def _load_frozen(config, model, device, frozen_checkpoint) -> TrainResult:
+    """Load a frozen checkpoint (hash-checked when configured) instead of training."""
+    import hashlib
+    from pathlib import Path
+    checkpoint = Path(frozen_checkpoint)
+    if config.evaluation.checkpoint_sha256:
+        actual = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+        if actual != config.evaluation.checkpoint_sha256:
+            raise ValueError("frozen checkpoint hash changed")
+    from tsflab.experiments.runner.model_io import unwrap_model
+    unwrap_model(model).load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
+    train_result = TrainResult(best_model_path=str(checkpoint), train_time_sec=0.0)
+    print("Training skipped: evaluating frozen checkpoint")
+    return train_result
+
+
+def _setup_only(config, model, spec, train_loader, pretrain_time_sec: float) -> TrainResult:
+    """Run only the declared training_setup for a model with no trainable parameters."""
+    # Parameter-free baselines (e.g. historical last) have nothing to
+    # optimise, and torch optimisers reject an empty parameter list. A
+    # declared training_setup (data-fitted buffers) still runs once; the
+    # model is then evaluated as constructed.
+    print("Training skipped: model has no trainable parameters")
+    _setup_start = time.perf_counter()
+    if spec.training_setup is not None:
+        from tsflab.experiments.runner.model_io import unwrap_model
+        spec.training_setup(
+            unwrap_model(model), train_loader,
+            pred_len=config.task.pred_len, features=config.task.features,
+        )
+    return TrainResult(
+        best_model_path="",
+        train_time_sec=pretrain_time_sec + time.perf_counter() - _setup_start,
+    )
+
+
+def _fit(config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir: str,
+         pretrain_time_sec: float) -> TrainResult:
+    """Build the optimizer, callbacks, and loss for one run and train the model."""
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    optimizer_cls = getattr(torch.optim, config.training.optimizer.name)
+    optimizer_kwargs = {
+        "lr": config.training.optimizer.lr,
+        "weight_decay": config.training.optimizer.weight_decay,
+    }
+    optimizer_kwargs.update(config.training.optimizer.params)
+    optimizer = optimizer_cls(model.parameters(), **optimizer_kwargs)
+
+    # Build optional training-trick callbacks. When the [training.tricks]
+    # section is omitted (the default) this returns an empty list.
+    callbacks = build_callbacks(getattr(config.training, "tricks", None))
+
+    # Quantile pinball loss consumes the evaluation quantile levels unless
+    # a training-only override was explicitly supplied.
+    loss_params = dict(config.training.loss_params)
+    if (
+        config.training.loss.lower() == "quantile"
+        and "quantile_levels" not in loss_params
+    ):
+        loss_params["quantile_levels"] = list(
+            config.evaluation.quantile_levels
+        )
+
+    train_result = train(
+        model=model,
+        train_loader=train_loader,
+        vali_loader=vali_loader,
+        device=device,
+        epochs=config.training.epochs,
+        patience=config.training.patience,
+        loss_name=config.training.loss,
+        loss_params=loss_params,
+        optimizer=optimizer,
+        lradj=config.training.optimizer.lradj,
+        base_lr=config.training.optimizer.lr,
+        total_epochs=config.training.epochs,
+        min_lr=config.training.optimizer.min_lr,
+        label_len=config.task.label_len,
+        pred_len=config.task.pred_len,
+        features=config.task.features,
+        use_amp=config.experiment.runtime.amp,
+        checkpoint_dir=checkpoint_dir,
+        checkpoint_cfg=config.training.checkpoint,
+        callbacks=callbacks,
+        training_objective=spec.training_objective,
+        training_setup=spec.training_setup,
+        resume=session.resume,
+        tracker=session.tracker,
+        checkpoint_every_batches=session.policy.recovery.checkpoint_every_batches,
+    )
+    train_result.train_time_sec += pretrain_time_sec
+    return train_result
+
+
+def _train_or_skip(config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir: str,
+                   frozen_checkpoint, inference_only: bool, pretrain_time_sec: float) -> TrainResult:
+    """Train the model, or skip training for a frozen checkpoint, an inference-only or a parameter-free model."""
+    trainable = any(parameter.requires_grad for parameter in model.parameters())
+    if frozen_checkpoint:
+        return _load_frozen(config, model, device, frozen_checkpoint)
+    if inference_only:
+        print("Training skipped: model declares the inference-only capability")
+        return TrainResult(best_model_path="", train_time_sec=0.0)
+    if not trainable:
+        return _setup_only(config, model, spec, train_loader, pretrain_time_sec)
+    return _fit(config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir, pretrain_time_sec)
+
+
+def _kept_metrics(config, metrics: dict, output_type: str) -> dict:
+    """Restrict metrics to ``evaluation.metrics``, keeping probabilistic metrics for non-point models."""
+    if not config.evaluation.metrics:
+        return metrics
+    # Probabilistic runs always score crps/wql/coverage_80/width_80
+    # (collect_prob_metrics), so keep them even when evaluation.metrics
+    # was left at its point-only default and doesn't name them — otherwise
+    # a probabilistic model's uncertainty metrics are silently dropped
+    # from performance.csv.
+    keep = set(config.evaluation.metrics)
+    if output_type != "point":
+        keep |= {"crps", "wql", "coverage_80", "width_80"}
+    return {k: v for k, v in metrics.items() if k in keep}
+
+
 def _run_one(
     config,
     raw: dict,
@@ -510,26 +723,7 @@ def _run_one(
         Metrics and artifact paths for the run.
     """
     dataset_name = config.dataset.alias or config.dataset.name
-
-    if raw and sweep_keys:
-        flattened = _flatten_params(raw)
-        sweep_parts = [
-            f"{key}={flattened[key]}" for key in sweep_keys if key in flattened
-        ]
-    else:
-        sweep_parts = []
-
-    summary_parts = [
-        f"model={config.model.name}",
-        f"dataset={dataset_name}",
-        f"mode={config.task.mode}",
-        f"seq_len={config.task.seq_len}",
-        f"pred_len={config.task.pred_len}",
-        f"seed={config.experiment.random_seed}",
-    ]
-    if sweep_parts:
-        summary_parts.append(f"sweep: {', '.join(sweep_parts)}")
-    print(f"Run config | {' | '.join(summary_parts)}")
+    _print_run_config(config, dataset_name, raw, sweep_keys)
 
     session.stage("data")
     set_seed(config.experiment.random_seed)
@@ -551,39 +745,12 @@ def _run_one(
 
     _reset_peak_memory(device)
 
-    # Optional model-side pretraining stage. Used by two-stage models such as
-    # LatentTSF to pretrain + freeze an autoencoder before the forecaster is
-    # trained. Run on the raw module before any DataParallel wrap and add the
-    # wall time to fit_time/train_time_sec for fair benchmark accounting.
-    pretrain_time_sec = 0.0
     spec = MODEL_CATALOG.get(config.model.name)
     frozen_checkpoint = config.evaluation.checkpoint_path
-    if "pretraining-stage" in spec.capabilities and not frozen_checkpoint:
-        session.stage("pretraining")
-        _pretrain_start = time.perf_counter()
-        import inspect
-        options = {}
-        if "val_loader" in inspect.signature(model.pretrain).parameters:
-            options["val_loader"] = vali_loader
-        if "stage_runner" in inspect.signature(model.pretrain).parameters:
-            from functools import partial
-            from tsflab.experiments.infra.stages import reconstruction_stage
-            options["stage_runner"] = partial(reconstruction_stage,
-                checkpoint=session.directory / "checkpoints" / "pretraining.pth",
-                every_batches=session.policy.recovery.checkpoint_every_batches)
-        model.pretrain(train_loader, device, **options)
-        pretrain_time_sec = time.perf_counter() - _pretrain_start
+    pretrain_time_sec = _pretrain(config, model, spec, session, train_loader, vali_loader, device, frozen_checkpoint)
 
     inference_only = "inference-only" in spec.capabilities
-    if inference_only and config.experiment.runtime.use_multi_gpu:
-        raise ValueError(
-            "inference-only models use the official runtime's device placement; "
-            "disable TSFLab use_multi_gpu"
-        )
-    if config.experiment.runtime.use_multi_gpu and device.type == "cuda":
-        model = torch.nn.DataParallel(
-            model, device_ids=(list(range(int(os.environ["TSFLAB_ASSIGNED_GPUS"]))) if os.environ.get("TSFLAB_ASSIGNED_GPUS") else config.experiment.runtime.device_ids)
-        )
+    model = _parallelize(config, model, device, inference_only)
 
     run_id = session.run_id
     output_group = os.path.join(dataset_name, config.model.name)
@@ -591,92 +758,10 @@ def _run_one(
     checkpoint_dir = str(session.directory / "checkpoints")
     session.stage("training")
 
-    trainable = any(parameter.requires_grad for parameter in model.parameters())
-    if frozen_checkpoint:
-        import hashlib
-        from pathlib import Path
-        checkpoint = Path(frozen_checkpoint)
-        if config.evaluation.checkpoint_sha256:
-            actual = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
-            if actual != config.evaluation.checkpoint_sha256:
-                raise ValueError("frozen checkpoint hash changed")
-        from tsflab.experiments.runner.model_io import unwrap_model
-        unwrap_model(model).load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
-        train_result = TrainResult(best_model_path=str(checkpoint), train_time_sec=0.0)
-        print("Training skipped: evaluating frozen checkpoint")
-    elif inference_only:
-        print("Training skipped: model declares the inference-only capability")
-        train_result = TrainResult(best_model_path="", train_time_sec=0.0)
-    elif not trainable:
-        # Parameter-free baselines (e.g. historical last) have nothing to
-        # optimise, and torch optimisers reject an empty parameter list. A
-        # declared training_setup (data-fitted buffers) still runs once; the
-        # model is then evaluated as constructed.
-        print("Training skipped: model has no trainable parameters")
-        _setup_start = time.perf_counter()
-        if spec.training_setup is not None:
-            from tsflab.experiments.runner.model_io import unwrap_model
-            spec.training_setup(
-                unwrap_model(model), train_loader,
-                pred_len=config.task.pred_len, features=config.task.features,
-            )
-        train_result = TrainResult(
-            best_model_path="",
-            train_time_sec=pretrain_time_sec + time.perf_counter() - _setup_start,
-        )
-    else:
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        optimizer_cls = getattr(torch.optim, config.training.optimizer.name)
-        optimizer_kwargs = {
-            "lr": config.training.optimizer.lr,
-            "weight_decay": config.training.optimizer.weight_decay,
-        }
-        optimizer_kwargs.update(config.training.optimizer.params)
-        optimizer = optimizer_cls(model.parameters(), **optimizer_kwargs)
-
-        # Build optional training-trick callbacks. When the [training.tricks]
-        # section is omitted (the default) this returns an empty list.
-        callbacks = build_callbacks(getattr(config.training, "tricks", None))
-
-        # Quantile pinball loss consumes the evaluation quantile levels unless
-        # a training-only override was explicitly supplied.
-        loss_params = dict(config.training.loss_params)
-        if (
-            config.training.loss.lower() == "quantile"
-            and "quantile_levels" not in loss_params
-        ):
-            loss_params["quantile_levels"] = list(
-                config.evaluation.quantile_levels
-            )
-
-        train_result = train(
-            model=model,
-            train_loader=train_loader,
-            vali_loader=vali_loader,
-            device=device,
-            epochs=config.training.epochs,
-            patience=config.training.patience,
-            loss_name=config.training.loss,
-            loss_params=loss_params,
-            optimizer=optimizer,
-            lradj=config.training.optimizer.lradj,
-            base_lr=config.training.optimizer.lr,
-            total_epochs=config.training.epochs,
-            min_lr=config.training.optimizer.min_lr,
-            label_len=config.task.label_len,
-            pred_len=config.task.pred_len,
-            features=config.task.features,
-            use_amp=config.experiment.runtime.amp,
-            checkpoint_dir=checkpoint_dir,
-            checkpoint_cfg=config.training.checkpoint,
-            callbacks=callbacks,
-            training_objective=spec.training_objective,
-            training_setup=spec.training_setup,
-            resume=session.resume,
-            tracker=session.tracker,
-            checkpoint_every_batches=session.policy.recovery.checkpoint_every_batches,
-        )
-        train_result.train_time_sec += pretrain_time_sec
+    train_result = _train_or_skip(
+        config, model, spec, session, device, train_loader, vali_loader, checkpoint_dir,
+        frozen_checkpoint, inference_only, pretrain_time_sec,
+    )
 
     cost = _cost(model, device, train_result, measured=not frozen_checkpoint)
 
@@ -685,17 +770,7 @@ def _run_one(
     split = getattr(config.evaluation, "split", "test")
     eval_set, eval_loader = (vali_set, vali_loader) if split == "val" else (test_set, test_loader)
     metrics, test_time = _evaluate(config, model, device, eval_strategy, eval_set, eval_loader)
-
-    if config.evaluation.metrics:
-        # Probabilistic runs always score crps/wql/coverage_80/width_80
-        # (collect_prob_metrics), so keep them even when evaluation.metrics
-        # was left at its point-only default and doesn't name them — otherwise
-        # a probabilistic model's uncertainty metrics are silently dropped
-        # from performance.csv.
-        keep = set(config.evaluation.metrics)
-        if output_type != "point":
-            keep |= {"crps", "wql", "coverage_80", "width_80"}
-        metrics = {k: v for k, v in metrics.items() if k in keep}
+    metrics = _kept_metrics(config, metrics, output_type)
 
     metrics_str = ", ".join(f"{k}:{v:.4f}" for k, v in metrics.items())
     print(f"{'Validation' if split == 'val' else 'Test'} metrics | {metrics_str}")
