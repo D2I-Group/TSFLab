@@ -47,6 +47,16 @@ def _find_checkpoint(work_dir: str, dataset: str, model: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def _build_model(config, model_name: str, test_set):
+    spec = MODEL_CATALOG.get(model_name)
+    params = spec.validate_params(config.model.params)
+    if getattr(test_set, "adj_mx", None) is not None:
+        params["adj_mx"] = test_set.adj_mx
+    if getattr(test_set, "num_nodes", None) is not None:
+        params.setdefault("num_nodes", test_set.num_nodes)
+    return spec.factory(config, params)
+
+
 def main() -> None:
     """Plot forecast vs. ground truth for a few test windows."""
     p = argparse.ArgumentParser(description="Visualize forecasts vs ground truth")
@@ -82,13 +92,7 @@ def main() -> None:
         0,
     )
 
-    spec = MODEL_CATALOG.get(model_name)
-    params = spec.validate_params(config.model.params)
-    if getattr(test_set, "adj_mx", None) is not None:
-        params["adj_mx"] = test_set.adj_mx
-    if getattr(test_set, "num_nodes", None) is not None:
-        params.setdefault("num_nodes", test_set.num_nodes)
-    model = spec.factory(config, params)
+    model = _build_model(config, model_name, test_set)
 
     ckpt = args.checkpoint or _find_checkpoint(config.experiment.work_dir, dataset_name, model_name)
     if ckpt and os.path.exists(ckpt):

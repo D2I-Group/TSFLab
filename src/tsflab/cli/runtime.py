@@ -47,16 +47,33 @@ def passthrough(script: str, rest: list[str]) -> int:
     return subprocess.run(argv, cwd=WORK_ROOT).returncode
 
 
-def run_config(cfg: str, env_extra: dict | None = None) -> tuple[str, int, str]:
-    """Execute one run configuration and return its path, status, and output tail."""
-    env = os.environ.copy()
-    if env_extra:
-        env.update(env_extra)
+def _config_path(cfg: str) -> Path:
     config_path = Path(cfg)
     if not config_path.is_absolute() and not (WORK_ROOT / config_path).exists():
         packaged_candidate = ROOT / config_path
         if packaged_candidate.exists():
             config_path = packaged_candidate
+    return config_path
+
+
+def _record_round(round_id: str, cfg: str, returncode: int, output: str) -> None:
+    from tsflab.research.rounds import add_event, write_log
+
+    log = write_log(round_id, Path(cfg).stem, output)
+    add_event(
+        round_id,
+        "observation" if returncode == 0 else "failure",
+        f"Command for {cfg} exited with status {returncode}",
+        details={"config": cfg, "exit_code": returncode, "log": str(log)},
+    )
+
+
+def run_config(cfg: str, env_extra: dict | None = None) -> tuple[str, int, str]:
+    """Execute one run configuration and return its path, status, and output tail."""
+    env = os.environ.copy()
+    if env_extra:
+        env.update(env_extra)
+    config_path = _config_path(cfg)
     argv = [sys.executable, "-m", "tsflab.experiments.run_config", "--config", str(config_path)]
     proc = subprocess.run(
         argv,
@@ -69,13 +86,5 @@ def run_config(cfg: str, env_extra: dict | None = None) -> tuple[str, int, str]:
     tail = next((line.strip() for line in reversed(output.splitlines()) if line.strip()), "")
     round_id = env.get("TSFLAB_RESEARCH_ROUND")
     if round_id:
-        from tsflab.research.rounds import add_event, write_log
-
-        log = write_log(round_id, Path(cfg).stem, output)
-        add_event(
-            round_id,
-            "observation" if proc.returncode == 0 else "failure",
-            f"Command for {cfg} exited with status {proc.returncode}",
-            details={"config": cfg, "exit_code": proc.returncode, "log": str(log)},
-        )
+        _record_round(round_id, cfg, proc.returncode, output)
     return cfg, proc.returncode, tail

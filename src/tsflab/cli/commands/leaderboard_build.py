@@ -25,6 +25,12 @@ from tsflab.core.leaderboard import PRIMARY_METRIC, aggregate, load_submissions
 CANONICAL_TRACKS = ("time_series", "spatiotemporal", "covariate", "realtime")
 
 
+def _ordered_tracks(tracks: dict) -> dict:
+    ordered = {t: tracks.get(t, {"datasets": {}}) for t in CANONICAL_TRACKS}
+    ordered.update({t: b for t, b in tracks.items() if t not in ordered})
+    return ordered
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="tsf result leaderboard", description=__doc__)
     add_option(
@@ -46,8 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(f"error: source dir not found: {source}")
     valid, rejected = load_submissions(source)
     tracks = aggregate((doc for _, doc in valid), args.primary_metric)
-    ordered = {t: tracks.get(t, {"datasets": {}}) for t in CANONICAL_TRACKS}
-    ordered.update({t: b for t, b in tracks.items() if t not in ordered})
+    ordered = _ordered_tracks(tracks)
     rejections = [f"{p}: {'; '.join(errs[:3])}" for p, errs in rejected.items()]
     leaderboard = {
         "schema_version": "1.1",

@@ -184,7 +184,7 @@ def _profile(name: str) -> bool:
     return True
 
 
-def main() -> None:
+def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="tsf data add", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -199,28 +199,24 @@ def main() -> None:
     ap.add_argument("--force", action="store_true", help="Overwrite existing files")
     args = ap.parse_args()
     resolve_name(ap, args, "name")
-    try:
-        require_checkout("tsf data add")
-    except RuntimeError as exc:
-        raise SystemExit(f"error: {exc}") from None
+    return args
 
-    name = args.name
-    data_path = args.path or f"./dataset/{name}/{name}.csv"
+
+def _targets(pattern: str, name: str, data_path: str, target: str) -> dict[Path, str]:
     cfg_path = DS_CONFIG_DIR / f"{name}.toml"
-    if args.target is None:
-        args.target = default_target(data_path)
-        print(f"target column: {args.target} (set --target to choose another)")
-
     targets: dict[Path, str] = {}
-    if args.pattern == "custom":
-        targets[cfg_path] = _config_custom(name, data_path, args.target)
+    if pattern == "custom":
+        targets[cfg_path] = _config_custom(name, data_path, target)
     else:  # single
         targets[DS_DIR / f"{name}.py"] = _dataset_single(name)
         targets[SCHEMA_DIR / f"{name}.py"] = _schema_single(name)
-        targets[cfg_path] = _config_single(name, data_path, args.target)
+        targets[cfg_path] = _config_single(name, data_path, target)
+    return targets
 
+
+def _write_targets(targets: dict[Path, str], force: bool) -> None:
     existing = [p for p in targets if p.exists()]
-    if existing and not args.force:
+    if existing and not force:
         print("Refusing to overwrite existing files (use --force):", file=sys.stderr)
         for p in existing:
             print(f"  {p.relative_to(ROOT)}", file=sys.stderr)
@@ -230,46 +226,44 @@ def main() -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
 
-    status = "n/a"
-    if args.pattern == "single":
-        status = _insert_name_map(name)
 
-    card_dir = ROOT / "catalog" / "datasets" / name
-    if not (card_dir / "card.toml").exists() or args.force:
-        from tsflab.catalog.cards.render import card_files
+def _write_card(name: str, target: str, card_dir: Path) -> None:
+    from tsflab.catalog.cards.render import card_files
 
-        todo = "TODO(card-v1)"
-        files = card_files(
-            "dataset",
-            {
-                "name": name,
-                "domain": todo,
-                "benchmarks": [],
-                "tags": [todo, "dataset", name],
-                # script until the source terms are verified: never re-host unchecked data.
-                "source": {
-                    "name": todo,
-                    "url": todo,
-                    "citation": todo,
-                    "citation_url": todo,
-                    "license": todo,
-                    "redistribution": "script",
-                },
-                "shape": {"frequency": todo, "target": args.target or todo, "stats_basis": "measured"},
-                "protocol": {"protocol": todo},
+    todo = "TODO(card-v1)"
+    files = card_files(
+        "dataset",
+        {
+            "name": name,
+            "domain": todo,
+            "benchmarks": [],
+            "tags": [todo, "dataset", name],
+            # script until the source terms are verified: never re-host unchecked data.
+            "source": {
+                "name": todo,
+                "url": todo,
+                "citation": todo,
+                "citation_url": todo,
+                "license": todo,
+                "redistribution": "script",
             },
-            f"{todo}: what the data is. Use for ...; not for ...",
-            {
-                "Overview": f"{todo}: what it is, domain, scale, and why it is used.",
-                "Protocol and pitfalls": f"{todo}: split, scaling, lookbacks/horizons, and known pitfalls.",
-            },
-        )
-        card_dir.mkdir(parents=True, exist_ok=True)
-        for filename, text in files.items():
-            (card_dir / filename).write_text(text, encoding="utf-8")
+            "shape": {"frequency": todo, "target": target or todo, "stats_basis": "measured"},
+            "protocol": {"protocol": todo},
+        },
+        f"{todo}: what the data is. Use for ...; not for ...",
+        {
+            "Overview": f"{todo}: what it is, domain, scale, and why it is used.",
+            "Protocol and pitfalls": f"{todo}: split, scaling, lookbacks/horizons, and known pitfalls.",
+        },
+    )
+    card_dir.mkdir(parents=True, exist_ok=True)
+    for filename, text in files.items():
+        (card_dir / filename).write_text(text, encoding="utf-8")
 
-    print(f"✓ Scaffolded dataset '{name}' (pattern: {args.pattern})")
-    profiled = args.pattern == "custom" and (ROOT / data_path).is_file() and _profile(name)
+
+def _print_next_steps(
+    args: argparse.Namespace, name: str, targets: dict[Path, str], status: str, profiled: bool, data_path: str
+) -> None:
     for path in targets:
         print(f"  + {path.relative_to(ROOT)}")
     if args.pattern == "single":
@@ -289,6 +283,35 @@ def main() -> None:
     if not profiled:
         print(f"  - Measure its characteristics into the card: `tsf data analyze {name} --write-card`.")
     print(f"    Data path: {data_path}.")
+
+
+def main() -> None:
+    args = _parse_args()
+    try:
+        require_checkout("tsf data add")
+    except RuntimeError as exc:
+        raise SystemExit(f"error: {exc}") from None
+
+    name = args.name
+    data_path = args.path or f"./dataset/{name}/{name}.csv"
+    if args.target is None:
+        args.target = default_target(data_path)
+        print(f"target column: {args.target} (set --target to choose another)")
+
+    targets = _targets(args.pattern, name, data_path, args.target)
+    _write_targets(targets, args.force)
+
+    status = "n/a"
+    if args.pattern == "single":
+        status = _insert_name_map(name)
+
+    card_dir = ROOT / "catalog" / "datasets" / name
+    if not (card_dir / "card.toml").exists() or args.force:
+        _write_card(name, args.target, card_dir)
+
+    print(f"✓ Scaffolded dataset '{name}' (pattern: {args.pattern})")
+    profiled = args.pattern == "custom" and (ROOT / data_path).is_file() and _profile(name)
+    _print_next_steps(args, name, targets, status, profiled, data_path)
 
 
 if __name__ == "__main__":
