@@ -64,4 +64,4 @@ resolution = "`value_range = \"signed\"` (`[-1, 1]`) by default for every datase
 kind = "underspecified"
 where = "Appendix \"Data Normalization\" vs `exp/exp_main.py` `Exp_Main.train`"
 what = "the min-max formulas are given for one sequence `x`; which window's min/max scales the training target is not stated, and the code scales `batch_y` by its own min/max."
-resolution = "soft labels from the target window's own min/max (code); forecasts are denormalized with the lookback min/max, so training labels and inference outputs use different statistics."
+resolution = "soft labels are scaled by the lookback window's min/max, the statistics that also map forecasts back, so training and inference agree (the code's target-own statistics are unavailable at test time); targets outside the lookback range are clamped to the outer bin edges."

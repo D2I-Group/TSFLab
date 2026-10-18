@@ -19,8 +19,8 @@ class ModelParameterConfig(BaseModel):
     d_model: int = Field(default=512, ge=1)
     n_heads: int = Field(default=8, ge=1)
     e_layers: int = Field(default=2, ge=1)
-    d_ff: int = Field(default=512, ge=1)
-    dropout: float = Field(default=0.1, ge=0.0, lt=1.0)
+    d_ff: int = Field(default=2048, ge=1)
+    dropout: float = Field(default=0.05, ge=0.0, lt=1.0)
     activation: Literal["gelu", "relu"] = "gelu"
     waveform: Literal["sine", "sawtooth", "rectangle", "pulse"] = "sine"
     periods: list[int] = Field(default_factory=list)
