@@ -32,6 +32,7 @@ Other hyperparameters: preset defaults in `configs/models/GraphLassoMTSF.toml`; 
 - Only the static GraphLASSO variant; the time-varying variant (Eqs. 2, 7) has no defined rule at inference and is omitted.
 - Edge sampling follows the code (one Gumbel-max edge per row of raw `Theta`), not the paper's Bernoulli sampling; evaluation uses the expected graph so inference is deterministic.
 - Precision fitted on the catalog training split (the official 80% cut leaks validation data); the dual-random-walk filter option is omitted.
+- `lasso_lambda = 0.02` and one diffusion step follow the released code, not Sec. V-D (`lambda = 0.1`, two steps); learning rate and early stopping come from the run settings, not the paper's 0.005 or the code's 0.05.
 - Teacher forcing is skipped for `MS` targets; training uses the configured loss and catalog optimizer.
 
 Full detail: `reference.md`.

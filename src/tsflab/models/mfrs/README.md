@@ -30,8 +30,9 @@ Other hyperparameters: preset defaults in `configs/models/MFRS.toml`; tune gener
 
 ## Differences
 
-- Independent implementation from arXiv 2503.08328v1; the official repository is unavailable (404), so there is no reference comparison. Fidelity is `inferred`.
-- Width, depth, heads, dropout, optimizer and loss are not reported; inverted-Transformer defaults are used (`d_model = d_ff = 512`, 8 heads, 2 layers).
+- Independent implementation from arXiv 2503.08328v1. The paper's code link is dead (404); the author code survives in the co-author copy `tulai/MFRS` (no license), read only to check the card's issues. Fidelity is `inferred`.
+- Base patterns come from the training split only; the official loader extracts them from the whole series, test split included (leakage).
+- Width, depth, heads, dropout, optimizer and loss are not reported; the preset uses `d_model = d_ff = 512`, 8 heads, 2 layers, dropout 0.1, while the official code uses `d_ff = 2048`, dropout 0.05.
 - `Lp` and `Q` are not reported: `max_period = 1000`, `harmonics = 8`, no manual periods.
 - Paper errors fixed: `Psi(1) = 0`; Algorithm 2 periods ascend and harmonics are inserted once.
 - The reference-series length equals the look-back window; reference series are standardized and embedded once as fixed keys and values.

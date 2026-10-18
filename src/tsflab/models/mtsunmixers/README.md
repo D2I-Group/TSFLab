@@ -28,7 +28,7 @@ Other hyperparameters: preset defaults in `configs/models/MTSUNMixers.toml`; tun
 
 ## Differences
 
-- Independent implementation from arXiv 2411.17770v1; the linked official repository is unavailable, so there is no pinned revision or license.
+- Independent implementation from arXiv 2411.17770v1; the linked official repository was withdrawn (404; archived copies hold no code), so there is no pinned revision or license.
 - Shared components: `mamba.MambaBlock` for the time encoder and `MambaBlock.selective_scan` for both Bi-Mamba directions; the Bi-Mamba wiring is model-local.
 - The many unreported choices (bases counts, patch length, widths, normalization, encoder wiring) follow the resolutions listed under the card's issues.
 - Eq. (21)'s forecast term uses the configured loss (the paper uses L1, `mae`), with `recon_weight` the ratio `lambda1 / lambda2`; validation and test use the configured criterion on the forecast only.

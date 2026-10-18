@@ -17,6 +17,12 @@ url = "https://arxiv.org/abs/2503.08328"
 venue = "arXiv preprint"
 year = 2025
 
+[code]
+url = "https://github.com/tulai/MFRS"
+revision = "3a297bc2f520e116c5b1d047552fffba5a5657c1"
+license = "NOASSERTION"
+reference_sources = ["https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/models/MFRS.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/layers/Transformer_EncDec.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/utils/reference.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/utils/alignment.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/data_provider/data_loader.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/run.py", "https://github.com/tulai/MFRS/blob/3a297bc2f520e116c5b1d047552fffba5a5657c1/scripts/w_align/etth1.sh"]
+
 [composition]
 normalization = "local:instance-standardization"
 decomposition = "none"
@@ -34,10 +40,16 @@ reference = "none"
 note = ""
 
 [[issues]]
-kind = "unreleased"
-where = "`https://github.com/yuliang555/MFRS` (link in the abstract)"
-what = "the repository returns 404 as of 2026-10-03; the only archived copy (Wayback Machine, 2025-09-19) is the landing page listing `data_provider`, `exp`, `layers`, `models`, `scripts`, `utils` and `run.py` without file contents, and no Software Heritage origin exists."
-resolution = "independent implementation from the paper only; no reference comparison is possible."
+kind = "license"
+where = "paper link `https://github.com/yuliang555/MFRS`; repository root at `3a297bc2`"
+what = "the link in the abstract returns 404 as of 2026-10-03; `[code]` is the copy in co-author Lai Tu's account (`tulai/MFRS`: the same initial commit `3a297bc2` plus a README commit by `yuliang555`, matching the 2-commit history and top-level listing of the 2025-09-19 Wayback snapshot of the original). No license file at the pinned revision."
+resolution = "license recorded as `NOASSERTION`; independent implementation from the paper; the copy was read afterwards only to check these issues, nothing copied."
+
+[[issues]]
+kind = "leakage"
+where = "`data_provider/data_loader.py:76` (also `:188`, `:316`, `:429`, `:523`); `utils/reference.py:23`"
+what = "`ReferenceSeries(data, ...)` runs the spectral extraction of base patterns (DC removal, FFT, period conversion) on the whole scaled series, training, validation and test rows together, although the paper extracts them from the training data (Sec. 1, contributions); the chosen periods and harmonics therefore see the test split."
+resolution = "base patterns are extracted from the training split only (`training_setup` passes `train_loader.dataset.data` to `fit_reference_series`)."
 
 [[issues]]
 kind = "paper-error"
@@ -73,7 +85,7 @@ resolution = "the step counts sampling intervals from the Unix epoch at the wind
 kind = "underspecified"
 where = "Sec. 3.3, Algorithm 3"
 what = "the \"intercepted dataset\" of `T_M + S` steps is not located in the training data, and `xi` is only determined modulo `T_M`, which misplaces patterns whose period does not divide `T_M`."
-resolution = "the last `T_M + S` steps of the training split; the window's step is the stretch start plus `xi`."
+resolution = "the last `T_M + S` steps of the training split; the window's step is the stretch start plus `xi` (the official code instead searches all offsets of the first `--L` steps, `utils/alignment.py`, e.g. `L = 8640` for ETTh1)."
 
 [[issues]]
 kind = "paper-error"
@@ -85,4 +97,4 @@ resolution = "per-window standardization of variates, restored on the output."
 kind = "underspecified"
 where = "Sec. 3.4 and Sec. 4.1"
 what = "model width, depth, heads, feed-forward width, dropout, optimizer and loss are not reported; whether reference tokens are standardized and whether they are updated between layers is not stated."
-resolution = "inverted-Transformer defaults (`d_model = d_ff = 512`, 8 heads, 2 layers, dropout 0.1, GELU), reference series standardized like the variates and embedded once as fixed keys and values for every layer."
+resolution = "the official code (`run.py:81-94`, not overridden by `scripts/w_align`) uses `d_model = 512`, 8 heads, 2 layers, `d_ff = 2048`, dropout 0.05, GELU, Adam and MSE; the TSFLab preset keeps `d_model = d_ff = 512`, 8 heads, 2 layers, dropout 0.1, GELU, so `d_ff` and dropout differ from the code. Reference series are standardized like the variates and embedded once as fixed keys and values for every layer, as in the code (`models/MFRS.py`)."

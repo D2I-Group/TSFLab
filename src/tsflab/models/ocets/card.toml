@@ -53,3 +53,15 @@ kind = "underspecified"
 where = "Eqs. 2, 8-11 vs `loss/OrdinalCrossEntropyLoss.py`, `loss/hl_gauss.py`, `run_longExp.py`"
 what = "bin edges and representatives, the reduction over cut points, the clamping of cumulative probabilities, and the defaults (`num_bins = 45`, `sigma = 0.015`) are given only in the code."
 resolution = "`linspace` edges with midpoints, sum over cut points, `1e-8` clamps, and the code's defaults."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Appendix \"Data Normalization\" (Eqs. 74-77) vs `exp/exp_main.py` `Exp_Main.train`/`vali`/`test`"
+what = "the paper scales ETT to `[0, 1]` and the other datasets to `[-1, 1]` (by the sign of the data); the code always uses `[-1, 1]` (the `[0, 1]` lines are commented out), after the loaders' train-fit `StandardScaler` (`scale=True` default), which the paper does not mention."
+resolution = "`value_range = \"signed\"` (`[-1, 1]`) by default for every dataset, after the dataset's own scaling; `\"unit\"` gives the paper's ETT setting."
+
+[[issues]]
+kind = "underspecified"
+where = "Appendix \"Data Normalization\" vs `exp/exp_main.py` `Exp_Main.train`"
+what = "the min-max formulas are given for one sequence `x`; which window's min/max scales the training target is not stated, and the code scales `batch_y` by its own min/max."
+resolution = "soft labels from the target window's own min/max (code); forecasts are denormalized with the lookback min/max, so training labels and inference outputs use different statistics."

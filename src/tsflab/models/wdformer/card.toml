@@ -44,12 +44,6 @@ what = "no license file at the pinned revision."
 resolution = "independent rewrite from the paper; no source copied; license recorded as `NOASSERTION`."
 
 [[issues]]
-kind = "paper-code-mismatch"
-where = "differential-attention `lambda_init` schedule vs `model/WDformer.py` (`0.7 - 0.5 * math.exp(-0.3 * l)`, 0-based `l`)"
-what = "the paper uses the Differential-Transformer schedule `0.8 - 0.6 * exp(-0.3 * (l - 1))` with 1-based `l`."
-resolution = "the official code's values."
-
-[[issues]]
 kind = "code-bug"
 where = "`layers/Transformer_EncDec.py` `EncoderLayer`"
 what = "`conv1`/`conv2` sized by `d_ff` are built but never called, and the feed-forward is `SwiGLU(d_model)`, so `d_ff` has no effect."

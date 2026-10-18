@@ -80,7 +80,7 @@ two-phase so a placeholder cannot be admitted.
    do not copy or import its model source.
 3. Decide the card facts readers find a model through first: a one-sentence
    description, `tags` (with one architecture family), the data characteristics it
-   `fits`, and the six-slot `composition` ([Cards](#cards)). Map every defining operation to an existing
+   `fits`, and the six-slot `composition` ([Knowledge cards](#knowledge-cards)). Map every defining operation to an existing
    component, a justified new shared component, or a model-local block. Start with:
 
    ```bash
@@ -108,7 +108,7 @@ two-phase so a placeholder cannot be admitted.
    `--components none` only after matching found no equivalent. Select
    `--task-mode spatiotemporal` or `covariate` when required.
 5. Replace every scaffold marker, implement locally, preserve useful paper
-   equations/comments, and complete the card ([Cards](#cards)): `card.toml` facts
+   equations/comments, and complete the card ([Knowledge cards](#knowledge-cards)): `card.toml` facts
    (fidelity, paper, code with the inspected `reference_sources`, composition,
    `[data_params]`, and `[[issues]]`) and the README sections Idea, When to use,
    Configure, Differences. Upstream issues record what the reimplementation exposed in
@@ -197,7 +197,7 @@ model card; the admission contract runs offline from verified local paths.
 ## Components
 
 Components live only in `src/tsflab/models/_components/<name>/`. Each directory has an
-implementation and a card ([Cards](#cards)); its catalog entry is derived from both (the
+implementation and a card ([Knowledge cards](#knowledge-cards)); its catalog entry is derived from both (the
 card `role` is its contract, `tags` its search keywords, and `__all__`, or the public
 top-level names, its public symbols), so there is no list to edit. `card.toml` records
 the role, the composition slot it fills, the data characteristics it fits, its
@@ -256,9 +256,9 @@ model and component card and ranks the overlaps, components grouped by slot
 (`--extra probabilistic-output` adds task terms). A match is a hypothesis to test,
 not a verdict.
 
-### Cards
+### Knowledge cards
 
-Models, components, and datasets share one card format (`tsflab.card/1`). Each card
+Models, components, and datasets share one knowledge-card format (`tsflab.card/1`). Each card
 directory holds `card.toml` (structured facts), `README.md` (front matter `name`
 and `description`, then a short body of at most 60 lines in fixed sections), and an
 optional `reference.md` for detail that does not fit. Nothing generated is stored
@@ -306,7 +306,7 @@ Data has three non-overlapping layers:
 - `dataset/`: local files, downloads, and converted arrays; never code or cards.
 - `src/tsflab/data/`: executable loaders, base contracts, and Pydantic parameter schemas.
 - `catalog/datasets/`: one card per runnable dataset preset, plus one family card
-  for GIFT-Eval ([Cards](#cards)): curated facts (domain, source, license, shape,
+  for GIFT-Eval ([Knowledge cards](#knowledge-cards)): curated facts (domain, source, license, shape,
   protocol, measured characteristics) and a short README with the pitfalls. Loader,
   files, and task modes are derived from the preset and code.
 

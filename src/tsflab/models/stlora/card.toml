@@ -38,9 +38,15 @@ note = ""
 
 [[issues]]
 kind = "paper-code-mismatch"
-where = "Eq. (2)-(4) vs `src/model.py` (`Node_Specific_Predictor`, `STLoRA`)"
-what = "the code uses one shared `A` (no node index), no residual connections (LeakyReLU, dropout, BatchNorm after each layer), and fuses as `Y_base + mean_k(Y_base * sigmoid(NSP_k(Y_base)))` with every block reading the backbone output."
+where = "Eq. (2)-(4) vs `src/model.py` (`NALL` at `:11`, `Node_Specific_Predictor`, `STLoRA`)"
+what = "the code uses one `lora_A` of shape `(r, in_features)` shared by all nodes (no per-node `A_i`), no residual connections (LeakyReLU, dropout, BatchNorm after each layer), and fuses as `Y_base + mean_k(Y_base * sigmoid(NSP_k(Y_base)))` with every block reading the backbone output."
 resolution = "the paper's node-specific `A_i`, residual RMSNorm layers, and chained blocks with the learned gate."
+
+[[issues]]
+kind = "code-bug"
+where = "`src/model.py:24-34` `NALL.train` / `NALL.forward`; `src/base/engine.py:144`, `:160-161`"
+what = "`eval()` merges `s B A` into the frozen weight but `forward` still adds the low-rank term, so validation applies the adapter twice; the checkpoint is saved with the merged weight, and the test run after `load_model` and `eval()` applies it three times."
+resolution = "no weight merging; the adapter is added once in every mode (`NodeAdaptiveLowRankLayer.forward`)."
 
 [[issues]]
 kind = "code-bug"

@@ -102,7 +102,7 @@ See the [model workflow](docs/en/workflows.md#add-a-model-or-method). In short:
 2. Run `tsf model scaffold` with the paper/source facts and component decisions.
    It creates the package (discovered from `spec.py`; there is no registry list to
    edit) with placeholders that keep the audit red until replaced.
-3. Implement locally and complete the card (see [Cards](#cards)): the facts in
+3. Implement locally and complete the card (see [Knowledge cards](#knowledge-cards)): the facts in
    `card.toml` and the short `README.md`.
 4. Run `tsf model add <Name> --verify`. Admission checks the package is
    discoverable and complete, runs the audits and the executable contract, and
@@ -118,9 +118,9 @@ committed. Smoke and synthetic inputs under `configs/fixtures/` are test fixture
 not datasets. Check a new card with `tsf data audit`, and profile the data and record its
 characteristics with `tsf data analyze <preset> --write-card`.
 
-## Cards
+## Knowledge cards
 
-Every model, component, and dataset has one card directory with three files:
+Every model, component, and dataset has one knowledge card, a directory with three files:
 
 - `card.toml`: structured facts. For a model: tags, the data characteristics it
   fits, fidelity (`reference-checked`, `paper-only`, `inferred`, `composed`),

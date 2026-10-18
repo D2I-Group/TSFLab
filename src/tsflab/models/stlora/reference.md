@@ -12,6 +12,7 @@ ST-LoRA: Low-rank Adaptation for Spatio-Temporal Forecasting, ECML-PKDD 2025, ar
 - LSTM backbone settings `init_dim = 32`, `hid_dim = 64`, `end_dim = 512`, two layers, dropout 0.3 come from `src/utils/args.py`; rank 16, four NALL layers, and one predictor block follow Sec. 4.2.
 - The official `Node_Specific_Predictor` uses a single shared `A` (no node index), has no residual connections (LeakyReLU, dropout and BatchNorm after each layer), and the official `STLoRA` wrapper fuses as `Y_base + mean_k(Y_base * sigmoid(NSP_k(Y_base)))` with every block reading the backbone output.
 - The official output reshape from `(B*N, ..., T)` to `(B, T, N, ...)` without a transpose mixes nodes and steps; here nodes and steps keep their axes.
+- The official `NALL.train` merges `s B A` into the frozen weight on `eval()` while `forward` still adds the low-rank term, so validation applies the adapter twice and the reloaded test checkpoint three times; here nothing is merged and the adapter is added once.
 - Eq. (2)'s complexity remark `O(r (d_in + d_out) + N r^2)` does not match its own definition `A_i in R^{r x d_in}`; the definition is implemented (`N r d_in` adapter parameters per layer).
 - Eq. (4) concatenates `X` and `Z` per step along the feature axis, which needs `seq_len == pred_len` (the paper's 12-to-12 protocol, not stated); other lengths are rejected.
 - Training uses the catalog loss (`mae` matches Eq. 5's data term). The official default (no `--frozen` / `--pre_train`) trains the backbone jointly from scratch, which is followed here.

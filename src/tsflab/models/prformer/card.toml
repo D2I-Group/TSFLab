@@ -39,8 +39,8 @@ note = ""
 
 [[issues]]
 kind = "code-bug"
-where = "`layers/Embed.py` `PyramidalRNNEmbedding` (`rateParameter` of shape `[l, 1]`, `softmax(..., -1)`)"
-what = "the softmax runs over the singleton axis, so every scale weight is exactly 1 and `alpha` never trains, unlike Eq. (4)."
+where = "`layers/Embed.py:200` (`rateParameter` of shape `[l, 1]`) and `:285` (`softmax(..., -1)`)"
+what = "the softmax runs over the singleton axis, so every scale weight is exactly 1, `alpha` never trains and the temperature `0.002` has no effect, unlike Eq. (4)."
 resolution = "`softmax(alpha / T)` across the `l` scales as in the paper."
 
 [[issues]]
@@ -58,5 +58,5 @@ resolution = "padding to the target length."
 [[issues]]
 kind = "underspecified"
 where = "Eqs. (2)-(4) vs `layers/WindowListSplit.py`, `layers/Embed.py`, `run.py`"
-what = "the chain construction rule, the first kernel/stride, the 128 convolution channels without activation, nearest-neighbour recursive upsampling, one-layer GRUs, the post-concatenation linear layer and the temperature `0.002` are given only in the code."
-resolution = "the code's choices."
+what = "the chain construction rule, the first kernel/stride, the 128 convolution channels without activation, nearest-neighbour recursive upsampling, one-layer GRUs and the temperature `0.002` are given only in the code (the `d_model -> d_model` linear layer after the weighted concatenation is in the appendix \"Implementation Details of PRE\")."
+resolution = "the code's choices; the output linear maps the concatenated scale states to `d_model` (`out_linear`)."
