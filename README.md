@@ -258,7 +258,7 @@ Exact command options stay in `tsf <command> --help`.
 
 ## 📜 License
 
-TSFLab is released under the [MIT License](LICENSE). Copyright © 2026 **Diaugeia.AI**.
+TSFLab is released under the [MIT License](LICENSE). Copyright © 2026 **[Data to Intelligence (D2I) Group](https://nijingchao.github.io/group.html)**, University of Houston.
 
 Ordinary paper architectures are maintained locally under the project license.
 Released pretrained foundation models use optional official packages and unchanged

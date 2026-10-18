@@ -34,7 +34,7 @@ note = ""
 [[issues]]
 kind = "unreleased"
 where = "`https://github.com/ZHU-0108/MTS-UNMixers` (link in the abstract)"
-what = "the repository returns 404 as of 2026-10-03; the only archived copies (Wayback Machine, 2024-12-03 landing page, 2025-02-26 `method.png`) contain no code, and no Software Heritage origin exists."
+what = "the code was released and later withdrawn: Wayback Machine landing pages (2024-12-03 to 2026-02-02) show a `mtsunmixers/` directory and a README announcing the code release, but the repository returns 404 as of 2026-10-03, no capture holds file contents beyond `method.png`, and no Software Heritage origin exists."
 resolution = "independent implementation from the paper only; no reference comparison is possible."
 
 [[issues]]

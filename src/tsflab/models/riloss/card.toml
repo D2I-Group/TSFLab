@@ -49,10 +49,16 @@ what = "the paper states a U-statistic estimator, the code uses the biased `tr(K
 resolution = "the code's biased estimator."
 
 [[issues]]
+kind = "paper-code-mismatch"
+where = "text after Theorem 4 vs `Dlinear/exp/exp_main.py:29`"
+what = "the paper takes the HSIC samples along time (\"n is the sequence length\"), while the code permutes the residual and noise to `(B, D, H)`, so each window's `D` channels are the samples and each sample is a length-`H` vector."
+resolution = "the code's channels-as-samples (`residual_dependence` transposes to `[B, C, H]`)."
+
+[[issues]]
 kind = "underspecified"
 where = "Sec. 3 / Algorithm 1"
-what = "the kernel samples, kernel bandwidth, and batch reduction are not stated; the code transposes the residual so each window's channels are the samples, uses Gaussian Gram matrices with bandwidth 1, and sums per-window HSIC over the batch before the exponential."
-resolution = "the code's choices."
+what = "the kernel family, kernel bandwidth, and batch reduction are not stated; the code uses Gaussian Gram matrices with bandwidth 1 (`Dlinear/hsic.py:27-30`) and sums per-window HSIC over the batch before the exponential (`hsic.py:46-47`)."
+resolution = "the code's choices (`bandwidth = 1`, summed over the batch)."
 
 [[issues]]
 kind = "code-bug"

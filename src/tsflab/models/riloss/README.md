@@ -30,4 +30,5 @@ Independent rewrite after reading the official code (`shang-xl/RI-Loss`, `55a10a
 
 - Noise: the paper samples `U(-1, 1)`, the code `U(0, 1)`; the preset follows the code, `noise_low = -1` reproduces the paper (a factor-two noise scale under the distance kernel).
 - The biased HSIC estimator of the code is used, not the U-statistic of Eq. 4.
+- HSIC samples are a window's channels, as in the code; the paper takes them along time (`n` = sequence length). One-channel targets are rejected.
 - Only the DLinear carrier is provided (the paper also uses Informer, Autoformer, iTransformer, RAFT); there are no learnable loss parameters despite the title.

@@ -81,7 +81,7 @@ resolution = "not applicable; TSFLab's data pipeline owns scaling."
 [[issues]]
 kind = "code-bug"
 where = "`models/TFKAN.py`"
-what = "`channel_independence`, `scale = 0.02` and the KAN regularization settings (`regularize_activation`, `regularize_entropy`) are set but never used (no regularization loss is added in `exp/exp_main.py`), and the `--channel_independence` help text in `run_longExp.py` inverts its meaning."
+what = "`channel_independence`, `scale = 0.02` and the KAN regularization settings (`regularize_activation`, `regularize_entropy`) are set but never used (`regularization_loss` in `models/KAN.py` is never called, so `exp/exp_main.py` adds no regularization loss); the `--channel_independence` flag in `run_longExp.py` is inherited from FreTS and has no effect."
 resolution = "not reproduced."
 
 [[issues]]
