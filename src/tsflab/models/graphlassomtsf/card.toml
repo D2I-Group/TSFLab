@@ -98,8 +98,8 @@ resolution = "single support."
 
 [[issues]]
 kind = "paper-code-mismatch"
-where = "Sec. IV-B vs `GCRNModel.decoder` and `para_CA1_Food1.yaml` (`use_curriculum_learning"
-what = "true`): scheduled teacher forcing is used in training but not described in the paper."
+where = "Sec. IV-B vs `GCRNModel.decoder` and `para_CA1_Food1.yaml` (`use_curriculum_learning: true`)"
+what = "scheduled teacher forcing is used in training but not described in the paper."
 resolution = "kept in the training objective."
 
 [[issues]]
@@ -107,6 +107,12 @@ kind = "paper-code-mismatch"
 where = "Sec. IV-A (\"standard interior-point methods\") vs `scripts/generate_adj_lasso.py`"
 what = "Eq. (1) is solved with `gglasso` ADMM after correlation scaling."
 resolution = "same objective and scaling, solved with a local rewrite of the `gglasso` path the script uses (`block_SGL` screening, `ADMM_SGL` with `tol = rtol = 1e-10`, 1000 iterations at most)."
+
+[[issues]]
+kind = "paper-code-mismatch"
+where = "Sec. V-D (\"Implementation details\") vs `data/config/para_CA1_Food1.yaml` and `scripts/generate_adj_lasso.py` (`--Lambda`)"
+what = "the paper trains with initial learning rate 0.005, early-stopping patience 15, `lambda = 0.1`, and max diffusion step 2 (via \"same with the GCRN* model\"); the released config and script use `base_lr: 0.05`, `patience: 100`, `--Lambda 0.02`, and `max_diffusion_step: 1`."
+resolution = "the preset follows the released code (`lasso_lambda = 0.02`, `max_diffusion_step = 1`); learning rate and early stopping come from the run's `[training]` settings (catalog default `lr = 0.001`), neither value is copied."
 
 [[issues]]
 kind = "unreleased"

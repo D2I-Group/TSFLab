@@ -29,5 +29,6 @@ Other hyperparameters: preset defaults in `configs/models/OCETS.toml`; tune gene
 - Independent rewrite from the paper (Eqs. 2, 8-18, 74-77) after reading the pinned MIT official code; nothing copied or imported.
 - Head layout, bin edges and centers, loss reduction, clamps and defaults (`num_bins = 45`, `sigma = 0.015`, kernel 25) follow the official code where the paper is inconsistent or silent.
 - Predictions are denormalized with the lookback min/max (paper appendix). The official test loop uses the future window's min/max (leakage), so official reported numbers are not comparable.
+- Scaling to `[-1, 1]` for every dataset as in the code (`value_range = "unit"` gives the paper's `[0, 1]` ETT setting); soft labels are scaled by the lookback min/max (the code uses the target window's own min/max), so training and inference use the same statistics.
 - Validation, early stopping and test metrics use the point forecast; the categorical distribution is not a catalog `output_type`. `training.loss` is ignored.
 - Alternative truncated t and Laplace labels and the NLinear/Linear backbones are not implemented. Full detail in reference.md.

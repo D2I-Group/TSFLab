@@ -4,6 +4,8 @@
 
 Yu, Tu, Bai, "MFRS: A Multi-Frequency Reference Series Approach to Scalable and Accurate Time-Series
 Forecasting", arXiv 2503.08328 (2025-03). Sources used: Sec. 3.1-3.4, Algorithms 1-3, Sec. 4.1-4.3, App. A-C.
+Code: the abstract's link `yuliang555/MFRS` returns 404; the copy `tulai/MFRS` at `3a297bc2` (co-author account, no
+license) was read after implementation only to check the card's issues; nothing copied.
 
 ## Differences in detail
 

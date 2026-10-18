@@ -27,8 +27,13 @@ def minmax_normalize(values: torch.Tensor, value_range: ValueRange) -> tuple[tor
     """
     low = values.amin(dim=1, keepdim=True)
     high = values.amax(dim=1, keepdim=True)
+    return minmax_scale(values, low, high, value_range), low, high
+
+
+def minmax_scale(values: torch.Tensor, low: torch.Tensor, high: torch.Tensor, value_range: ValueRange) -> torch.Tensor:
+    """Min-max scaling of ``values`` with given statistics (Eqs. 74/76)."""
     unit = (values - low) / (high - low + _NORM_EPS)
-    return (2.0 * unit - 1.0 if value_range == "signed" else unit), low, high
+    return 2.0 * unit - 1.0 if value_range == "signed" else unit
 
 
 def minmax_denormalize(
@@ -122,9 +127,13 @@ class Model(nn.Module):
         expected = (probs * self.centers).sum(-1)  # Eq. (18)
         return minmax_denormalize(expected, low, high, self.value_range)
 
-    def soft_labels(self, target: torch.Tensor) -> torch.Tensor:
-        """Truncated-Gaussian bin labels of a ``[B, H, C]`` target scaled by its own min/max."""
-        normalized, _, _ = minmax_normalize(target, self.value_range)
+    def soft_labels(self, target: torch.Tensor, low: torch.Tensor, high: torch.Tensor) -> torch.Tensor:
+        """Truncated-Gaussian bin labels of a ``[B, H, C]`` target scaled by the lookback min/max.
+
+        The same statistics map forecasts back, so training and inference agree; values
+        outside the lookback range are clamped to the outer bin edges.
+        """
+        normalized = minmax_scale(target, low, high, self.value_range).clamp(self.edges[0], self.edges[-1])
         return truncated_gaussian_bin_probabilities(normalized, self.edges, self.sigma)
 
     def training_objective(self, x_enc: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -132,4 +141,6 @@ class Model(nn.Module):
         probs, low, high = self.bin_probabilities(x_enc)
         forecast = minmax_denormalize((probs * self.centers).sum(-1), low, high, self.value_range)
         horizon = probs[:, -target.shape[1] :, -target.shape[2] :]
-        return forecast, ordinal_cross_entropy(horizon, self.soft_labels(target))
+        channels = slice(-target.shape[2], None)
+        labels = self.soft_labels(target, low[..., channels], high[..., channels])
+        return forecast, ordinal_cross_entropy(horizon, labels)

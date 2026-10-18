@@ -107,5 +107,5 @@ resolution = "hyperparameters are taken from the scripts; ablations are not impl
 [[issues]]
 kind = "unreleased"
 where = "`README.md` (Reproduction)"
-what = "it installs from a `requirements.txt` and runs `scripts/ood_forecast/pemsbay0/VLBM.sh`, neither of which is in the repository."
-resolution = "no external dependency beyond PyTorch is needed."
+what = "it runs `scripts/ood_forecast/pemsbay0/VLBM.sh`, which is not in the repository; the nearest scripts are `scripts/ood_forecast/pemsbay_flow/VLBM.sh` and `scripts/ood_forecast/pems_speed/VLBM.sh` (`requirements.txt` is present)."
+resolution = "hyperparameters are taken from the scripts that exist; the TSFLab port needs no dependency beyond PyTorch."

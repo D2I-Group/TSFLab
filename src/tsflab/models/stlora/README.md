@@ -30,7 +30,7 @@ description: "LSTM backbone whose forecast is refined by node-specific predictor
 Independent rewrite of Sec. 3.1-3.3 (arXiv v2) after reading `RWLinno/ST-LoRA@c89c21d` (MIT); nothing copied. Recorded in `card.toml` issues:
 
 - Follows the paper, not the code: node-specific `A_i`, residual RMSNorm layers, chained blocks with the learned gate (official: shared `A`, no residuals, a different fusion).
-- Official node/step reshape bug is not reproduced.
+- Official bugs are not reproduced: the node/step reshape, and the eval-mode weight merge that applies the adapter twice in validation and three times in testing.
 - The backbone trains jointly from scratch (official default), not pre-trained as the paper describes; only the LSTM backbone is provided.
 - The `lambda ||alpha||^2` gate penalty of Eq. (5) is not added (use weight decay); the official per-module optimisers and StepLR are left to the trainer.
 

@@ -104,9 +104,9 @@ what = "the test loader uses `drop_last=True`, so the final partial batch of tes
 resolution = "evaluation is the runner's and covers every window."
 
 [[issues]]
-kind = "leakage"
-where = "`run_I48_O96.py` / `model.py` `DiffMTS.train`"
-what = "a checkpoint is saved every epoch, no validation loader is ever built and no validation loss is computed, yet testing loads a hard-coded `best_epoch=17`; the selected checkpoint cannot have been chosen on validation data."
+kind = "underspecified"
+where = "`run_I*_O*.py` / `model.py` `DiffMTS.train`"
+what = "a checkpoint is saved every epoch and `train` computes no validation loss, yet testing loads a hard-coded `best_epoch` (17/18/29/24 per horizon); neither the paper nor the code states how it was chosen (the loader supports `--status val`, so validation-based selection is possible but not shown)."
 resolution = "the TSFLab runner selects checkpoints on the validation split."
 
 [[issues]]
