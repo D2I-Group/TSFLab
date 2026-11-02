@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TSFLab — A Self-Improving Agent-Agnostic Workbench for Time Series Forecasting Research</title>
+<meta name="description" content="TSFLab is a self-improving agent-agnostic workbench that equips compatible coding agents with shared resources and tools for low-cost TSF research and continuous maintenance of research resources.">
+<meta name="author" content="ChengAo Shen, Yanjun Zhao, Haoxin Liu, Bonnie Chen, Miles Ma, Dongjin Song, Hanghang Tong, Qingsong Wen, Jingrui He, Jingchao Ni">
+<meta name="keywords" content="time series forecasting, coding agents, agent workbench, autoresearch, benchmarking, reproduction, TSFLab, Claude Code, Codex">
+<link rel="canonical" href="https://d2i-group.github.io/TSFLab/">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://d2i-group.github.io/TSFLab/">
+<meta property="og:title" content="TSFLab: A Self-Improving Agent-Agnostic Workbench for Time Series Forecasting Research">
+<meta property="og:description" content="arXiv 2026 — a self-improving agent-agnostic workbench that equips compatible coding agents with shared resources and tools for low-cost TSF research.">
+<meta property="og:image" content="https://d2i-group.github.io/TSFLab/assets/page/workbench.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TSFLab (arXiv 2026)">
+<meta name="twitter:description" content="A self-improving agent-agnostic workbench for time series forecasting research.">
+<meta name="twitter:image" content="https://d2i-group.github.io/TSFLab/assets/page/workbench.png">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23f6f5f1'/><path d='M16 68 L34 42 L50 58 L66 26 L84 50' fill='none' stroke='%23c8102e' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="static/css/style.css">
+
+<script>
+  /* Settle theme and language before first paint so the page never flashes. */
+  (function () {
+    var t = localStorage.getItem("mc-theme");
+    document.documentElement.setAttribute(
+      "data-theme", t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+    var l = localStorage.getItem("mc-lang") || "en";
+    document.documentElement.setAttribute("data-lang", l);
+    if (l === "zh") document.documentElement.setAttribute("lang", "zh-CN");
+  })();
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ScholarlyArticle",
+  "name": "TSFLab: A Self-Improving Agent-Agnostic Workbench for Time Series Forecasting Research",
+  "author": [
+    {"@type": "Person", "name": "ChengAo Shen"},
+    {"@type": "Person", "name": "Yanjun Zhao"},
+    {"@type": "Person", "name": "Haoxin Liu"},
+    {"@type": "Person", "name": "Bonnie Chen"},
+    {"@type": "Person", "name": "Miles Ma"},
+    {"@type": "Person", "name": "Dongjin Song"},
+    {"@type": "Person", "name": "Hanghang Tong"},
+    {"@type": "Person", "name": "Qingsong Wen"},
+    {"@type": "Person", "name": "Jingrui He"},
+    {"@type": "Person", "name": "Jingchao Ni"}
+  ],
+  "url": "https://d2i-group.github.io/TSFLab/",
+  "sameAs": "https://arxiv.org/abs/2610.40901"
+}
+</script>
+</head>
+
+<body>
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="wordmark" href="#top">TSFLab</a>
+    <div class="nav-links">
+      <a href="#overview" data-zh="概览">Overview</a>
+      <a href="#method" data-zh="方法">Method</a>
+      <a href="#results" data-zh="结果">Results</a>
+      <a href="#ablation" data-zh="消融">Ablation</a>
+      <a href="#maintenance" data-zh="维护">Maintenance</a>
+      <a href="#cite" data-zh="引用">Cite</a>
+    </div>
+    <div class="nav-tools">
+      <button class="lang-btn" id="lang-toggle" aria-label="Switch language">
+        <span class="lang-en">中文</span><span class="lang-zh">EN</span>
+      </button>
+      <button class="theme-btn" id="theme-toggle" aria-label="Switch colour theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="menu-btn" id="menu-toggle" aria-label="Sections" aria-expanded="false">
+        <svg class="icon-bars" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="tags">
+    <span class="tag accent">arXiv 2026</span>
+    <span class="tag" data-zh="时间序列预测">Time Series Forecasting</span>
+    <span class="tag" data-zh="智能体工作台">Agent Workbench</span>
+  </div>
+
+  <h1>TSFLab</h1>
+  <p class="standfirst" data-zh="一个自我改进、与智能体无关的<br class=&quot;lb&quot;>时间序列预测研究工作台">
+    A Self-Improving Agent-Agnostic Workbench<br class="lb">
+    for Time Series Forecasting Research
+  </p>
+
+  <p class="people">
+    <a href="https://chengaoshen.com/">ChengAo Shen</a><sup>1</sup>,
+    Yanjun Zhao<sup>2</sup>,
+    <a href="https://haoxin1998.github.io/">Haoxin Liu</a><sup>3</sup>,
+    Bonnie Chen<sup>4</sup>,
+    Miles Ma<sup>5</sup>,
+    <a href="https://songdj.github.io/">Dongjin Song</a><sup>6</sup>,
+    <a href="http://tonghanghang.org/">Hanghang Tong</a><sup>2</sup>,
+    <a href="https://sites.google.com/site/qingsongwen8/">Qingsong Wen</a><sup>7</sup>,
+    <a href="https://www.hejingrui.org/">Jingrui He</a><sup>2</sup>,
+    <a href="https://nijingchao.github.io/">Jingchao Ni</a><sup>1</sup>
+  </p>
+  <p class="places" data-zh="<sup>1</sup>休斯敦大学 &nbsp; <sup>2</sup>伊利诺伊大学厄巴纳-香槟分校 &nbsp; <sup>3</sup>佐治亚理工学院 &nbsp; <sup>4</sup>诺丁汉大学 &nbsp; <sup>5</sup>Abel &nbsp; <sup>6</sup>康涅狄格大学 &nbsp; <sup>7</sup>松鼠 Ai">
+    <sup>1</sup>University of Houston &nbsp; <sup>2</sup>University of Illinois Urbana-Champaign &nbsp;
+    <sup>3</sup>Georgia Institute of Technology &nbsp; <sup>4</sup>University of Nottingham &nbsp;
+    <sup>5</sup>Abel &nbsp; <sup>6</sup>University of Connecticut &nbsp; <sup>7</sup>Squirrel Ai Learning
+  </p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://arxiv.org/pdf/2610.40901">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span data-zh="论文">Paper</span>
+    </a>
+    <a class="btn" href="https://arxiv.org/abs/2610.40901">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      arXiv
+    </a>
+    <a class="btn" href="https://github.com/D2I-Group/TSFLab">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.1-.12-.3-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.82 1.19 1.85 1.19 3.11 0 4.43-2.7 5.41-5.27 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+      <span data-zh="代码">Code</span>
+    </a>
+    <a class="btn" href="#cite">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h4v6a4 4 0 0 1-4 4M15 7h4v6a4 4 0 0 1-4 4"/></svg>
+      BibTeX
+    </a>
+  </div>
+
+  <a class="scroll-cue" href="#overview" aria-label="Scroll to the overview">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+  </a>
+</header>
+
+<!-- ================================================================ overview -->
+<section class="band" id="overview">
+  <div class="band-inner">
+    <div class="band-label" data-zh="概览">Overview</div>
+    <div class="band-body">
+      <h2 data-zh="一个位于智能体之外的工作台">A workbench that lives outside the agent</h2>
+
+      <div class="prose">
+        <p data-zh="随着时间序列预测（TSF）领域的论文与产品不断涌现，研究者分析已有工作的负担日益加重。首先，并非所有论文都会公开代码：在所调研的时间段内，只有约 20% 的 arXiv TSF 论文附有代码链接。其次，已公开的代码也需要人工维护。因此，TSF 研究者必须不断地改写或重新实现已有工作；然而各自独立的实现可能在实验设置上存在差异，而且难以维护。">
+          As publications and products on time series forecasting (TSF) proliferate, researchers face a
+          growing burden of analyzing existing work. First, not all publications release code: only about
+          20% of arXiv TSF papers have a code link in the surveyed period. Second, released code also
+          requires manual maintenance. Thus, TSF researchers must constantly adapt or implement existing
+          works. However, independent implementations can differ in experimental settings and are
+          difficult to maintain.
+        </p>
+        <p data-zh="因此，我们提出用 AI 智能体来对 TSF 研究进行基准评测，甚至支持自动化研究，例如开发新的 TSF 模型。然而，直接使用现有的编码智能体（如 Claude Code 与 Codex）并不理想：成本过高，难以扩展到大型研究项目（如基准评测），而且缺乏自我维护能力。与属于每个智能体自身的 Harness 不同，“工作台”位于智能体之外：它可复用，并可在不同智能体之间共享。">
+          We therefore propose to use AI agents for benchmarking TSF research and even supporting
+          autoresearch, e.g., developing new TSF models. Yet directly applying existing coding agents,
+          such as Claude Code and Codex, is suboptimal: prohibitive costs, limited scalability to large
+          research projects (e.g., benchmarking), and lack of self-maintenance. Unlike a harness, which is
+          part of each agent, a “workbench” lies outside agents: it is reusable and shareable across
+          agents.
+        </p>
+        <p data-zh="为应对这些挑战，我们提出 <strong>TSFLab</strong>，一个自我改进、与智能体无关的“工作台”。它为兼容的编码智能体提供共享的资源与工具，以低成本开展 TSF 研究，并持续维护研究资源。我们的实验涵盖复现、基准评测与新方法开发。在复现与基准评测中，相比各基线，TSFLab 将任务完成量提升 20–163%，并将每个已完成任务的新增 token 降低 11–66%。一项由智能体驱动的方法开发试点研究也表明，借助 TSFLab 可以提升预测精度，同时比其他设置少用 32.8–73.6% 的新增 token 与 9.2–68.8% 的开发时间。">
+          To address these challenges, we propose <strong>TSFLab</strong>, a self-improving agent-agnostic
+          “workbench” that equips compatible coding agents with shared resources and tools for low-cost
+          TSF research and continuous maintenance of research resources. Our experiments cover
+          reproduction, benchmarking, and new method development. In reproduction and benchmarking,
+          TSFLab improves task completion by 20–163% and cuts fresh tokens per completed task by 11–66%
+          across baselines. A pilot study of agent-driven method development also shows improved
+          forecasting accuracy via TSFLab, with 32.8–73.6% fewer fresh tokens and 9.2–68.8% less
+          development time than the other settings.
+        </p>
+      </div>
+
+      <figure>
+        <div class="plate">
+          <img src="assets/page/landscape.png" alt="Growth of TSF papers, papers with code and methods in libraries since 2021; general agents reaching external resources directly; agents sharing a workbench.">
+        </div>
+        <figcaption data-zh="(a) TSF 论文、附代码的论文以及各库中方法数量的增长。(b) 通用智能体在每个任务中直接访问外部资源。(c) 配备工作台的智能体共享经过验证的资源与可复用的实验。">
+          (a) Growth of TSF papers, papers with code, and methods in libraries. (b) General agents access
+          external resources directly for each task. (c) Agents with a workbench share verified resources
+          and reusable experiments.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== method -->
+<section class="band" id="method">
+  <div class="band-inner">
+    <div class="band-label" data-zh="方法">Method</div>
+    <div class="band-body">
+      <h2 data-zh="四个模块，供任何兼容的智能体使用">Four modules, for any compatible agent</h2>
+
+      <div class="run-in">
+        <p data-zh="工作台为智能体提供可复用的领域知识、研究流程与实验工具，而不改变其底层模型或 Harness。我们的目标是提升有效的任务完成量（即完全按要求完成一项研究任务），并降低每个已完成任务的成本。TSFLab 通过四个模块支持研究。">
+          The workbench provides reusable domain knowledge, research procedures, and experimental tools
+          without changing the agent's model or harness. Our goal is to improve valid task completion
+          (i.e., completing a research task exactly as required) and reduce cost per completed task.
+          TSFLab supports research through four modules.
+        </p>
+        <p data-zh="<b>TSF-Domain Guide</b>通过常见的研究流程、实验设置、评估协议和已知陷阱，让智能体具备 TSF 意识。入口指令介绍约定与模块之间的交互，17 个面向具体任务的技能则按需提供步骤、检查项和陷阱。例如在新数据集上评测方法时，某个技能会引导智能体识别时间字段、预测变量、采样频率与评估设置，再通过工作台的接口注册数据并检查划分与缩放。">
+          <b>TSF-Domain Guide</b> enables TSF-awareness through common research workflows, experimental
+          settings, evaluation protocols, and known pitfalls. Entry instructions introduce conventions and
+          module interactions, while 17 task-specific skills provide steps, checks, and pitfalls as
+          needed. When benchmarking methods on a new dataset, for example, a skill guides the agent to
+          identify time fields, forecasting variables, sampling frequency, and evaluation settings, then
+          register data through the workbench's interface and inspect partitioning and scaling.
+        </p>
+        <p data-zh="<b>Knowledge Structurer</b>把已有的 TSF 模型分解为可复用的单元，并将这些单元、方法以及多样的基准数据集组织成统一的结构。这一结构由每个方法、单元和数据集各自的“知识卡片”实现，按决策所需逐级读取（摘要、卡片、来源），使 AI 智能体能够高效推理，而无需耗费大量 token 去阅读代码与数据细节。它还把 RevIN、序列分解和各类注意力变体等常见模块提取为方法可导入的共享单元；263 个方法至少复用了一个单元。">
+          <b>Knowledge Structurer</b> decomposes existing TSF models into reusable units and organizes
+          these units, methods, and diverse benchmark datasets into a unified structure. This structure is
+          realized by a “knowledge card” for each method, unit, and dataset, read level by level (summary,
+          card, source) as a decision requires, so that AI agents can reason efficiently without
+          token-costly reading of code and data details. It also extracts common blocks, such as RevIN,
+          series decomposition, and attention variants, into shared units that methods import; 263 methods
+          reuse at least one unit.
+        </p>
+        <p data-zh="<b>Experiment Workflower</b>通过统一的运行器执行智能体声明的实验：它校验并运行实验配置，并在一致的协议下报告结果。智能体用 Compose 组合预设，用 Override 修改设置，用 Sweep 展开方法或取值。运行器把配置展开为运行矩阵，然后检查配置有效性、数据、模型兼容性、环境与预算，在训练之前就返回问题。共享的例程按配置划分数据，仅在训练数据上拟合缩放，在验证数据上选择检查点，并一致地计算指标。">
+          <b>Experiment Workflower</b> executes agent-declared experiments through a unified runner that
+          validates and runs experiment configurations and reports results under consistent protocols.
+          Agents use Compose to combine presets, Override to change settings, and Sweep to expand methods
+          or values. The runner expands configurations into a run matrix, then checks configuration
+          validity, data, model compatibility, environments, and budgets, returning problems before
+          training. Shared routines split data as configured, fit scaling on training data only, select
+          checkpoints on validation data, and compute metrics consistently.
+        </p>
+        <p data-zh="<b>Recursive Improver</b>定期检查并验证最新的 TSF 研究成果，把经过验证的产物（如模型、数据集）整合进工作台，实现自我维护。它从可用性、复杂度与一致性三方面检查外部资源和智能体产出的结果：持续集成检查基本操作与代码复杂度，一个独立的只读审查智能体检查实现是否保留了论文与官方代码中的核心机制。未通过检查的内容需修订并重新检查后才能并入。工作台的更新独立于智能体的版本发布。">
+          <b>Recursive Improver</b> routinely checks and verifies up-to-date TSF research outcomes and
+          integrates verified artifacts (e.g., models, datasets) into the workbench for self-maintenance.
+          It brings external resources and agent-produced outcomes back into the shared workbench through
+          checks for usability, complexity, and consistency: continuous integration checks basic
+          operations and code complexity, and an independent read-only review agent checks whether
+          implementations preserve the defining mechanisms in papers and pinned official code. Failed
+          checks prompt revision and rechecking before integration. The workbench is updated
+          independently of agent releases.
+        </p>
+      </div>
+
+      <div>
+        <div class="tablewrap">
+          <table class="data" id="levels-table">
+            <thead>
+              <tr>
+                <th class="name" data-zh="层级">Level</th>
+                <th class="left" data-zh="何时查阅">When to consult</th>
+                <th class="left" data-zh="提供的信息">Information provided</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="name" data-zh="摘要">Summary</td>
+                <td class="left" data-zh="筛选候选">Screening candidates</td>
+                <td class="left" data-zh="类别与使用场景">Category and use cases</td>
+              </tr>
+              <tr>
+                <td class="name" data-zh="卡片">Card</td>
+                <td class="left" data-zh="资源选择、配置、单元复用">Resource selection, configuration, unit reuse</td>
+                <td class="left" data-zh="能力与局限、参数与接口、验证记录">Capabilities and limits, parameters and interfaces, verification records</td>
+              </tr>
+              <tr>
+                <td class="name" data-zh="来源">Source</td>
+                <td class="left" data-zh="核对细节、消除疑问、修改方法">Checking details, resolving doubts, modifying methods</td>
+                <td class="left" data-zh="原始论文、参考代码、详细证据">Original papers, reference code, detailed evidence</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" data-zh="研究知识的三个层级。这种渐进式披露让智能体为每个决策检索所需的细节，而无需反复重读来源。">
+          Three levels of research knowledge. This progressive disclosure lets agents retrieve the detail
+          needed for each decision without rereading sources.
+        </p>
+      </div>
+
+      <figure>
+        <div class="plate">
+          <img src="assets/page/workbench.png" alt="An agent works with the four TSFLab modules: TSF-Domain Guide, Knowledge Structurer, Experiment Workflower and Recursive Improver.">
+        </div>
+        <figcaption data-zh="智能体如何与 TSFLab 工作台协同工作。">
+          Overview of how an agent works with the TSFLab workbench.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= results -->
+<section class="band" id="results">
+  <div class="band-inner">
+    <div class="band-label" data-zh="结果">Results</div>
+    <div class="band-body">
+      <h2 data-zh="完成更多任务，花费更低">More tasks completed, at lower cost</h2>
+
+      <div class="prose">
+        <p data-zh="我们将 TSFLab 与两个 TSF 代码库以及“无工作台”进行比较：模型库 Time-Series-Library（TSLib）与基准评测框架 TFB。在无工作台设置下，智能体从一个只装有 PyTorch 的空目录开始。所有主要设置都使用 Codex CLI 与 GPT-6 Luna，提示词、数据、网络访问和预算均相同。任务包括：(i) 论文复现：复现一篇没有官方代码、也不在任何对比代码库中的近期预测论文的结果；(ii) 新数据上的基准评测：给定 ERCOT 与 Openmeteo 两个新数据集，在统一协议下评测八个方法；(iii) 方法开发试点：在 ETTh1 与 Weather 上，智能体利用验证数据搜索预测方法，再在测试数据上对最终选择评估一次。">
+          We compare TSFLab with two TSF codebases and with no workbench: Time-Series-Library (TSLib), a
+          model library, and TFB, a benchmarking framework. Without a workbench, the agent starts from an
+          empty directory with PyTorch. All main settings use Codex CLI with GPT-6 Luna and identical
+          prompts, data, network access, and budgets. The tasks are (i) paper reproduction, where the
+          agent reproduces the reported results of a recent forecasting paper that has no official code
+          and is absent from all compared codebases; (ii) benchmarking on new data, where, given two new
+          datasets, ERCOT and Openmeteo, the agent benchmarks eight methods under a common protocol; and
+          (iii) a method development pilot, where on ETTh1 and Weather the agent searches for a forecasting
+          method using validation data, then evaluates its final selection once on test data.
+        </p>
+        <p data-zh="TSFLab 完成的任务最多，结果也最准确：它完成了全部 12 次复现尝试以及 48 个基准结果中的 42 个。它的复现也最接近论文：在 96 个计划结果中，TSFLab 有 73% 落在论文 MSE 的 10% 以内，其他设置为 21–46%。TSFLab 的成本也更低：在复现中，每个完成的结果用更少的 token 和时间；在基准评测中，用更少的 token 和工具调用。它新增的代码也更简单：基准评测无需修改代码，因为八个方法都已集成，可由 Experiment Workflower 直接按配置运行；在复现中，智能体新增的代码行数相近，但新增函数少 15–29%，新增圈复杂度低 18–28%。">
+          TSFLab completes the most tasks with the most accurate results. It completes all 12
+          reproduction attempts and 42 of 48 benchmark results, the most of any setting. Its reproductions
+          are also the closest to the papers: TSFLab reproduces 73% of the 96 scheduled results within
+          10% of the paper's MSE, against 21–46% for the other settings. TSFLab also costs less: each
+          completed outcome takes fewer tokens and less time in reproduction, and fewer tokens and tool
+          calls in benchmarking. Its added code is simpler. Benchmarking needs no code changes, since all
+          eight methods are already integrated and Experiment Workflower runs them from configuration; in
+          reproduction, agents add a similar number of lines but 15–29% fewer functions and 18–28% less
+          added cyclomatic complexity than the other settings.
+        </p>
+        <p data-zh="仅有一个现成的代码库是不够的。在两项任务中，TFB 完成的结果都少于无工作台，主要原因是智能体用替代方法顶替了所要求的方法。只有当智能体能够忠实地扩展一个框架时，这个框架才对它有帮助。方法开发试点也显示出类似的好处：在 ETTh1 与 Weather 上，TSFLab 以比其他所有设置更少的时间和新增 token 达到了最低的测试 MSE。">
+          An existing codebase alone is not enough. TFB completes fewer outcomes than no workbench in both
+          tasks, mostly because agents replace requested methods with substitutes. A framework helps an
+          agent only when the agent can extend it faithfully. The method-development pilot shows similar
+          benefits: on ETTh1 and Weather, TSFLab reaches the lowest test MSE with less time and fewer fresh
+          tokens than every other setting.
+        </p>
+      </div>
+
+      <div>
+        <div class="tablewrap">
+          <table class="data" id="main-table"><thead></thead><tbody></tbody></table>
+        </div>
+        <p class="note" data-zh="主要结果，使用 Codex CLI 与 GPT-6 Luna。成本按完成的结果数归一化。Time、Tokens（新增 token，不含缓存读取）和 Calls（智能体工具调用）汇总所有尝试（包括失败的），再除以完成数；ΔLOC、ΔFuncs 和 ΔCC 为每次会话净增的代码行、新增函数和新增圈复杂度。">
+          Main results using Codex CLI with GPT-6 Luna. Costs are normalized by completed outcomes. Time,
+          Tokens (fresh tokens, excluding cache reads), and Calls (agent tool calls) sum all attempts,
+          including failures, and divide by the completed count; ΔLOC, ΔFuncs, and ΔCC are the net code
+          lines, added functions, and added cyclomatic complexity per session.
+        </p>
+      </div>
+
+      <figure>
+        <div class="plate">
+          <img src="assets/page/task-quality.png" alt="Reproduction MSE error per setting, and development test MSE against development time on ETTh1 and Weather.">
+        </div>
+        <figcaption data-zh="研究任务质量。(a) 复现的 MSE 误差（对数坐标，越低越好）；标签为落在 10% 以内的比例（共 96 个计划结果）。(b,c) 开发得到的测试 MSE 与时间的关系；气泡面积与标签表示新增 token。">
+          Research-task quality. (a) Reproduction MSE error (log scale; lower is better); labels show
+          shares within 10% (96 scheduled). (b,c) Development test MSE versus time; bubble areas and labels
+          show fresh tokens.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ ablation -->
+<section class="band" id="ablation">
+  <div class="band-inner">
+    <div class="band-label" data-zh="消融">Ablation</div>
+    <div class="band-body">
+      <h2 data-zh="每个模块都不可或缺">Every module carries its weight</h2>
+
+      <div class="prose">
+        <p data-zh="我们在四个复现任务上（每个三次尝试）每次移除一个模块：TSF-Domain Guide（入口指令与技能）、Knowledge Structurer（卡片与来源）或 Experiment Workflower（运行器与实验命令）；并替换智能体：使用 Sonnet 5.5 的 Claude Code，以及使用 GPT-6 Sol 的 Codex CLI。移除任何一个模块都会降低完成量，且失败方式各不相同。没有指南时，完成量下降最多：智能体自己编写数据加载器，每次被拒的尝试都用了错误的 ETTh1 划分边界。没有 Knowledge Structurer 时，成本与完整工作台接近，但智能体复用的单元更少，新增的代码与复杂度更多。没有 Experiment Workflower 时，智能体自己编写训练与评估代码，新增代码最多，错误也转移到了评估环节，例如在测试分数上调参、对批次误差取平均。">
+          We remove one module at a time on four reproduction tasks with three attempts each: the
+          TSF-Domain Guide (entry instructions and skills), the Knowledge Structurer (cards and sources), or
+          the Experiment Workflower (runner and experiment commands); and we replace the agent with Claude
+          Code with Sonnet 5.5 and Codex CLI with GPT-6 Sol. Removing any module lowers completion, and each
+          fails differently. Without the guide, completion drops the most: agents write their own data
+          loaders, and every rejected attempt uses wrong ETTh1 split boundaries. Without the Knowledge
+          Structurer, cost stays close to the full workbench, but agents reuse fewer units and add more
+          code and complexity. Without the Experiment Workflower, agents write their own training and
+          evaluation code; they add the most code, and their errors move into evaluation, such as tuning on
+          test scores and averaging batch errors.
+        </p>
+        <p data-zh="更强的智能体配置减少了交互，但没有降低金钱成本。与 GPT-6 Luna 相比，GPT-6 Sol 与 Sonnet 5.5 分别减少了 48.5% 与 51.1% 的工具调用、9.2% 与 55.1% 的新增 token；在相同的新增 token 构成下，按标价估算的成本分别为 Luna 的 18.2 倍与 9.0 倍。工作台让轻量级智能体在完成量上追平更强的配置：Luna 与 Sol 完成了全部 12 次尝试，Sonnet 完成了 11 次。">
+          Stronger agent configurations reduce interaction, but not monetary cost. Compared with GPT-6 Luna,
+          GPT-6 Sol and Sonnet 5.5 reduce tool calls by 48.5% and 51.1%, and fresh tokens by 9.2% and
+          55.1%, respectively; under a common fresh-token mix, list prices imply estimated costs of 18.2×
+          and 9.0× Luna's. The workbench lets a lightweight agent match the stronger configurations in
+          completion: Luna and Sol complete all 12 attempts; Sonnet completes 11.
+        </p>
+      </div>
+
+      <div>
+        <div class="tablewrap">
+          <table class="data" id="ablation-table"><thead></thead><tbody></tbody></table>
+        </div>
+        <p class="note" data-zh="模块与智能体消融。完整工作台使用 Codex CLI 与 GPT-6 Luna。Recursive Improver 通过下文的维护与重构结果来考察。">
+          Module and agent ablations. The full workbench uses Codex CLI with GPT-6 Luna. Recursive Improver
+          is examined through the maintenance and refactoring outcomes below.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================= maintenance -->
+<section class="band" id="maintenance">
+  <div class="band-inner">
+    <div class="band-label" data-zh="维护">Maintenance</div>
+    <div class="band-body">
+      <h2 data-zh="一个能够自我维护的目录">A catalog that maintains itself</h2>
+
+      <div class="run-in">
+        <p data-zh="<b>覆盖范围</b>借助 TSFLab，我们集成了 323 个 TSF 模型、整理了 93 个数据集，并提取了 71 个可在自动化研究中复用的模型单元。在被引用最多的 50 个方法中，TSFLab 包含 44 个，而另外三个代码库合计只有 29 个。目录把成熟的基线与附有官方代码的近期方法结合起来，减少了开始一项比较所需的集成工作。">
+          <b>Coverage</b> Using TSFLab, we integrated 323 TSF models and compiled 93 datasets, along with
+          71 model units that can be reused for autoresearch. TSFLab contains 44 of the 50 most cited
+          methods, compared with 29 across the three other codebases combined. The catalog combines
+          established baselines with recent methods that have official code, reducing the integration
+          needed to begin a comparison.
+        </p>
+        <p data-zh="<b>紧凑的实现</b>更广的覆盖伴随着紧凑的模型实现。实现行数的中位数为 144 行，与 TSLib 的 145 行接近；最大的实现为 505 行，而 TFB 为 2,071 行。共享单元合并了常见的计算，方法规范则在模型逻辑之外处理构建与参数要求。">
+          <b>Compact implementations</b> Broader coverage accompanies compact model implementations. The
+          median implementation has 144 lines, close to TSLib's 145, while the largest has 505 lines,
+          compared with 2,071 in TFB. Shared units consolidate common computations, and method
+          specifications handle construction and parameter requirements outside model logic.
+        </p>
+        <p data-zh="<b>通过复用来维护</b>随着目录增长，提取共享单元有助于控制每个方法的代码量：一次提取把平均函数数从 11.9 降到 8.6。另一次重构把最大函数复杂度从 20 降到 9，同时在参考用例上为全部 323 个方法保留了逐位一致的参数、输出和梯度。研究会话也暴露出可复用的修复：缺失的指引、手动配置、反复轮询日志和过早访问测试集，都促成了指令与运行器的更新；最初的 17 个可用性故障在并入之前全部得到修复。">
+          <b>Maintenance through reuse</b> As the catalog grows, extracting shared units helps control code
+          per method: one extraction reduced the average function count from 11.9 to 8.6. A separate
+          refactor reduced maximum function complexity from 20 to 9 while preserving bit-identical
+          parameters, outputs, and gradients on reference cases for all 323 methods. Research sessions also
+          expose reusable fixes. Missing guidance, manual configuration, repeated log polling, and premature
+          test access led to instruction and runner updates; all 17 initial usability failures were
+          repaired before integration.
+        </p>
+        <p data-zh="<b>不止于模型代码的集成</b>模型实现只占方法接入 token 的 9%；阅读来源、检索目录和验证分别占 28%、27% 和 28%。因此高效的集成不仅需要复用代码，还需要复用知识与验证证据。知识卡片保留了这些发现，帮助后来的智能体找到合适的方法与单元，而无需重复同样的调查。">
+          <b>Integration beyond model code</b> Model implementation accounts for only 9% of method-intake
+          tokens. Source reading, catalog search, and verification account for 28%, 27%, and 28%,
+          respectively. Efficient integration therefore requires reusing knowledge and verification
+          evidence as well as code. Knowledge cards retain these findings, helping later agents locate
+          suitable methods and units without repeating the same investigation.
+        </p>
+      </div>
+
+      <figure>
+        <div class="plate">
+          <img src="assets/page/coverage.png" alt="Top-cited method coverage, median and maximum lines per method, functions per method over development time, and tokens by stage when adding a method.">
+        </div>
+        <figcaption data-zh="工作台的覆盖与演进。(a) 高被引方法的覆盖。(b) 模型行数的中位数与最大值。(c) 每个方法的函数数，从初始（0%）到最新（100%）。(d) 方法接入的 token，含缓存读取。">
+          Workbench coverage and evolution. (a) Top-cited coverage. (b) Median/max model lines.
+          (c) Functions per method, initial (0%) to latest (100%). (d) Intake tokens including cache reads.
+        </figcaption>
+      </figure>
+
+      <p class="note" data-zh="入口指令与技能、复现任务细节、指标定义和 API 价格见论文附录。">
+        Entry instructions and skills, reproduction task details, metric definitions, and API prices are
+        in the paper's appendices.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================================== cite -->
+<section class="band" id="cite">
+  <div class="band-inner">
+    <div class="band-label" data-zh="引用">Citation</div>
+    <div class="band-body">
+      <h2 data-zh="引用本文">Cite this work</h2>
+      <div class="cite">
+        <div class="cite-head">
+          BibTeX
+          <button class="copy" id="copy-bib" data-zh="复制">Copy</button>
+        </div>
+<pre id="bibtex">@misc{shen2026tsflab,
+      title={TSFLab: A Self-Improving Agent-Agnostic Workbench for Time Series Forecasting Research},
+      author={ChengAo Shen and Yanjun Zhao and Haoxin Liu and Bonnie Chen and Miles Ma and Dongjin Song and Hanghang Tong and Qingsong Wen and Jingrui He and Jingchao Ni},
+      year={2026},
+      eprint={2610.40901},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2610.40901},
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-mark">TSFLab</div>
+      <p data-zh="arXiv 2026 · 休斯敦大学 D2I 组">arXiv 2026 · D2I Group, University of Houston</p>
+      <p class="footer-contact">
+        <a href="mailto:cshen9@uh.edu">cshen9@uh.edu</a> ·
+        <a href="https://github.com/D2I-Group/TSFLab/issues" data-zh="提交 issue">Open an issue</a>
+      </p>
+    </div>
+
+    <div class="footer-links">
+      <div>
+        <h3 data-zh="论文">Paper</h3>
+        <ul>
+          <li><a href="https://arxiv.org/abs/2610.40901">arXiv:2610.40901</a></li>
+          <li><a href="https://arxiv.org/pdf/2610.40901">PDF</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3 data-zh="代码">Code</h3>
+        <ul>
+          <li><a href="https://github.com/D2I-Group/TSFLab">GitHub</a></li>
+          <li><a href="https://pypi.org/project/tsflab/">PyPI</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-related">
+      <h3 data-zh="D2I 组的其他工作">More from the D2I Group</h3>
+      <ul class="related">
+        <li>
+          <a href="https://d2i-group.github.io/metacaster/">MetaCaster: Meta-Harness-Optimized Agent for End-to-End Few-Shot Learning of Lightweight Time Series Forecasters</a>
+          <span class="meta">EMNLP 2026</span>
+        </li>
+        <li>
+          <a href="https://d2i-group.github.io/img2signal/">From Images to Signals: Are Image-Pretrained Vision Models Useful for Time Series Analysis?</a>
+          <span class="meta">TMLR 2026</span>
+        </li>
+        <li>
+          <a href="https://d2i-group.github.io/dmmv/">Multi-Modal View Enhanced Large Vision Models for Long-Term Time Series Forecasting</a>
+          <span class="meta">NeurIPS 2025</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<script src="static/js/core.js"></script>
+<script src="static/js/main.js"></script>
+</body>
+</html>
