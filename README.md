@@ -6,6 +6,8 @@
 
 **A Self-Improving, Agent-Agnostic Workbench for Time Series Forecasting Research**
 
+[![arXiv](https://img.shields.io/badge/arXiv-2610.40901-b31b1b.svg)](https://arxiv.org/abs/2610.40901)
+[![Hugging Face Paper](https://img.shields.io/badge/%F0%9F%A4%97%20Paper-2610.40901-yellow.svg)](https://huggingface.co/papers/2610.40901)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/tsflab.svg)](https://pypi.org/project/tsflab/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
@@ -14,6 +16,10 @@
 [![Components: 72](https://img.shields.io/badge/components-72-yellow.svg)](docs/en/models.md)
 [![Datasets: 93](https://img.shields.io/badge/datasets-93-teal.svg)](docs/en/workflows.md#data)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+**[ChengAo Shen](https://chengaoshen.com/)<sup>1</sup>, Yanjun Zhao<sup>2</sup>, [Haoxin Liu](https://haoxin1998.github.io/)<sup>3</sup>, Bonnie Chen<sup>4</sup>, Miles Ma<sup>5</sup>, [Dongjin Song](https://songdj.github.io/)<sup>6</sup>, [Hanghang Tong](http://tonghanghang.org/)<sup>2</sup>, [Qingsong Wen](https://sites.google.com/site/qingsongwen8/)<sup>7</sup>, [Jingrui He](https://www.hejingrui.org/)<sup>2</sup>, [Jingchao Ni](https://nijingchao.github.io/)<sup>1</sup>**
+
+<sup>1</sup>University of Houston &nbsp; <sup>2</sup>University of Illinois Urbana-Champaign &nbsp; <sup>3</sup>Georgia Institute of Technology &nbsp; <sup>4</sup>University of Nottingham &nbsp; <sup>5</sup>Abel &nbsp; <sup>6</sup>University of Connecticut &nbsp; <sup>7</sup>Squirrel Ai Learning
 
 </div>
 
@@ -253,6 +259,24 @@ Exact command options stay in `tsf <command> --help`.
 | `configs/`, `catalog/` | Run, model, and dataset presets, real-time track configs, `configs/fixtures/` (smoke and synthetic test inputs, not datasets), dataset cards, declined papers |
 | `dataset/` | Local dataset bytes fetched with `tsf data download` (not packaged) |
 | `experiments/` | Local research workspace (not tracked) |
+
+---
+
+## 🔗 Citation
+
+If you find TSFLab useful, please cite our paper:
+
+```bibtex
+@misc{shen2026tsflab,
+      title={TSFLab: A Self-Improving Agent-Agnostic Workbench for Time Series Forecasting Research},
+      author={ChengAo Shen and Yanjun Zhao and Haoxin Liu and Bonnie Chen and Miles Ma and Dongjin Song and Hanghang Tong and Qingsong Wen and Jingrui He and Jingchao Ni},
+      year={2026},
+      eprint={2610.40901},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2610.40901},
+}
+```
 
 ---
 
